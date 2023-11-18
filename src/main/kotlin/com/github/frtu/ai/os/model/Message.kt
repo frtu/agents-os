@@ -8,3 +8,6 @@ data class Message(
     val role: Role,
     val content: String,
 )
+
+fun userMessage(content: String) = Message(Role.USER, content)
+fun systemMessage(content: String) = Message(Role.SYSTEM, content)
