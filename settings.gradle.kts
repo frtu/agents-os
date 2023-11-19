@@ -1,6 +1,8 @@
 rootProject.name = "agents-os"
 
 include(
+    "app",
+    "utilities",
 )
 
 rootProject.children.forEach {
