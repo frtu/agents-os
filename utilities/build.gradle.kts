@@ -3,6 +3,8 @@ plugins {
 }
 
 dependencies {
+    implementation("com.aallam.openai:openai-client")
+
     // Serialization
     implementation(Libs.jackson_databind)
     implementation(Libs.jackson_module_kotlin)

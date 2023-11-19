@@ -6,6 +6,9 @@ object Versions {
     const val kotlin = "1.7.21"
     const val kotlinx = "1.7.0"
 
+    // OpenAI http client wrapper
+    const val aallam_openai = "3.5.1"
+
     const val jackson = "2.13.2.1" // 2022-03-30
     const val springframework = "5.3.5"
     const val frtu_base = "1.2.5"
@@ -38,6 +41,7 @@ object Libs {
     const val logger_core = "com.github.frtu.logs:logger-core"
 
     //---------- LIBS BOM -----------
+    const val bom_openai = "com.aallam.openai:openai-client-bom:${Versions.aallam_openai}"
     const val bom_jackson = "com.fasterxml.jackson:jackson-bom:${Versions.jackson}"
     const val bom_kotlin_base = "com.github.frtu.archetype:kotlin-base-pom:${Versions.frtu_base}"
     const val bom_kotlin_libs = "com.github.frtu.libs:lib-kotlin-bom:${Versions.frtu_libs}"

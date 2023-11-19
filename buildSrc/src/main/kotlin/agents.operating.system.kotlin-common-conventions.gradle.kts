@@ -38,6 +38,7 @@ dependencies {
     testImplementation(kotlin("test"))
 
     // Platform - BOMs
+    implementation(platform(Libs.bom_openai))
     implementation(platform(Libs.bom_jackson))
 //    implementation(platform(Libs.bom_kotlin_base))
     implementation(platform(Libs.bom_kotlin_libs))
