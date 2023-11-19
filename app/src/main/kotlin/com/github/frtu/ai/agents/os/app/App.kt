@@ -2,8 +2,6 @@ package com.github.frtu.ai.agents.os.app
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.frtu.ai.agents.os.app.functions.FunctionRegistry
-import kotlin.reflect.KFunction
-import kotlin.reflect.KFunction2
 import kotlinx.serialization.json.jsonPrimitive
 
 suspend fun main() {
@@ -16,13 +14,17 @@ suspend fun main() {
         parameterClass = WeatherInfo::class.java,
         ::currentWeather,
     )
-    val openAiService = OpenAiService(apiKey, functionRegistry)
+    val openAiService = OpenAiService(
+        apiKey = apiKey,
+        functionRegistry = functionRegistry,
+        defaultEvaluator = { chatChoices -> chatChoices.first() }
+    )
 
     with(Conversation()) {
-        val response = openAiService.chat(user("What's the weather like in Boston?"))
-        println(response.choices)
+        val response = openAiService.chatEval(user("What's the weather like in Boston?"))
+        println(response)
 
-        val message = response.choices.first().message
+        val message = response.message
         message.functionCall?.let { functionCall ->
             this.addResponse(message)
 
@@ -34,13 +36,13 @@ suspend fun main() {
                 functionArgs["unit"]?.jsonPrimitive?.content ?: "fahrenheit"
             )
 
-            val secondResponse = openAiService.chat(
+            val secondResponse = openAiService.chatEval(
                 function(
                     functionName = functionCall.name,
                     content = content
                 )
             )
-            println(secondResponse.choices.first().message.content)
+            println(secondResponse.message.content)
         } ?: println(message.content)
     }
 }
