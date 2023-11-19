@@ -2,6 +2,8 @@ package com.github.frtu.ai.agents.os.app
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.frtu.ai.agents.os.app.functions.FunctionRegistry
+import kotlin.reflect.KFunction
+import kotlin.reflect.KFunction2
 import kotlinx.serialization.json.jsonPrimitive
 
 suspend fun main() {
@@ -12,6 +14,7 @@ suspend fun main() {
         name = "currentWeather",
         description = "Get the current weather in a given location",
         parameterClass = WeatherInfo::class.java,
+        ::currentWeather,
     )
     val openAiService = OpenAiService(apiKey, functionRegistry)
 
@@ -23,18 +26,18 @@ suspend fun main() {
         message.functionCall?.let { functionCall ->
             this.addResponse(message)
 
-            val availableFunctions = mapOf("currentWeather" to ::currentWeather)
-            val functionToCall = availableFunctions[functionCall.name]
-                ?: error("Function ${functionCall.name} not found")
-
             val functionArgs = functionCall.argumentsAsJson()
+
+            val functionToCall = functionRegistry.getFunction(functionCall.name)
+            val content = functionToCall(
+                functionArgs.getValue("location").jsonPrimitive.content,
+                functionArgs["unit"]?.jsonPrimitive?.content ?: "fahrenheit"
+            )
+
             val secondResponse = openAiService.chat(
                 function(
                     functionName = functionCall.name,
-                    content = functionToCall(
-                        functionArgs.getValue("location").jsonPrimitive.content,
-                        functionArgs["unit"]?.jsonPrimitive?.content ?: "fahrenheit"
-                    )
+                    content = content
                 )
             )
             println(secondResponse.choices.first().message.content)

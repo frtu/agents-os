@@ -20,7 +20,7 @@ class FunctionRegistryTest {
         //--------------------------------------
         // 2. Execute
         //--------------------------------------
-        functionRegistry.addFunction(functionName, functionDescription, parameterClass)
+        functionRegistry.addFunction(functionName, functionDescription, parameterClass, ::currentWeather)
         val result = functionRegistry.registry
         logger.debug("result:$result")
 

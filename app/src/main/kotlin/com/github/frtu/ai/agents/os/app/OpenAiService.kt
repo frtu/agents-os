@@ -37,7 +37,7 @@ class OpenAiService(
             model = modelId
             messages = chatMessages
             functionRegistry?.let {
-                functions = functionRegistry.getAvailableFunctions()
+                functions = functionRegistry.getRegistry()
                 functionCall = FunctionMode.Auto
             }
         }
