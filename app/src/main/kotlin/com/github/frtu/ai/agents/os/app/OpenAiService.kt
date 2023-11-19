@@ -28,7 +28,10 @@ class OpenAiService(
         )
     )
 
-    suspend fun chatCompletion(chatMessages: List<ChatMessage>): ChatCompletion {
+    suspend fun chat(conversation: Conversation): ChatCompletion =
+        chat(conversation.getChatMessages())
+
+    suspend fun chat(chatMessages: List<ChatMessage>): ChatCompletion {
         // https://github.com/aallam/openai-kotlin/blob/main/guides/ChatFunctionCall.md
         val request = chatCompletionRequest {
             model = modelId
