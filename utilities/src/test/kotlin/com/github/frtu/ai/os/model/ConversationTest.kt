@@ -1,26 +1,24 @@
-package com.github.frtu.ai.os.builder
+package com.github.frtu.ai.os.model
 
-import io.kotlintest.matchers.types.shouldNotBeNull
-import io.kotlintest.shouldBe
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
-
 import org.slf4j.LoggerFactory
 
-class ConversationBuilderKtTest {
+class ConversationTest {
 
     @Test
-    fun conversation() {
+    fun getMessages() {
         //--------------------------------------
         // 1. Init
         //--------------------------------------
-        val conversationName = "Conversation name"
 
         //--------------------------------------
         // 2. Execute
         //--------------------------------------
-        val result = conversation(conversationName) {
-            user("Hello")
-        }
+        val result = Conversation()
+        result.append(userMessage("Hello"))
+
         logger.debug("result:$result")
 
         //--------------------------------------
@@ -28,7 +26,6 @@ class ConversationBuilderKtTest {
         //--------------------------------------
         with(result) {
             shouldNotBeNull()
-            name shouldBe conversationName
             messages.size shouldBe 1
         }
     }
