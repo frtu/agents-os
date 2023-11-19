@@ -3,34 +3,13 @@ package com.github.frtu.ai.agents.os.app
 import com.aallam.openai.api.chat.ChatCompletion
 import com.aallam.openai.api.chat.ChatMessage
 import com.aallam.openai.api.chat.ChatRole
-import com.aallam.openai.api.chat.FunctionMode
-import com.aallam.openai.api.chat.chatCompletionRequest
-import com.aallam.openai.api.http.Timeout
-import com.aallam.openai.api.model.ModelId
-import com.aallam.openai.client.OpenAI
-import com.aallam.openai.client.OpenAIConfig
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.frtu.ai.agents.os.app.functions.FunctionRegistry
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.serialization.json.jsonPrimitive
 
 suspend fun main() {
     val apiKey = "sk-xxx"
-    val model = ModelId("gpt-3.5-turbo")
 
-    val openAI = OpenAI(
-        OpenAIConfig(
-            token = apiKey,
-            timeout = Timeout(socket = 60.seconds),
-        )
-    )
-
-    val chatMessages = mutableListOf(
-        ChatMessage(
-            role = ChatRole.User,
-            content = "What's the weather like in Boston?"
-        )
-    )
     val functionRegistry = FunctionRegistry()
     functionRegistry.addFunction(
         name = "currentWeather",
@@ -38,15 +17,15 @@ suspend fun main() {
         parameterClass = WeatherInfo::class.java,
     )
 
-    // https://github.com/aallam/openai-kotlin/blob/main/guides/ChatFunctionCall.md
-    val chatCompletionRequest = chatCompletionRequest {
-        this.model = model
-        this.messages = chatMessages
-        this.functions = functionRegistry.registry
-        this.functionCall = FunctionMode.Auto
-    }
+    val openAiService = OpenAiService(apiKey, functionRegistry)
 
-    val response: ChatCompletion = openAI.chatCompletion(chatCompletionRequest)
+    val chatMessages = mutableListOf(
+        ChatMessage(
+            role = ChatRole.User,
+            content = "What's the weather like in Boston?"
+        )
+    )
+    val response: ChatCompletion = openAiService.chatCompletion(chatMessages)
     println(response.choices)
 
     val message = response.choices.first().message
@@ -66,7 +45,6 @@ suspend fun main() {
                 functionCall = message.functionCall
             )
         )
-
         chatMessages.add(
             ChatMessage(
                 role = ChatRole.Function,
@@ -75,12 +53,7 @@ suspend fun main() {
             )
         )
 
-        val secondRequest = chatCompletionRequest {
-            this.model = model
-            messages = chatMessages
-        }
-
-        val secondResponse = openAI.chatCompletion(secondRequest)
+        val secondResponse = openAiService.chatCompletion(chatMessages)
         println(secondResponse.choices.first().message.content)
     } ?: println(message.content)
 }

@@ -4,9 +4,14 @@ import com.aallam.openai.api.chat.ChatCompletionFunction
 import com.aallam.openai.api.chat.Parameters
 import com.github.frtu.ai.agents.os.app.utils.SchemaGen.generateJsonSchema
 
+/**
+ * Registry for all usable functions
+ */
 class FunctionRegistry(
-    val registry: MutableList<ChatCompletionFunction> = mutableListOf(),
+    private val registry: MutableList<ChatCompletionFunction> = mutableListOf(),
 ) {
+    fun getAvailableFunctions(): List<ChatCompletionFunction> = registry
+
     fun addFunction(
         name: String,
         description: String,
