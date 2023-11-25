@@ -11,10 +11,10 @@ class Conversation(
 
     fun user(content: String): Conversation = addMessage(ChatRole.User, content)
 
+    fun assistant(content: String): Conversation = addMessage(ChatRole.Assistant, content)
+
     fun function(functionName: String, content: String): Conversation =
         addMessage(ChatRole.Function, content, functionName)
-
-    fun assistant(content: String): Conversation = addMessage(ChatRole.Assistant, content)
 
     fun addResponse(message: ChatMessage) = addMessage(
         role = message.role,

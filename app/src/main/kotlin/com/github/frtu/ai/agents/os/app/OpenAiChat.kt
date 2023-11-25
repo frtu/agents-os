@@ -16,7 +16,7 @@ import com.github.frtu.logs.core.RpcLogger.responseBody
 import com.github.frtu.logs.core.StructuredLogger
 import kotlin.time.Duration.Companion.seconds
 
-class OpenAiService(
+class OpenAiChat(
     apiKey: String,
     private val functionRegistry: FunctionRegistry? = null,
     model: String = "gpt-3.5-turbo",
@@ -30,19 +30,19 @@ class OpenAiService(
         )
     )
 
-    suspend fun chat(conversation: Conversation): ChatCompletion =
-        chat(conversation.getChatMessages())
-
-    suspend fun chatEval(
+    suspend fun sendMessage(
         conversation: Conversation,
         evaluator: ((List<ChatChoice>) -> ChatChoice)? = null,
     ): ChatChoice =
         evaluator?.let {
-            evaluator.invoke(chat(conversation.getChatMessages()).choices)
-        } ?: defaultEvaluator?.invoke(chat(conversation.getChatMessages()).choices)
+            evaluator.invoke(send(conversation.getChatMessages()).choices)
+        } ?: defaultEvaluator?.invoke(send(conversation.getChatMessages()).choices)
         ?: throw IllegalStateException("You need to pass an `evaluator` or `defaultEvaluator` to be able to call chatEval()")
 
-    suspend fun chat(chatMessages: List<ChatMessage>): ChatCompletion {
+    suspend fun send(conversation: Conversation): ChatCompletion =
+        send(conversation.getChatMessages())
+
+    suspend fun send(chatMessages: List<ChatMessage>): ChatCompletion {
         // https://github.com/aallam/openai-kotlin/blob/main/guides/ChatFunctionCall.md
         val request = chatCompletionRequest {
             model = modelId

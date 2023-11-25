@@ -1,6 +1,7 @@
 package com.github.frtu.ai.agents.os.app.functions
 
 import com.github.frtu.ai.agents.os.app.WeatherInfo
+import com.github.frtu.ai.agents.os.app.currentWeather
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
@@ -21,7 +22,7 @@ class FunctionRegistryTest {
         // 2. Execute
         //--------------------------------------
         functionRegistry.registerFunction(functionName, functionDescription, ::currentWeather, parameterClass)
-        val result = functionRegistry.registry
+        val result = functionRegistry.getRegistry()
         logger.debug("result:$result")
 
         //--------------------------------------

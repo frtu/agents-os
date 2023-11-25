@@ -9,18 +9,19 @@ suspend fun main() {
 
     val functionRegistry = registry {
         function(
-            name = "currentWeather", description = "Get the current weather in a given location",
+            name = "get_current_weather", description = "Get the current weather in a given location",
             kFunction2 = ::currentWeather, parameterClass = WeatherInfo::class.java,
         )
     }
-    val openAiService = OpenAiService(
+    val chat = OpenAiChat(
         apiKey = apiKey,
+        model = "gpt-3.5-turbo-0613",
         functionRegistry = functionRegistry,
         defaultEvaluator = { chatChoices -> chatChoices.first() }
     )
 
     with(Conversation()) {
-        val response = openAiService.chatEval(user("What's the weather like in Boston?"))
+        val response = chat.sendMessage(user("What's the weather like in Boston?"))
         println(response)
 
         val message = response.message
@@ -35,7 +36,7 @@ suspend fun main() {
                 functionArgs["unit"]?.jsonPrimitive?.content ?: "fahrenheit"
             )
 
-            val secondResponse = openAiService.chatEval(
+            val secondResponse = chat.sendMessage(
                 function(
                     functionName = functionCall.name,
                     content = content
