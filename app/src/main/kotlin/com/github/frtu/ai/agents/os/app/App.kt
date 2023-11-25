@@ -1,19 +1,18 @@
 package com.github.frtu.ai.agents.os.app
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.github.frtu.ai.agents.os.app.functions.FunctionRegistry
+import com.github.frtu.ai.agents.os.app.functions.registry
 import kotlinx.serialization.json.jsonPrimitive
 
 suspend fun main() {
     val apiKey = "sk-xxx"
 
-    val functionRegistry = FunctionRegistry()
-    functionRegistry.addFunction(
-        name = "currentWeather",
-        description = "Get the current weather in a given location",
-        parameterClass = WeatherInfo::class.java,
-        ::currentWeather,
-    )
+    val functionRegistry = registry {
+        function(
+            name = "currentWeather", description = "Get the current weather in a given location",
+            kFunction2 = ::currentWeather, parameterClass = WeatherInfo::class.java,
+        )
+    }
     val openAiService = OpenAiService(
         apiKey = apiKey,
         functionRegistry = functionRegistry,

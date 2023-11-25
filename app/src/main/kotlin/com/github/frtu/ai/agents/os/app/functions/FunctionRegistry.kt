@@ -18,11 +18,11 @@ class FunctionRegistry(
     fun getFunction(name: String) = availableFunctions[name]
         ?: error("Function $name not found")
 
-    fun addFunction(
+    fun registerFunction(
         name: String,
         description: String,
-        parameterClass: Class<*>,
         kFunction2: KFunction2<String, String, String>,
+        parameterClass: Class<*>,
     ) {
         registry.add(
             ChatCompletionFunction(
