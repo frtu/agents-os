@@ -12,6 +12,10 @@ suspend fun main() {
             name = "get_current_weather", description = "Get the current weather in a given location",
             kFunction2 = ::currentWeather, parameterClass = WeatherInfo::class.java,
         )
+        function(
+            name = "get_n_day_weather_forecast", description = "Get an N-day weather forecast",
+            kFunction2 = ::currentWeather, parameterClass = WeatherInfoMultiple::class.java,
+        )
     }
     val chat = OpenAiChat(
         apiKey = apiKey,
@@ -21,25 +25,27 @@ suspend fun main() {
     )
 
     with(Conversation()) {
-        val response = chat.sendMessage(user("What's the weather like in Boston?"))
+        system("Don't make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous.")
+
+        chat.sendMessage(user("What's the weather like in Glasgow, Scotland over the next x days?"))
+        val response = chat.sendMessage(user("5 days"))
         println(response)
 
         val message = response.message
         message.functionCall?.let { functionCall ->
             this.addResponse(message)
 
-            val functionArgs = functionCall.argumentsAsJson()
-
             val functionToCall = functionRegistry.getFunction(functionCall.name)
-            val content = functionToCall(
-                functionArgs.getValue("location").jsonPrimitive.content,
-                functionArgs["unit"]?.jsonPrimitive?.content ?: "fahrenheit"
-            )
+
+            val functionArgs = functionCall.argumentsAsJson()
+            val location = functionArgs.getValue("location").jsonPrimitive.content
+            val unit = functionArgs["unit"]?.jsonPrimitive?.content ?: "fahrenheit"
+            val numberOfDays = functionArgs.getValue("numberOfDays").jsonPrimitive.content
 
             val secondResponse = chat.sendMessage(
                 function(
                     functionName = functionCall.name,
-                    content = content
+                    content = functionToCall(location, unit)
                 )
             )
             println(secondResponse.message.content)
