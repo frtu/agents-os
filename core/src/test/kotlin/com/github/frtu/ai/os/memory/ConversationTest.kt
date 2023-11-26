@@ -1,6 +1,5 @@
 package com.github.frtu.ai.os.memory
 
-import com.github.frtu.ai.os.memory.Conversation
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
@@ -27,7 +26,7 @@ class ConversationTest {
         //--------------------------------------
         with(result) {
             shouldNotBeNull()
-            with(getChatMessages()) {
+            with(getMessages()) {
                 size shouldBe 1
             }
         }

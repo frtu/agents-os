@@ -1,12 +1,16 @@
 package com.github.frtu.ai.agents.os.app
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.github.frtu.ai.os.llm.Chat
 import com.github.frtu.ai.os.memory.Conversation
 import com.github.frtu.ai.os.tool.registry
 import kotlinx.serialization.json.jsonPrimitive
 
 suspend fun main() {
     val apiKey = "sk-xxx"
+    val model = "gpt-3.5-turbo-0613"
+    val systemDirective =
+        "Don't make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous."
 
     val functionRegistry = registry {
         function(
@@ -18,23 +22,27 @@ suspend fun main() {
             kFunction2 = ::currentWeather, parameterClass = WeatherInfoMultiple::class.java,
         )
     }
-    val chat = OpenAiChat(
+
+    val chat: Chat = OpenAiChat(
         apiKey = apiKey,
-        model = "gpt-3.5-turbo-0613",
+        model = model,
         functionRegistry = functionRegistry,
         defaultEvaluator = { chatChoices -> chatChoices.first() }
     )
+    val conversation = Conversation(systemDirective) // OR calling recallConversation()
 
-    with(Conversation("Don't make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous.")) {
+    with(conversation) {
         val response = chat.sendMessage(user("What's the weather like in Glasgow, Scotland today?"))
         println(response)
 
+        // Handle response
         val message = response.message
         message.functionCall?.let { functionCall ->
             this.addResponse(message)
 
             val functionToCall = functionRegistry.getFunction(functionCall.name)
 
+            // Validate all required parameters are present
             val functionArgs = functionCall.argumentsAsJson()
             val location = functionArgs.getValue("location").jsonPrimitive.content
             val unit = functionArgs["unit"]?.jsonPrimitive?.content ?: "fahrenheit"

@@ -15,6 +15,7 @@ data class Conversation(
     init {
         systemDirective?.let { system(systemDirective) }
     }
+
     fun system(content: String): Conversation = append(ChatRole.System, content)
 
     fun user(content: String): Conversation = append(ChatRole.User, content)
@@ -30,7 +31,17 @@ data class Conversation(
         functionCall = message.functionCall,
     )
 
-    fun getChatMessages(): List<ChatMessage> = conversation
+    fun getMessages(): List<ChatMessage> = conversation
+
+    /**
+     * Get Total message in conversation
+     */
+    fun countMessages(): Int = conversation.size
+
+    /**
+     * Allow to trim first messages to free some spaces
+     */
+    fun trimMessages(): Boolean = true
 
     private fun append(
         role: ChatRole,

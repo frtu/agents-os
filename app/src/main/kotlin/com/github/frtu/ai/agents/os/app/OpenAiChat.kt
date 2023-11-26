@@ -9,6 +9,7 @@ import com.aallam.openai.api.http.Timeout
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIConfig
+import com.github.frtu.ai.os.llm.Chat
 import com.github.frtu.ai.os.memory.Conversation
 import com.github.frtu.ai.os.tool.FunctionRegistry
 import com.github.frtu.logs.core.RpcLogger.phase
@@ -22,7 +23,7 @@ class OpenAiChat(
     private val functionRegistry: FunctionRegistry? = null,
     model: String = "gpt-3.5-turbo",
     private val defaultEvaluator: ((List<ChatChoice>) -> ChatChoice)? = null,
-) {
+) : Chat {
     private val modelId = ModelId(model)
     private val openAI = OpenAI(
         OpenAIConfig(
@@ -30,6 +31,10 @@ class OpenAiChat(
             timeout = Timeout(socket = 60.seconds),
         )
     )
+
+    override suspend fun sendMessage(
+        conversation: Conversation,
+    ): ChatChoice = sendMessage(conversation, null)
 
     suspend fun sendMessage(
         conversation: Conversation,
@@ -42,10 +47,10 @@ class OpenAiChat(
         } ?: defaultEvaluator?.invoke(
             send(conversation).choices
         )
-        ?: throw IllegalStateException("You need to pass an `evaluator` or `defaultEvaluator` to be able to call chatEval()")
+        ?: throw IllegalStateException("You need to pass an `evaluator` or `defaultEvaluator` to be able to call sendMessage()")
 
     suspend fun send(conversation: Conversation): ChatCompletion =
-        send(conversation.getChatMessages())
+        send(conversation.getMessages())
 
     suspend fun send(chatMessages: List<ChatMessage>): ChatCompletion {
         // https://github.com/aallam/openai-kotlin/blob/main/guides/ChatFunctionCall.md
