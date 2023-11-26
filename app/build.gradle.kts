@@ -8,7 +8,7 @@ dependencies {
     implementation("com.aallam.openai:openai-client")
     implementation("io.ktor:ktor-client-okhttp")
 
-    implementation(project(":utilities"))
+    implementation(project(":core"))
 }
 
 application {

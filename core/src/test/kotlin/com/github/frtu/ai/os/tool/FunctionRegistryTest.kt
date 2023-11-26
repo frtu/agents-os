@@ -1,11 +1,11 @@
-package com.github.frtu.ai.agents.os.app.functions
+package com.github.frtu.ai.os.tool
 
-import com.github.frtu.ai.agents.os.app.WeatherInfo
-import com.github.frtu.ai.agents.os.app.currentWeather
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
+import samples.model.WeatherInfo
+import samples.service.currentWeather
 
 class FunctionRegistryTest {
     @Test

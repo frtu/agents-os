@@ -1,22 +1,25 @@
-package com.github.frtu.ai.agents.os.app.utils
+package com.github.frtu.ai.os.memory
 
-import com.github.frtu.ai.agents.os.app.WeatherInfo
+import com.github.frtu.ai.os.memory.Conversation
 import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 
-class SchemaGenTest {
+class ConversationTest {
+
     @Test
-    fun generateJsonSchema() {
+    fun getMessages() {
         //--------------------------------------
         // 1. Init
         //--------------------------------------
-        val parameterClass = WeatherInfo::class.java
 
         //--------------------------------------
         // 2. Execute
         //--------------------------------------
-        val result = SchemaGen.generateJsonSchema(parameterClass)
+        val result = Conversation()
+        result.user("Hello")
+
         logger.debug("result:$result")
 
         //--------------------------------------
@@ -24,6 +27,9 @@ class SchemaGenTest {
         //--------------------------------------
         with(result) {
             shouldNotBeNull()
+            with(getChatMessages()) {
+                size shouldBe 1
+            }
         }
     }
 

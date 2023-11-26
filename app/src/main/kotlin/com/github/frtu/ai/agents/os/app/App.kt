@@ -38,7 +38,7 @@ suspend fun main() {
             val functionArgs = functionCall.argumentsAsJson()
             val location = functionArgs.getValue("location").jsonPrimitive.content
             val unit = functionArgs["unit"]?.jsonPrimitive?.content ?: "fahrenheit"
-            val numberOfDays = functionArgs.getValue("numberOfDays").jsonPrimitive.content
+//            val numberOfDays = functionArgs.getValue("numberOfDays").jsonPrimitive.content
 
             val secondResponse = chat.sendMessage(
                 function(
