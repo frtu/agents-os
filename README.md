@@ -1,8 +1,9 @@
 # Project - agents-os
 
 ## About
-	
-Operating System controlling agents for a specific tasks. Based on `User` input & registered `Tool`, `AgentOS` calls `LLM` to decide when to call `Memory` or `Agent` :
+
+Operating System controlling agents for a specific tasks. Based on `User` input & registered `Tool`, `AgentOS`
+calls `LLM` to decide when to call `Memory` or `Agent` :
 
 ![Architecture](./_docs_/images/AgentOS.png)
 
@@ -12,10 +13,13 @@ Operating System controlling agents for a specific tasks. Based on `User` input 
 
 #### Function Registry
 
-Provides a store for all the function definitions and parameters. Used :
+Provides a store for all the tool definitions and parameters. A tool can be a function or
+an [action call to agent](#agents---tbd).
 
-* when passing available tools / functions to LLM
-* for matching completion response and calling Tools or Agents
+Can be used :
+
+* when passing available tools to LLM
+* for matching completion response and calling [Action module](#action-module)
 
 ##### Evolution
 
@@ -46,7 +50,7 @@ with(Conversation()) {
 
 Storage for raw knowledge
 
-#### Fine tuning (Long term memory) - TBD
+#### Fine-tuning (Long term memory) - TBD
 
 Storage for assimilated knowledge
 
@@ -56,11 +60,16 @@ Action module happen when an operation needs to be achieved (Maths, Retrieval, e
 
 #### Agents - TBD
 
-Customized agent with a specific Profile / Persona
+Actions can be grouped into an Agent, which is a specialized entity / customized LLM with a specific Profile / Persona
+(ex: `you are a 10 years specialized travel agent`).
+
+This agent has can operate multiple actions / tasks
+(ex: `your tasks is to propose a {{ num_of_days}} schedule to {{ destination }}`).
 
 #### Human - TBD
 
-Interface to allow user to take action & respond. Human interaction should be time framed to avoid process to be blocked indefinitively.
+Interface to allow user to take action & respond. Human interaction should be time framed to avoid process to be blocked
+indefinitively.
 
 ## Appendix
 
