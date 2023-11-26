@@ -1,8 +1,8 @@
-package com.github.frtu.ai.agents.os.app.functions
+package com.github.frtu.ai.os.tool
 
 import com.aallam.openai.api.chat.ChatCompletionFunction
 import com.aallam.openai.api.chat.Parameters
-import com.github.frtu.ai.agents.os.app.utils.SchemaGen.generateJsonSchema
+import com.github.frtu.ai.os.utils.SchemaGen.generateJsonSchema
 import kotlin.reflect.KFunction2
 
 /**

@@ -1,5 +1,6 @@
 package com.github.frtu.ai.os.model
 
+import com.github.frtu.ai.os.memory.Conversation
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
@@ -17,7 +18,7 @@ class ConversationTest {
         // 2. Execute
         //--------------------------------------
         val result = Conversation()
-        result.append(userMessage("Hello"))
+        result.user("Hello")
 
         logger.debug("result:$result")
 
@@ -26,7 +27,9 @@ class ConversationTest {
         //--------------------------------------
         with(result) {
             shouldNotBeNull()
-            messages.size shouldBe 1
+            with(getChatMessages()) {
+                size shouldBe 1
+            }
         }
     }
 

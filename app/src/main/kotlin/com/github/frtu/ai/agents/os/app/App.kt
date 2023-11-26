@@ -1,7 +1,8 @@
 package com.github.frtu.ai.agents.os.app
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.github.frtu.ai.agents.os.app.functions.registry
+import com.github.frtu.ai.os.memory.Conversation
+import com.github.frtu.ai.os.tool.registry
 import kotlinx.serialization.json.jsonPrimitive
 
 suspend fun main() {
@@ -24,11 +25,8 @@ suspend fun main() {
         defaultEvaluator = { chatChoices -> chatChoices.first() }
     )
 
-    with(Conversation()) {
-        system("Don't make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous.")
-
-        chat.sendMessage(user("What's the weather like in Glasgow, Scotland over the next x days?"))
-        val response = chat.sendMessage(user("5 days"))
+    with(Conversation("Don't make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous.")) {
+        val response = chat.sendMessage(user("What's the weather like in Glasgow, Scotland today?"))
         println(response)
 
         val message = response.message

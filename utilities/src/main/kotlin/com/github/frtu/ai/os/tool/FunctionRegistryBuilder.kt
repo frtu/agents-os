@@ -1,4 +1,4 @@
-package com.github.frtu.ai.agents.os.app.functions
+package com.github.frtu.ai.os.tool
 
 import com.github.frtu.ai.os.builder.BuilderMarker
 import kotlin.reflect.KFunction2

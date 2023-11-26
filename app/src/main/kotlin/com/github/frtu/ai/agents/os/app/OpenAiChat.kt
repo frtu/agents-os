@@ -9,7 +9,8 @@ import com.aallam.openai.api.http.Timeout
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIConfig
-import com.github.frtu.ai.agents.os.app.functions.FunctionRegistry
+import com.github.frtu.ai.os.memory.Conversation
+import com.github.frtu.ai.os.tool.FunctionRegistry
 import com.github.frtu.logs.core.RpcLogger.phase
 import com.github.frtu.logs.core.RpcLogger.requestBody
 import com.github.frtu.logs.core.RpcLogger.responseBody

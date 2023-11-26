@@ -1,4 +1,4 @@
-package com.github.frtu.ai.agents.os.app.utils
+package com.github.frtu.ai.os.utils
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.kjetland.jackson.jsonSchema.JsonSchemaGenerator
