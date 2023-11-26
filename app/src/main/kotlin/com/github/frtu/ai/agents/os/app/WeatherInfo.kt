@@ -11,10 +11,17 @@ data class WeatherInfo(
         unit: String,
         temperature: String,
         forecast: List<String>,
-    ) : this(location, Unit.valueOf(unit), temperature, forecast)
+    ) : this(location, unit.toUnit(), temperature, forecast)
 }
 
 enum class Unit {
     celsius,
     fahrenheit,
+}
+
+fun String.toUnit(): Unit = try {
+    Unit.valueOf(this)
+} catch (e:  Exception) {
+    println("Cannot convert $this, Error:${e.message}")
+    throw e
 }

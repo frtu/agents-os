@@ -54,6 +54,6 @@ suspend fun main() {
 }
 
 fun currentWeather(location: String, unit: String): String {
-    val weatherInfo = WeatherInfo(location, "72", unit, listOf("sunny", "windy"))
+    val weatherInfo = WeatherInfo(location, unit, "72", listOf("sunny", "windy"))
     return jacksonObjectMapper().writeValueAsString(weatherInfo)
 }
