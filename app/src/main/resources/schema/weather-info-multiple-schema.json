@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Weather Info Multiple",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "location": {
+      "type": "string"
+    },
+    "unit": {
+      "type": "string",
+      "enum": [
+        "celsius",
+        "fahrenheit"
+      ]
+    },
+    "numberOfDays": {
+      "type": "integer"
+    },
+    "temperature": {
+      "type": "string"
+    },
+    "forecast": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "location",
+    "unit",
+    "numberOfDays",
+    "temperature",
+    "forecast"
+  ]
+}

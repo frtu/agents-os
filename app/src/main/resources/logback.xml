@@ -7,7 +7,7 @@
     <include resource="logback-core.xml"/>
 
     <!--Current application-->
-    <logger name="com.github.frtu.ai" level="TRACE" additivity="true"/>
+    <logger name="com.github.frtu.ai" level="DEBUG" additivity="true"/>
 
     <!--ONLY NEEDED WHEN YOU NEED BELOW WARN-->
     <!--<root level="INFO">-->
