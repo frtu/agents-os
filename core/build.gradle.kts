@@ -3,6 +3,7 @@ plugins {
 }
 
 dependencies {
+    implementation("io.serverlessworkflow:serverlessworkflow-api:4.0.5.Final")
     implementation("com.kjetland:mbknor-jackson-jsonschema_2.13:1.0.39")
     implementation("com.aallam.openai:openai-client")
 
