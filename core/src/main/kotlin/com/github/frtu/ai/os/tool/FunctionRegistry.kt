@@ -1,8 +1,6 @@
 package com.github.frtu.ai.os.tool
 
 import com.aallam.openai.api.chat.ChatCompletionFunction
-import com.aallam.openai.api.chat.Parameters
-import com.github.frtu.ai.os.utils.SchemaGen.generateJsonSchema
 import kotlin.reflect.KFunction2
 import org.slf4j.LoggerFactory
 
@@ -10,13 +8,12 @@ import org.slf4j.LoggerFactory
  * Registry for all usable functions
  */
 class FunctionRegistry(
-    private val registry: MutableList<ChatCompletionFunction> = mutableListOf(),
-    private val availableFunctions: MutableMap<String, KFunction2<String, String, String>> = mutableMapOf(),
+    private val registry: MutableList<Function> = mutableListOf(),
 ) {
-    fun getRegistry(): List<ChatCompletionFunction> = registry
-    fun getAvailableFunctions() = availableFunctions
+    fun getRegistry(): List<ChatCompletionFunction> = registry.map { it.toChatCompletionFunction() }
+    fun getAvailableFunctions() = registry.map { it.name to it.action }.toMap()
 
-    fun getFunction(name: String) = availableFunctions[name]
+    fun getFunction(name: String) = registry.first { name == it.name }
         ?: error("Function $name not found")
 
     fun registerFunction(
@@ -24,22 +21,21 @@ class FunctionRegistry(
         description: String,
         kFunction2: KFunction2<String, String, String>,
         parameterClass: Class<*>,
-    ) = registerFunction(name, description, kFunction2, generateJsonSchema(parameterClass))
+    ) = registerFunction(Function(name, description, kFunction2, parameterClass))
 
     fun registerFunction(
         name: String,
         description: String,
         kFunction2: KFunction2<String, String, String>,
         jsonSchema: String
-    ) {
-        logger.debug("Registering new function: name=[$name] description=[$description] function:[${kFunction2.name}] jsonSchema=[$jsonSchema]")
-        registry.add(
-            ChatCompletionFunction(
-                name, description,
-                Parameters.fromJsonString(jsonSchema),
-            )
+    ) = registerFunction(Function(name, description, kFunction2, jsonSchema))
+
+    fun registerFunction(function: Function) {
+        logger.debug(
+            "Registering new function: name=[${function.name}] description=[${function.description}] " +
+                    "function:[${function.action.name}] jsonSchema=[${function.jsonSchema}]"
         )
-        availableFunctions[name] = kFunction2
+        registry.add(function)
     }
 
     private val logger = LoggerFactory.getLogger(this::class.java)
