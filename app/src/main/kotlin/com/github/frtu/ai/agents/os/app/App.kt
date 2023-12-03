@@ -1,10 +1,10 @@
 package com.github.frtu.ai.agents.os.app
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.github.frtu.ai.agents.os.app.SchemaLoader.readSchemaFromFile
 import com.github.frtu.ai.os.llm.Chat
 import com.github.frtu.ai.os.memory.Conversation
 import com.github.frtu.ai.os.tool.registry
+import com.github.frtu.ai.os.utils.FileLoader.readFileFromClasspath
 
 suspend fun main() {
     val apiKey = "sk-xxx"
@@ -20,7 +20,8 @@ suspend fun main() {
         )
         function(
             name = "get_current_weather", description = "Get the current weather in a given location",
-            kFunction2 = ::currentWeather, parameterClass = WeatherInfo::class.java,
+            kFunction2 = ::currentWeather,
+            jsonSchema = readFileFromClasspath("./schema/weather-info-schema.json"),
         )
         function(
             name = "get_n_day_weather_forecast", description = "Get an N-day weather forecast",
