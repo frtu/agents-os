@@ -21,14 +21,14 @@ class FunctionRegistry(
         description: String,
         kFunction2: KFunction2<String, String, String>,
         parameterClass: Class<*>,
-    ) = registerFunction(Function(name, description, kFunction2, parameterClass))
+    ) = registerFunction(function(name, description, kFunction2, parameterClass))
 
     fun registerFunction(
         name: String,
         description: String,
         kFunction2: KFunction2<String, String, String>,
         jsonSchema: String
-    ) = registerFunction(Function(name, description, kFunction2, jsonSchema))
+    ) = registerFunction(function(name, description, kFunction2, jsonSchema))
 
     fun registerFunction(function: Function) {
         logger.debug(

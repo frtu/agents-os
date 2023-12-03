@@ -30,6 +30,8 @@ class FunctionRegistryBuilder(
         jsonSchema = jsonSchema,
     )
 
+    fun register(function: Function) = functionRegistry.registerFunction(function)
+
     fun build(): FunctionRegistry = functionRegistry
 }
 

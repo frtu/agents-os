@@ -14,15 +14,22 @@ class Function(
     val action: KFunction2<String, String, String>,
     val jsonSchema: String,
 ) {
-    constructor(
-        name: String,
-        description: String,
-        action: KFunction2<String, String, String>,
-        parameterClass: Class<*>,
-    ) : this(name, description, action, SchemaGen.generateJsonSchema(parameterClass))
-
     fun toChatCompletionFunction() = ChatCompletionFunction(
         name, description,
         Parameters.fromJsonString(jsonSchema),
     )
 }
+
+fun function(
+    name: String,
+    description: String? = null,
+    action: KFunction2<String, String, String>,
+    jsonSchema: String
+) = Function(name, description, action, jsonSchema)
+
+fun function(
+    name: String,
+    description: String? = null,
+    action: KFunction2<String, String, String>,
+    parameterClass: Class<*>,
+) = Function(name, description, action, SchemaGen.generateJsonSchema(parameterClass))
