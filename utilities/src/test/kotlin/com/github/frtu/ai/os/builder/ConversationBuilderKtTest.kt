@@ -29,7 +29,7 @@ class ConversationBuilderKtTest {
         with(result) {
             result.shouldNotBeNull()
             name shouldBe conversationName
-            messages.size shouldBe 1
+            messages.size shouldBe 2
         }
     }
 
