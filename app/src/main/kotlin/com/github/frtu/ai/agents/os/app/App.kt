@@ -35,7 +35,8 @@ suspend fun main() {
     val conversation = Conversation(systemDirective) // OR calling recallConversation()
 
     with(conversation) {
-        val response = chat.sendMessage(user("What's the weather like in Glasgow, Scotland today?"))
+//        val response = chat.sendMessage(user("What's the weather like in Glasgow, Scotland today?"))
+        val response = chat.sendMessage(user("Write me a workflow that call an action 'function1'"))
         println(response)
 
         // Handle response
