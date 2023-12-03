@@ -23,11 +23,18 @@ class FunctionRegistry(
         description: String,
         kFunction2: KFunction2<String, String, String>,
         parameterClass: Class<*>,
+    ) = registerFunction(name, description, kFunction2, generateJsonSchema(parameterClass))
+
+    fun registerFunction(
+        name: String,
+        description: String,
+        kFunction2: KFunction2<String, String, String>,
+        jsonSchema: String
     ) {
         registry.add(
             ChatCompletionFunction(
                 name, description,
-                Parameters.fromJsonString(generateJsonSchema(parameterClass)),
+                Parameters.fromJsonString(jsonSchema),
             )
         )
         availableFunctions[name] = kFunction2

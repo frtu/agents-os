@@ -1,10 +1,10 @@
 package com.github.frtu.ai.agents.os.app
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.github.frtu.ai.agents.os.app.SchemaLoader.readSchemaFromFile
 import com.github.frtu.ai.os.llm.Chat
 import com.github.frtu.ai.os.memory.Conversation
 import com.github.frtu.ai.os.tool.registry
-import kotlinx.serialization.json.jsonPrimitive
 
 suspend fun main() {
     val apiKey = "sk-xxx"
@@ -13,6 +13,11 @@ suspend fun main() {
         "Don't make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous."
 
     val functionRegistry = registry {
+        function(
+            name = "create_workflow", description = "Create a workflow using graph of states",
+            kFunction2 = ::currentWeather,
+            jsonSchema = readSchemaFromFile("./schema/serverlessworkflow-schema.json"),
+        )
         function(
             name = "get_current_weather", description = "Get the current weather in a given location",
             kFunction2 = ::currentWeather, parameterClass = WeatherInfo::class.java,

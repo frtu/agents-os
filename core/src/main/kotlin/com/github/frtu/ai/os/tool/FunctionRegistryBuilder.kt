@@ -18,6 +18,18 @@ class FunctionRegistryBuilder(
         parameterClass = parameterClass,
     )
 
+    fun function(
+        name: String,
+        description: String,
+        kFunction2: KFunction2<String, String, String>,
+        jsonSchema: String,
+    ) = functionRegistry.registerFunction(
+        name = name,
+        description = description,
+        kFunction2 = kFunction2,
+        jsonSchema = jsonSchema,
+    )
+
     fun build(): FunctionRegistry = functionRegistry
 }
 
