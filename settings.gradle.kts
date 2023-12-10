@@ -2,6 +2,7 @@ rootProject.name = "agents-os"
 
 include(
     "core",
+    "agents",
     "app",
 )
 
