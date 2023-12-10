@@ -6,6 +6,7 @@ import com.github.frtu.ai.os.memory.Conversation
 import com.github.frtu.ai.os.planning.orchestration.WorkflowGenerator.createWorkflowFunction
 import com.github.frtu.ai.os.tool.registry
 import com.github.frtu.ai.os.utils.FileLoader.readFileFromClasspath
+import kotlinx.serialization.json.jsonPrimitive
 
 suspend fun main() {
     val apiKey = "sk-xxx"
@@ -55,7 +56,7 @@ suspend fun main() {
             val secondResponse = chat.sendMessage(
                 function(
                     functionName = functionCall.name,
-                    content = functionToCall(location, unit)
+                    content = functionToCall.action(location, unit)
                 )
             )
             println(secondResponse.message.content)

@@ -11,9 +11,9 @@ class FunctionRegistry(
     private val registry: MutableList<Function> = mutableListOf(),
 ) {
     fun getRegistry(): List<ChatCompletionFunction> = registry.map { it.toChatCompletionFunction() }
-    fun getAvailableFunctions() = registry.map { it.name to it.action }.toMap()
+    fun getAvailableFunctions(): Map<String, KFunction2<String, String, String>> = registry.associate { it.name to it.action }
 
-    fun getFunction(name: String) = registry.first { name == it.name }
+    fun getFunction(name: String): Function = registry.first { name == it.name }
         ?: error("Function $name not found")
 
     fun registerFunction(
