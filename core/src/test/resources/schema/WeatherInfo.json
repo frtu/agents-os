@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Weather Info",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Weather Info object",
+  "properties": {
+    "location": {
+      "type": "string",
+      "description": "Location for weather"
+    },
+    "unit": {
+      "type": "string",
+      "enum": [
+        "celsius",
+        "fahrenheit"
+      ],
+      "description": "Unit (celsius or fahrenheit)"
+    },
+    "temperature": {
+      "type": "string",
+      "description": "Temperature"
+    },
+    "forecast": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Future temperature"
+    }
+  },
+  "required": [
+    "location",
+    "unit",
+    "temperature",
+    "forecast"
+  ]
+}

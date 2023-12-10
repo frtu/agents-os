@@ -1,17 +1,26 @@
 package samples.model
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription
+import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaDescription
+
+@JsonSchemaDescription("Current and future Weather Info")
 data class WeatherInfoMultiple(
-    val location: String,
+    @JsonPropertyDescription("Unit (celsius or fahrenheit)")
     val unit: Unit,
-    val numberOfDays: Int,
+
+    @JsonPropertyDescription("Current temperature")
     val temperature: String,
-    val forecast: List<String>,
+
+    @JsonPropertyDescription("Number of Days to forecast")
+    val numberOfDays: Int,
+
+    @JsonPropertyDescription("Future days forecast")
+    val forecast: List<WeatherInfo>,
 ) {
     constructor(
-        location: String,
         unit: String,
-        numberOfDays: Int,
         temperature: String,
-        forecast: List<String>,
-    ) : this(location, Unit.valueOf(unit), numberOfDays, temperature, forecast)
+        numberOfDays: Int,
+        forecast: List<WeatherInfo>,
+    ) : this(Unit.valueOf(unit), temperature, numberOfDays, forecast)
 }

@@ -1,0 +1,910 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Workflow",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Workflow unique identifier"
+    },
+    "key": {
+      "type": "string",
+      "description": "Workflow Domain-specific identifier"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Workflow name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Workflow description"
+    },
+    "version": {
+      "type": "string",
+      "description": "Workflow version"
+    },
+    "annotations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2147483647,
+      "items": {
+        "type": "string"
+      },
+      "description": "List of helpful terms describing the workflows intended purpose, subject areas, or other important qualities"
+    },
+    "dataInputSchema": {
+      "$ref": "#/definitions/DataInputSchema",
+      "description": "Workflow data input schema"
+    },
+    "start": {
+      "$ref": "#/definitions/Start",
+      "description": "State start definition"
+    },
+    "specVersion": {
+      "type": "string",
+      "description": "Serverless Workflow schema version"
+    },
+    "expressionLang": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifies the expression language used for workflow expressions. Default is 'jq'"
+    },
+    "keepActive": {
+      "type": "boolean",
+      "description": "If 'true', workflow instances is not terminated when there are no active execution paths. Instance can be terminated via 'terminate end definition' or reaching defined 'execTimeout'"
+    },
+    "autoRetries": {
+      "type": "boolean",
+      "description": "If set to true, actions should automatically be retried on unchecked errors. Default is false"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Metadata"
+    },
+    "events": {
+      "$ref": "#/definitions/Events",
+      "description": "Workflow event definitions"
+    },
+    "functions": {
+      "$ref": "#/definitions/Functions",
+      "description": "Workflow function definitions"
+    },
+    "errors": {
+      "$ref": "#/definitions/Errors",
+      "description": "Workflow error definitions"
+    },
+    "retries": {
+      "$ref": "#/definitions/Retries",
+      "description": "Workflow retry definitions"
+    },
+    "secrets": {
+      "$ref": "#/definitions/Secrets",
+      "description": "Workflow secrets definitions"
+    },
+    "constants": {
+      "$ref": "#/definitions/Constants",
+      "description": "Workflow constants definitions"
+    },
+    "timeouts": {
+      "$ref": "#/definitions/TimeoutsDefinition",
+      "description": "Timeouts Definition"
+    },
+    "auth": {
+      "$ref": "#/definitions/Auth",
+      "description": "Workflow Auth definitions"
+    },
+    "states": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/State"
+      },
+      "description": "State Definitions"
+    },
+    "extensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Extension"
+      },
+      "description": "Workflow Extensions"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "version",
+    "keepActive",
+    "autoRetries",
+    "states"
+  ],
+  "definitions": {
+    "DataInputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "description": "URI of the JSON Schema used to validate the workflow data input"
+        },
+        "failOnValidationErrors": {
+          "type": "boolean",
+          "description": "Determines if workfow execution should continue if there are validation errors"
+        }
+      },
+      "required": [
+        "schema",
+        "failOnValidationErrors"
+      ]
+    },
+    "Start": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stateName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of the starting workflow state"
+        },
+        "schedule": {
+          "$ref": "#/definitions/Schedule",
+          "description": "Start state schedule definition"
+        }
+      }
+    },
+    "Schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "interval": {
+          "type": "string",
+          "description": "Time interval (ISO 8601 format) describing when the workflow starting state is active"
+        },
+        "cron": {
+          "$ref": "#/definitions/Cron",
+          "description": "Schedule cron definition"
+        },
+        "timezone": {
+          "type": "string",
+          "description": "Timezone name used to evaluate the cron expression. Not used for interval as timezone can be specified there directly. If not specified, should default to local machine timezone."
+        }
+      }
+    },
+    "Cron": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "type": "string",
+          "description": "Repeating interval (cron expression) describing when the workflow instance should be created"
+        },
+        "validUntil": {
+          "type": "string",
+          "description": "Specific date and time (ISO 8601 format) when the cron expression invocation is no longer valid"
+        }
+      },
+      "required": [
+        "expression"
+      ]
+    },
+    "Events": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "refValue": {
+          "type": "string"
+        },
+        "eventDefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EventDefinition"
+          }
+        }
+      }
+    },
+    "EventDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Event Definition unique name"
+        },
+        "source": {
+          "type": "string",
+          "description": "CloudEvent source UUID"
+        },
+        "type": {
+          "type": "string",
+          "description": "CloudEvent type"
+        },
+        "correlation": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2147483647,
+          "items": {
+            "$ref": "#/definitions/CorrelationDef"
+          },
+          "description": "CloudEvent correlation definitions"
+        },
+        "dataOnly": {
+          "type": "boolean",
+          "description": "If `true`, only the Event payload is accessible to consuming Workflow states. If `false`, both event payload and context attributes should be accessible "
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "consumed",
+            "produced"
+          ],
+          "description": "Defines the events as either being consumed or produced by the workflow. Default is consumed"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Metadata"
+        }
+      },
+      "required": [
+        "dataOnly"
+      ]
+    },
+    "CorrelationDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contextAttributeName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "CloudEvent Extension Context Attribute name"
+        },
+        "contextAttributeValue": {
+          "type": "string",
+          "minLength": 1,
+          "description": "CloudEvent Extension Context Attribute value"
+        }
+      },
+      "required": [
+        "contextAttributeName"
+      ]
+    },
+    "Functions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "refValue": {
+          "type": "string"
+        },
+        "functionDefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FunctionDefinition"
+          }
+        }
+      }
+    },
+    "FunctionDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Function unique name"
+        },
+        "operation": {
+          "type": "string",
+          "minLength": 1,
+          "description": "If type is `rest`, <path_to_openapi_definition>#<operation_id>. If type is `rpc`, <path_to_grpc_proto_file>#<service_name>#<service_method>. If type is `expression`, defines the workflow expression."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "rest",
+            "asyncapi",
+            "rpc",
+            "graphql",
+            "odata",
+            "expression",
+            "custom"
+          ],
+          "description": "Defines the function type. Is either `rest`, `asyncapi, `rpc`, `graphql`, `odata`, `expression`, or `custom`. Default is `rest`"
+        },
+        "authRef": {
+          "type": "string",
+          "minLength": 1,
+          "description": "References an auth definition name to be used to access to resource defined in the operation parameter"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Metadata"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "Errors": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "refValue": {
+          "type": "string"
+        },
+        "errorDefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ErrorDefinition"
+          }
+        }
+      }
+    },
+    "ErrorDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Domain-specific error name"
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Error code. Can be used in addition to the name to help runtimes resolve to technical errors/exceptions. Should not be defined if error is set to '*'"
+        },
+        "description": {
+          "type": "string",
+          "description": "Error description"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "Retries": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "refValue": {
+          "type": "string"
+        },
+        "retryDefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RetryDefinition"
+          }
+        }
+      }
+    },
+    "RetryDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique retry strategy name"
+        },
+        "delay": {
+          "type": "string",
+          "description": "Time delay between retry attempts (ISO 8601 duration format)"
+        },
+        "maxDelay": {
+          "type": "string",
+          "description": "Maximum time delay between retry attempts (ISO 8601 duration format)"
+        },
+        "increment": {
+          "type": "string",
+          "description": "Static value by which the delay increases during each attempt (ISO 8601 time format)"
+        },
+        "multiplier": {
+          "type": "string",
+          "description": "Multiplier value by which interval increases during each attempt (ISO 8601 time format)"
+        },
+        "maxAttempts": {
+          "type": "string",
+          "description": "Maximum number of retry attempts. Value of 0 means no retries are performed"
+        },
+        "jitter": {
+          "type": "string",
+          "description": "Absolute maximum amount of random time added or subtracted from the delay between each retry (ISO 8601 duration format)"
+        }
+      },
+      "required": [
+        "name",
+        "maxAttempts"
+      ]
+    },
+    "Secrets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "refValue": {
+          "type": "string"
+        },
+        "secretDefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "refValue": {
+          "type": "string"
+        },
+        "constantsDef": {}
+      }
+    },
+    "TimeoutsDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "workflowExecTimeout": {
+          "$ref": "#/definitions/WorkflowExecTimeout"
+        },
+        "stateExecTimeout": {
+          "$ref": "#/definitions/StateExecTimeout"
+        },
+        "actionExecTimeout": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Single actions definition execution timeout duration (ISO 8601 duration format)"
+        },
+        "branchExecTimeout": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Single branch execution timeout duration (ISO 8601 duration format)"
+        },
+        "eventTimeout": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Timeout duration to wait for consuming defined events (ISO 8601 duration format)"
+        }
+      }
+    },
+    "WorkflowExecTimeout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "duration": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Workflow execution timeout duration (ISO 8601 duration format). If not specified should be 'unlimited'"
+        },
+        "interrupt": {
+          "type": "boolean",
+          "description": "If `false`, workflow instance is allowed to finish current execution. If `true`, current workflow execution is abrupted."
+        },
+        "runBefore": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of a workflow state to be executed before workflow instance is terminated"
+        }
+      },
+      "required": [
+        "duration",
+        "interrupt"
+      ]
+    },
+    "StateExecTimeout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "single": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Single state execution timeout, not including retries (ISO 8601 duration format)"
+        },
+        "total": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Total state execution timeout, including retries (ISO 8601 duration format)"
+        }
+      },
+      "required": [
+        "total"
+      ]
+    },
+    "Auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "refValue": {
+          "type": "string"
+        },
+        "authDefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AuthDefinition"
+          }
+        }
+      }
+    },
+    "AuthDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique auth definition name"
+        },
+        "scheme": {
+          "type": "string",
+          "enum": [
+            "basic",
+            "bearer",
+            "oauth2"
+          ],
+          "description": "Defines the auth type"
+        },
+        "basicauth": {
+          "$ref": "#/definitions/BasicAuthDefinition"
+        },
+        "bearerauth": {
+          "$ref": "#/definitions/BearerAuthDefinition"
+        },
+        "oauth": {
+          "$ref": "#/definitions/OauthDefinition"
+        }
+      }
+    },
+    "BasicAuthDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 1,
+          "description": "String or a workflow expression. Contains the user name"
+        },
+        "password": {
+          "type": "string",
+          "minLength": 1,
+          "description": "String or a workflow expression. Contains the user password"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Metadata"
+        }
+      },
+      "required": [
+        "username",
+        "password"
+      ]
+    },
+    "BearerAuthDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "String or a workflow expression. Contains the token"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Metadata"
+        }
+      },
+      "required": [
+        "token"
+      ]
+    },
+    "OauthDefinition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "description": "String or a workflow expression. Contains the authority information"
+        },
+        "grantType": {
+          "type": "string",
+          "enum": [
+            "password",
+            "clientCredentials",
+            "tokenExchange"
+          ],
+          "description": "Defines the grant type"
+        },
+        "clientId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "String or a workflow expression. Contains the client identifier"
+        },
+        "clientSecret": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Workflow secret or a workflow expression. Contains the client secret"
+        },
+        "scopes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2147483647,
+          "items": {
+            "type": "string"
+          },
+          "description": "Array containing strings or workflow expressions. Contains the OAuth2 scopes"
+        },
+        "username": {
+          "type": "string",
+          "minLength": 1,
+          "description": "String or a workflow expression. Contains the user name. Used only if grantType is 'resourceOwner'"
+        },
+        "password": {
+          "type": "string",
+          "minLength": 1,
+          "description": "String or a workflow expression. Contains the user password. Used only if grantType is 'resourceOwner'"
+        },
+        "audiences": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2147483647,
+          "items": {
+            "type": "string"
+          },
+          "description": "Array containing strings or workflow expressions. Contains the OAuth2 audiences"
+        },
+        "subjectToken": {
+          "type": "string",
+          "minLength": 1,
+          "description": "String or a workflow expression. Contains the subject token"
+        },
+        "requestedSubject": {
+          "type": "string",
+          "minLength": 1,
+          "description": "String or a workflow expression. Contains the requested subject"
+        },
+        "requestedIssuer": {
+          "type": "string",
+          "minLength": 1,
+          "description": "String or a workflow expression. Contains the requested issuer"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Metadata"
+        }
+      },
+      "required": [
+        "grantType",
+        "clientId"
+      ]
+    },
+    "State": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "transition": {
+          "$ref": "#/definitions/Transition"
+        },
+        "name": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "event",
+            "operation",
+            "switch",
+            "sleep",
+            "parallel",
+            "subflow",
+            "inject",
+            "foreach",
+            "callback"
+          ]
+        },
+        "end": {
+          "$ref": "#/definitions/End"
+        },
+        "stateDataFilter": {
+          "$ref": "#/definitions/StateDataFilter"
+        },
+        "onErrors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Error"
+          }
+        },
+        "compensatedBy": {
+          "type": "string"
+        },
+        "timeouts": {
+          "$ref": "#/definitions/TimeoutsDefinition"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "Transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "produceEvents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProduceEvent"
+          },
+          "description": "Array of events to be produced"
+        },
+        "nextState": {
+          "type": "string",
+          "minLength": 1,
+          "description": "State to transition to next"
+        },
+        "compensate": {
+          "type": "boolean",
+          "description": "If set to true, triggers workflow compensation before this transition is taken. Default is false"
+        }
+      },
+      "required": [
+        "nextState",
+        "compensate"
+      ]
+    },
+    "ProduceEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventRef": {
+          "type": "string",
+          "minLength": 1,
+          "description": "References a name of a defined event"
+        },
+        "data": {
+          "type": "string",
+          "description": "Workflow expression which selects parts of the states data output to become the data of the produced event"
+        },
+        "contextAttributes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Add additional event extension context attributes"
+        }
+      },
+      "required": [
+        "eventRef"
+      ]
+    },
+    "End": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "terminate": {
+          "type": "boolean",
+          "description": "If true, completes all execution flows in the given workflow instance"
+        },
+        "produceEvents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProduceEvent"
+          },
+          "description": "Array of events to be produced"
+        },
+        "compensate": {
+          "type": "boolean",
+          "description": "If set to true, triggers workflow compensation when before workflow executin completes. Default is false"
+        },
+        "continueAs": {
+          "$ref": "#/definitions/ContinueAs",
+          "description": "End definition continue as"
+        }
+      },
+      "required": [
+        "terminate",
+        "compensate"
+      ]
+    },
+    "ContinueAs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "workflowId": {
+          "type": "string",
+          "description": "Unique id of the workflow to continue execution as"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Version of the workflow to continue execution as"
+        },
+        "data": {
+          "type": "string",
+          "description": "Expression which selects parts of the states data output to become the workflow data input of continued execution"
+        },
+        "workflowExecTimeout": {
+          "$ref": "#/definitions/WorkflowExecTimeout"
+        }
+      }
+    },
+    "StateDataFilter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "type": "string",
+          "description": "Workflow expression to filter the state data input"
+        },
+        "output": {
+          "type": "string",
+          "description": "Workflow expression that filters the state data output"
+        }
+      }
+    },
+    "Error": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "errorRef": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Reference to a unique workflow error definition. Used of errorRefs is not used"
+        },
+        "errorRefs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2147483647,
+          "items": {
+            "type": "string"
+          },
+          "description": "References one or more workflow error definitions. Used if errorRef is not used"
+        },
+        "transition": {
+          "$ref": "#/definitions/Transition"
+        },
+        "end": {
+          "$ref": "#/definitions/End",
+          "description": "State end definition"
+        }
+      },
+      "required": [
+        "transition"
+      ]
+    },
+    "Extension": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extensionId": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

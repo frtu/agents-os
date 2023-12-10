@@ -1,6 +1,9 @@
 package com.github.frtu.ai.os.utils
 
 import io.kotest.matchers.nulls.shouldNotBeNull
+import io.serverlessworkflow.api.Workflow
+import io.serverlessworkflow.api.functions.FunctionDefinition
+import io.serverlessworkflow.api.workflow.Functions
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import samples.model.WeatherInfo
@@ -11,7 +14,7 @@ class SchemaGenTest {
         //--------------------------------------
         // 1. Init
         //--------------------------------------
-        val parameterClass = WeatherInfo::class.java
+        val parameterClass = Workflow::class.java
 
         //--------------------------------------
         // 2. Execute

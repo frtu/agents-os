@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Weather Info Multiple",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Current and future Weather Info",
+  "properties": {
+    "unit": {
+      "type": "string",
+      "enum": [
+        "celsius",
+        "fahrenheit"
+      ],
+      "description": "Unit (celsius or fahrenheit)"
+    },
+    "temperature": {
+      "type": "string",
+      "description": "Current temperature"
+    },
+    "numberOfDays": {
+      "type": "integer",
+      "description": "Number of Days to forecast"
+    },
+    "forecast": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/WeatherInfo"
+      },
+      "description": "Future days forecast"
+    }
+  },
+  "required": [
+    "unit",
+    "temperature",
+    "numberOfDays",
+    "forecast"
+  ],
+  "definitions": {
+    "WeatherInfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Weather Info object",
+      "properties": {
+        "location": {
+          "type": "string",
+          "description": "Location for weather"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "celsius",
+            "fahrenheit"
+          ],
+          "description": "Unit (celsius or fahrenheit)"
+        },
+        "temperature": {
+          "type": "string",
+          "description": "Temperature"
+        },
+        "forecast": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Future temperature"
+        }
+      },
+      "required": [
+        "location",
+        "unit",
+        "temperature",
+        "forecast"
+      ]
+    }
+  }
+}
