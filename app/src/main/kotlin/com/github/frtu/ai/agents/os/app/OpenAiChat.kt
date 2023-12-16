@@ -39,15 +39,18 @@ class OpenAiChat(
     suspend fun sendMessage(
         conversation: Conversation,
         evaluator: ((List<ChatChoice>) -> ChatChoice)? = null,
-    ): ChatChoice =
-        evaluator?.let {
+    ): ChatChoice {
+        val chatCompletion = send(conversation)
+
+        return evaluator?.let {
             evaluator.invoke(
-                send(conversation).choices
+                chatCompletion.choices
             )
         } ?: defaultEvaluator?.invoke(
-            send(conversation).choices
+            chatCompletion.choices
         )
         ?: throw IllegalStateException("You need to pass an `evaluator` or `defaultEvaluator` to be able to call sendMessage()")
+    }
 
     suspend fun send(conversation: Conversation): ChatCompletion =
         send(conversation.getMessages())
