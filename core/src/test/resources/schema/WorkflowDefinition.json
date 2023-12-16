@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Workflow Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Workflow definition",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Workflow name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Workflow description"
+    },
+    "operationList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Operation"
+      },
+      "description": "List of operation that this workflow execute"
+    }
+  },
+  "required": [
+    "name",
+    "description",
+    "operationList"
+  ],
+  "definitions": {
+    "Operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Operation representing a function call to Tools",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Operation name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Operation description"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "CallFunction",
+            "Condition"
+          ],
+          "description": "Type of this operation"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Input parameters"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "type",
+        "inputs"
+      ]
+    }
+  }
+}
