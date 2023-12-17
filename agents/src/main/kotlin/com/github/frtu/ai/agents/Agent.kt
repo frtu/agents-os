@@ -5,9 +5,10 @@ import kotlin.reflect.KClass
 import kotlin.reflect.full.findAnnotations
 
 @Persona(
+    name = "Generic agent",
+    prompt = """
+    You are a helpful assistant
     """
-    You are a helpful agent
-"""
 )
 open class Agent
 
