@@ -17,11 +17,11 @@ open class Agent
 fun KClass<out Agent>.getPersona(): String {
     val findAnnotations = this.findAnnotations<Persona>()
     findAnnotations.ifEmpty { throw IllegalArgumentException("You must annotate your agent class:[${this}] with @Persona(prompt)") }
-    return findAnnotations.first().prompt.trim()
+    return findAnnotations.first().prompt.trimIndent().trim()
 }
 
 fun KFunction<*>.getAction(): String {
     val findAnnotations = this.findAnnotations<Action>()
     findAnnotations.ifEmpty { throw IllegalArgumentException("You must annotate your function:[${this}] with @Action(prompt)") }
-    return findAnnotations.first().prompt.trim()
+    return findAnnotations.first().prompt.trimIndent().trim()
 }
