@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":agents"))
 
     implementation("com.kjetland:mbknor-jackson-jsonschema_2.13:1.0.39")
 
