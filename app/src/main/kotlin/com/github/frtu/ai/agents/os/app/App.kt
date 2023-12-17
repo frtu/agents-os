@@ -35,15 +35,8 @@ suspend fun main() {
 //        functionRegistry = functionRegistry,
         defaultEvaluator = { chatChoices -> chatChoices.first() }
     )
-    val conversation = Conversation(
-        generateSystemPrompt(
-            ValidationAgent::validate,
-            ValidationAgent::class
-        )
-    ) // OR calling recallConversation()
 
-    with(conversation) {
-//        val response = chat.sendMessage(user("What's the weather like in Glasgow, Scotland today?"))
+    with(Conversation(generateSystemPrompt(ValidationAgent::validate, ValidationAgent::class))) {
         val response =
             chat.sendMessage(
                 user(
@@ -55,6 +48,25 @@ suspend fun main() {
                 )
             )
         println(response)
+    }
+    with(Conversation(generateSystemPrompt(ValidationAgent::proposeItinerary, ValidationAgent::class))) {
+        val response =
+            chat.sendMessage(
+                user(
+                    """
+                    I want to do 2 week trip from Berkeley CA to New York City.
+                    I want to visit national parks and cities with good food.
+                    I want use a rental car and drive for no more than 5 hours on any given day.
+                    """.trimIndent()
+                )
+            )
+        println(response)
+    }
+
+    val conversation = Conversation(systemDirective) // OR calling recallConversation()
+    with(conversation) {
+//        val response = chat.sendMessage(user("What's the weather like in Glasgow, Scotland today?"))
+        val response = chat.sendMessage(user("Write me a workflow with operation to call a function 'function1()'"))
 
         // Handle response
         // Sanity check for message structure (contains function call OR message)
