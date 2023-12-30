@@ -1,8 +1,8 @@
 package com.github.frtu.ai.os.memory
 
 import com.aallam.openai.api.chat.ChatMessage
-import com.aallam.openai.api.chat.ChatRole
-import com.aallam.openai.api.chat.FunctionCall
+import com.github.frtu.ai.os.llm.MessageBuilder
+import com.github.frtu.ai.os.llm.MessageBuilder.createMessage
 
 /**
  * Message class is a base unit from a Thread
@@ -16,23 +16,19 @@ data class Conversation(
         systemDirective?.let { system(systemDirective) }
     }
 
-    fun system(content: String): Conversation = append(createMessage(ChatRole.System, content))
+    fun system(content: String): Conversation = append(MessageBuilder.system(content))
 
-    fun user(content: String): Conversation = append(createMessage(ChatRole.User, content))
+    fun user(content: String): Conversation = append(MessageBuilder.user(content))
 
-    fun assistant(content: String): Conversation = append(
-        createMessage(ChatRole.Assistant, content)
-    )
+    fun assistant(content: String): Conversation = append(MessageBuilder.assistant(content))
 
     fun function(functionName: String, content: String): Conversation =
-        append(createMessage(ChatRole.Function, content, functionName))
+        append(MessageBuilder.function(functionName, content))
 
-    fun addResponse(message: ChatMessage) = append(
-        createMessage(
-            role = message.role,
-            content = message.content.orEmpty(),
-            functionCall = message.functionCall,
-        )
+    fun addResponse(message: ChatMessage) = +createMessage(
+        role = message.role,
+        content = message.content.orEmpty(),
+        functionCall = message.functionCall,
     )
 
     fun getMessages(): List<ChatMessage> = conversation
@@ -48,14 +44,12 @@ data class Conversation(
     fun trimMessages(): Boolean = true
 
     private fun append(message: ChatMessage): Conversation {
-        conversation.add(message)
+        +message
         return this
+    }
+
+    operator fun ChatMessage.unaryPlus() {
+        conversation += this
     }
 }
 
-fun createMessage(
-    role: ChatRole,
-    content: String? = null,
-    name: String? = null,
-    functionCall: FunctionCall? = null,
-) = ChatMessage(role, content, name, functionCall)
