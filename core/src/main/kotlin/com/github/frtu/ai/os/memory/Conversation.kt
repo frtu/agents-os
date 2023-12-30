@@ -16,19 +16,23 @@ data class Conversation(
         systemDirective?.let { system(systemDirective) }
     }
 
-    fun system(content: String): Conversation = append(ChatRole.System, content)
+    fun system(content: String): Conversation = append(createMessage(ChatRole.System, content))
 
-    fun user(content: String): Conversation = append(ChatRole.User, content)
+    fun user(content: String): Conversation = append(createMessage(ChatRole.User, content))
 
-    fun assistant(content: String): Conversation = append(ChatRole.Assistant, content)
+    fun assistant(content: String): Conversation = append(
+        createMessage(ChatRole.Assistant, content)
+    )
 
     fun function(functionName: String, content: String): Conversation =
-        append(ChatRole.Function, content, functionName)
+        append(createMessage(ChatRole.Function, content, functionName))
 
     fun addResponse(message: ChatMessage) = append(
-        role = message.role,
-        content = message.content.orEmpty(),
-        functionCall = message.functionCall,
+        createMessage(
+            role = message.role,
+            content = message.content.orEmpty(),
+            functionCall = message.functionCall,
+        )
     )
 
     fun getMessages(): List<ChatMessage> = conversation
@@ -43,17 +47,15 @@ data class Conversation(
      */
     fun trimMessages(): Boolean = true
 
-    private fun append(
-        role: ChatRole,
-        content: String? = null,
-        name: String? = null,
-        functionCall: FunctionCall? = null,
-    ): Conversation = append(
-        ChatMessage(role, content, name, functionCall)
-    )
-
     private fun append(message: ChatMessage): Conversation {
         conversation.add(message)
         return this
     }
 }
+
+fun createMessage(
+    role: ChatRole,
+    content: String? = null,
+    name: String? = null,
+    functionCall: FunctionCall? = null,
+) = ChatMessage(role, content, name, functionCall)
