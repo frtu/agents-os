@@ -12,11 +12,12 @@ class Function(
     val name: String,
     val description: String? = null,
     val action: KFunction2<String, String, String>,
-    val jsonSchema: String,
+    val parameterJsonSchema: String,
+    val returnJsonSchema: String,
 ) {
     fun toChatCompletionFunction() = ChatCompletionFunction(
         name, description,
-        Parameters.fromJsonString(jsonSchema),
+        Parameters.fromJsonString(parameterJsonSchema),
     )
 }
 
@@ -24,12 +25,20 @@ fun function(
     name: String,
     description: String? = null,
     action: KFunction2<String, String, String>,
-    jsonSchema: String
-) = Function(name, description, action, jsonSchema)
+    parameterJsonSchema: String,
+    returnJsonSchema: String,
+) = Function(name, description, action, parameterJsonSchema, returnJsonSchema)
 
 fun function(
     name: String,
     description: String? = null,
     action: KFunction2<String, String, String>,
     parameterClass: Class<*>,
-) = Function(name, description, action, SchemaGen.generateJsonSchema(parameterClass))
+    returnClass: Class<*>,
+) = Function(
+    name,
+    description,
+    action,
+    SchemaGen.generateJsonSchema(parameterClass),
+    SchemaGen.generateJsonSchema(returnClass),
+)

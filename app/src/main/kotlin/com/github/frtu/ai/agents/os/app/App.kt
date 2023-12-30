@@ -21,12 +21,13 @@ suspend fun main() {
         register(function = createWorkflowDefinition(::currentWeather))
         function(
             name = "get_current_weather", description = "Get the current weather in a given location",
-            kFunction2 = ::currentWeather,
-            jsonSchema = readFileFromClasspath("./schema/weather-info-schema.json"),
+            kFunction2 = ::currentWeather, parameterClass = WeatherInfo::class.java,
+            returnClass = String::class.java,
         )
         function(
             name = "get_n_day_weather_forecast", description = "Get an N-day weather forecast",
             kFunction2 = ::currentWeather, parameterClass = WeatherInfoMultiple::class.java,
+            returnClass = String::class.java,
         )
     }
 

@@ -11,23 +11,27 @@ class FunctionRegistryBuilder(
         description: String,
         kFunction2: KFunction2<String, String, String>,
         parameterClass: Class<*>,
+        returnClass: Class<*>,
     ) = functionRegistry.registerFunction(
         name = name,
         description = description,
         kFunction2 = kFunction2,
         parameterClass = parameterClass,
+        returnClass = returnClass,
     )
 
     fun function(
         name: String,
         description: String,
         kFunction2: KFunction2<String, String, String>,
-        jsonSchema: String,
+        parameterJsonSchema: String,
+        returnJsonSchema: String,
     ) = functionRegistry.registerFunction(
         name = name,
         description = description,
         kFunction2 = kFunction2,
-        jsonSchema = jsonSchema,
+        parameterJsonSchema = parameterJsonSchema,
+        returnJsonSchema = returnJsonSchema,
     )
 
     fun register(function: Function) = functionRegistry.registerFunction(function)

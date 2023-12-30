@@ -21,19 +21,21 @@ class FunctionRegistry(
         description: String,
         kFunction2: KFunction2<String, String, String>,
         parameterClass: Class<*>,
-    ) = registerFunction(function(name, description, kFunction2, parameterClass))
+        returnClass: Class<*>,
+    ) = registerFunction(function(name, description, kFunction2, parameterClass, returnClass))
 
     fun registerFunction(
         name: String,
         description: String,
         kFunction2: KFunction2<String, String, String>,
-        jsonSchema: String
-    ) = registerFunction(function(name, description, kFunction2, jsonSchema))
+        parameterJsonSchema: String,
+        returnJsonSchema: String,
+    ) = registerFunction(function(name, description, kFunction2, parameterJsonSchema, returnJsonSchema))
 
     fun registerFunction(function: Function) {
         logger.debug(
             "Registering new function: name=[${function.name}] description=[${function.description}] " +
-                    "function:[${function.action.name}] jsonSchema=[${function.jsonSchema}]"
+                    "function:[${function.action.name}] parameterJsonSchema=[${function.parameterJsonSchema}]"
         )
         registry.add(function)
     }
