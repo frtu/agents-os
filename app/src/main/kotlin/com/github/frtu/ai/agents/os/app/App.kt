@@ -3,6 +3,7 @@ package com.github.frtu.ai.agents.os.app
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.frtu.ai.agents.travel.ValidationAgent
 import com.github.frtu.ai.os.llm.Chat
+import com.github.frtu.ai.os.llm.MessageBuilder.user
 import com.github.frtu.ai.os.memory.Conversation
 import com.github.frtu.ai.os.planning.orchestration.WorkflowGenerator.createWorkflowDefinition
 import com.github.frtu.ai.os.tool.agent.AgentCallGenerator.generateSystemPrompt
@@ -36,30 +37,19 @@ suspend fun main() {
         defaultEvaluator = { chatChoices -> chatChoices.first() }
     )
 
+    val userMessage = user(
+        """
+        I want to do 2 week trip from Berkeley CA to New York City.
+        I want to visit national parks and cities with good food.
+        I want use a rental car and drive for no more than 5 hours on any given day.
+        """.trimIndent()
+    )
     with(Conversation(generateSystemPrompt(ValidationAgent::validate, ValidationAgent::class))) {
-        val response =
-            chat.sendMessage(
-                user(
-                    """
-                    I want to do 2 week trip from Berkeley CA to New York City.
-                    I want to visit national parks and cities with good food.
-                    I want use a rental car and drive for no more than 5 hours on any given day.
-                    """.trimIndent()
-                )
-            )
+        val response = chat.sendMessage(append(userMessage))
         println(response)
     }
     with(Conversation(generateSystemPrompt(ValidationAgent::proposeItinerary, ValidationAgent::class))) {
-        val response =
-            chat.sendMessage(
-                user(
-                    """
-                    I want to do 2 week trip from Berkeley CA to New York City.
-                    I want to visit national parks and cities with good food.
-                    I want use a rental car and drive for no more than 5 hours on any given day.
-                    """.trimIndent()
-                )
-            )
+        val response = chat.sendMessage(append(userMessage))
         println(response)
     }
 

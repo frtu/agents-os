@@ -43,7 +43,7 @@ data class Conversation(
      */
     fun trimMessages(): Boolean = true
 
-    private fun append(message: ChatMessage): Conversation {
+    fun append(message: ChatMessage): Conversation {
         +message
         return this
     }
