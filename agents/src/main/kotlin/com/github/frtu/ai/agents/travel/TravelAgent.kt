@@ -9,4 +9,4 @@ import com.github.frtu.ai.agents.annotation.Persona
     You are a travel agent who helps users make exciting travel plans.
     """
 )
-class TravelAgent : Agent()
+interface TravelAgent : Agent

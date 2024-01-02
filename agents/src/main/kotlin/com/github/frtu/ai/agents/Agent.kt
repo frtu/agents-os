@@ -12,7 +12,7 @@ import kotlin.reflect.full.findAnnotations
     You are a helpful assistant
     """
 )
-open class Agent
+open interface Agent
 
 fun KClass<out Agent>.getPersona(): String {
     val findAnnotations = this.findAnnotations<Persona>()

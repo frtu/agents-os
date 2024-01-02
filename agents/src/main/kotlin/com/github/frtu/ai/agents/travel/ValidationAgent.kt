@@ -12,7 +12,7 @@ import com.github.frtu.ai.agents.travel.model.TripPlan
     You are a travel agent who helps users make exciting travel plans.
     """
 )
-class ValidationAgent : Agent() {
+interface ValidationAgent : Agent {
     @Action(
         prompt = """
         The user's request will be denoted by four hashtags. Determine if the user's
@@ -34,7 +34,7 @@ class ValidationAgent : Agent() {
         don't revise the request.
         """
     )
-    fun validate(tripPlan: TripPlan): TripRevision = TODO()
+    fun validate(tripPlan: TripPlan): TripRevision
 
     @Action(
         """
@@ -57,5 +57,5 @@ class ValidationAgent : Agent() {
         Your output must be the list and nothing else.
     """
     )
-    fun proposeItinerary(): Nothing = TODO()
+    fun proposeItinerary()
 }

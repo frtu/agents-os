@@ -52,13 +52,13 @@ class InvokeFunctionKtTest {
                 shouldNotBeNull()
                 size shouldBe 2
                 with(parameters.getJsonObject(0)) {
-                    logger.trace("jsonObject:$this")
+                    logger.trace("jsonObject[0]:$this")
                     shouldNotBeNull()
                     getString("Name") shouldBe "nights"
                     getInt("Value") shouldBe 7
                 }
                 with(parameters.getJsonObject(1)) {
-                    logger.trace("jsonObject:$this")
+                    logger.trace("jsonObject[1]:$this")
                     shouldNotBeNull()
                     getString("Name") shouldBe "rooms"
                     getInt("Value") shouldBe 1
@@ -109,13 +109,13 @@ class InvokeFunctionKtTest {
                 shouldNotBeNull()
                 size shouldBe 2
                 with(parameters.getJsonObject(0)) {
-                    logger.trace("jsonObject:$this")
+                    logger.trace("jsonObject[0]:$this")
                     shouldNotBeNull()
                     getString("Name") shouldBe "nights"
                     getInt("Value") shouldBe 5
                 }
                 with(parameters.getJsonObject(1)) {
-                    logger.trace("jsonObject:$this")
+                    logger.trace("jsonObject[1]:$this")
                     shouldNotBeNull()
                     getString("Name") shouldBe "rooms"
                     getInt("Value") shouldBe 2

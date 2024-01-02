@@ -100,7 +100,7 @@ class AgentKtTest {
         }
     }
 
-    class RandomAgent : Agent() {
+    class RandomAgent : Agent {
         fun withoutAnnotation(): Nothing = TODO()
     }
 
