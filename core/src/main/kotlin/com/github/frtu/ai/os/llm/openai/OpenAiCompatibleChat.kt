@@ -1,4 +1,4 @@
-package com.github.frtu.ai.agents.os.app
+package com.github.frtu.ai.os.llm.openai
 
 import com.aallam.openai.api.chat.ChatChoice
 import com.aallam.openai.api.chat.ChatCompletion
@@ -9,6 +9,7 @@ import com.aallam.openai.api.http.Timeout
 import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIConfig
+import com.aallam.openai.client.OpenAIHost
 import com.github.frtu.ai.os.llm.Chat
 import com.github.frtu.ai.os.memory.Conversation
 import com.github.frtu.ai.os.tool.FunctionRegistry
@@ -18,17 +19,38 @@ import com.github.frtu.logs.core.RpcLogger.responseBody
 import com.github.frtu.logs.core.StructuredLogger
 import kotlin.time.Duration.Companion.seconds
 
-class OpenAiChat(
+/**
+ * Compatible OpenAI API
+ */
+class OpenAiCompatibleChat(
     apiKey: String,
     private val functionRegistry: FunctionRegistry? = null,
-    model: String = "gpt-3.5-turbo",
+    model: String = OPENAI_MODEL,
+    baseUrl: String = OPENAI_URL,
     private val defaultEvaluator: ((List<ChatChoice>) -> ChatChoice)? = null,
 ) : Chat {
+    /**
+     * Constructor for Local server
+     */
+    constructor(
+        functionRegistry: FunctionRegistry? = null,
+        model: String = LOCAL_MODEL,
+        baseUrl: String = LOCAL_URL,
+        defaultEvaluator: ((List<ChatChoice>) -> ChatChoice)? = null,
+    ) : this(
+        apiKey = "none",
+        functionRegistry = functionRegistry,
+        model = model,
+        baseUrl = baseUrl,
+        defaultEvaluator = defaultEvaluator,
+    )
+
     private val modelId = ModelId(model)
     private val openAI = OpenAI(
         OpenAIConfig(
             token = apiKey,
             timeout = Timeout(socket = 60.seconds),
+            host = OpenAIHost(baseUrl = baseUrl)
         )
     )
 
@@ -72,5 +94,13 @@ class OpenAiChat(
     }
 
     private val logger = StructuredLogger.create(this::class.java)
+
+    companion object {
+        const val LOCAL_URL = "http://127.0.0.1:5000/v1/"
+        const val LOCAL_MODEL = "mistral-7b-instruct-v0.1.Q4_K_M.gguf"
+
+        const val OPENAI_URL = "https://api.openai.com/v1/"
+        const val OPENAI_MODEL = "gpt-3.5-turbo"
+    }
 }
 

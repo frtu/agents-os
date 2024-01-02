@@ -4,16 +4,17 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.frtu.ai.agents.travel.ValidationAgent
 import com.github.frtu.ai.os.llm.Chat
 import com.github.frtu.ai.os.llm.MessageBuilder.user
+import com.github.frtu.ai.os.llm.openai.OpenAiCompatibleChat
 import com.github.frtu.ai.os.memory.Conversation
 import com.github.frtu.ai.os.planning.orchestration.WorkflowGenerator.createWorkflowDefinition
 import com.github.frtu.ai.os.tool.agent.AgentCallGenerator.generateSystemPrompt
 import com.github.frtu.ai.os.tool.registry
 import com.github.frtu.ai.os.utils.FileLoader.readFileFromClasspath
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 suspend fun main() {
     val apiKey = "sk-xxx"
-    val model = "gpt-3.5-turbo-0613"
     val systemDirective =
         "Don't make assumptions about what values to plug into functions. Ask for clarification if a user request is ambiguous."
 
@@ -31,9 +32,10 @@ suspend fun main() {
         )
     }
 
-    val chat: Chat = OpenAiChat(
+    val chat: Chat = OpenAiCompatibleChat(
         apiKey = apiKey,
-        model = model,
+//        model = "mistral-7b-instruct-v0.1.Q4_K_M.gguf",
+//        baseUrl = "http://127.0.0.1:5000/v1/",
 //        functionRegistry = functionRegistry,
         defaultEvaluator = { chatChoices -> chatChoices.first() }
     )
