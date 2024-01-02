@@ -16,12 +16,13 @@ class FunctionRegistryTest {
         val functionName = "currentWeather"
         val functionDescription = "Get the current weather in a given location"
         val parameterClass = WeatherInfo::class.java
+        val returnClass = String::class.java
 
         val functionRegistry = FunctionRegistry()
         //--------------------------------------
         // 2. Execute
         //--------------------------------------
-        functionRegistry.registerFunction(functionName, functionDescription, ::currentWeather, parameterClass)
+        functionRegistry.registerFunction(functionName, functionDescription, ::currentWeather, parameterClass, returnClass = returnClass)
         val result = functionRegistry.getRegistry()
         logger.debug("result:$result")
 

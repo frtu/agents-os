@@ -9,5 +9,6 @@ object WorkflowGenerator {
         name = "create_workflow", description = "Create a workflow using graph of states",
         action = action,
         parameterClass = WorkflowDefinition::class.java,
+        returnClass = Unit::class.java,
     )
 }

@@ -3,6 +3,7 @@ plugins {
 }
 
 dependencies {
+    // Internal projects
     implementation(project(":core"))
     implementation(project(":agents"))
 
