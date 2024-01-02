@@ -3,6 +3,11 @@ plugins {
 }
 
 dependencies {
+    // Internal projects
+    testImplementation(project(":core"))
+    testImplementation("com.aallam.openai:openai-client")
+    testImplementation("io.ktor:ktor-client-okhttp")
+
     // Serialization and Schema
     implementation(Libs.jackson_databind)
     implementation(Libs.jackson_module_kotlin)
