@@ -63,27 +63,26 @@ suspend fun main() {
 
         // Handle response
         // Sanity check for message structure (contains function call OR message)
-        val message = response.message
-        message.functionCall?.let { functionCall ->
+        response.invokeFunction?.let { invokeFunction ->
             // Should check token before append OR summarizing
-            this.addResponse(message)
+            this.addResponse(response.message)
 
-            val functionToCall = functionRegistry.getFunction(functionCall.name)
+            val functionToCall = functionRegistry.getFunction(invokeFunction.name)
 
             // Validate all required parameters are present
-            val functionArgs = functionCall.argumentsAsJson()
+            val functionArgs = invokeFunction.parameters!!.jsonObject
             val location = functionArgs.getValue("location").jsonPrimitive.content
             val unit = functionArgs["unit"]?.jsonPrimitive?.content ?: "fahrenheit"
 //            val numberOfDays = functionArgs.getValue("numberOfDays").jsonPrimitive.content
 
             val secondResponse = chat.sendMessage(
                 function(
-                    functionName = functionCall.name,
+                    functionName = invokeFunction.name,
                     content = functionToCall.action(location, unit)
                 )
             )
-            println(secondResponse.message.content)
-        } ?: println(message.content)
+            println(secondResponse.content)
+        } ?: println(response.content)
     }
 }
 

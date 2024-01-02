@@ -10,6 +10,7 @@ import com.aallam.openai.api.model.ModelId
 import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIConfig
 import com.aallam.openai.client.OpenAIHost
+import com.github.frtu.ai.os.llm.model.Answer
 import com.github.frtu.ai.os.llm.Chat
 import com.github.frtu.ai.os.memory.Conversation
 import com.github.frtu.ai.os.tool.FunctionRegistry
@@ -56,15 +57,15 @@ class OpenAiCompatibleChat(
 
     override suspend fun sendMessage(
         conversation: Conversation,
-    ): ChatChoice = sendMessage(conversation, null)
+    ): Answer = sendMessage(conversation, null)
 
     suspend fun sendMessage(
         conversation: Conversation,
         evaluator: ((List<ChatChoice>) -> ChatChoice)? = null,
-    ): ChatChoice {
+    ): Answer {
         val chatCompletion = send(conversation)
 
-        return evaluator?.let {
+        val chatChoice = evaluator?.let {
             evaluator.invoke(
                 chatCompletion.choices
             )
@@ -72,6 +73,7 @@ class OpenAiCompatibleChat(
             chatCompletion.choices
         )
         ?: throw IllegalStateException("You need to pass an `evaluator` or `defaultEvaluator` to be able to call sendMessage()")
+        return Answer(chatChoice)
     }
 
     suspend fun send(conversation: Conversation): ChatCompletion =
