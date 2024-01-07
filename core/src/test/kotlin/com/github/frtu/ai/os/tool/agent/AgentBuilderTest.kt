@@ -20,7 +20,7 @@ class AgentBuilderTest {
     @BeforeAll
     fun setup() {
         agentBuilder = AgentBuilder(OpenAiCompatibleChat(
-            model = "mistral-7b-instruct-v0.1.Q4_K_M.gguf",
+            model = "codellama-7b-instruct.Q4_K_M.gguf",
             baseUrl = "http://127.0.0.1:5001/v1/",
             defaultEvaluator = { chatChoices -> chatChoices.first() }
         ))

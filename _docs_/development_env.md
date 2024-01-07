@@ -9,6 +9,9 @@ Check [HuggingFace leaderboard](https://huggingface.co/spaces/bigcode/bigcode-mo
 * Purpose you want to achieve (Coding, Generate a story, ..)
 * Number of RAM on your machine
 
+You can download the most optimized version by looking from [TheBloke](https://huggingface.co/TheBloke/) &
+recommend `Q4_K_M.gguf` for normal laptop.
+
 ### First setup and test
 
 Setup [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui) by running auto installer `start_xx` on your machine (ex: `. start_macos.sh` on MacOS).
