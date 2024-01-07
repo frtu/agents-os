@@ -1,9 +1,9 @@
 package com.github.frtu.ai.agents.annotation
 
 /**
- * Annotation for a Persona prompt an Agent needs to impersonate
+ * Annotation for a Role prompt an Agent needs to impersonate.
  */
-annotation class Persona(
+annotation class Role(
     val name: String,
     val prompt: String,
 )

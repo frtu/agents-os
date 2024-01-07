@@ -1,19 +1,19 @@
 package com.github.frtu.ai.agents.travel
 
-import com.github.frtu.ai.agents.annotation.Action
+import com.github.frtu.ai.agents.annotation.Task
 import com.github.frtu.ai.agents.Agent
-import com.github.frtu.ai.agents.annotation.Persona
+import com.github.frtu.ai.agents.annotation.Role
 import com.github.frtu.ai.agents.travel.model.TripRevision
 import com.github.frtu.ai.agents.travel.model.TripPlan
 
-@Persona(
+@Role(
     name = "Validation agent",
     prompt = """
     You are a travel agent who helps users make exciting travel plans.
     """
 )
 interface ValidationAgent : Agent {
-    @Action(
+    @Task(
         prompt = """
         The user's request will be denoted by four hashtags. Determine if the user's
         request is reasonable and achievable within the constraints they set.
@@ -36,7 +36,7 @@ interface ValidationAgent : Agent {
     )
     fun validate(tripPlan: TripPlan): TripRevision
 
-    @Action(
+    @Task(
         """
         The user's request will be denoted by four hashtags. Convert the
         user's request into a detailed itinerary describing the places

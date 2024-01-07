@@ -1,17 +1,17 @@
 package com.github.frtu.ai.agents.core.functioncall
 
-import com.github.frtu.ai.agents.annotation.Action
+import com.github.frtu.ai.agents.annotation.Task
 import com.github.frtu.ai.agents.Agent
-import com.github.frtu.ai.agents.annotation.Persona
+import com.github.frtu.ai.agents.annotation.Role
 
-@Persona(
+@Role(
     name = "Json Formatter Agent",
     prompt = """
     You are a JSON generator, you only reply in JSON format.
     """
 )
 interface JsonFormatAgent : Agent {
-    @Action(
+    @Task(
         prompt = """
         The only JSON you can generate has this schema:
         { "${'$'}schema": "http://json-schema.org/draft-04/schema#", "type": "array", "items": { "${'$'}ref": "#/definitions/Anonymous" }, 
