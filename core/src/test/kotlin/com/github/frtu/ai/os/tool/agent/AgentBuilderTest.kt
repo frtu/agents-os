@@ -52,7 +52,7 @@ class AgentBuilderTest {
     private val logger = LoggerFactory.getLogger(this::class.java)
 }
 
-suspend fun main() {
+fun main() {
     val agentBuilder = AgentBuilder(OpenAiCompatibleChat(
         model = "mistral-7b-instruct-v0.1.Q4_K_M.gguf",
         baseUrl = "http://127.0.0.1:5001/v1/",

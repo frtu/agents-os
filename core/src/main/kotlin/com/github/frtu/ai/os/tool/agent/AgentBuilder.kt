@@ -9,6 +9,7 @@ import java.lang.reflect.InvocationHandler
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
+import javax.naming.OperationNotSupportedException
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resumeWithException
@@ -31,6 +32,10 @@ class AgentBuilder(
 
             override fun invoke(proxy: Any, method: Method, args: Array<out Any>?): Any {
                 val nonNullArgs = args ?: arrayOf()
+                val lastArg = nonNullArgs.lastOrNull()
+                if(lastArg != null && lastArg is Continuation<*>) {
+                    throw OperationNotSupportedException("suspend method are not supported, please use normal function for your Agent")
+                }
 
                 // Create a systemDirective based on the current function called
                 val systemDirective = AgentCallGenerator.generateSystemPrompt(
