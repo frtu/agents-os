@@ -2,6 +2,13 @@
 
 ## Guide for `text-generation-webui`
 
+### Select the most suitable model
+
+Check [HuggingFace leaderboard](https://huggingface.co/spaces/bigcode/bigcode-models-leaderboard) to balance between :
+
+* Purpose you want to achieve (Coding, Generate a story, ..)
+* Number of RAM on your machine
+
 ### First setup and test
 
 Setup [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui) by running auto installer `start_xx` on your machine (ex: `. start_macos.sh` on MacOS).

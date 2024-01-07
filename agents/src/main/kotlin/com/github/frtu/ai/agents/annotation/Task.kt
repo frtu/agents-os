@@ -5,4 +5,7 @@ package com.github.frtu.ai.agents.annotation
  *
  * It tags one `Task a role need to perform`
  */
-annotation class Task(val prompt: String)
+annotation class Task(
+    val prompt: String,
+    val format: Format = Format.TEXT,
+)
