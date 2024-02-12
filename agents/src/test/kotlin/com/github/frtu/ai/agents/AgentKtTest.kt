@@ -22,7 +22,7 @@ class AgentKtTest {
         //--------------------------------------
         // 2. Execute
         //--------------------------------------
-        val result = agentClass.getPersona()
+        val result = agentClass.getRolePrompt()
         logger.debug("result:$result")
 
         //--------------------------------------
@@ -44,7 +44,7 @@ class AgentKtTest {
         //--------------------------------------
         // 2. Execute
         //--------------------------------------
-        val result = shouldThrow<IllegalArgumentException> { agentClass.getPersona() }
+        val result = shouldThrow<IllegalArgumentException> { agentClass.getRolePrompt() }
         logger.debug("result:$result")
 
         //--------------------------------------
@@ -66,7 +66,7 @@ class AgentKtTest {
         //--------------------------------------
         // 2. Execute
         //--------------------------------------
-        val result = function.getAction()
+        val result = function.getTaskPrompt()
         logger.debug("result:$result")
 
         //--------------------------------------
@@ -88,7 +88,7 @@ class AgentKtTest {
         //--------------------------------------
         // 2. Execute
         //--------------------------------------
-        val result = shouldThrow<IllegalArgumentException> { function.getAction() }
+        val result = shouldThrow<IllegalArgumentException> { function.getTaskPrompt() }
         logger.debug("result:$result")
 
         //--------------------------------------

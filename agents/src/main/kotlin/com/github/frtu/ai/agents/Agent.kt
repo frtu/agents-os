@@ -14,14 +14,20 @@ import kotlin.reflect.full.findAnnotations
 )
 open interface Agent
 
-fun KClass<out Agent>.getPersona(): String {
+fun Agent.getRole(): Role = this::class.getRole()
+
+fun KClass<out Agent>.getRole(): Role {
     val findAnnotations = this.findAnnotations<Role>()
     findAnnotations.ifEmpty { throw IllegalArgumentException("You must annotate your agent class:[${this}] with @Persona(prompt)") }
-    return findAnnotations.first().prompt.trimIndent().trim()
+    return findAnnotations.first()
 }
 
-fun KFunction<*>.getAction(): String {
+fun KClass<out Agent>.getRolePrompt(): String = this.getRole().prompt.trimIndent().trim()
+
+fun KFunction<*>.getTask(): Task {
     val findAnnotations = this.findAnnotations<Task>()
     findAnnotations.ifEmpty { throw IllegalArgumentException("You must annotate your function:[${this}] with @Action(prompt)") }
-    return findAnnotations.first().prompt.trimIndent().trim()
+    return findAnnotations.first()
 }
+
+fun KFunction<*>.getTaskPrompt(): String = this.getTask().prompt.trimIndent().trim()

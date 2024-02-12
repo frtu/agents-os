@@ -1,8 +1,8 @@
 package com.github.frtu.ai.os.tool.agent
 
 import com.github.frtu.ai.agents.Agent
-import com.github.frtu.ai.agents.getAction
-import com.github.frtu.ai.agents.getPersona
+import com.github.frtu.ai.agents.getTaskPrompt
+import com.github.frtu.ai.agents.getRolePrompt
 import com.github.frtu.ai.os.utils.SchemaGen.generateJsonSchema
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
@@ -10,9 +10,9 @@ import kotlin.reflect.jvm.jvmErasure
 
 object AgentCallGenerator {
     fun generateSystemPrompt(functionToCall: KFunction<*>, owningClass: KClass<out Agent>): String = buildString {
-        append(owningClass.getPersona())
+        append(owningClass.getRolePrompt())
         append("\n\n")
-        append(functionToCall.getAction())
+        append(functionToCall.getTaskPrompt())
 
         val returnClass = functionToCall.returnType.jvmErasure.java
         if (returnClass != Void::class.java) {
