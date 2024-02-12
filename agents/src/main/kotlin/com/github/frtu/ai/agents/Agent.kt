@@ -8,6 +8,7 @@ import kotlin.reflect.full.findAnnotations
 
 @Role(
     name = "Generic agent",
+    description = "Parent agent doing all generic tasks",
     prompt = """
     You are a helpful assistant
     """

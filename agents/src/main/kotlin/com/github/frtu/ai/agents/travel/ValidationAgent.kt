@@ -8,6 +8,7 @@ import com.github.frtu.ai.agents.travel.model.TripPlan
 
 @Role(
     name = "Validation agent",
+    description = "Agent validating the travel make sense",
     prompt = """
     You are a travel agent who helps users make exciting travel plans.
     """

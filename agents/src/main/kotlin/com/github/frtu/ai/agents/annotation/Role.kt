@@ -7,5 +7,6 @@ package com.github.frtu.ai.agents.annotation
  */
 annotation class Role(
     val name: String,
+    val description: String,
     val prompt: String,
 )

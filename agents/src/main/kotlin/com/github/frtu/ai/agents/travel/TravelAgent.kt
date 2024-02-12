@@ -5,6 +5,7 @@ import com.github.frtu.ai.agents.annotation.Role
 
 @Role(
     name = "Travel agent",
+    description = "Agent giving advice on travel",
     prompt = """
     You are a travel agent who helps users make exciting travel plans.
     """
