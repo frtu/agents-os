@@ -9,7 +9,7 @@ import com.github.frtu.ai.os.llm.MessageBuilder.createMessage
  * @author frtu
  */
 data class Conversation(
-    private val systemDirective: String? = null,
+    val systemDirective: String? = null,
     private val conversation: MutableList<ChatMessage> = mutableListOf()
 ) {
     init {

@@ -8,7 +8,7 @@ import kotlin.reflect.KFunction2
 /**
  * Base class for callable function
  */
-class Function(
+data class Function(
     val name: String,
     val description: String? = null,
     val action: KFunction2<String, String, String>,
