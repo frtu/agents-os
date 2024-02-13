@@ -6,6 +6,7 @@ import com.github.frtu.ai.agents.annotation.Role
 
 @Role(
     name = "Json Formatter Agent",
+    description = "Agent allowing to format into Json",
     prompt = """
     You are a JSON generator, you only reply in JSON format.
     """

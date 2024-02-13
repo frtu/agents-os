@@ -19,7 +19,7 @@ fun Agent.getRole(): Role = this::class.getRole()
 
 fun KClass<out Agent>.getRole(): Role {
     val findAnnotations = this.findAnnotations<Role>()
-    findAnnotations.ifEmpty { throw IllegalArgumentException("You must annotate your agent class:[${this}] with @Persona(prompt)") }
+    findAnnotations.ifEmpty { throw IllegalArgumentException("You must annotate your agent class:[${this}] with @${Role::class.simpleName}(prompt)") }
     return findAnnotations.first()
 }
 
@@ -27,7 +27,7 @@ fun KClass<out Agent>.getRolePrompt(): String = this.getRole().prompt.trimIndent
 
 fun KFunction<*>.getTask(): Task {
     val findAnnotations = this.findAnnotations<Task>()
-    findAnnotations.ifEmpty { throw IllegalArgumentException("You must annotate your function:[${this}] with @Action(prompt)") }
+    findAnnotations.ifEmpty { throw IllegalArgumentException("You must annotate your function:[${this}] with @Task(prompt)") }
     return findAnnotations.first()
 }
 
