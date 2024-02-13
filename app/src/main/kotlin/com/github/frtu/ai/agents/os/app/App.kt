@@ -32,13 +32,19 @@ suspend fun main() {
         )
     }
 
-    val chat: Chat = OpenAiCompatibleChat(
+    val chatOpenAI: Chat = OpenAiCompatibleChat(
         apiKey = apiKey,
-//        model = "mistral-7b-instruct-v0.1.Q4_K_M.gguf",
-//        baseUrl = "http://127.0.0.1:5000/v1/",
 //        functionRegistry = functionRegistry,
         defaultEvaluator = { chatChoices -> chatChoices.first() }
     )
+    val chatOllama: Chat = OpenAiCompatibleChat(
+        apiKey = "none",
+        model = "mistral",
+        baseUrl = "http://localhost:11434/v1/",
+//        functionRegistry = functionRegistry,
+        defaultEvaluator = { chatChoices -> chatChoices.first() }
+    )
+    val chat = chatOpenAI
 
     val userMessage = user(
         """
