@@ -14,6 +14,35 @@ recommend `Q4_K_M.gguf` for normal laptop.
 
 ### First setup and test
 
+#### Using Ollama
+
+[Setup API service](https://github.com/ollama/ollama/blob/main/docs/faq.md#how-do-i-configure-ollama-server) (by
+using `launchctl setenv` on MacOS) :
+
+=> Test using API at [http://localhost:11434/](http://localhost:11434/).
+
+```bash
+curl http://localhost:11434/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+        "model": "llama2",
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant."
+            },
+            {
+                "role": "user",
+                "content": "Hello!"
+            }
+        ]
+    }'
+```
+
+See https://ollama.com/blog/openai-compatibility
+
+#### Using Oobabooga
+
 Setup [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui) by running auto installer `start_xx` on your machine (ex: `. start_macos.sh` on MacOS).
 
 => Test using UI at [http://127.0.0.1:7860/](http://127.0.0.1:7860/).
@@ -26,7 +55,7 @@ If UI is loading :
 * Configure `n-gpu-layers` to `1` (for performance)
 * `Load` it !
 
-### Start OpenAI compatible endpoint
+##### Start OpenAI compatible endpoint
 
 `oobabooga/text-generation-webui` provide an [enpoint that is compatible with OpenAI](https://github.com/oobabooga/text-generation-webui/wiki/12-%E2%80%90-OpenAI-API)
 
