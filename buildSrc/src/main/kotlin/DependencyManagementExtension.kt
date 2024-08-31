@@ -3,22 +3,22 @@ object Versions {
 
     // Allow to enable >1.4 syntax
     const val language = "1.4"
-    const val kotlin = "1.7.21"
-    const val kotlinx = "1.7.0"
+    const val kotlin = "1.9.23"
+    const val kotlinx = "1.7.3"
 
     // OpenAI http client wrapper
     const val aallam_openai = "3.5.1"
 
-    const val jackson = "2.13.2.1" // 2022-03-30
+    const val jackson = "2.15.4"
     const val springframework = "5.3.5"
-    const val frtu_base = "1.2.5"
-    const val frtu_libs = "1.2.5"
+    const val frtu_base = "2.0.0"
+    const val frtu_libs = "2.0.0"
     const val frtu_logs = "1.1.5"
 
     const val awaitility = "4.2.0" // 2022-03-04
     const val kotest = "5.4.2" // 2022-08-10
 
-    const val plugin_jacoco = "0.8.8" // 2022-04-05
+    const val plugin_jacoco = "0.8.12" // 2022-04-05
     const val plugin_google_format = "0.9" // 2020-06-09
 }
 

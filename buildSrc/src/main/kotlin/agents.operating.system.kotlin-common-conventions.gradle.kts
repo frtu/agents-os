@@ -4,7 +4,7 @@ plugins {
 }
 
 repositories {
-    // Use Maven Central for resolving dependencies.
+    mavenLocal()
     mavenCentral()
 }
 
@@ -35,7 +35,7 @@ dependencies {
     testImplementation(Libs.awaitility)
     testImplementation(Libs.mock)
     testImplementation(Libs.assertions)
-    testImplementation(kotlin("test"))
+//    testImplementation(kotlin("test"))
 
     // Platform - BOMs
     implementation(platform(Libs.bom_openai))
