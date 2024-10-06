@@ -1,0 +1,1 @@
+Thanks to https://community.temporal.io/t/newbie-temporal-says-activity-decorator-is-missing-when-not-missing-activity-is-async/12846/7

@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "llm-workflow"
+version = "0.1.0"
+description = ""
+authors = ["Tu, Fred <frederic.tu@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+python-dotenv = "^1.0.1"
+openai = "^1.51.0"
+temporalio = "^1.7.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+start_worker = "run_worker:main"

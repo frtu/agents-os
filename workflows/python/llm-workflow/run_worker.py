@@ -19,19 +19,25 @@ import asyncio
 from temporalio.client import Client
 from temporalio.worker import Worker
 
+from activities.openai_activities import OpenAIActivities
+from workflows.openai_workflow import OpenAIWorkflow
+
 async def run_worker() -> None:
     logger.info("Starting the Temporal worker...")
     try:
         client: Client = await Client.connect("localhost:7233", namespace="default")
         logger.info("Connected to Temporal server.")
         
-        workflows = []
-        activities = []
+        # Create an instance of OpenAIActivities
+        openai_activities = OpenAIActivities()
+
+        workflows = [OpenAIWorkflow]
+        activities = [openai_activities.call_openai_api]
 
         # Run the worker
         worker_instance: Worker = Worker(
             client,
-            task_queue="TASK_QUEUE_XX",
+            task_queue="openai-task-queue",
             workflows=workflows,
             activities=activities,
         )
