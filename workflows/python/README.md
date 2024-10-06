@@ -16,13 +16,19 @@ Check installation using `poetry --version`
 
 ## Workflow projects
 
+### Auto creation
+
+* `source create_project.bash <PROJECT_NAME>`
+
 ### Create your new project (ONCE)
 
 * Run `poetry new <PROJECT_NAME>`. Recommend to suffix your `PROJECT_NAME` with `-workflow` or `activity`
 * Edit your `<PROJECT_NAME>/pyproject.toml` by adding `description` & `README.md`
-* Add [temporalio](https://pypi.org/project/temporalio/) package to `pyproject.toml` :
+* Add [temporalio](https://pypi.org/project/temporalio/) & other packages to `pyproject.toml` :
 
 ```
+python-dotenv = "^1.0.1"
+openai = "^1.51.0"
 temporalio = "^1.7.1"
 ```
 
