@@ -1,4 +1,4 @@
-package com.github.frtu.ai.os.service.commands
+package com.github.frtu.ai.os.service.command
 
 import com.github.frtu.kotlin.llm.os.llm.Chat
 import com.github.frtu.kotlin.llm.os.memory.Conversation

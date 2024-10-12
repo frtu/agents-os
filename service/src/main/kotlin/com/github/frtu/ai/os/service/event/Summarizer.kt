@@ -1,4 +1,4 @@
-package com.github.frtu.ai.os.service.events
+package com.github.frtu.ai.os.service.event
 
 import com.github.frtu.ai.os.service.lib.dialogue.ConversationHandler
 import com.github.frtu.ai.os.service.lib.dialogue.MessageToUser
@@ -12,4 +12,6 @@ class Summarizer : ConversationHandler<AppMentionEvent> {
         val messages = threadManager.retrieveAllMessageNonBot()
         return MessageToUser("I see ${messages.size} previous non bot messages")
     }
+
+    override fun getEvent() = AppMentionEvent::class
 }

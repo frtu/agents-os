@@ -1,6 +1,7 @@
 package com.github.frtu.ai.os.service.lib.dialogue
 
 import com.slack.api.model.event.Event
+import kotlin.reflect.KClass
 
 interface ConversationHandler<E : Event> {
     /**
@@ -19,4 +20,6 @@ interface ConversationHandler<E : Event> {
         // Current event
         threadManager: ThreadManager,
     ): MessageToUser?
+
+    fun getEvent(): KClass<E>
 }
