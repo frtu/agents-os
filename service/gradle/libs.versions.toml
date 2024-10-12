@@ -1,0 +1,38 @@
+[versions]
+# aallam-openai
+aallam-openai = "3.5.1"
+
+# libs
+frtu-libs = "2.0.4"
+kjetland = "1.0.39"
+
+# core
+kotlin = "1.9.25"
+coroutines = "1.7.2"
+ktor = "2.3.2"
+
+[libraries]
+# frtu libs
+serdes-json = { group = "com.github.frtu.libs", name = "lib-serdes-json", version.ref = "frtu-libs" }
+spring-boot-slack = { group = "com.github.frtu.libs", name = "lib-spring-boot-slack", version.ref = "frtu-libs" }
+spring-boot-llm-os = { group = "com.github.frtu.libs", name = "lib-spring-boot-llm-os", version.ref = "frtu-libs" }
+
+# aallam-openai
+aallam-openai-client = { group = "com.aallam.openai", name = "openai-client", version.ref = "aallam-openai" }
+
+# Coroutines
+coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
+coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
+
+# Serialization
+jsonschema-generate = { group = "com.kjetland", name = "mbknor-jackson-jsonschema_2.13", version.ref = "kjetland" }
+
+# Ktor engines
+ktor-client-apache = { group = "io.ktor", name = "ktor-client-apache", version.ref = "ktor" }
+
+# ulid
+ktoken = { group = "com.aallam.ktoken", name = "ktoken", version = "0.3.0" }
+
+[plugins]
+kotlin-multiplaform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
