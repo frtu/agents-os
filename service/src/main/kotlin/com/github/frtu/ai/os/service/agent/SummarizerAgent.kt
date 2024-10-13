@@ -1,4 +1,4 @@
-package com.github.frtu.ai.os.service.event
+package com.github.frtu.ai.os.service.agent
 
 import com.github.frtu.kotlin.llm.os.llm.Chat
 import com.github.frtu.kotlin.llm.os.memory.Conversation
@@ -12,10 +12,9 @@ import com.slack.api.model.event.AppMentionEvent
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
-import org.springframework.stereotype.Component
 
-@Component
-class Summarizer(
+//@Component
+class SummarizerAgent(
     // Chat engine
     private val chat: Chat,
     // For execution
