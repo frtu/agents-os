@@ -46,6 +46,13 @@ with(Conversation()) {
     chat.sendMessage(user("Who won the world series in 2020?"))
 ```
 
+#### Intent recognition
+
+Adding [IntentClassifierAgent.kt](service%2Fsrc%2Fmain%2Fkotlin%2Fcom%2Fgithub%2Ffrtu%2Fai%2Fos%2Fservice%2Fagent%2FIntentClassifierAgent.kt),
+that test ability to provide Intent recognition / classification :
+
+![Intent.png](_docs_%2Fimages%2FIntent.png)
+
 #### Embedding (Short term memory) - TBD
 
 Storage for raw knowledge
