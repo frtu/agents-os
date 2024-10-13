@@ -1,9 +1,9 @@
 [versions]
 # aallam-openai
-aallam-openai = "3.5.1"
+aallam-openai = "3.8.0"
 
 # libs
-frtu-libs = "2.0.4"
+frtu-libs = "2.0.5"
 frtu-logs = "1.1.5"
 kjetland = "1.0.39"
 

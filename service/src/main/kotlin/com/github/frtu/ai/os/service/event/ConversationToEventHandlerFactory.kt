@@ -1,7 +1,7 @@
 package com.github.frtu.ai.os.service.event
 
-import com.github.frtu.ai.os.service.lib.dialogue.ConversationHandler
-import com.github.frtu.ai.os.service.lib.event.InteractiveEventHandler
+import com.github.frtu.kotlin.spring.slack.dialogue.ConversationHandler
+import com.github.frtu.kotlin.spring.slack.event.InteractiveEventHandler
 import com.slack.api.bolt.handler.BoltEventHandler
 import com.slack.api.model.event.AppMentionEvent
 import org.springframework.context.annotation.Bean

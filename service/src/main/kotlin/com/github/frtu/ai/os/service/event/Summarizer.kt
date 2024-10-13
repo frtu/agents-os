@@ -1,11 +1,12 @@
 package com.github.frtu.ai.os.service.event
 
-import com.github.frtu.ai.os.service.lib.dialogue.ConversationHandler
-import com.github.frtu.ai.os.service.lib.dialogue.MessageToUser
-import com.github.frtu.ai.os.service.lib.dialogue.ThreadManager
 import com.github.frtu.kotlin.llm.os.llm.Chat
 import com.github.frtu.kotlin.llm.os.memory.Conversation
 import com.github.frtu.kotlin.llm.os.tool.FunctionRegistry
+import com.github.frtu.kotlin.spring.slack.dialogue.ConversationHandler
+import com.github.frtu.kotlin.spring.slack.dialogue.MessageFromThread
+import com.github.frtu.kotlin.spring.slack.dialogue.MessageToThread
+import com.github.frtu.kotlin.spring.slack.dialogue.ThreadManager
 import com.github.frtu.logs.core.StructuredLogger
 import com.slack.api.model.event.AppMentionEvent
 import kotlinx.coroutines.runBlocking
@@ -20,21 +21,21 @@ class Summarizer(
     // For execution
     private val functionRegistry: FunctionRegistry? = null,
 ) : ConversationHandler<AppMentionEvent> {
-    override fun invoke(eventId: String, event: AppMentionEvent, threadManager: ThreadManager): MessageToUser? =
+    override fun invoke(messageFromThread: MessageFromThread<AppMentionEvent>, threadManager: ThreadManager): MessageToThread? =
         runBlocking {
-            val messages = threadManager.retrieveAllMessageNonBot()
+            val commandArgText = messageFromThread.message.text
+
+            val messages = threadManager.retrieveAllMessagesNonBot()
             val allMessageFromThread = messages.mapNotNull {
                 val result = it?.text?.trim()
                 result
             }.joinToString("\n")
             logger.debug("allMessageFromThread:$allMessageFromThread")
 
-            val commandArgText = event.text
-
             var responseToUser: String = ""
             with(Conversation()) {
                 system("Help to summarize the thread:$allMessageFromThread")
-                val response = chat.sendMessage(user(commandArgText))
+                val response = chat.sendMessage(user(allMessageFromThread))
                 logger.info(response.toString())
 
                 val message = response.message
@@ -59,8 +60,7 @@ class Summarizer(
                     responseToUser = message.content!!
                 }
             }
-
-            return@runBlocking MessageToUser("Here is the summary of the previous ${messages.size} non bot messages. $responseToUser")
+            return@runBlocking MessageToThread("Here is the summary of the previous ${messages.size} non bot messages. $responseToUser")
         }
 
     override fun getEvent() = AppMentionEvent::class
