@@ -1,4 +1,4 @@
-package com.github.frtu.ai.os.service.handler
+package com.github.frtu.ai.os.service.agent
 
 import com.github.frtu.kotlin.llm.os.llm.Chat
 import com.github.frtu.kotlin.llm.os.memory.Conversation
