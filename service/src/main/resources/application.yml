@@ -20,6 +20,10 @@ spring:
   application:
     name: ${application.name}
 
+  autoconfigure.exclude:
+    - com.github.frtu.kotlin.llm.spring.config.LlmOsAutoConfigs
+    - com.github.frtu.kotlin.spring.slack.config.SlackAutoConfigs
+
 # ======================================
 # Management
 # ======================================
