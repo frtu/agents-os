@@ -1,0 +1,222 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.github.frtu.llm.os</groupId>
+    <artifactId>agents-os-service</artifactId>
+    <version>2.0.7-SNAPSHOT</version>
+
+    <properties>
+        <frtu-libs.version>2.0.7-SNAPSHOT</frtu-libs.version>
+
+        <!--https://kotlinlang.org/docs/reference/using-maven.html-->
+        <kotlin.version>1.9.25</kotlin.version>
+        <kotlinx.version>1.7.3</kotlinx.version>
+        <kotlin.test.version>3.4.2</kotlin.test.version>
+
+        <aallam-openai.version>3.8.0</aallam-openai.version>
+        <!-- Make sure to import your own version of ktor -->
+        <ktor-client.version>2.3.2</ktor-client.version>
+
+        <spring-boot.version>2.7.15</spring-boot.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.aallam.openai</groupId>
+            <artifactId>openai-client-jvm</artifactId>
+            <version>${aallam-openai.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.ktor</groupId>
+            <artifactId>ktor-client-okhttp-jvm</artifactId>
+            <version>${ktor-client.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--Internal projects -->
+        <dependency>
+            <groupId>com.github.frtu.libs</groupId>
+            <artifactId>lib-action</artifactId>
+            <version>${frtu-libs.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.frtu.libs</groupId>
+            <artifactId>lib-utils</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.frtu.libs</groupId>
+            <artifactId>lib-serdes-json</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.frtu.libs</groupId>
+            <artifactId>lib-spring-boot-llm-os</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.frtu.libs</groupId>
+            <artifactId>lib-spring-boot-slack</artifactId>
+        </dependency>
+
+
+        <!--===========================-->
+        <!-- SPRING BOOT -->
+        <!--===========================-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!--===========================-->
+        <!--Test -->
+        <!--===========================-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- https://assertj.github.io/doc/ -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--===========================-->
+        <!--Test -->
+        <!--===========================-->
+        <!-- https://kotest.io/docs/quickstart -->
+        <dependency>
+            <groupId>io.kotlintest</groupId>
+            <artifactId>kotlintest-runner-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- https://mockk.io/ -->
+        <dependency>
+            <groupId>io.mockk</groupId>
+            <artifactId>mockk</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Downgrade to junit 5.4.x version to avoid - No test found -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--===========================-->
+        <!-- Platform - Log -->
+        <!--===========================-->
+        <dependency>
+            <groupId>com.github.frtu.logs</groupId>
+            <artifactId>logger-core</artifactId>
+        </dependency>
+        <!-- Logging -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <!-- https://kotlinlang.org/docs/reference/using-maven.html -->
+        <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
+        <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
+
+        <plugins>
+            <plugin>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-maven-plugin</artifactId>
+                <!--https://kotlinlang.org/docs/reference/compiler-plugins.html-->
+                <configuration>
+                    <compilerPlugins>
+                        <plugin>spring</plugin>
+                        <!-- https://kotlinlang.org/docs/no-arg-plugin.html -->
+                        <plugin>no-arg</plugin>
+                        <!-- https://kotlinlang.org/docs/all-open-plugin.html -->
+                        <plugin>all-open</plugin>
+                    </compilerPlugins>
+                    <pluginOptions>
+                        <option>no-arg:annotation=com.github.frtu.kotlin.utils.data.ValueObject</option>
+                        <option>all-open:annotation=com.github.frtu.kotlin.utils.data.ValueObject</option>
+                    </pluginOptions>
+                </configuration>
+            </plugin>
+        </plugins>
+
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.jetbrains.kotlin</groupId>
+                    <artifactId>kotlin-maven-plugin</artifactId>
+                    <version>${kotlin.version}</version>
+                    <configuration>
+                        <jvmTarget>${java.version}</jvmTarget>
+                        <javaParameters>true</javaParameters>
+                        <args>
+                            <arg>-Xjsr305=strict</arg>
+                        </args>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>compile</id>
+                            <phase>process-sources</phase>
+                            <goals>
+                                <goal>compile</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>test-compile</id>
+                            <phase>test-compile</phase>
+                            <goals>
+                                <goal>test-compile</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <dependencies>
+                        <!-- https://kotlinlang.org/docs/no-arg-plugin.html -->
+                        <dependency>
+                            <groupId>org.jetbrains.kotlin</groupId>
+                            <artifactId>kotlin-maven-noarg</artifactId>
+                            <version>${kotlin.version}</version>
+                        </dependency>
+                        <!-- https://kotlinlang.org/docs/all-open-plugin.html -->
+                        <dependency>
+                            <groupId>org.jetbrains.kotlin</groupId>
+                            <artifactId>kotlin-maven-allopen</artifactId>
+                            <version>${kotlin.version}</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.github.frtu.libs</groupId>
+                <artifactId>lib-kotlin-bom</artifactId>
+                <version>${frtu-libs.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>
