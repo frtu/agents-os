@@ -1,7 +1,7 @@
 package com.github.frtu.ai.os.service.event
 
 import com.github.frtu.ai.os.service.agent.IntentClassifierAgent
-import com.github.frtu.kotlin.llm.os.agent.UnstructuredBaseAgent
+import com.github.frtu.kotlin.ai.os.llm.agent.UnstructuredBaseAgent
 import com.github.frtu.kotlin.spring.slack.dialogue.ConversationHandler
 import com.github.frtu.kotlin.spring.slack.dialogue.MessageFromThread
 import com.github.frtu.kotlin.spring.slack.dialogue.MessageToThread

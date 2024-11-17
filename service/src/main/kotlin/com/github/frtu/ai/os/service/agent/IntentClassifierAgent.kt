@@ -1,8 +1,8 @@
 package com.github.frtu.ai.os.service.agent
 
-import com.github.frtu.kotlin.llm.os.agent.UnstructuredBaseAgent
-import com.github.frtu.kotlin.llm.os.llm.Chat
-import com.github.frtu.kotlin.llm.os.tool.ToolRegistry
+import com.github.frtu.kotlin.ai.os.llm.Chat
+import com.github.frtu.kotlin.ai.os.llm.agent.UnstructuredBaseAgent
+import com.github.frtu.kotlin.tool.ToolRegistry
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Component
 

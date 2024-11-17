@@ -1,6 +1,6 @@
 package com.github.frtu.ai.os.service.config
 
-import com.github.frtu.kotlin.llm.spring.builder.ChatApiConfigs
+import com.github.frtu.kotlin.ai.spring.builder.ChatApiConfigs
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
