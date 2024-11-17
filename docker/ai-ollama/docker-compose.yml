@@ -1,0 +1,47 @@
+version: '3'
+
+volumes:
+  ollama_storage:
+
+services:
+  # https://hub.docker.com/r/ollama/ollama/tags
+  ollama:
+    image: ollama/ollama:${OLLAMA_VERSION}
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - 11434:11434
+    volumes:
+    - ollama_storage:/root/.ollama
+    networks:
+      - network
+
+  init-ollama:
+    image: ollama/ollama:${OLLAMA_VERSION}
+    container_name: ollama-pull-llama
+    volumes:
+    - ollama_storage:/root/.ollama
+    entrypoint: /bin/sh
+    command:
+      - "-c"
+      - "sleep 3; OLLAMA_HOST=ollama:11434 ollama pull phi3; OLLAMA_HOST=ollama:11434 ollama pull nomic-embed-text"
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    restart: unless-stopped
+    container_name: open-webui
+    ports:
+      - "3000:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - $PWD/data/open-webui:/app/backend/data
+    networks:
+      - network
+
+networks:
+  network:
+    driver: bridge
+    # To enable IPv6 uncomment below lines
+#    driver_opts:
+#        com.docker.network.enable_ipv6: "true"
