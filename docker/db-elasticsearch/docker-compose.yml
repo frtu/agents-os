@@ -1,0 +1,93 @@
+# https://www.elastic.co/guide/en/elasticsearch/reference/8.15/docker.html#docker-compose-file
+volumes:
+  esplugins:
+    driver: local
+
+services:
+  # https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html
+  # https://github.com/elastic/elasticsearch/blob/main/docs/reference/setup/install/docker/docker-compose.yml
+  elasticsearch:
+    image: ${ELASTICSEARCH_IMAGE}
+    # ----------------------------------
+    # UNCOMMENT TO BUILD ES WITH PLUGINS
+    # ----------------------------------
+    # build:
+    #   dockerfile: ./Dockerfile
+    #   context: ./
+    restart: unless-stopped
+    hostname: elasticsearch
+    ports:
+      - ${ES_PORT:-9200}:9200
+    volumes:
+      - ~/data/elasticsearch:/usr/share/elasticsearch/data
+      # https://elk-docker.readthedocs.io/#installing-elasticsearch-plugins
+      - esplugins:/usr/share/elasticsearch/plugins      
+    environment:
+      # https://www.elastic.co/guide/en/elasticsearch/reference/current/settings.html
+      # https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html#docker-prod-prerequisites
+      - node.name=${ES_NODE_NAME}
+      - discovery.type=single-node
+      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+      - http.port=9200
+      - http.cors.enabled=true
+      - http.cors.allow-origin="*"
+      - http.cors.allow-headers=X-Requested-With,Content-Type,Content-Length,Authorization
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - ELASTIC_USER=${ELASTIC_USER:-}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-}
+      # https://www.elastic.co/guide/en/elasticsearch/reference/8.15/docker.html#_disable_swapping
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - bridge
+    healthcheck:
+      # https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster-health.html
+      test: [ "CMD", "curl", "--fail", "-u ${ELASTIC_USER}:${ELASTIC_PASSWORD}", "${ELASTICSEARCH_URL}/_cluster/health" ]
+      interval: 10s
+      timeout: 40s
+      retries: 5
+      start_period: 40s
+
+  # https://www.elastic.co/guide/en/kibana/current/docker.html
+  # https://www.elastic.co/guide/en/kibana/current/settings.html
+  kibana:
+    image: ${KIBANA_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+    ports:
+      - ${KIBANA_PORT:-5601}:5601
+    volumes:
+      - ~/data/kibana:/usr/share/kibana/data    
+    environment:
+      # https://www.elastic.co/guide/en/kibana/current/docker.html
+      - ELASTICSEARCH_HOSTS=${ELASTICSEARCH_URL}
+      # https://www.elastic.co/guide/en/elasticsearch/reference/8.15/configuring-stack-security.html#stack-start-with-security
+      - ELASTICSEARCH_USERNAME=${ELASTIC_USER:-}
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:-}
+    networks:
+      - bridge
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -s http://localhost:5601 >/dev/null || exit 1']
+      interval: 10s
+      timeout: 30s
+      retries: 3
+
+  # https://github.com/Unstructured-IO
+  # unstructured:
+  #   image: ${UNSTRUCTURED_API_IMAGE}
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ~/data/unstructured:/app/data
+
+# https://docs.docker.com/compose/networking/
+networks:
+  bridge:
+    driver: bridge
+    # To enable IPv6 uncomment below lines
+#    driver_opts:
+#        com.docker.network.enable_ipv6: "true"
