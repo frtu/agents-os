@@ -22,6 +22,7 @@ services:
       - ~/data/elasticsearch:/usr/share/elasticsearch/data
       # https://elk-docker.readthedocs.io/#installing-elasticsearch-plugins
       - esplugins:/usr/share/elasticsearch/plugins      
+    env_file: .env
     environment:
       # https://www.elastic.co/guide/en/elasticsearch/reference/current/settings.html
       # https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html#docker-prod-prerequisites
@@ -36,12 +37,14 @@ services:
       - xpack.security.http.ssl.enabled=false
       - ELASTIC_USER=${ELASTIC_USER:-}
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-}
+      - TZ=${TIMEZONE}
       # https://www.elastic.co/guide/en/elasticsearch/reference/8.15/docker.html#_disable_swapping
       - bootstrap.memory_lock=true
     ulimits:
       memlock:
         soft: -1
         hard: -1
+    mem_limit: ${MEM_LIMIT}
     networks:
       - bridge
     healthcheck:
@@ -63,6 +66,7 @@ services:
       - ${KIBANA_PORT:-5601}:5601
     volumes:
       - ~/data/kibana:/usr/share/kibana/data    
+    env_file: .env
     environment:
       # https://www.elastic.co/guide/en/kibana/current/docker.html
       - ELASTICSEARCH_HOSTS=${ELASTICSEARCH_URL}

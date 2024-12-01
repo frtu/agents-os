@@ -1,4 +1,4 @@
-ARG STACK_VERSION=8.15.4
+ARG STACK_VERSION=8.15.3
 
 FROM docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
 
