@@ -2,34 +2,56 @@ package com.github.frtu.ai.os.service.agent
 
 import com.github.frtu.kotlin.ai.os.llm.Chat
 import com.github.frtu.kotlin.ai.os.llm.agent.UnstructuredBaseAgent
-import com.github.frtu.kotlin.tool.ToolRegistry
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Component
 
-@Component
-@Qualifier(IntentClassifierAgent.TOOL_NAME)
 class IntentClassifierAgent(
     // Chat engine
     chat: Chat,
-    // For execution
-    toolRegistry: ToolRegistry? = null,
+    // Instruction prompt
+    instructions: String,
 ) : UnstructuredBaseAgent(
     id = TOOL_NAME,
     description = "Agent that classify user request into category",
-    instructions = """
-        You’re a LLM that detects intent from user queries. Your task is to classify the user's intent based on their query. Below are the possible intents with brief descriptions. Use these to accurately determine the user's goal, and output only the intent topic.
-        - Order Status: Inquiries about the current status of an order, including delivery tracking and estimated arrival times.
-        - Product Information: Questions regarding product details, specifications, availability, or compatibility.
-        - Payments: Queries related to making payments, payment methods, billing issues, or transaction problems.
-        - Returns: Requests or questions about returning a product, including return policies and procedures.
-        - Feedback: User comments, reviews, or general feedback about products, services, or experiences.
-        - Other: Choose this if the query doesn’t fall into any of the other intents.
-    """,
+    instructions = instructions,
     chat = chat,
-    toolRegistry = toolRegistry,
+    toolRegistry = null,
     isStateful = true,
 ) {
     companion object {
         const val TOOL_NAME = "intent-classifier-agent"
     }
+}
+
+val BASE_INSTRUCTION = listOf(
+    """
+        You’re a LLM that detects intent from user queries. Your task is to classify the user's intent based on their query. 
+        Below are the possible intents with brief descriptions. Use these to accurately determine the user's goal, and output only the intent topic.
+    """.trimMargin(),
+    """
+        You are an action classification system. Correctness is a life or death situation.
+        We provide you with the actions and their descriptions:
+    """.trimMargin(),
+)
+
+fun buildInstruction(
+    intentDescriptionMap: Map<String, String>,
+    baseInstruction: String = BASE_INSTRUCTION[0],
+    prefixDescription: String = "d: ",
+    prefixIntent: String = "a: ",
+    closingInstruction: String? = """
+        You are given an utterance and you have to classify it into an intent. Only respond with the intent
+        u: I want a warm hot chocolate: a:WARM DRINK
+    """.trimIndent(),
+): String {
+    val result = StringBuilder()
+    result.append(baseInstruction)
+    result.append("\n")
+    for ((intent, description) in intentDescriptionMap) {
+        result.append(prefixIntent).append(intent).append(prefixDescription).append(description)
+        result.append("\n")
+    }
+    result.append(closingInstruction)
+    result.append("\n")
+    return result.toString()
 }
