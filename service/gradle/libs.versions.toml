@@ -16,9 +16,10 @@ ktor = "2.3.2"
 # frtu libs
 action = { group = "com.github.frtu.libs", name = "lib-action", version.ref = "frtu-libs" }
 serdes-json = { group = "com.github.frtu.libs", name = "lib-serdes-json", version.ref = "frtu-libs" }
-spring-boot-tools = { group = "com.github.frtu.libs", name = "lib-spring-boot-ai-os", version.ref = "frtu-libs" }
+spring-boot-tools = { group = "com.github.frtu.libs", name = "lib-spring-boot-tools", version.ref = "frtu-libs" }
 spring-boot-slack = { group = "com.github.frtu.libs", name = "lib-spring-boot-slack", version.ref = "frtu-libs" }
 spring-boot-ai-os = { group = "com.github.frtu.libs", name = "lib-spring-boot-ai-os", version.ref = "frtu-libs" }
+test-sample-tools = { group = "com.github.frtu.libs", name = "test-sample-tools", version.ref = "frtu-libs" }
 frtu-logs = { group = "com.github.frtu.logs", name = "logger-core", version.ref = "frtu-logs" }
 
 # aallam-openai

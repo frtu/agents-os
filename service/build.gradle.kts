@@ -26,9 +26,10 @@ repositories {
 dependencies {
     // frtu libs
     implementation(libs.serdes.json)
-    implementation(libs.spring.boot.tools)
     implementation(libs.spring.boot.ai.os)
     implementation(libs.spring.boot.slack)
+    implementation(libs.spring.boot.tools)
+    implementation(libs.test.sample.tools)
 
     // OpenAI aallam libs
     implementation(libs.aallam.openai.client)
@@ -46,6 +47,7 @@ dependencies {
     // Core
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.8.1")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
