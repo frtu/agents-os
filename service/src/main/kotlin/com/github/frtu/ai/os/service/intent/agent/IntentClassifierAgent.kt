@@ -1,9 +1,7 @@
-package com.github.frtu.ai.os.service.agent
+package com.github.frtu.ai.os.service.intent.agent
 
 import com.github.frtu.kotlin.ai.os.llm.Chat
 import com.github.frtu.kotlin.ai.os.llm.agent.UnstructuredBaseAgent
-import org.springframework.beans.factory.annotation.Qualifier
-import org.springframework.stereotype.Component
 
 class IntentClassifierAgent(
     // Chat engine
@@ -18,6 +16,31 @@ class IntentClassifierAgent(
     toolRegistry = null,
     isStateful = true,
 ) {
+    fun init() {
+        logger.info("Creating agent with instruction:{}", instructions)
+    }
+
+    constructor(
+        chat: Chat,
+        intentDescriptionMap: Map<String, String>,
+        baseInstruction: String = BASE_INSTRUCTION[0],
+        prefixDescription: String = "d: ",
+        prefixIntent: String = "",
+        closingInstruction: String? = """
+            You are given an utterance and you have to classify it into an intent. Only respond with the intent
+            u: I want a warm hot chocolate: a:WARM DRINK
+        """.trimIndent(),
+    ) : this(
+        chat = chat,
+        instructions = buildInstruction(
+            intentDescriptionMap = intentDescriptionMap,
+            baseInstruction = baseInstruction,
+            prefixDescription = prefixDescription,
+            prefixIntent = prefixIntent,
+            closingInstruction = closingInstruction,
+        )
+    )
+
     companion object {
         const val TOOL_NAME = "intent-classifier-agent"
     }

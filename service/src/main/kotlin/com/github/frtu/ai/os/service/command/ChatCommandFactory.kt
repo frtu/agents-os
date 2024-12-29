@@ -1,6 +1,6 @@
 package com.github.frtu.ai.os.service.command
 
-import com.github.frtu.ai.os.service.agent.IntentClassifierAgent
+import com.github.frtu.ai.os.service.intent.agent.IntentClassifierAgent
 import com.github.frtu.kotlin.ai.os.llm.agent.UnstructuredBaseAgent
 import com.github.frtu.kotlin.spring.slack.command.ExecutorHandler
 import com.github.frtu.kotlin.spring.slack.command.LongRunningSlashCommandHandler

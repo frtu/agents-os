@@ -1,7 +1,7 @@
-package com.github.frtu.ai.os.service.config
+package com.github.frtu.ai.os.service.intent.config
 
-import com.github.frtu.ai.os.service.agent.IntentClassifierAgent
-import com.github.frtu.ai.os.service.agent.buildInstruction
+import com.github.frtu.ai.os.service.intent.agent.IntentClassifierAgent
+import com.github.frtu.ai.os.service.intent.agent.buildInstruction
 import com.github.frtu.kotlin.ai.os.llm.Chat
 import com.github.frtu.kotlin.tool.ToolRegistry
 import org.springframework.beans.factory.annotation.Qualifier
