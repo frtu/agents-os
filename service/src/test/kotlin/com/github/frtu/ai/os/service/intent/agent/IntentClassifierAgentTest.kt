@@ -37,10 +37,10 @@ class IntentClassifierAgentTest {
         // Init var
         val agent = IntentClassifierAgent(
             chat = chat,
-            intentDescriptionMap = mapOf(
-                "Delivery status" to "Inquiries about the current status of a delivery.",
-                "Unblock delivery" to "Delivery is blocked and need to call API to unblock.",
-                "Other" to "Choose this if the query doesn’t fall into any of the other intents.",
+            intents = listOf(
+                Intent(id = "Delivery status", description = "Inquiries about the current status of a delivery."),
+                Intent(id = "Unblock delivery", description = "Delivery is blocked and need to call API to unblock."),
+                Intent(id = "Other", description = "Choose this if the query doesn’t fall into any of the other intents."),
             )
         )
 

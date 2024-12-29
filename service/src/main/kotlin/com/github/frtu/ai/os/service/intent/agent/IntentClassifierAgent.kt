@@ -16,9 +16,22 @@ class IntentClassifierAgent(
     toolRegistry = null,
     isStateful = true,
 ) {
-    fun init() {
-        logger.info("Creating agent with instruction:{}", instructions)
+    init {
+        logger.info("Creating Intent recognition with instruction:{}", instructions)
     }
+
+    constructor(
+        chat: Chat,
+        intents: List<Intent>,
+    ) : this(
+        chat = chat,
+        intentDescriptionMap = intents.associateBy({ it.id }, { it.description }),
+        closingInstruction = """
+            You are given an utterance and you have to classify it into an intent. 
+            It's a matter of life and death, only respond with the intent in the following list
+            List:[${intents.joinToString(separator = ",") { it.id }}]
+        """.trimIndent(),
+    )
 
     constructor(
         chat: Chat,
