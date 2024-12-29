@@ -12,6 +12,9 @@ kotlin = "1.9.25"
 coroutines = "1.7.2"
 ktor = "2.3.2"
 
+# test
+kotest = "5.9.1"
+
 [libraries]
 # frtu libs
 action = { group = "com.github.frtu.libs", name = "lib-action", version.ref = "frtu-libs" }
@@ -31,6 +34,10 @@ coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-
 
 # Serialization
 jsonschema-generate = { group = "com.kjetland", name = "mbknor-jackson-jsonschema_2.13", version.ref = "kjetland" }
+
+# Unit Test
+kotest-runner = { group = "io.kotest", name = "kotest-runner-junit5", version.ref = "kotest" }
+kotest-assertions = { group = "io.kotest", name = "kotest-assertions-core-jvm", version.ref = "kotest" }
 
 # Ktor engines
 ktor-client-apache = { group = "io.ktor", name = "ktor-client-apache", version.ref = "ktor" }

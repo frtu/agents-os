@@ -27,8 +27,9 @@ class IntentClassifierAgent(
         prefixDescription: String = "d: ",
         prefixIntent: String = "",
         closingInstruction: String? = """
-            You are given an utterance and you have to classify it into an intent. Only respond with the intent
-            u: I want a warm hot chocolate: a:WARM DRINK
+            You are given an utterance and you have to classify it into an intent. 
+            Only respond with the intent using lower case & separated with space :
+            u: I want a warm hot chocolate: a:warm drink
         """.trimIndent(),
     ) : this(
         chat = chat,
@@ -63,8 +64,9 @@ fun buildInstruction(
     prefixDescription: String = "d: ",
     prefixIntent: String = "a: ",
     closingInstruction: String? = """
-        You are given an utterance and you have to classify it into an intent. Only respond with the intent
-        u: I want a warm hot chocolate: a:WARM DRINK
+        You are given an utterance and you have to classify it into an intent. 
+        Only respond with the intent using lower case & separated with space :
+        u: I want a warm hot chocolate: a:warm drink
     """.trimIndent(),
 ): String {
     val result = StringBuilder()
