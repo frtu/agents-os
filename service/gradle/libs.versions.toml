@@ -14,6 +14,7 @@ ktor = "2.3.2"
 
 # test
 kotest = "5.9.1"
+assertj = "3.26.3"
 
 [libraries]
 # frtu libs
@@ -38,6 +39,7 @@ jsonschema-generate = { group = "com.kjetland", name = "mbknor-jackson-jsonschem
 # Unit Test
 kotest-runner = { group = "io.kotest", name = "kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions = { group = "io.kotest", name = "kotest-assertions-core-jvm", version.ref = "kotest" }
+assertj = { group = "org.assertj", name = "assertj-core", version.ref = "assertj" }
 
 # Ktor engines
 ktor-client-apache = { group = "io.ktor", name = "ktor-client-apache", version.ref = "ktor" }
