@@ -8,7 +8,6 @@ import com.github.frtu.kotlin.spring.slack.dialogue.ConversationHandler
 import com.github.frtu.kotlin.spring.slack.dialogue.MessageFromThread
 import com.github.frtu.kotlin.spring.slack.dialogue.MessageToThread
 import com.github.frtu.kotlin.spring.slack.dialogue.ThreadManager
-import com.github.frtu.kotlin.tool.Tool
 import com.github.frtu.kotlin.tool.ToolRegistry
 import com.github.frtu.logs.core.StructuredLogger
 import com.slack.api.model.event.AppMentionEvent
@@ -19,7 +18,7 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Component
 
 @Component
-class IntentClassifierCommand(
+class IntentClassifierAndRoutingToAgentWorkflow(
     @Qualifier(IntentClassifierAgent.TOOL_NAME)
     private val conciergeAgent: StructuredBaseAgent<String, IntentResult>,
     /** For function / tool execution */
