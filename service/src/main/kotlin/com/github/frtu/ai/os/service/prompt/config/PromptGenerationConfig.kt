@@ -13,7 +13,10 @@ class PromptGenerationConfig {
     @Bean(TOOL_NAME)
     @Qualifier(TOOL_NAME)
     fun promptGenerationAgent(chat: Chat): UnstructuredBaseAgent {
-        return UnstructuredBaseAgent.create(chat, PROMPT_GENERATION_TEMPLATE).also { agent ->
+        return UnstructuredBaseAgent.create(
+            chat, PROMPT_GENERATION_TEMPLATE,
+            description = PROMPT_GENERATION_TEMPLATE.description
+        ).also { agent ->
             logger.info("Created new agent id:{} from prompt:{}", agent.id, agent.instructions)
         }
     }
