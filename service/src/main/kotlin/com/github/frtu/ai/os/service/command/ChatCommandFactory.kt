@@ -1,7 +1,8 @@
 package com.github.frtu.ai.os.service.command
 
-import com.github.frtu.ai.os.service.intent.agent.IntentClassifierAgent
-import com.github.frtu.kotlin.ai.os.llm.agent.UnstructuredBaseAgent
+import com.github.frtu.kotlin.ai.feature.intent.agent.IntentClassifierAgent
+import com.github.frtu.kotlin.ai.feature.intent.model.IntentResult
+import com.github.frtu.kotlin.ai.os.llm.agent.StructuredBaseAgent
 import com.github.frtu.kotlin.spring.slack.command.ExecutorHandler
 import com.github.frtu.kotlin.spring.slack.command.LongRunningSlashCommandHandler
 import com.slack.api.bolt.context.builtin.SlashCommandContext
@@ -15,7 +16,7 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 class ChatCommandFactory(
     @Qualifier(IntentClassifierAgent.TOOL_NAME)
-    private val agent: UnstructuredBaseAgent,
+    private val conciergeAgent: StructuredBaseAgent<String, IntentResult>,
 ) {
     /**
      * Ask a private question
@@ -26,9 +27,9 @@ class ChatCommandFactory(
             override suspend fun invoke(req: SlashCommandRequest, ctx: SlashCommandContext, logger: Logger): String? {
                 val request = req.payload.text
                 logger.debug("Request:$request")
-                val response = agent.execute(request)
+                val response = conciergeAgent.execute(request)
                 logger.debug("Response:$response")
-                return response
+                return response.intent
             }
         },
         errorHandler = { 400 },
