@@ -29,7 +29,8 @@ dependencies {
     implementation(libs.spring.boot.ai.os)
     implementation(libs.spring.boot.slack)
     implementation(libs.spring.boot.tools)
-    implementation(libs.test.sample.tools)
+//    implementation(libs.test.tools.sample)
+    implementation(libs.test.ai.os.agents)
 
     // OpenAI aallam libs
     implementation(libs.aallam.openai.client)

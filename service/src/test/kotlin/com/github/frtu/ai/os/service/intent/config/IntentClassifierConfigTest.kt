@@ -2,15 +2,10 @@ package com.github.frtu.ai.os.service.intent.config
 
 import com.github.frtu.ai.os.service.agent.SummarizerAgent
 import com.github.frtu.kotlin.ai.feature.intent.agent.IntentClassifierAgent
-import com.github.frtu.kotlin.ai.feature.intent.model.Intent
 import com.github.frtu.kotlin.ai.os.llm.Chat
-import com.github.frtu.kotlin.ai.os.llm.agent.UnstructuredBaseAgent
 import com.github.frtu.kotlin.ai.spring.builder.ChatApiConfigs
-import com.github.frtu.kotlin.tool.Tool
-import com.github.frtu.kotlin.tool.ToolRegistry
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldNotBeEmpty
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
@@ -18,8 +13,6 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
-import sample.tool.IdentityTool
-import sample.tool.function.WeatherForecastFunction
 
 class IntentClassifierConfigTest {
     private val applicationContextRunner = ApplicationContextRunner()
