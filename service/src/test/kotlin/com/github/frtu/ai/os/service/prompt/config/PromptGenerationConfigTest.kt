@@ -1,17 +1,19 @@
-package com.github.frtu.ai.os.service.prompt.agent
+package com.github.frtu.ai.os.service.prompt.config
 
+import com.github.frtu.ai.os.service.prompt.config.PromptGenerationConfig.Companion.PROMPT_GENERATION_TEMPLATE
 import com.github.frtu.kotlin.ai.os.llm.Chat
+import com.github.frtu.kotlin.ai.os.llm.agent.UnstructuredBaseAgent
 import com.github.frtu.kotlin.ai.spring.builder.ChatApiConfigs
 import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.slf4j.LoggerFactory
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
 
-class PromptGenerationAgentTest {
+class PromptGenerationConfigTest {
     private val applicationContextRunner = ApplicationContextRunner()
 
     @Test
@@ -20,32 +22,27 @@ class PromptGenerationAgentTest {
         // 1. Init
         //--------------------------------------
         // Init var
-        val userQuestion = "Create a prompt that can help to write a 2 pages long cartoon story."
-
         applicationContextRunner
             //--------------------------------------
             // 2. Execute
             //--------------------------------------
             .withUserConfiguration(
-                SampleToolConfig::class.java,
+                PromptGenerationConfig::class.java,
+                SampleConfig::class.java,
             )
             .run { context ->
                 runBlocking {
                     //--------------------------------------
                     // 3. Validate
                     //--------------------------------------
-                    // Check against Tool to Intent translation
-                    val agent = context.getBean(PromptGenerationAgent::class.java)
-                    logger.debug("Agent:{}", agent)
-
+                    // Check Agent against PromptTemplate
+                    val agent = context.getBean(UnstructuredBaseAgent::class.java)
+                    logger.debug("result:{}", agent)
                     with(agent) {
                         shouldNotBeNull()
-                    }
-
-                    val result = agent.execute(userQuestion)
-                    logger.debug("result:{}", result)
-                    with(result) {
-                        shouldNotBeNull()
+                        id.value shouldBe PROMPT_GENERATION_TEMPLATE.id
+                        description shouldBe PROMPT_GENERATION_TEMPLATE.description
+                        instructions shouldBe PROMPT_GENERATION_TEMPLATE.template
                     }
                 }
             }
@@ -56,8 +53,7 @@ class PromptGenerationAgentTest {
 
 
 @Configuration
-@ComponentScan(basePackageClasses = [PromptGenerationAgent::class])
-class SampleToolConfig {
+class SampleConfig {
     @Bean
     fun chat(): Chat = ChatApiConfigs().chatOllama(
         model = "llama3",
