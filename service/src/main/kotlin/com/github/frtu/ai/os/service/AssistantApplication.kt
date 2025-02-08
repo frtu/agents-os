@@ -5,8 +5,9 @@ import com.github.frtu.kotlin.ai.os.llm.agent.AgentExecuter
 import com.github.frtu.kotlin.spring.tool.config.SpringToolAutoConfigs
 import org.slf4j.LoggerFactory
 import org.springframework.boot.CommandLineRunner
+import org.springframework.boot.WebApplicationType
 import org.springframework.boot.autoconfigure.SpringBootApplication
-import org.springframework.boot.runApplication
+import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import sample.tool.SampleToolConfig
@@ -19,8 +20,10 @@ import sample.tool.SampleToolConfig
 )
 class AssistantApplication {
     @Bean
-    fun startup(registry: List<AgentExecuter>,): CommandLineRunner = CommandLineRunner {
-        registry.map {
+    fun startup(
+        registryAgents: List<AgentExecuter>,
+    ): CommandLineRunner = CommandLineRunner {
+        registryAgents.map {
             logger.info("Detected agent spring bean:${it.id}")
         }
     }
@@ -29,5 +32,11 @@ class AssistantApplication {
 }
 
 fun main(args: Array<String>) {
-    runApplication<AssistantApplication>(*args)
+    try {
+        SpringApplicationBuilder(AssistantApplication::class.java)
+            .web(WebApplicationType.REACTIVE)
+            .run(*args)
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
 }
