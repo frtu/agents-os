@@ -9,9 +9,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
+import sample.tool.SampleToolConfig
 
 @SpringBootApplication
 @Import(
+    SampleToolConfig::class,
     IntentClassifierConfig::class,
     SpringToolAutoConfigs::class,
 )

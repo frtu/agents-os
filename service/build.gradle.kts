@@ -5,18 +5,20 @@ plugins {
 
     // Spring
     kotlin("plugin.spring") version "1.9.25"
-    id("org.springframework.boot") version "3.4.1"
-    id("io.spring.dependency-management") version "1.1.6"
+    id("org.springframework.boot") version "3.3.8"
+    id("io.spring.dependency-management") version "1.1.7"
 
     // Application
     application
 }
 
-//java {
-//    toolchain {
-//        languageVersion = JavaLanguageVersion.of(17)
-//    }
-//}
+group = "com.github.frtu.ai.os"
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}
 
 repositories {
     mavenLocal()
@@ -29,7 +31,7 @@ dependencies {
     implementation(libs.spring.boot.ai.os)
     implementation(libs.spring.boot.slack)
     implementation(libs.spring.boot.tools)
-//    implementation(libs.test.tools.sample)
+    implementation(libs.test.tools.sample)
     implementation(libs.test.ai.os.agents)
 
     // OpenAI aallam libs
