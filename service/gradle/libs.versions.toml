@@ -7,6 +7,10 @@ frtu-libs = "2.0.15"
 frtu-logs = "1.1.5"
 kjetland = "1.0.39"
 
+# swagger
+swagger-core-v3 = "2.2.28"
+springdoc = "2.6.0" # https://springdoc.org/#what-is-the-compatibility-matrix-of-springdoc-openapi-with-spring-boot
+
 # core
 kotlin = "1.9.25"
 coroutines = "1.7.2"
@@ -26,6 +30,10 @@ spring-boot-ai-os = { group = "com.github.frtu.libs", name = "lib-spring-boot-ai
 test-tools-sample = { group = "com.github.frtu.libs", name = "test-sample-tools", version.ref = "frtu-libs" }
 test-ai-os-agents = { group = "com.github.frtu.libs", name = "test-ai-os-agents", version.ref = "frtu-libs" }
 frtu-logs = { group = "com.github.frtu.logs", name = "logger-core", version.ref = "frtu-logs" }
+
+# Swagger - https://springdoc.org/#spring-webflux-support
+swagger-springdoc = { group = "org.springdoc", name = "springdoc-openapi-starter-webflux-ui", version.ref = "springdoc" }
+swagger-annotations = { group = "io.swagger.core.v3", name = "swagger-annotations", version.ref = "swagger-core-v3" }
 
 # aallam-openai
 aallam-openai-client = { group = "com.aallam.openai", name = "openai-client", version.ref = "aallam-openai" }

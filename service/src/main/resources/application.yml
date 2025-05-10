@@ -30,6 +30,15 @@ spring:
 server:
   port: 8080
 
+# ======================================
+# Management
+# ======================================
+# https://springdoc.org/
+springdoc:
+  swagger-ui:
+    path: /v3/swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
 management:
   endpoints:
     web:

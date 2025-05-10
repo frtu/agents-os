@@ -43,6 +43,10 @@ dependencies {
     implementation(libs.jsonschema.generate)
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 
+    // Swagger
+    implementation(libs.swagger.annotations)
+    implementation(libs.swagger.springdoc)
+
     // Spring
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
