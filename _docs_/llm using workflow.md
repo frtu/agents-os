@@ -13,7 +13,7 @@ The system chains multiple LLM calls together. Execution time increases, and you
 * Level 3 – Machine + Human Collaboration:
 Workflows now involve both AI systems and human input. For instance, the system might pause to wait for a human decision before continuing. These interactions introduce unpredictable delays, making it essential to pause and resume workflows reliably and without loss of context.
 
-![Interaction mode](./images/Interaction mode.png)
+![Interaction mode](images/interaction-mode.png)
 
 ## Solution
 
@@ -43,3 +43,4 @@ Workflows in Temporal can be defined in two ways:
 
 * `Graph-based Workflows (DAGs)`: Alternatively, workflows can be modeled a form of a Graph (DAG). This allows faster iteration, generation on the fly and versioned deployment, where **multiple versions** can coexist — each tied to specific executions.
 
+![Workflow format](images/workflow-definition-format.png)
