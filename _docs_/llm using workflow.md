@@ -41,6 +41,14 @@ Workflows in Temporal can be defined in two ways:
 
 * `Code-based Workflows`: Developers write workflows as code, which follows the standard software development lifecycle (compilation, test, deploy, rollback). At any point in time, a **single definition version** is live & must be able to resume any previous execution.
 
+![Workflow format](images/workflow-definition-format.png)
+
 * `Graph-based Workflows (DAGs)`: Alternatively, workflows can be modeled a form of a Graph (DAG). This allows faster iteration, generation on the fly and versioned deployment, where **multiple versions** can coexist — each tied to specific executions.
 
-![Workflow format](images/workflow-definition-format.png)
+#### Static definition vs Dynamic definition
+
+Workflow DAG can be
+
+* `static` : fixed definition ensuring predictability. Everytime SOP evolves, it should be capture into the DAG definition by a human.
+* `dynamic` : variable definition of DAG that is created at runtime. Definition can vary based on parameter to adapt more accurately to the parameters.
+* `mixed` : best practices can be capture into a high level static flow that provide a fixed structure to evolve. Low level / last mile execution can be discovered at runtime. If dynamic execution fails, it can fallback to the a default fixed definition.
