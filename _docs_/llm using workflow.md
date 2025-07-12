@@ -31,9 +31,9 @@ Technical details below.
 
 ### What is durable Execution using Temporal
 
-[Temporal](https://temporal.io/) provides a durable **orchestration engine** designed to reliably manage business-critical workflows — especially those involving **longer computation or interaction with humans** that can span over hours, days, or even months. Unlike traditional execution platforms that operate within an empheral context, Temporal persists workflow execution history, allowing it to resume seamlessly after restarts, failures, or long waits.
+[Temporal](https://temporal.io/) provides a durable **orchestration engine** designed to reliably manage business-critical workflows — especially those involving **longer computation or interaction with humans** that can span over hours, days, or even months. Unlike traditional execution platforms that operate within an ephemeral context, Temporal persists workflow execution history, allowing it to resume seamlessly after restarts, failures, or long waits.
 
-Each [Workflow Execution](https://docs.temporal.io/workflow-execution) represents a specific business process, triggered by well-defined input parameters (e.g., “Create IT support ticket for abc@test.com”). Temporal ensures every steps are **executed succesfully once & captured** for long term replay until executions goes to the end.
+Each [Workflow Execution](https://docs.temporal.io/workflow-execution) represents a specific business process, triggered by well-defined input parameters (e.g., “Create IT support ticket for abc@test.com”). Temporal ensures every steps are **executed successfully once & captured** for long term replay until executions goes to the end.
 
 ### Workflow defintion (heavy vs lightweight)
 
@@ -41,9 +41,11 @@ Workflows in Temporal can be defined in two ways:
 
 * `Code-based Workflows`: Developers write workflows as code, which follows the standard software development lifecycle (compilation, test, deploy, rollback). At any point in time, a **single definition version** is live & must be able to resume any previous execution.
 
+* `Graph-based Workflows (DAGs)`: Alternatively, workflows can be modeled a form of a Graph (DAG). This allows faster iteration, generation on the fly and versioned deployment, where **multiple versions** can coexist — each tied to specific executions. To a certain extreme, a workflow definition can be specifically created for each adhoc use cases & live until execution terminates.
+
 ![Workflow format](images/workflow-definition-format.png)
 
-* `Graph-based Workflows (DAGs)`: Alternatively, workflows can be modeled a form of a Graph (DAG). This allows faster iteration, generation on the fly and versioned deployment, where **multiple versions** can coexist — each tied to specific executions.
+From labor aspect, Coding is need highly trained developpers, DAG can be created by anyone with business knowledge. Eventually DAG could be created correctly by AI.
 
 #### Static definition vs Dynamic definition
 
