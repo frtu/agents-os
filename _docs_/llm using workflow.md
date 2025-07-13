@@ -2,6 +2,8 @@
 
 ## From Simple LLMs to Human-in-the-Loop Systems
 
+### Interaction level
+
 As AI systems become more interactive and intelligent, the nature of execution shifts across multiple levels of complexity:
 
 * Level 1 – Basic LLM Execution:
@@ -14,6 +16,17 @@ The system chains multiple LLM calls together. Execution time increases, and you
 Workflows now involve both AI systems and human input. For instance, the system might pause to wait for a human decision before continuing. These interactions introduce unpredictable delays, making it essential to pause and resume workflows reliably and without loss of context.
 
 ![Interaction mode](images/interaction-mode.png)
+
+### Case escalation
+
+At first, execution is routed to an lightweight & cost effective self resolution. This is the full automated mode that should take over 80% of execution over time.
+
+![Interaction mode](images/resource-involvement-level.png)
+
+Escalation : 
+
+* After certain delay OR if Agent exhaust all its resources and give up
+* Execution is routed to a more long lived and resource intensive approach (ex: human intervention, call to external vendor services, ...)
 
 ## Solution
 
