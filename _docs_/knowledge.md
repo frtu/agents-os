@@ -77,6 +77,26 @@ Data access must be subjective :
 
 The perfect test for security is two users with different profiles should see 2 different "projection" of the same data.
 
+## Lifecycle
+
+#### Cataloging
+
+* Move from human to machine tagging / labelling
+
+![Knowledge-comprehension](images/knowledge-comprehension.png)
+
+#### Test comprehension
+
+* Use Evals to test & improve labels VS questions
+* Leverage human user to find what they need
+
+#### Feedbacks / Insights
+
+Resolved?
+
+* Metadata issues : is our understanding of the need correct?
+* Data issues : is that the correct set of data (time or data problem)?
+* Compute issues : is the calculation incorrect?
 
 ## Details
 
