@@ -62,3 +62,7 @@ Tight balance between speed & safety
 To continuously allow **Human reviewers** validation, increments must be small, ensuring secured integration into the overall system without loosing control or quality over tech debts.
 
 Companies should set their **quality bar & development validation** carefully
+
+## Hands-on
+
+To follow up with [AI Code gen technical enablement](augmented_dev_tech_enablement.md)
