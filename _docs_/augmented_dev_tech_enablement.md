@@ -4,11 +4,52 @@
 
 Before starting any project, you have to get familiar with your tools (see [Onboarding](#Onboarding) below)
 
+#### Interaction mode
+
+##### Step by step
+
+First ask AI for how to implement your feature using `Plan mode` :
+
+* Trigger analysis & reflexion first
+
 #### By Project
+
+##### Local Memory
 
 Your project is built by **capturing spec** (context engineering) :
 
-* [Claude Memory management](https://docs.anthropic.com/en/docs/claude-code/memory#determine-memory-type)
+* [Claude Memory management](https://docs.anthropic.com/en/docs/claude-code/memory#determine-memory-type) using CLAUDE.md (potentially segregated by sub folders)
+* Import from other files using `@`
+
+Lifecycle
+
+* Create your intial `CLAUDE.md` using slash command `/init`
+* Use `#` to append
+* Use slash command `/memory` to discuss with it
+
+##### MCP
+
+Using [existing available MCP](https://docs.anthropic.com/en/docs/claude-code/mcp) with `claude mcp add  -s project XXX`
+
+*ATTENTION use carefully scoped -s (local/project/user) `claude mcp add -s project XXX`*
+
+Other commands :
+
+* `claude mcp list` : List all local MCP installed for the project
+* `claude mcp add-from-claude-desktop ` : Import directly [from Claude Desktop](https://docs.anthropic.com/en/docs/claude-code/mcp#import-mcp-servers-from-claude-desktop)
+
+##### Parallelism
+
+* Work with 3 sub agents in parallel with an **Orchestrator** (Opus) and **Worker** (Sonnet)
+* Work on 3 features in parallel using [git worktree](https://git-scm.com/docs/git-worktree)
+
+Agent wrapper using
+
+* https://github.com/ruvnet/claude-flow
+
+##### Hooks
+
+* Great examples with [notification, prevent rm, etc](https://github.com/disler/claude-code-hooks-mastery/blob/main/.claude/settings.json)
 
 #### Onboarding
 
@@ -32,6 +73,14 @@ Using **Claude code in terminal** is like using Git with terminal, though UI can
 
 * Create your [custom commands](https://docs.anthropic.com/en/docs/claude-code/slash-commands#custom-slash-commands) using [`@` for ext file inclusion](https://docs.anthropic.com/en/docs/claude-code/slash-commands#file-references)
 * `$ARGUMENT` pass slash command argument into internal function
+
+###### Knowledge base for custom commands
+
+Knowledge base with [AIDD](https://medium.com/the-tech-collective/power-up-with-ai-the-developers-advantage-6a4a8f8d1b17)
+
+* https://medium.com/@binoy_93931/from-agile-to-adaptive-intent-driven-development-aidd-the-ai-first-paradigm-shift-e07e5c7df1ec
+* https://aiddbot.com/workflows-with-ai-dd
+* https://www.pulsemcp.com/servers/skydeckai-aidd
 
 ##### Mode selection
 
