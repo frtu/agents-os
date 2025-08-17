@@ -16,7 +16,14 @@ First ask AI for how to implement your feature using `Plan mode` :
 
 ##### Local Memory
 
-Your project is built by **capturing spec** (context engineering) :
+Your project is built by **capturing spec** (context engineering).
+
+###### What
+
+* Theory with [Cline Memory Bank](https://docs.cline.bot/prompting/cline-memory-bank)
+* Examples with [Memory bank of AIDD](https://github.com/ai-driven-dev/rules/tree/main/memory-bank)
+
+###### How
 
 * [Claude Memory management](https://docs.anthropic.com/en/docs/claude-code/memory#determine-memory-type) using CLAUDE.md (potentially segregated by sub folders)
 * Import from other files using `@`
@@ -76,8 +83,11 @@ Using **Claude code in terminal** is like using Git with terminal, though UI can
 
 ###### Knowledge base for custom commands
 
-Knowledge base with [AIDD](https://medium.com/the-tech-collective/power-up-with-ai-the-developers-advantage-6a4a8f8d1b17)
+Knowledge base with [AIDD](https://github.com/ai-driven-dev/rules/tree/main/.cursor/rules)
 
+See also
+
+* https://medium.com/the-tech-collective/power-up-with-ai-the-developers-advantage-6a4a8f8d1b17	
 * https://medium.com/@binoy_93931/from-agile-to-adaptive-intent-driven-development-aidd-the-ai-first-paradigm-shift-e07e5c7df1ec
 * https://aiddbot.com/workflows-with-ai-dd
 * https://www.pulsemcp.com/servers/skydeckai-aidd
