@@ -63,6 +63,20 @@ To continuously allow **Human reviewers** validation, increments must be small, 
 
 Companies should set their **quality bar & development validation** carefully
 
+### Knowledge System with RAG / RAH
+
+Retrieval Augmented Generation (RAG) is a way to help LLM to generate a more accurate response and assist human.
+
+As human is delegating more and more action to Agent, Operators needs a better way to assess if Agent is doing a good enough (Accuracy, but Completeness, etc)... For this purpose, Retrieval Augmented Human (RAH) could be the counter part of RAG to enable & support human to judge on Agent actions & correct if necessary.
+
+### Enterprise level
+
+While static knowledge can be directly populated to the knowledge base, Enterprise system need to constantly maintain system accuracy by streaming live data.
+
+Knowledge Architects should ensure data is correctly modelled, data collected & quality controlled.
+
+See [Knowledge system](knowledge.md)
+
 ## Hands-on
 
 To follow up with [AI Code gen technical enablement](augmented_dev_tech_enablement.md)

@@ -101,7 +101,7 @@ Use `Shift + Tab` to switch between
 
 ##### Model selection
 
-For **cost effectiveness** & generation **speed**, 
+For **cost-effectiveness** & generation **speed**, 
 
 * use `sonnet` instead of `opus` if you were able to create a plan before coding.
 

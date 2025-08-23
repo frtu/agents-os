@@ -1,4 +1,4 @@
-# Knowledge base for Enterprise
+# Knowledge system for Enterprise
 
 ## Overview for Q&A
 
