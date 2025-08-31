@@ -12,30 +12,59 @@ In enterprise, each system is optimised for consistence (database transaction). 
 
 The need for a consolidated, quality validated & troubleshooting system for error is the key to all reliable Q&A system delivered to customer
 
-## Enablers - Tools & Ecosystem
 
-In order to manage all the data empowering the knowledge system, Metadata & Tags need to be gather and maintain (keep fresh).
+## Knowledge workshop
 
-Cataloging is the system that aims to satisfy human & agent questions
+### Architecture
 
-* data availability
-* lineage
-* request management (from needs to reality)
-* during troubleshooting
+![knowledge-architecture](images/knowledge-architecture.png)
 
-### Metadata catalog
+#### Access (tailored made)
 
-#### Intrinsic attributes of data
+Characteristics
 
-* volatility : low volatility (structural) vs high volatility (operational)
-* structure vs unstructured
+* Medallion : **Gold** layer
+* ETA : **hour** level
+* Exposure to business
 
-#### Security
+Features
 
-* private public
-* Tagged / enriched by company
+* Customize experience
+* Query patterns
+* Embedding & Classification (custom)
 
-## Building a knowledge base
+#### Workshop (specific)
+
+Characteristics
+
+* Medallion : **Silver** layer
+* ETA : **day** level
+* Enable Business transformation
+
+Features
+
+* Config common capabilities
+* Code custom logics in individual repos
+* Lifecycle : deployment & tests
+
+
+#### Foundation (generic)
+
+Characteristics
+
+* Medallion : **Bronze** layer
+* ETA : **week** level
+* Automatically build structure to host and transit data
+
+Features
+
+* Security policy
+* Zoning & Cross DC
+* Cloud strategy
+* Mutualisation & up to date
+* Cost efficient
+
+### Building a knowledge base
 
 Building the knowledge base should be **predictable and tested** to ensure high level quality of the information (normally higher than letting LLM guess).
 
@@ -51,10 +80,33 @@ The process usually involves :
 * Relationship & properties connection : connecting entity with KV attributes allowing more subteties when retrieving
 
 
-### Non functional requirements
+#### Non functional requirements
 
 * Time accuracy : Based on volatility : realtime vs batch.
 * Security & Compliance : give the right access to the right person. Auditable system
+
+### Enablers - Tools & Ecosystem
+
+In order to manage all the data empowering the knowledge system, Metadata & Tags need to be gather and maintain (keep fresh).
+
+Cataloging is the system that aims to satisfy human & agent questions
+
+* data availability
+* lineage
+* request management (from needs to reality)
+* during troubleshooting
+
+#### Metadata catalog
+
+##### Intrinsic attributes of data
+
+* volatility : low volatility (structural) vs high volatility (operational)
+* structure vs unstructured
+
+##### Security
+
+* private public
+* Tagged / enriched by company
 
 ## Retrieval
 
