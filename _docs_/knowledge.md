@@ -12,59 +12,7 @@ In enterprise, each system is optimised for consistence (database transaction). 
 
 The need for a consolidated, quality validated & troubleshooting system for error is the key to all reliable Q&A system delivered to customer
 
-
-## Knowledge workshop
-
-### Architecture
-
-![knowledge-architecture](images/knowledge-architecture.png)
-
-#### Access (tailored made)
-
-Characteristics
-
-* Medallion : **Gold** layer
-* ETA : **hour** level
-* Exposure to business
-
-Features
-
-* Customize experience
-* Query patterns
-* Embedding & Classification (custom)
-
-#### Workshop (specific)
-
-Characteristics
-
-* Medallion : **Silver** layer
-* ETA : **day** level
-* Enable Business transformation
-
-Features
-
-* Config common capabilities
-* Code custom logics in individual repos
-* Lifecycle : deployment & tests
-
-
-#### Foundation (generic)
-
-Characteristics
-
-* Medallion : **Bronze** layer
-* ETA : **week** level
-* Automatically build structure to host and transit data
-
-Features
-
-* Security policy
-* Zoning & Cross DC
-* Cloud strategy
-* Mutualisation & up to date
-* Cost efficient
-
-### Building a knowledge base
+## Building a knowledge base
 
 Building the knowledge base should be **predictable and tested** to ensure high level quality of the information (normally higher than letting LLM guess).
 
@@ -84,6 +32,35 @@ The process usually involves :
 
 * Time accuracy : Based on volatility : realtime vs batch.
 * Security & Compliance : give the right access to the right person. Auditable system
+
+
+## Knowledge infrastructure
+
+"Transforming data into information then to knowledge & wisdom"
+
+### Architecture
+
+On the left side, data cross **different maturity stages** following the [medallion architecture](https://www.databricks.com/glossary/medallion-architecture) principle for realtime.
+
+At each stage, **latencies** are tracked and allow to detect data freshness shift. New deployment may introduce new delays & should be tracked between version. 
+
+During the blue green deployment (introducing new changes), the **validation / certification step** should include
+
+* **Data freshness** across version : previous compute and new compute delay can be compared, optimised & approved.
+* **Data distribution** across version : if fields already exists in the previous version, high level statistics (total, etc) & value distribution could be compared.
+
+The application is released to end user and **effectiveness** is dynamically tracked and report back to business.
+
+![knowledge-architecture](images/knowledge-architecture.png)
+
+#### Stage
+
+|                 |           | Foundation (generic)                                                                                             | Workshop (specific)                                                                                          | Access (tailored made)                                                              |
+|-----------------|-----------|------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| Characteristics | Medallion | Bronze                                                                                                           | Silver                                                                                                       | Gold                                                                                |
+|                 | ETA       | Week level                                                                                                       | Day level                                                                                                    | Hour level                                                                          |
+|                 | Goal      | Automatically build structure to host and transit data                                                           | Enable Business transformation                                                                               | Exposure to business                                                                |
+| Features        |           | * Security policy<br>* Zoning & Cross DC<br>* Cloud strategy<br>* Mutualisation & up to date<br>* Cost efficient | * Config common capabilities<br>* Code custom logics in individual repos<br>* Lifecycle : deployment & tests | * Customize experience<br>* Query patterns<br>* Embedding & Classification (custom) |
 
 ### Enablers - Tools & Ecosystem
 
