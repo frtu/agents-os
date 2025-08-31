@@ -62,6 +62,18 @@ The application is released to end user and **effectiveness** is dynamically tra
 |                 | Goal      | Automatically build structure to host and transit data                                                           | Enable Business transformation                                                                               | Exposure to business                                                                |
 | Features        |           | * Security policy<br>* Zoning & Cross DC<br>* Cloud strategy<br>* Mutualisation & up to date<br>* Cost efficient | * Config common capabilities<br>* Code custom logics in individual repos<br>* Lifecycle : deployment & tests | * Customize experience<br>* Query patterns<br>* Embedding & Classification (custom) |
 
+### Backup & Restoration
+
+Continous Backup :
+
+* transformed Silver data should be consolidated & compacted in a long term storage store, 
+* allowing to **take snapshot** of data by **time & offset** (all previous data captured from that time)
+
+Restoration :
+
+* backuped Silver data can be send from Archive to Live environment for reprocessing. 
+* for the most recent data, **offset** could be used to replay from Kafka
+
 ### Enablers - Tools & Ecosystem
 
 In order to manage all the data empowering the knowledge system, Metadata & Tags need to be gather and maintain (keep fresh).
