@@ -12,6 +12,50 @@ In enterprise, each system is optimised for consistence (database transaction). 
 
 The need for a consolidated, quality validated & troubleshooting system for error is the key to all reliable Q&A system delivered to customer
 
+
+## Anatomy of a Knowledge base
+
+### Experience module
+
+As an End User, I need an ability to find my knowledge 
+
+* anytime : 24/7 and capture long time ago easily
+* anywhere : what I need where I want (desk or mobile)
+* any format : in the most intelligible way (text, image, graph, ...)
+
+Experience module provides
+
+* Intuitive : with the most convenient medium (web, chat, ...)
+* Visualisation : image or interactive graph
+* Responsive : with streaming & on my command (stop, retry, ...)
+
+
+![knowledge-architecture](images/knowledge-anatomy.png)
+
+### Enterprise modelling module
+
+As a Domain owners, I need an ability to craft my business value adapted the company direction
+
+* Capture my core business
+* Easily experiment : create & modify
+* Track and monitor
+
+Enterprise modelling module provides
+
+* Chat and specific requirements of my experience (control)
+* Get insight, understand & validate my assumption (metrics)
+* Scalable : continuously add new feature without breaking existing ones
+
+### Foundation module
+
+As a Business operators, I need an ability to operate efficiently anywhere needed
+
+Foundation module provides
+
+* Geo expansion, Regional compliance & Security
+* Elasticity & new data centers
+* Cost management
+
 ## Building a knowledge base
 
 Building the knowledge base should be **predictable and tested** to ensure high level quality of the information (normally higher than letting LLM guess).
@@ -55,12 +99,12 @@ The application is released to end user and **effectiveness** is dynamically tra
 
 #### Stage
 
-|                 |           | Foundation (generic)                                                                                             | Workshop (specific)                                                                                          | Access (tailored made)                                                              |
+|                 |           | Foundation (generic)                                                                                             | Workshop (specific)                                                                                          | Access (business ready)                                                              |
 |-----------------|-----------|------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
 | Characteristics | Medallion | Bronze                                                                                                           | Silver                                                                                                       | Gold                                                                                |
 |                 | ETA       | Week level                                                                                                       | Day level                                                                                                    | Hour level                                                                          |
-|                 | Goal      | Automatically build structure to host and transit data                                                           | Enable Business transformation                                                                               | Exposure to business                                                                |
-| Features        |           | * Security policy<br>* Zoning & Cross DC<br>* Cloud strategy<br>* Mutualisation & up to date<br>* Cost efficient | * Config common capabilities<br>* Code custom logics in individual repos<br>* Lifecycle : deployment & tests | * Customize experience<br>* Query patterns<br>* Embedding & Classification (custom) |
+|                 | Goal      | Automatically build structure to host and transit data                                                           | Enable Business transformation with processing pipelines                                                                              | Exposure to business                                                                |
+| Features        |           | * Security policy<br>* Zoning & Cross DC<br>* Cloud strategy<br>* Mutualisation & up to date<br>* Cost efficient | * Config common capabilities<br>* Code custom logics in individual repos<br>* Lifecycle : deployment & tests<br>* Isolate & Fix : Cleansed, validated, and de-duplicated | * Customize experience<br>* Query patterns<br>* Embedding & Classification (custom) |
 
 ### Backup & Restoration
 
