@@ -15,6 +15,14 @@ Provide a concise, accurate, and evidence-backed interactive web chat experience
 - Retrieval policy: retrieve top-K documents (configurable, default K=5); include source identifiers and short excerpts in the answer when used.
 - If retrieved evidence contradicts the LLM's prior knowledge, prefer KB evidence and flag potential inconsistencies.
 
+## Implementation defaults (project-specific)
+
+- Backend runtime: Python + FastAPI (recommended default for this repository).
+- Deployment: Local first (developer machine or local server). Can later be deployed to Cloud Run / Kubernetes if needed.
+- Tenancy: Single-tenant by default (one KB per deployment).
+- Starter KB technology: single-file local KB indexed into an in-memory FAISS vector store using a local embedding model (sentence-transformers). This allows immediate local use without cloud dependencies.
+- Upgrade path: when KB size or scale requires it, switch vector store to an Elasticsearch vector-capable deployment (or managed vector DB such as Pinecone/Weaviate). Keep the same embedding model or move to hosted embeddings as required.
+
 ## Memory and session state
 
 - Short-term: session messages (conversation history) are used for context and forgotten at session end unless user opts-in.

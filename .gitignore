@@ -125,3 +125,4 @@ pip-log.txt
 # Unit test / coverage reports
 .coverage
 .tox
+leader-toolbox/.venv

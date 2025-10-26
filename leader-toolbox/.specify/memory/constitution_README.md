@@ -64,5 +64,14 @@ This short README explains the minimal, concrete rules the web chat backend shou
 }
 ```
 
+Replace or extend these defaults as your project requires. Below are concrete defaults chosen for this workspace:
+
+- Backend: Python + FastAPI (examples provided in /examples/fastapi_chat.py)
+- Local deployment: run with uvicorn on a developer machine
+- Single-tenant: one KB per deployment
+- Starter KB: single-file ingestion to an in-memory FAISS index (sentence-transformers embeddings)
+- Upgrade path: switch vector_store to Elasticsearch or managed vector DB by changing `constitution_config.json` and updating the retrieval layer.
+
+If you'd like, I can also create an alternative integration snippet for Node/Express or a ready-to-run Dockerfile.
 ---
 Generated to accompany `.specify/memory/constitution.md` (Version 1.0)

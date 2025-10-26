@@ -1,0 +1,30 @@
+{
+  "backend": "python_fastapi",
+  "deployment": "local",
+  "tenancy": "single-tenant",
+  "vector_store": {
+    "default": "faiss",
+    "fallback": "elasticsearch"
+  },
+  "embeddings": {
+    "provider": "sentence-transformers",
+    "model": "all-MiniLM-L6-v2",
+    "precompute": true
+  },
+  "retrieval": {
+    "top_k": 5,
+    "similarity_threshold": 0.7
+  },
+  "chunking": {
+    "chunk_size_chars": 1000,
+    "chunk_overlap_chars": 200
+  },
+  "memory": {
+    "session_retention_hours": 24,
+    "long_term_opt_in": true
+  },
+  "privacy": {
+    "log_retention_days": 30,
+    "auto_pii_redaction": true
+  }
+}
