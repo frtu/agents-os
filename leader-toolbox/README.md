@@ -15,6 +15,14 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### Start server
+
+```bash
+uvicorn backend.fastapi_chat:app --reload --port 8002
+```
+
+http://localhost:8002/ingest_text?name=project_faq&content=PS:Payment system
+
 ### Test
 
 ```bash
