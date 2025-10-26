@@ -1,50 +1,53 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Chat + Knowledge Base: Minimal Constitution
 
-## Core Principles
+## Purpose
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+Provide a concise, accurate, and evidence-backed interactive web chat experience using a maintained knowledge base (KB).
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+## Scope
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+- User-facing web chat UI and backend that: accepts user messages, retrieves KB evidence, and synthesizes responses.
+- Not intended for regulated professional advice (legal/medical/financial) unless explicitly validated and disclosed.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+## Knowledge base usage
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+- Primary source of truth: the KB (document store / vector index). All factual claims should be grounded with KB citations when available.
+- Retrieval policy: retrieve top-K documents (configurable, default K=5); include source identifiers and short excerpts in the answer when used.
+- If retrieved evidence contradicts the LLM's prior knowledge, prefer KB evidence and flag potential inconsistencies.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Memory and session state
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- Short-term: session messages (conversation history) are used for context and forgotten at session end unless user opts-in.
+- Long-term memory: only stored when explicitly enabled and when user consents; stored items must be tagged and auditable.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Privacy & data handling
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- Avoid storing or indexing sensitive personal data in the KB. If such data is present, redact or remove per policy.
+- Logs and analytics must be anonymized; retention default: 30 days (configurable).
+- Provide a clear mechanism for users to request deletion of their long-term data.
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+## Response rules
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+- Always try to cite KB evidence for factual answers. Format citations clearly (title, source id, optional link, excerpt).
+- If no relevant KB evidence is found, respond honestly: "I don't have confirmed information in the knowledge base about that; would you like me to search broadly or give a general answer?"
+- Do not fabricate sources. If the model is uncertain, explicitly say so and offer next steps.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+## Safety & content policy
+
+- Block requests that facilitate illegal activity, hate, or explicit harm. Follow the project's content policy for disallowed content.
+
+## KB updates & governance
+
+- Re-index or update KB whenever source documents change; record a KB version or timestamp with each index snapshot.
+- Constitution amendments: change via repository PR with a short rationale and a version/date update.
+
+## Operational notes (minimal)
+
+- Retrieval pipeline should support similarity thresholds; below-threshold matches count as "no evidence."
+- Default user-facing errors: friendly, actionable (e.g., retry, refine question).
+
+## Contact & metadata
+
+- Maintainer: Fred TU <PRIVATE> (replace before release).
+
+**Version**: 1.0 | **Ratified**: 2025-10-26 | **Last Amended**: 2025-10-26
