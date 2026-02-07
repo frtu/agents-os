@@ -61,3 +61,49 @@ Workflow runtime :
 ### Format
 
 Eventually mermaid flowcharts could be used to represent workflow definition to requester.
+
+## Success Metrics
+
+### Technical Metrics
+- **Operation step runnability:** Events processed per second
+- **Latency:** End-to-end processing time
+- **Reliability:** Job uptime and recovery time
+- **Resource Efficiency:** CPU and memory utilization
+
+### Business Metrics
+- **Time to Insight:** Reduction in data processing latency
+- **Operational Cost:** Infrastructure and maintenance costs
+- **Developer Productivity:** Time to implement new pipelines
+- **System Reliability:** Reduction in data processing failures
+
+## Integration Points
+
+### Upstream Systems
+- **Apache Kafka:** Primary data source
+- **File Systems:** Batch data ingestion (future)
+- **APIs:** REST/WebSocket data feeds (future)
+
+### Downstream Systems
+- **Print Sink:** Development/debugging output
+- **Elasticsearch:** Analytics and search (future)
+- **Databases:** Persistent storage (future)
+- **Notification Systems:** Alerting (future)
+
+## Constraints and Considerations
+
+### Technical Constraints
+- Must maintain compatibility with Flink cluster versions
+- Spring Boot integration adds overhead in standalone mode
+- Memory requirements scale with window size and key cardinality
+
+### Operational Considerations
+- Requires Kafka infrastructure for data ingestion
+- State management complexity increases with stateful operations
+- Monitoring and alerting infrastructure needed for production
+
+## Future Vision
+Evolution toward a comprehensive streaming data platform supporting:
+- Complex event processing with pattern detection
+- Machine learning model serving in streams
+- Multi-source data fusion and enrichment
+- Self-service pipeline creation through configuration
