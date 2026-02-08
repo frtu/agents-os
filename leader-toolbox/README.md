@@ -51,7 +51,26 @@ pip install -r requirements.txt
 uvicorn backend.fastapi_chat:app --reload --port 8002
 ```
 
-http://localhost:8002/ingest_text?name=project_faq&content=PS:Payment system
+#### Tests
+
+HTTP: `POST`
+- `http://localhost:8002/ingest_text?name=project_faq&content=PS:Payment system`
+
+```
+{
+    "name":"doc1",
+    "content": "Hello world. This is a test document."
+}
+```
+
+HTTP: `POST`
+- `http://localhost:8002/chat`
+
+```
+{
+    "message": "Hello world. This is a test document."
+}
+```
 
 ### Test
 
