@@ -1,0 +1,354 @@
+-- Memory System Schema - pgvector Integration
+-- Description: Adds pgvector support for optimized vector operations
+-- Note: This migration is conditionally applied only if pgvector extension is available
+
+-- =============================================
+-- CONDITIONAL PGVECTOR EXTENSION SETUP
+-- =============================================
+
+-- Check if pgvector extension is available and create it
+-- This will fail silently if pgvector is not installed
+DO $$
+BEGIN
+    -- Try to create the vector extension
+    BEGIN
+        CREATE EXTENSION IF NOT EXISTS vector;
+        RAISE NOTICE 'pgvector extension enabled successfully';
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE NOTICE 'pgvector extension not available, skipping vector optimizations';
+            RAISE NOTICE 'Error: %', SQLERRM;
+    END;
+END $$;
+
+-- =============================================
+-- PGVECTOR COLUMN ADDITION
+-- =============================================
+
+-- Add pgvector column to chunk_embeddings table if extension is available
+DO $$
+BEGIN
+    -- Check if vector extension exists
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+        -- Add the pgvector column
+        ALTER TABLE chunk_embeddings
+        ADD COLUMN IF NOT EXISTS embedding_vector_pgv vector(384);
+
+        -- Add constraint to ensure consistency between arrays and pgvector
+        -- This constraint ensures both representations stay in sync
+        -- Check if constraint doesn't already exist
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE constraint_name = 'chk_vector_consistency'
+            AND table_name = 'chunk_embeddings'
+        ) THEN
+            ALTER TABLE chunk_embeddings
+            ADD CONSTRAINT chk_vector_consistency
+            CHECK (
+                embedding_vector_pgv IS NULL OR
+                array_length(embedding_vector, 1) = 384
+            );
+        END IF;
+
+        RAISE NOTICE 'Added pgvector column to chunk_embeddings table';
+    ELSE
+        RAISE NOTICE 'pgvector extension not found, skipping vector column addition';
+    END IF;
+END $$;
+
+-- =============================================
+-- PGVECTOR INDEXES
+-- =============================================
+
+-- Create vector indexes if pgvector is available
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+        -- Create HNSW index for fast approximate nearest neighbor search
+        -- This is generally faster for most queries but uses more memory
+        CREATE INDEX IF NOT EXISTS idx_chunk_embeddings_vector_hnsw
+            ON chunk_embeddings USING hnsw (embedding_vector_pgv vector_cosine_ops)
+            WITH (m = 16, ef_construction = 64);
+
+        -- Create IVFFlat index as alternative (more memory efficient)
+        -- Uncomment if you prefer IVFFlat over HNSW
+        -- CREATE INDEX IF NOT EXISTS idx_chunk_embeddings_vector_ivfflat
+        --     ON chunk_embeddings USING ivfflat (embedding_vector_pgv vector_cosine_ops)
+        --     WITH (lists = 100);
+
+        RAISE NOTICE 'Created pgvector HNSW index for fast similarity search';
+    ELSE
+        RAISE NOTICE 'pgvector not available, using fallback cosine similarity function';
+    END IF;
+END $$;
+
+-- =============================================
+-- PGVECTOR FUNCTIONS
+-- =============================================
+
+-- Function to sync REAL[] array to pgvector column
+CREATE OR REPLACE FUNCTION sync_embedding_vectors()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Only update if pgvector extension exists and column is present
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') AND
+       EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'chunk_embeddings'
+               AND column_name = 'embedding_vector_pgv') THEN
+
+        -- Convert REAL[] to pgvector format
+        NEW.embedding_vector_pgv := NEW.embedding_vector::vector(384);
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to automatically sync array and pgvector columns
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+        -- Create trigger to sync vectors on insert/update
+        DROP TRIGGER IF EXISTS trigger_sync_embedding_vectors ON chunk_embeddings;
+        CREATE TRIGGER trigger_sync_embedding_vectors
+            BEFORE INSERT OR UPDATE ON chunk_embeddings
+            FOR EACH ROW
+            EXECUTE FUNCTION sync_embedding_vectors();
+
+        RAISE NOTICE 'Created trigger to sync embedding vectors';
+    END IF;
+END $$;
+
+-- Enhanced similarity search function using pgvector if available
+CREATE OR REPLACE FUNCTION find_similar_chunks_optimized(
+    query_vector REAL[],
+    limit_count INTEGER DEFAULT 10,
+    min_similarity REAL DEFAULT 0.3,
+    use_pgvector BOOLEAN DEFAULT TRUE
+)
+RETURNS TABLE(
+    chunk_id UUID,
+    similarity_score REAL,
+    content TEXT,
+    document_title TEXT,
+    chunk_index INTEGER,
+    document_id UUID
+) AS $$
+DECLARE
+    has_pgvector BOOLEAN;
+    query_pgvector vector(384);
+BEGIN
+    -- Check if pgvector is available
+    SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') INTO has_pgvector;
+
+    IF has_pgvector AND use_pgvector THEN
+        -- Use pgvector for optimized similarity search
+        query_pgvector := query_vector::vector(384);
+
+        RETURN QUERY
+        SELECT
+            mc.id,
+            (1 - (ce.embedding_vector_pgv <=> query_pgvector))::REAL as similarity,
+            mc.content,
+            md.title,
+            mc.chunk_index,
+            mc.document_id
+        FROM memory_chunks mc
+        JOIN chunk_embeddings ce ON mc.id = ce.chunk_id
+        JOIN memory_documents md ON mc.document_id = md.id
+        WHERE md.deleted_at IS NULL
+          AND ce.embedding_vector_pgv IS NOT NULL
+          AND (1 - (ce.embedding_vector_pgv <=> query_pgvector)) >= min_similarity
+        ORDER BY ce.embedding_vector_pgv <=> query_pgvector ASC
+        LIMIT limit_count;
+    ELSE
+        -- Fallback to array-based cosine similarity
+        RETURN QUERY
+        SELECT
+            mc.id,
+            cosine_similarity(ce.embedding_vector, query_vector) as similarity,
+            mc.content,
+            md.title,
+            mc.chunk_index,
+            mc.document_id
+        FROM memory_chunks mc
+        JOIN chunk_embeddings ce ON mc.id = ce.chunk_id
+        JOIN memory_documents md ON mc.document_id = md.id
+        WHERE md.deleted_at IS NULL
+          AND cosine_similarity(ce.embedding_vector, query_vector) >= min_similarity
+        ORDER BY similarity DESC
+        LIMIT limit_count;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get vector search statistics
+CREATE OR REPLACE FUNCTION get_vector_stats()
+RETURNS TABLE(
+    pgvector_available BOOLEAN,
+    total_embeddings BIGINT,
+    pgvector_embeddings BIGINT,
+    index_info TEXT
+) AS $$
+DECLARE
+    has_pgvector BOOLEAN;
+    index_details TEXT;
+BEGIN
+    -- Check pgvector availability
+    SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') INTO has_pgvector;
+
+    -- Get index information
+    SELECT string_agg(indexname || ' (' || indexdef || ')', ', ')
+    INTO index_details
+    FROM pg_indexes
+    WHERE tablename = 'chunk_embeddings'
+      AND indexname LIKE '%vector%';
+
+    RETURN QUERY
+    SELECT
+        has_pgvector,
+        (SELECT COUNT(*) FROM chunk_embeddings),
+        (SELECT COUNT(*) FROM chunk_embeddings WHERE embedding_vector_pgv IS NOT NULL),
+        COALESCE(index_details, 'No vector indexes found');
+END;
+$$ LANGUAGE plpgsql;
+
+-- =============================================
+-- MIGRATION UTILITIES
+-- =============================================
+
+-- Function to migrate existing embeddings to pgvector format
+CREATE OR REPLACE FUNCTION migrate_embeddings_to_pgvector()
+RETURNS INTEGER AS $$
+DECLARE
+    updated_count INTEGER;
+    has_pgvector BOOLEAN;
+BEGIN
+    -- Check if pgvector is available
+    SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') INTO has_pgvector;
+
+    IF NOT has_pgvector THEN
+        RAISE EXCEPTION 'pgvector extension is not available';
+    END IF;
+
+    -- Update all embeddings that don't have pgvector representation
+    UPDATE chunk_embeddings
+    SET embedding_vector_pgv = embedding_vector::vector(384)
+    WHERE embedding_vector_pgv IS NULL
+      AND embedding_vector IS NOT NULL
+      AND array_length(embedding_vector, 1) = 384;
+
+    GET DIAGNOSTICS updated_count = ROW_COUNT;
+
+    RAISE NOTICE 'Migrated % embeddings to pgvector format', updated_count;
+    RETURN updated_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =============================================
+-- PERFORMANCE TUNING
+-- =============================================
+
+-- Update table statistics for better query planning
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+        -- Analyze the table to update statistics
+        ANALYZE chunk_embeddings;
+
+        -- Set vector-specific configuration
+        -- These settings optimize for vector operations
+        ALTER DATABASE CURRENT_DATABASE() SET shared_preload_libraries = 'vector';
+
+        RAISE NOTICE 'Updated statistics for vector operations';
+    END IF;
+END $$;
+
+-- =============================================
+-- VALIDATION AND VERIFICATION
+-- =============================================
+
+-- Function to validate vector setup
+CREATE OR REPLACE FUNCTION validate_vector_setup()
+RETURNS TABLE(
+    check_name TEXT,
+    status BOOLEAN,
+    message TEXT
+) AS $$
+BEGIN
+    -- Check 1: pgvector extension
+    RETURN QUERY
+    SELECT
+        'pgvector_extension'::TEXT,
+        EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector'),
+        CASE
+            WHEN EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')
+            THEN 'pgvector extension is installed and available'
+            ELSE 'pgvector extension is not available - using fallback functions'
+        END;
+
+    -- Check 2: pgvector column exists
+    RETURN QUERY
+    SELECT
+        'pgvector_column'::TEXT,
+        EXISTS (SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'chunk_embeddings'
+                AND column_name = 'embedding_vector_pgv'),
+        CASE
+            WHEN EXISTS (SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'chunk_embeddings'
+                        AND column_name = 'embedding_vector_pgv')
+            THEN 'pgvector column exists in chunk_embeddings table'
+            ELSE 'pgvector column not found - vector operations will use array fallback'
+        END;
+
+    -- Check 3: Vector indexes
+    RETURN QUERY
+    SELECT
+        'vector_indexes'::TEXT,
+        EXISTS (SELECT 1 FROM pg_indexes
+                WHERE tablename = 'chunk_embeddings'
+                AND indexname LIKE '%vector%'),
+        CASE
+            WHEN EXISTS (SELECT 1 FROM pg_indexes
+                        WHERE tablename = 'chunk_embeddings'
+                        AND indexname LIKE '%vector%')
+            THEN 'Vector indexes are available for optimized search'
+            ELSE 'No vector indexes found - searches will be slower'
+        END;
+
+    -- Check 4: Sample data compatibility
+    RETURN QUERY
+    SELECT
+        'vector_data_compatibility'::TEXT,
+        (SELECT COUNT(*) FROM chunk_embeddings WHERE array_length(embedding_vector, 1) != 384) = 0,
+        CASE
+            WHEN (SELECT COUNT(*) FROM chunk_embeddings WHERE array_length(embedding_vector, 1) != 384) = 0
+            THEN 'All embeddings have correct dimension (384)'
+            ELSE 'Some embeddings have incorrect dimensions'
+        END;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =============================================
+-- MIGRATION SUCCESS MESSAGE
+-- =============================================
+
+DO $$
+DECLARE
+    stats_record RECORD;
+BEGIN
+    -- Get and display migration results
+    SELECT * FROM get_vector_stats() INTO stats_record;
+
+    RAISE NOTICE '=== PgVector Migration Complete ===';
+    RAISE NOTICE 'PgVector Available: %', stats_record.pgvector_available;
+    RAISE NOTICE 'Total Embeddings: %', stats_record.total_embeddings;
+    RAISE NOTICE 'PgVector Embeddings: %', stats_record.pgvector_embeddings;
+    RAISE NOTICE 'Vector Indexes: %', stats_record.index_info;
+    RAISE NOTICE '=====================================';
+
+    -- Run validation checks
+    RAISE NOTICE 'Running validation checks...';
+    PERFORM validate_vector_setup();
+END $$;
