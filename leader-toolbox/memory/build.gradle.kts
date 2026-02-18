@@ -45,6 +45,10 @@ dependencies {
     implementation("co.elastic.clients:elasticsearch-java:8.11.1")
     implementation("com.fasterxml.jackson.core:jackson-databind")
 
+    // Database
+    implementation("org.postgresql:postgresql")
+    implementation("org.flywaydb:flyway-core")
+
     // Embedding and ML
     implementation("ai.djl:api:0.25.0")
     implementation("ai.djl.huggingface:tokenizers:0.25.0")

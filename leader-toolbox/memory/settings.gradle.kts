@@ -1,6 +1,7 @@
 rootProject.name = "leader-toolbox"
 
 include(
+    "memory",
 )
 
 rootProject.children.forEach {

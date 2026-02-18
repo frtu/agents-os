@@ -1,202 +1,95 @@
-# Leader Toolbox Memory System
+# leader-toolbox
 
-A comprehensive memory system built with PostgreSQL, Elasticsearch, and Kotlin/Spring Boot, featuring semantic search using all-MiniLM-L6-v2 embeddings.
+A knowledge base-powered chat application that provides accurate, evidence-backed responses for leadership tasks and decision-making.
 
-## 🚀 Features
+## Overview
 
-- **Document Ingestion**: Automatic text chunking and embedding generation
-- **Hybrid Search**: Combines semantic vector search with keyword-based search
-- **PostgreSQL Storage**: Robust relational database with JSONB support
-- **Elasticsearch Integration**: Fast full-text and vector search capabilities
-- **Session Management**: User sessions with context tracking
-- **Search Analytics**: Performance monitoring and usage insights
-- **Flexible Tagging**: Metadata organization system
-- **REST API**: Complete REST interface with OpenAPI documentation
+**leader-toolbox** is an AI-powered chat web application designed to help leaders access and leverage organizational knowledge effectively. Built with FastAPI and advanced vector search capabilities, it provides:
 
-## 🏗️ Architecture
+- **Evidence-based responses**: All answers are grounded in your knowledge base with proper citations
+- **Vector-powered search**: Uses semantic similarity to find relevant information across documents
+- **Leadership focus**: Specifically designed to support leadership tasks and decision-making processes
+- **Privacy-first design**: Local deployment with configurable data retention and PII protection
+
+### Key Features
+
+- 🔍 **Semantic Search**: Advanced vector-based retrieval using sentence transformers
+- 📚 **Knowledge Base Integration**: Ingest documents and retrieve contextual information
+- 🎯 **Citation Support**: Every response includes source references and excerpts
+- 🔒 **Privacy Controls**: Configurable data retention and automatic PII redaction
+- 🚀 **Fast Deployment**: Local-first with easy scaling options
+- 🧪 **Test Coverage**: Comprehensive test suite for reliable operation
+
+## Architecture
+
+The application uses a modern vector-based retrieval architecture:
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                  Spring Boot Application                │
-├─────────────────┬─────────────┬─────────────────────────┤
-│   Memory        │  Embedding  │      Search             │
-│   Service       │  Service    │      Service            │
-└─────────────────┴─────────────┴─────────────────────────┘
-        │               │                    │
-        ▼               ▼                    ▼
-┌─────────────┐  ┌─────────────┐    ┌─────────────────┐
-│PostgreSQL   │  │HuggingFace  │    │  Elasticsearch  │
-│- Documents  │  │API +        │    │  - Full-text   │
-│- Chunks     │  │Local        │    │  - Vector       │
-│- Embeddings │  │Fallback     │    │  - Analytics    │
-│- Sessions   │  │             │    │                 │
-└─────────────┘  └─────────────┘    └─────────────────┘
+User Query → FastAPI Backend → Vector Embedding → FAISS Search → Response + Citations
 ```
 
-## 🛠️ Technology Stack
+**Core Components**:
+- **Backend**: FastAPI web service (`backend/fastapi_chat.py`)
+- **Vector Store**: FAISS for efficient similarity search
+- **Embeddings**: sentence-transformers (all-MiniLM-L6-v2)
+- **Text Processing**: Configurable chunking with overlap (1000/200 chars)
+- **Retrieval**: Top-K results with similarity thresholds
 
-- **Backend**: Kotlin + Spring Boot 3.2
-- **Database**: PostgreSQL 15+ with pgvector extension (optional)
-- **Search**: Elasticsearch 8.x
-- **Embedding**: all-MiniLM-L6-v2 (384 dimensions)
-- **Caching**: Caffeine + Redis (optional)
-- **Testing**: JUnit 5 + Testcontainers
-- **Build**: Gradle with Kotlin DSL
+## Runtime
 
-## 📋 Prerequisites
-
-- Java 17+
-- PostgreSQL 15+
-- Elasticsearch 8.x
-- Docker (for local development)
-- HuggingFace API key (optional, for remote embeddings)
-
-## 🔧 Quick Start
-
-### 1. Clone and Setup
+### Installation
 
 ```bash
-git clone <repository>
-cd leader-toolbox
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### 2. Start Dependencies with Docker Compose
+### Start server
 
 ```bash
-docker-compose up -d
+uvicorn backend.fastapi_chat:app --reload --port 8002
 ```
 
-This starts:
-- PostgreSQL on port 5432
-- Elasticsearch on port 9200
-- (Optional) Redis for caching
+http://localhost:8002/ingest_text?name=project_faq&content=PS:Payment system
 
-### 3. Configure Environment
+### Test
 
 ```bash
-# Copy example environment file
-cp .env.example .env
-
-# Edit configuration
-export DB_USERNAME=debezium
-export DB_PASSWORD=debezium
-export ELASTICSEARCH_URIS=http://localhost:9200
-export HUGGINGFACE_API_KEY=your_key_here  # Optional
+pytest -q
 ```
 
-### 4. Run Database Migrations
+### Troubleshooting
 
-```bash
-./gradlew flywayMigrate
+#### FAISS installation - command 'swig'
+
+Symptom :
+
+```
+ERROR: Could not build wheels for faiss-cpu, which is required to install pyproject.toml-based projects
+<OR>
+error: command 'swig' failed: No such file or directory
 ```
 
-### 5. Build and Run
+Resolution :
 
-```bash
-./gradlew bootRun
-
-# Or for development with hot reload
-./gradlew bootRun --args='--spring.profiles.active=development'
+```
+brew uninstall swig
+brew install swig
 ```
 
-The API will be available at `http://localhost:8080/api`
+#### FAISS installation - 'swig command exit 1'
 
-## 📖 API Usage
+Symptom :
 
-### Document Ingestion
-
-```bash
-# Ingest a document
-curl -X POST http://localhost:8080/api/v1/memory/documents \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Machine Learning Guide",
-    "content": "Machine learning is a subset of artificial intelligence...",
-    "contentType": "text/plain",
-    "sourcePath": "/docs/ml-guide.txt",
-    "metadata": {
-      "category": "education",
-      "author": "John Doe"
-    },
-    "chunkSize": 1000,
-    "chunkOverlap": 200
-  }'
+```
+swig command exit 1
 ```
 
-### Search Documents
+Resolution :
 
-```bash
-# Semantic search
-curl -X POST http://localhost:8080/api/v1/memory/search \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "artificial intelligence and machine learning",
-    "searchType": "HYBRID",
-    "maxResults": 10,
-    "minScore": 0.3,
-    "includeContent": true
-  }'
+Fix faiss version to `==1.7.4`
+
 ```
-
-### List Documents
-
-```bash
-# Get all documents with pagination
-curl "http://localhost:8080/api/v1/memory/documents?page=0&size=20&search=machine"
-```
-
-### Session Management
-
-```bash
-# Create a session
-curl -X POST http://localhost:8080/api/v1/memory/sessions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "userId": "user123",
-    "sessionName": "Research Session",
-    "contextData": {
-      "preferences": {"theme": "dark"},
-      "lastQuery": "neural networks"
-    }
-  }'
-
-# Search with session context
-curl -X POST http://localhost:8080/api/v1/memory/search \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "deep learning",
-    "sessionId": "session-uuid-here",
-    "searchType": "HYBRID"
-  }'
-```
-
-### Health Check
-
-```bash
-# System health
-curl http://localhost:8080/api/actuator/health
-
-# Memory system status
-curl http://localhost:8080/api/v1/memory/health
-```
-
-## 🧪 Testing
-
-### Run All Tests
-
-```bash
-./gradlew test
-```
-
-### Integration Tests with Testcontainers
-
-```bash
-# Run integration tests (starts PostgreSQL and Elasticsearch containers)
-./gradlew integrationTest
-```
-
-### Unit Tests Only
-
-```bash
-./gradlew test --tests "*.unit.*"
+"faiss-cpu==1.7.4"
 ```
