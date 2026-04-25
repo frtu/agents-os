@@ -166,7 +166,7 @@ When creating `[[wikilinks]]`:
 
 - **Single word**: use short form `[[Word]]` — e.g., `[[Kafka]]`, `[[JIRA]]`
 - **Multiple words**: use long form `[[file-link|Display Text]]` — e.g., `[[create-user|Create User]]`, `[[30-minute-development-cycle|30-Minute Development Cycle]]`
-- **Inside tables**: escape the `|` in wikilinks with `\|` to avoid collision with table column separators — e.g., `[[product-developer\|Product Developer]]`
+- **Inside tables** (THIS IS IMPORTANT): escape the `|` in wikilinks with `\|` to avoid collision with table column separators — e.g., `[[domain-developer\|Domain Developer]]`
 
 This keeps single-word links concise while ensuring multi-word links work as file references with human-readable display.
 

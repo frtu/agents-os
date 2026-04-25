@@ -11,6 +11,12 @@ allowed-tools: Bash Read Write Edit Glob Grep
 
 Health-check the wiki and report issues with actionable fixes.
 
+**Read the canonical wiki rules first:**
+- `docs/wiki-schema.md` — directory structure, page naming, wikilink conventions
+- `people-ingest` skill's `references/people-schema.md` — people page formats (roles, competencies, steps)
+
+Use these as the source of truth for all validation rules.
+
 ## Audit Steps
 
 Run all checks below, then present a consolidated report.
@@ -30,9 +36,9 @@ Cross-reference against actual files in `wiki/`.
 
 Find pages with no inbound links — no other page references them via `[[wikilink]]`.
 
-For each `.md` file in all wiki subdirectories (`wiki/product/`, `wiki/people/`, `wiki/concepts/`, `wiki/resources/`, `wiki/sources/`, `wiki/synthesis/`):
+For each `.md` file in all wiki subdirectories (check `docs/wiki-schema.md` for complete list):
 - Extract the page name (filename without extension)
-- Search all other wiki pages for `[[page-name|Page Name]]`
+- Search all other wiki pages for wikilinks matching that page
 - If no other page links to it, it's an orphan
 
 ### 3. Contradictions
@@ -50,7 +56,14 @@ Cross-reference source dates with wiki content. Flag when:
 
 ### 5. Missing pages
 
-Scan for `[[wikilinks]]` that point to pages that don't exist yet. These are topics the wiki mentions but hasn't given their own page. Assess whether they warrant a page.
+Scan for `[[wikilinks]]` that point to pages that don't exist yet. These are topics the wiki mentions but hasn't given their own page.
+
+Check wikilink format matches convention in `docs/wiki-schema.md`:
+- **Single word**: `[[Word]]`
+- **Multiple words**: `[[file-link|Display Text]]`
+- **Inside tables** (THIS IS IMPORTANT): escape the `|` in wikilinks with `\|` to avoid collision with table column separators — e.g., `[[domain-developer\|Domain Developer]]`
+
+Assess whether missing pages warrant creation.
 
 ### 6. Missing cross-references
 
@@ -61,56 +74,34 @@ Find pages that discuss the same topics but don't link to each other. Look for:
 
 ### 7. Index consistency
 
-Verify `wiki/portal.md` is complete and accurate:
+Verify `wiki/portal.md` is complete and accurate per `docs/wiki-schema.md`:
 
-- Every page in `wiki/product/`, `wiki/people/`, `wiki/concepts/`, `wiki/resources/`, `wiki/sources/`, `wiki/synthesis/` and their subdirectories has an index entry
+- Every page in wiki subdirectories has an index entry (check wiki-schema.md for complete category list)
 - No index entries point to deleted pages
-- Entries are under the correct category header (Product, People, Concepts, or Resources)
+- Entries are under the correct category header (see Index Format in wiki-schema.md)
 
 ### 8. Category placement
 
-Verify pages are in the correct subdirectory based on their content type:
-- User personas should be in `wiki/product/persona/`
-- Product entities should be in `wiki/product/entities/`
-- Product features should be in `wiki/product/features/`
-- Processes should be in `wiki/people/processes/`
-- Steps should be in `wiki/people/steps/` with naming pattern `step-{name}.md`
-- Competencies should be in `wiki/people/competencies/`
-- Roles should be in `wiki/people/roles/` with naming pattern `role-<track>-<level>.md`
-- Members should be in `wiki/people/members/`
-- Patterns should be in `wiki/concepts/patterns/`
-- Technologies should be in `wiki/concepts/technologies/`
-- Artifacts should be in `wiki/resources/artifacts/`
-- Components should be in `wiki/resources/components/`
-- Dependencies should be in `wiki/resources/dependencies/`
-- Tools should be in `wiki/resources/tools/`
+Verify pages are in the correct subdirectory based on their content type per `docs/wiki-schema.md`.
+
+Read the Wiki subdirectories section in wiki-schema.md for the complete category mapping (Product, People, Concepts, Resources, Projects).
+
+Special naming patterns to check:
+- Steps: `step-{name}.md` (defined in people-schema.md)
+- Roles: `role-<track>-<level>.md` (e.g., `role-ic-3.md`, `role-mgmt-2.md`)
 
 Flag any pages that appear to be miscategorized.
 
 ### 9. People-specific validation
 
-For `wiki/people/` content, verify structure matches `people-ingest` skill schema:
+For `wiki/people/` content, verify structure matches `people-ingest` skill's `references/people-schema.md`.
 
-**Role pages (`wiki/people/roles/role-*.md`):**
-- Must have Level Differentiation section after Role Summary
-- Competency tables must have 3 columns: Competency, Depth, Expectations
-- Skill links must use section anchors: `[[skill#IC Track Depth Progression|Skill]]` or `[[skill#M-Track Depth Progression|Skill]]`
-- Terminal levels (P7, M5) should not reference "next" level
+Read people-schema.md for complete validation rules for:
+- **Role pages** — Level Differentiation, competency tables, skill links with section anchors
+- **Competency/Skill pages** — IC/M-Track depth progression tables, role references, SDLC Application
+- **Step pages** — parent process links, skill references
+- **Cross-linking** — roles ↔ skills ↔ steps bidirectional references
 
-**Skill pages (`wiki/people/competencies/{skill}.md`):**
-- Must have IC Track Depth Progression table (if applicable to IC)
-- Must have M-Track Depth Progression table (if applicable to M)
-- Role references must use format: `[[role-ic-1|Software Engineer]]` or `[[role-mgmt-1|Engineering Lead]]`
-- Should have SDLC Application section linking to steps
-
-**Step pages (`wiki/people/steps/step-*.md`):**
-- Must link to parent process
-- Should link to skills applied in that step
-
-**Cross-linking validation:**
-- Roles should link to skills with section anchors
-- Skills should link back to roles in depth tables
-- Steps should link to skills, skills should reference steps in SDLC Application
 
 ### 10. Data gaps
 
