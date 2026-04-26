@@ -13,6 +13,7 @@ Health-check the wiki and report issues with actionable fixes.
 
 **Read the canonical wiki rules first:**
 - `docs/wiki-schema.md` — directory structure, page naming, wikilink conventions
+- `docs/wiki-architecture.md` — category articulation, decision flowcharts, categorization examples
 - `people-ingest` skill's `references/people-schema.md` — people page formats (roles, competencies, steps)
 
 Use these as the source of truth for all validation rules.
@@ -82,16 +83,36 @@ Verify `wiki/portal.md` is complete and accurate per `docs/wiki-schema.md`:
 
 ### 8. Category placement
 
-Verify pages are in the correct subdirectory based on their content type per `docs/wiki-schema.md`.
+Verify pages are in the correct subdirectory based on their content type per `docs/wiki-schema.md` and `docs/wiki-architecture.md`.
 
-Read the Wiki subdirectories section in wiki-schema.md for the complete category mapping (Product, People, Concepts, Resources, Projects).
+**Use the decision flowchart in wiki-architecture.md** to validate categorization:
+
+1. Theoretical/reusable knowledge? → `concepts/` (patterns or technologies)
+2. What we want to do? → `product/` (entities, features, or personas)
+3. Who/how to do it? → `people/` (processes, members, competencies, or steps)
+4. Produced/used resources? → `resources/` (artifacts, components, dependencies, or tools)
+5. Time-bounded work? → `projects/`
+
+**Common miscategorization errors to check:**
+
+- **Persona vs Member**: Personas (role categories) should be in `product/persona/`, members (named individuals) in `people/members/`
+  - Example: `engineering-manager` → persona, `alice-engineering-manager` → member
+
+- **Entity vs Persona**: Entities (business objects) in `product/entities/`, personas (user types) in `product/persona/`
+  - Example: `renter` (entity), `renter-student` (persona)
+
+- **Feature vs Process**: Features (capabilities) in `product/features/`, processes (workflows) in `people/processes/`
+  - Example: `performance-review` (feature), `performance-review-cycle` (process)
+
+- **Technology vs Dependency vs Tool**: Technologies (abstract) in `concepts/technologies/`, dependencies (systems) in `resources/dependencies/`, tools (interfaces) in `resources/tools/`
+  - Example: `kafka` (technology), `kafka-cluster` (dependency), `kafka-cli` (tool)
 
 Special naming patterns to check:
 - Steps: `step-{name}.md` (defined in people-schema.md)
 - Roles: `role-<track>-<level>.md` (e.g., `role-ic-3.md`, `role-mgmt-2.md`)
 - **Inside tables** (THIS IS IMPORTANT): escape the `|` in wikilinks with `\|` to avoid collision with table column separators — e.g., `[[domain-developer\|Domain Developer]]`
 
-Flag any pages that appear to be miscategorized.
+Flag any pages that appear to be miscategorized based on the decision flowchart and common errors above.
 
 ### 9. People-specific validation
 

@@ -105,7 +105,13 @@ For each template, replace the placeholders:
 
 Write the generated config to the vault.
 
-### 3. Update wiki/log.md
+### 3.5. Copy wiki-architecture.md to vault docs/
+
+After generating agent configs, copy `<skill-directory>/references/wiki-architecture.md` to `<vault-path>/docs/wiki-architecture.md`. This provides the categorization guide for AI-assisted knowledge management.
+
+Extrapolate and rewrite it to adapt to the vault domain.
+
+### 4. Update wiki/log.md
 
 Append the setup entry:
 
@@ -115,7 +121,7 @@ Created vault "{{VAULT_NAME}}" for {{DOMAIN_DESCRIPTION}}.
 Agent configs: {{list of generated config files}}.
 ```
 
-### 4. Install CLI tools (if selected)
+### 5. Install CLI tools (if selected)
 
 For each tool the user selected in Step 5, run the install command:
 
@@ -125,7 +131,7 @@ For each tool the user selected in Step 5, run the install command:
 
 After each install, verify with `<tool> --version`. Report success or failure for each.
 
-### 5. Print summary
+### 6. Print summary
 
 Show the user:
 
@@ -140,6 +146,7 @@ Show the user:
 These files are bundled with this skill and available at `<skill-directory>/references/`:
 
 - `wiki-schema.md` — canonical wiki rules (single source of truth for all agent configs)
+- `wiki-architecture.md` — category articulation and AI categorization guide (how categories relate and decision flowcharts)
 - `tooling.md` — CLI tool details, install commands, and verification steps
 - `agent-configs/claude-code.md` — CLAUDE.md template
 - `agent-configs/codex.md` — AGENTS.md template
