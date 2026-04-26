@@ -89,6 +89,7 @@ Read the Wiki subdirectories section in wiki-schema.md for the complete category
 Special naming patterns to check:
 - Steps: `step-{name}.md` (defined in people-schema.md)
 - Roles: `role-<track>-<level>.md` (e.g., `role-ic-3.md`, `role-mgmt-2.md`)
+- **Inside tables** (THIS IS IMPORTANT): escape the `|` in wikilinks with `\|` to avoid collision with table column separators — e.g., `[[domain-developer\|Domain Developer]]`
 
 Flag any pages that appear to be miscategorized.
 

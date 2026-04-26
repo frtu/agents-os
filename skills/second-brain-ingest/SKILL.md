@@ -31,9 +31,24 @@ For each source file, follow this workflow:
 
 Read the entire file. If the file contains image references, note them — read the images separately if they contain important information.
 
-### 2. Discuss key takeaways with the user
+### 2. Present brief summary and gather context (for single clipping documents)
 
-Before writing anything, share the 3-5 most important takeaways from the source. Ask the user if they want to emphasize any particular aspects or skip any topics. Wait for confirmation before proceeding.
+**For single web clipping files from `raw/clippings/`:**
+
+Before writing anything, present:
+- **Brief summary** (2-3 sentences) of what the document covers
+- **Relevance check**: Ask if this is relevant to the vault's topic/domain
+- **Enrichment opportunity**: Ask if any additional tags, categories, or context should be added
+
+Example prompt:
+> "I read [filename]. Brief summary: [2-3 sentence summary].
+>
+> Is this relevant to [vault domain]? Should I add any specific tags or context to enrich this document before processing?"
+
+Wait for user response before proceeding.
+
+**For other source types** (docs, notes, or multiple files):
+Share the 3-5 most important takeaways from the source. Ask the user if they want to emphasize any particular aspects or skip any topics. Wait for confirmation before proceeding.
 
 ### 3. Create source summary page
 

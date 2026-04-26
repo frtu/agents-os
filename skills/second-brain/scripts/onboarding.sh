@@ -92,9 +92,9 @@ Example :
 EOF
 
 cat > "$VAULT_ROOT/wiki/product/features/README.md" << 'EOF'
-All the content related to a capability to interact with a certain [[resources]]
+All the content related to a capability to interact with a certain [[entities]] or achieve a certain outcome.
 
-Example : in case of search
+Example : could be "account management" that allows users to create and manage their accounts:
 - create [[user]]
 - delete [[account]]
 * routing
