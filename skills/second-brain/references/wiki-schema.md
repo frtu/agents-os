@@ -24,9 +24,9 @@ Three directories, three roles:
 - `wiki/projects/` — time-bounded development work (initiatives, products, specific projects)
 
 **Projects** — all content related to time-bounded development work:
-- `wiki/projects/{initiative-name}/` — transversal initiatives (e.g., kafka-migration, sso-enforcement)
-- `wiki/projects/{product-name}/` — product or platform
-- `wiki/projects/{product-name}/{project-name}/` — specific project to create or extend product capabilities
+- `wiki/projects/initiative-{initiative-name}/` — transversal initiatives (e.g., kafka-migration, sso-enforcement)
+- `wiki/projects/product-{product-name}/` — product or platform (e.g., search-platform)
+- `wiki/projects/product-{product-name}/{project-name}/` — specific project to create or extend product capabilities
 
 **People** — all content related to team members and their processes. **See `people-ingest` skill's `references/people-schema.md` for detailed people page formats.**
 - `wiki/people/processes/` — step of actions to achieve an outcome (e.g., software engineering, regulatory audit)
@@ -151,7 +151,7 @@ Examples:
 - Entity pages: `wiki/product/entities/user.md` → `# User`
 - Feature pages: `wiki/product/features/create-user.md` → `# Create User`
 - Process pages: `wiki/people/processes/software-engineering.md` → `# Software Engineering`
-- Step pages: `wiki/people/steps/deployment.md` → `# Deployment`
+- Step pages: `wiki/people/steps/step-{process}-{number}-{name}.md` → `# {Number}. {Step Name}` (e.g., `step-sdlc-1-planning.md` → `# 1. Planning & Initiation`, `step-hire-2-coding.md` → `# 2. Coding Interview`)
 - Competency pages: `wiki/people/competencies/system-design.md` → `# System Design`
 - Role pages: `wiki/people/roles/role-<track>-<level>.md` → `# <Level> — <Title>` (e.g., `role-ic-3.md` → `# Senior Software Engineer`, `role-mgmt-2.md` → `# Engineering Manager`)
 - Member pages: `wiki/people/members/fred.md` → `# Fred`
