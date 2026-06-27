@@ -2,6 +2,24 @@
 
 ## From Simple LLMs to Human-in-the-Loop Systems
 
+### Need for infrastructure
+
+Habbit of interacting with AI is getting to a state, that our work life depdends on it:
+
+* Adhoc interaction : use **prompt**
+* Regular interaction when having upstream demand & stakeholders : use composable **skills** (skill using skills) & reusable **scripts**
+
+![Interaction mode](images/Interaction mode-context-skills-refresh.png)
+
+#### Knowledge & Skills refresh loop
+
+By formalizing & materializing repeatitive adhoc content into file structure (Knowledge, Skills & Scripts), processes are capture, reviewed & improved by Owners.
+
+- For simple system, owner & user are the same person
+- For large & enterprise system, owners capture knowledge & skills from different users interactions. They improve over time by owner constant effort
+
+To improve Knowledge & Skills, it is useful to collect all interactions & measure and create measureable objectives (OKR) defined by owners.
+
 ### Interaction level
 
 As AI systems become more interactive and intelligent, the nature of execution shifts across multiple levels of complexity:

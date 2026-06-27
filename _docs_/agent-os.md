@@ -27,6 +27,11 @@ Generic function calls
 
 Specialized reusable and composable
 
+https://claude.com/plugins/skill-creator
+https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md
+
+https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf
+
 ##### MCP
 
 Integration with external
@@ -57,10 +62,16 @@ Overrided by :
 Agent.md or Claude.md => ~200 lines
 Index for others files
 
+context /
+
+- product : persona/audience, VoC, positioning
+- tech : architecture, db, api, test
+- workflows : change management
+
 #### Context management
 
 - Handling by machine : automatic capture of the session. Auto compaction (as efficient as possible)
-- Handling by human : Based on human judgement
+- Handling by human : `/resume`. Based on human judgement
 
 #### Plan mode
 
