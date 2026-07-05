@@ -70,11 +70,15 @@ Bold markdown, in this exact order — **not** h2 (`##`) headers:
 
 ### Highlights / Lowlights
 
-- Filter only topic significantly big win or issue : usually impacting end users or domain teams (gain or lose > hours).
+- Filter only topics with significant end-user or domain-team impact (> hours saved/lost).
 - Emoji: `:tada-animated:` (preferred) or `:tada:` for wins; `:bomb:` /
-  `:rotating_light:` for issues.
-- Aim for **0-3 items**. If nothing qualifies (see SKILL highlight-admission rules),
-  write a single line `- N/A`. That is normal, not a failure.
+  `:rotating_light:` for resolved issues.
+- Aim for **0-3 highlights** and **0-1 lowlights**.
+- **N/A rule:** Write `- N/A` **ONLY** when there are zero highlights AND zero
+  lowlights. If you have any lowlight, list it without N/A — the section is
+  "Highlights / Lowlights", not "Highlights then Lowlights".
+- **Lowlights are resolution-focused:** Frame around the **fix**, not the problem.
+  Write `Resolved P3 incident — applied filter fix` not `P3 incident — noisy query`.
 
 ### Key projects
 
@@ -91,11 +95,15 @@ Each project is one bullet, its task lines indented beneath.
   project was marked Complete in the Phase-1 wiki files. A completed line is either
   `**:large_green_circle:** [[project-events|Events]] :checked:` (no date) or
   `**:large_green_circle:** [[project-x|Cluster migration]] **:date:** Mid June :checked:`.
-- **Task status markers:** : Keep the `[:emoji:]` text form — Slack auto-renders it. Never use
-  raw `![:done:](url)` HTML emoji URLs.
-- **Emphasis:** bold the key term in a line so it skims (`Added **business-profile**
-  category`). Use `~~strikethrough~~` for a system being deprecated/migrated away
-  from (`migrated from ~~name-screening-service~~ to search-service`).
+- **Task status markers:** Keep the `[:emoji:]` text form — Slack auto-renders it.
+  Never use raw `![:done:](url)` HTML emoji URLs.
+- **Verb-first formulation:** Each task line starts with a past-tense action verb
+  immediately after the status marker: `[:done:] Migrated…`, `[:done:] Shipped…`,
+  `[:done:] Resolved…`, `[:work_in_progress:] Developing…`. Avoid noun phrases.
+- **Emphasis:** Bold the **key term** (team name, feature name, system affected) so
+  lines skim well: `Migrated **User & Account** to production`, `Shipped **business-info**
+  category`. Use `~~strikethrough~~` for deprecated systems (`migrated from
+  ~~old-service~~ to new-service`).
 
 ### Ordering (never interlace products)
 
@@ -113,7 +121,11 @@ report; strip them if they appear in the portal description.
 
 - One BAU **percentage** with a health status for the whole team (bare `{:health:}` is fine here, no
   bold). If the wiki file gives a range like `10-15%`, use the **midpoint**. Above 30% is `:large_yellow_circle:`, above 45% is `:red_circle:`.
+- **Combine team percentages:** If Product A reports 5% and Product B reports 15%, report
+  a single combined number (`~10%` or weighted average) — not separate breakdowns.
 - **Plain text** support items — no task status markers.
 - **Combine** related items on one line with `;`. Aim for **2-3 bullets total** — do
   not list one bullet per ticket. Drop routine oncall noise; keep incidents and
   notable cross-team help.
+- **Resolution-focused:** Frame incidents around what was fixed, not the investigation.
+  Write `CPU saturation mitigated` not `Investigated CPU saturation`.

@@ -1,11 +1,7 @@
 ---
 name: weekly-2-consolidate
-description: >
-  Phase 2 of the weekly digest. Consolidate the per-product wiki weekly pages
-  (produced by weekly-1-aggregate) into a single Slack-ready final report written
-  for a wider audience, with honest completion status. Use when the user says
-  "consolidate weekly", "weekly phase 2", "weekly final report", or when invoked by
-  the weekly-digest router.
+description: |
+  Phase 2 of the weekly digest. Consolidate the per-product wiki weekly pages (produced by weekly-1-aggregate) into a single Slack-ready final report written for a wider audience, with honest completion status. Use when the user says "consolidate weekly", "weekly phase 2", "weekly final report", or when invoked by the weekly-digest router.
 allowed-tools: Bash Read Write Edit Glob AskUserQuestion
 references:
   - references/weekly-report-template.md
@@ -78,27 +74,39 @@ generated draft, mostly because these cuts were not applied aggressively enough.
 
 **A. Merge micro-updates into one specific line.** A project with 4-7 task bullets
 that are all facets of the same effort should become **1-3 lines**, each naming a
-concrete outcome. Do not list every commit-sized step.
+concrete outcome. Do not list every commit-sized step. Human-edited reports
+consistently compress 10+ micro-tasks into 3-4 outcome lines maximum.
 
 **B. Drop pure mechanics.** Cut lines whose only content is internal plumbing with
-no audience meaning: version bumps (`SDK sync to v3.11.0`), image/publish fixes,
-dependency enrichment, DAG wiring, classloader fixes, bean resolution. These belong
-in the Phase-1 log, not the report. Keep only the outcome that a stakeholder cares
-about.
+no audience meaning: version bumps (`Bump lib version to v3.11.0`), image/publish fixes,
+dependency enrichment, wiring, classloader fixes, bean resolution, test
+framework improvements, CI/CD fixes, alert tuning. These belong in the Phase-1 log,
+not the report. Keep only the outcome that a stakeholder cares about.
 
-**C. Cap the volume.** Target **≤ 3 task lines or max 5 per project** and **≤ 8 project
-lines total** across the report. If a project's *only* activity this week is a
-single low-signal mechanical item, **drop the project entirely** rather than
-surface a thin line. Flagship / P1 / `:checked:` projects always survive.
+**C. Drop process noise.** Cut lines describing process steps rather than outcomes:
+meetings held, setup completed, onboarding sessions, alerts configured, repo
+bootstrapped, documentation updated. These are enablers, not deliverables.
+
+**D. Drop PoC/early-stage projects.** If a project's only activity this week is PoC
+work, exploration, design validation, or internal alignment — **drop it entirely**
+from the report. Early-stage work belongs in the Phase-1 log. Only surface projects
+with **shipped outcomes** or **imminent delivery** (within 2 weeks of target).
+
+**E. Cap the volume.** Target **≤ 2 or 3 task lines per project** across the report. 
+If a project's *only* activity this week is a single low-signal mechanical item, 
+**drop the project entirely** rather than surface a
+thin line. Flagship / P1 / `:checked:` projects always survive.
 
 | Phase-1 wiki (many micro-lines) | Consolidated (one specific line) |
 |---|---|
-| `[:done:] Auto sunset snapshot reload pipeline — edge cases fixed` · `[:done:] SDK sync to v3.11.0` · `[:done:] Decimal/float precision fix` · `[:done:] Docker image publishing fix` | `[:done:] Auto-sunset snapshot reload at watermarks (resource saving)` + `[:done:] Decimal/float precision fix` — SDK/Docker plumbing dropped |
+| `[:done:] Auto sunset snapshot reload pipeline — edge cases fixed` · `[:done:] Bump lib version to v3.11.00` · `[:done:] Decimal/float precision fix` · `[:done:] Docker image publishing fix` | `[:done:] Auto-sunset snapshot reload at watermarks` — all other plumbing dropped |
+| `[:done:] Bootstrap repo, setup alerts, onboarding meeting` | `[:done:] Onboarded to staging` — process steps dropped |
+| `[:done:] E2E PoC built` · `[:done:] Demo shared` · `[:work_in_progress:] Tech doc in review` | Drop project entirely — PoC-only work |
 | 8 separate BAU support bullets | 2-3 bullets, related items combined with `;` |
 
-**D. Reprioritize.** Order by importance, not by input order (ordering rules live in
-the template reference). A single high-impact line outranks five mechanical
-`[:done:]` lines.
+**F. Reprioritize.** Order by strategic importance, not by input order or completion
+count. A single high-impact shipped line outranks five mechanical `[:done:]` lines.
+Use L1/L2/L3 framework from product-search.md to decide importance.
 
 ## 4. Wider-audience expression & honest status
 
@@ -108,10 +116,14 @@ matters**, and so the status honestly reflects what actually shipped.
 
 **A. Rewrite each surviving task line for a wider audience**
 
-- **Lead with a verb** describing the effort: `Developing…`, `Assisting…`,
-  `Preparing…`, `Evaluated…`, `Enforcing…`. Avoid bare noun fragments.
+- **Lead with a PAST-TENSE ACTION VERB**: `Migrated…`, `Shipped…`, `Resolved…`,
+  `Deployed…`, `Onboarded…`. The verb is the first word after the status marker.
+  Avoid noun phrases (`Intelligent Capture PoC`) or passive voice.
+- **Bold the key term** — the team name, feature name, or system being affected:
+  `Migrated **User & Account** to production pipelines`, `Shipped **business-info**
+  category`.
 - **Add the audience or benefit ("why")** when it isn't self-evident: who it's for
-  or what it unlocks (e.g. `… for Copilot`, `… allowing Ops to search the business
+  or what it unlocks (e.g. `… for InfoSec`, `… allowing Ops to search the business
   field`). When the "why" isn't obvious from the wiki line, pull it from the project
   page's objective/audience (see Inputs → Judgment context).
 - **Strip internal jargon**: field names, repo names, tool/library names, version
@@ -127,7 +139,7 @@ verb. When in doubt, downgrade to `[:work_in_progress:]`.
 
 Also keep **target dates honest** — prefer a tighter, truthful target (`End of July`, `Mid Q3`) over a vague optimistic one (`Q3`).
 
-**C. Highlights — admit strictly, default to N/A**
+**C. Highlights — admit strictly, N/A only when empty**
 
 A highlight qualifies **only** if it has **end-user impact** (a customer, domain
 team, or partner is materially affected) **OR** a **significant release**
@@ -140,10 +152,18 @@ probably doesn't qualify.
 - Internal reviews, design "validated", PoC built or demoed => Design in progress
 - Refactoring new SDK/framework, tracing/observability upgrades => Internal improvement
 - Onboarding a feature internally, internal alignment reached => Preparing for external review
+- Tech document polished, architectural experiments, evaluation completed => Still in design phase
 
-It is normal for a week to have **no** qualifying highlight — write `- N/A` rather
-than promoting an internal win. Then reword survivors to **audience + benefit**,
-strip internal names, and prefer `:tada-animated:`. Aim for **0-3 highlights total**.
+**N/A rule:** Write `- N/A` **ONLY** when there are zero qualifying highlights AND
+zero lowlights. If you have any lowlight bullets, do NOT add N/A — just list the
+lowlights. The section is "Highlights / Lowlights", not "Highlights then Lowlights".
+
+**Lowlights — resolution-focused.** Frame incidents around the **fix**, not the
+problem. Human editors consistently reword from "root-caused to X" → "resolved via
+Y". Emphasize what was **shipped to fix it**, not the investigation.
+
+Aim for **0-2 highlights** and **0-1 lowlights** total. Prefer `:tada-animated:` for
+wins, `:bomb:` for resolved incidents.
 
 **D. Eng Excellence — plain text, combined, denoised**
 
@@ -206,30 +226,40 @@ Source wiki pages:
 
 - **Input is the per-product wiki files**, not raw updates. Run Phase 1 first.
 - **Editorial pass, not reformat:** denoise, dedupe, reprioritize. The report is
-  markedly shorter than its inputs — cutting is the job.
-- **Denoise budget:** ≤ 3 task lines 5 max per project, ≤ 8 projects total; merge
+  markedly shorter than its inputs — **cutting is the job**.
+- **Denoise budget:** ≤ 2 to 3 task lines per project, ≤ 6 projects total; merge
   micro-updates into one specific outcome line; drop pure mechanics (version bumps,
-  image/publish fixes, DAG/plumbing); drop projects whose only update is thin.
+  image/publish fixes, plumbing, CI fixes, alert tuning); drop process noise
+  (meetings, setup, onboarding steps); drop projects whose only update is thin or
+  PoC-only.
 - **Drill-down links:** KEEP the `[[project-x|Display Name]]` link on each project
   line so reviewers can click through. Display label = clean alias.
 - **Keep `[:emoji:]` text** for task status — Slack renders them.
 - **Priority markers are ordering-only** — never print `(P1)`/`(P2)`.
 - **Product order:** Product A first, then Product B. Never interlace. Within a
   product: P1 → completed → flagship → smaller.
-- **Wider-audience expression:** verb-led lines that state audience/benefit; pull
-  the "why" from project-page objective/audience when unclear; strip internal jargon.
+- **Verb-first formulation:** Lead with past-tense action verb (`Migrated…`,
+  `Shipped…`, `Resolved…`), bold the key term (**User & Account**, **business-info**);
+  pull the "why" from project-page when unclear; strip internal jargon.
 - **Honest status:** `[:done:]` only for shipped, complete outcomes; PoCs/drafts/
   "validated" designs stay `[:work_in_progress:]`; keep target dates truthful.
 - **Highlight admission:** end-user impact OR significant release only, and it should
-  name who benefits; RFCs/PoCs/re-platforming never qualify; `- N/A` when none do.
-- **Formulation:** bold the key term; `~~strikethrough~~` deprecated systems.
-- **Eng Excellence:** plain text, 2-3 combined bullets, one BAU %.
+  name who benefits; RFCs/PoCs/re-platforming never qualify.
+- **N/A rule:** Write `- N/A` ONLY when zero highlights AND zero lowlights. If any
+  lowlight exists, list it without N/A.
+- **Lowlights — resolution-focused:** Frame around the fix, not the problem.
+- **Eng Excellence:** plain text, 2-3 combined bullets, one BAU %. Combine
+  percentages across teams (`~30%` not `5% Product A, 15% Product B`).
 - **`:checked:`** after a project name when marked Complete in the wiki files.
 
 ## Edge Cases
 
 - **Only one product this week:** header names just that team; skip the missing product's block.
-- **No highlights qualify:** write `- N/A` under **Highlights / Lowlights** (common — not a failure).
+- **No highlights AND no lowlights:** write `- N/A` under **Highlights / Lowlights**.
+- **No highlights but has lowlights:** list only the lowlights, no N/A.
 - **BAU range (e.g. "10-15%") in wiki file:** pick the midpoint for the consolidated file.
+- **Multiple team BAU percentages:** combine into single weighted average (`~30%`).
 - **Missing target date in portal.md:** omit `:date:` for that project rather than inventing one.
+- **Project with only PoC/exploration/design work:** drop it entirely from the report.
 - **Project with only a mechanical/plumbing update:** drop it from the report rather than surface a thin line.
+- **Project with only process steps (meetings, setup, onboarding):** drop it entirely.
