@@ -25,25 +25,29 @@ Variable :
 
 ## The template
 
-```markdown
-**[ Tech Platform - {Product A}** **{:emojiA:}** **/ {Product B}** **{:emojiB:}** **]** Week of {Human Date}
+The report is pasted into Slack, so it uses **plain bold project names (NOT `[[wiki links]]`)**
+and a **tightly-packed layout**: NO blank line between a `**Section**` label and its
+first bullet, and a **trailing double-space** (`·· ` shown here as the invisible `⎵⎵`)
+after the header line and after each `**Section**` label so Slack renders a clean
+line break. The `⎵⎵` below marks where two literal trailing spaces go — do not print
+the symbol.
 
-**Highlights / Lowlights**
+```markdown
+**[ Tech Platform - {Product A} {:emojiA:} / {Product B} {:emojiB:} ]** Week of {Human Date}⎵⎵
+⎵⎵
+**Highlights / Lowlights**⎵⎵
 - {:tada-animated:} {Big win — names who benefits}
 - {:bomb:} {Issue impacting end users/teams and IF resolved}
-
-**Key projects**
-- **{:health:}** [[{project-key}|{Display Name}]] **:date:** {Target}
-    - [:work_in_progress:] {One specific in-flight outcome}
-    - [:todo_new:] {Next step}
-- **{:health:}** [[{project-key}|{Display Name}]] **:date:** {Target}
+⎵⎵
+**Key projects**⎵⎵
+- **{:health:}** {Display Name} **:date:** {Target}
     - [:done:] {One specific shipped outcome}
     - [:work_in_progress:] {One specific in-flight outcome}
-- **{:health:}** [[{project-key}|{Display Name}]] **:date:** {Target} :checked:
+- **{:health:}** {Display Name} **:date:** {Target} :checked:
     - [:done:] {One specific shipped outcome}
-
-**Eng Excellence**
-- {:health:} Support / BAU load - {X}%
+⎵⎵
+**Eng Excellence**⎵⎵
+- **{:health:}** Support / BAU load - {X}%
     - {Incident / notable help — combine related items with ;}
     - {Another support line}
 ```
@@ -57,11 +61,20 @@ Variable :
 - **No YAML frontmatter.** The file starts with the header line.
 - Name the **actual contributing teams/products**, not a generic umbrella. List
   each product that reported this week.
-- **Bold-wrap each emoji** separately (renders cleaner in Slack), as shown.
-- Put a **trailing double-space** after the header line and after each `**Section**`
-  label so Slack renders a clean line break when pasted.
+- **Capitalize the month** (`July 10th`, not `july 10th`) and use no year.
 - **Only one product reported?** Name just that team and drop the missing product's
   half of the header.
+
+### Slack layout / spacing (apply to the whole file)
+
+The final report is pasted straight into Slack. Match this layout exactly:
+
+- **Trailing double-space** (two literal spaces) after the header line and after
+  each `**Section**` label — this is how Slack renders a line break. Also add one
+  blank spacer line (itself two trailing spaces) between sections.
+- **NO blank line** between a `**Section**` label and its first bullet, and none
+  between bullets. The block under each section is tightly packed.
+- Do not use `##` headers; sections are bold markdown labels only.
 
 ### Section labels
 
@@ -71,6 +84,12 @@ Bold markdown, in this exact order — **not** h2 (`##`) headers:
 ### Highlights / Lowlights
 
 - Filter only topics with significant end-user or domain-team impact (> hours saved/lost).
+- **Promote quantified shipped wins.** Before settling the highlights, scan the
+  surviving `[:done:]` project lines for an outcome that (a) shipped and (b) carries
+  a number or a named beneficiary — a latency/throughput improvement (`P99 >30s → <1s`),
+  a production cutover, a team adopting a platform. Lift the strongest 1-2 of these
+  **up** into a highlight, naming who benefits. A strong metric buried in a project
+  line is the most common missed highlight.
 - Emoji: `:tada-animated:` (preferred) or `:tada:` for wins; `:bomb:` /
   `:rotating_light:` for resolved issues.
 - Aim for **0-3 highlights** and **0-1 lowlights**.
@@ -84,17 +103,23 @@ Bold markdown, in this exact order — **not** h2 (`##`) headers:
 
 Each project is one bullet, its task lines indented beneath.
 
-- **Health status** (`{:health:}`), **bold-wrapped**.
-- **Drill-down link:** `[[{project-key}|{Display Name}]]`. Keep the wiki link from
-  the Phase-1 page / portal so a reviewer can click through in Obsidian. The
-  `{Display Name}` is the **plain alias** from portal.md — no `Project:` prefix, no
-  `(P1)` marker, no internal suffixes that add nothing (`… with IAM`).
-- **`**:date:**`** (bold) follows the link, then the plain target date. **Omit
+- **Health status** (`{:health:}`), **bold-wrapped**. Take the circle from the
+  **project page `Status`** (In Progress / On Track → green, At Risk / blockers →
+  yellow, Blocked → red), **not** from counting open task markers. This is an
+  audience-facing status: **default to green** for a project that is progressing, and
+  reserve yellow/red for a real, worth-communicating blocker. Do **not** downgrade to
+  yellow just because a line is `[:work_in_progress:]` or `[:todo_new:]`.
+- **Display name — PLAIN BOLD, NO wiki link.** Write the **plain alias** from
+  portal.md in the health-circle bold run (e.g. `**:large_green_circle:** User service`).
+  Do **NOT** emit `[[project-key|…]]` — the report is pasted into
+  Slack, which cannot render wiki links. Strip any `Project:` prefix, `(P1)` marker,
+  and internal suffixes that add nothing (`… with user token`).
+- **`**:date:**`** (bold) follows the name, then the plain target date. **Omit
   `:date:`** entirely if portal.md has no target — never invent one.
 - **`:checked:`** goes after the name (and after the date if present) when the
   project was marked Complete in the Phase-1 wiki files. A completed line is either
-  `**:large_green_circle:** [[project-events|Events]] :checked:` (no date) or
-  `**:large_green_circle:** [[project-x|Cluster migration]] **:date:** Mid June :checked:`.
+  `**:large_green_circle:** Events :checked:` (no date) or
+  `**:large_green_circle:** Cluster migration **:date:** Mid June :checked:`.
 - **Task status markers:** Keep the `[:emoji:]` text form — Slack auto-renders it.
   Never use raw `![:done:](url)` HTML emoji URLs.
 - **Verb-first formulation:** Each task line starts with a past-tense action verb
@@ -104,6 +129,22 @@ Each project is one bullet, its task lines indented beneath.
   lines skim well: `Migrated **User & Account** to production`, `Shipped **business-info**
   category`. Use `~~strikethrough~~` for deprecated systems (`migrated from
   ~~old-service~~ to new-service`).
+
+### Merge related projects under one flagship (do this before ordering)
+
+The audience thinks in **flagships**, not in the internal sub-project split. Before
+listing, collapse sibling / parent-child efforts into the single name the audience
+recognizes:
+
+- **Follow the portal hierarchy.** In `portal.md`, indented projects are children of
+  the project above them. When a parent and its child (or two siblings) both have
+  updates this week, report them as **one** bullet under the most externally-recognizable
+  name — usually the flagship child. Example: `User service` (parent) security
+  work folds **into** `Secured authentication`, etc.
+- **Honor the `Report Under:` clue.** If a project page's `## Weekly Signal` block
+  sets `Report Under: <alias>`, roll its surviving line into that flagship's bullet
+  instead of giving it its own bullet.
+- Keep the **date and health** of the flagship you merge into.
 
 ### Ordering (never interlace products)
 

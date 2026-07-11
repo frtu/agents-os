@@ -29,18 +29,25 @@ draft is nearly as long as the per-product pages, you have not done Phase 2.
 
   Read every `## Key Projects`, `## Highlights / Lowlights`, and `## Eng Excellence`
   section. Emoji are already normalized to `[:emoji:]` text; `:checked:` markers
-  denote projects completed this week. Each project line already carries a
-  `[[project-x|Display Name]]` wiki link — **keep it** (see drill-down links below).
+  denote projects completed this week. Each project line carries a
+  `[[project-x|Display Name]]` wiki link — use it to **identify** the project and
+  find its page, but **strip the `[[…]]` from the final report** (the output is
+  pasted into Slack; print the plain bold alias instead — see §5 / template).
 - **Portal:** `wiki/portal.md` — for each project's **Alias** (display name),
-  **Target** date, and **priority marker** (`(Px)` embedded in the
-  description). Priority is for **ordering only** — never print it in the report.
-- **Judgment context** (read to rank and phrase, not to copy):
-  - `wiki/projects/product-search/product-search.md` — the **L1/L2/L3
+  **Target** date, **priority marker** (`(Px)` embedded in the description), and its
+  **parent/child hierarchy** (indentation). Priority is for **ordering only** — never
+  print it. The hierarchy drives **merging** (see §3.G).
+- **Judgment context** (read to rank, phrase, and merge — not to copy):
+  - `wiki/projects/product-a/product-a.md` — the **L1/L2/L3
     prioritization framework**. Use it to decide which projects deserve space.
-  - The touched **project pages** (`wiki/projects/.../project-*.md`) — pull the
-    one-line objective (Synopsis/Overview) and audience/stakeholder from here to
-    phrase **why the work matters**, instead of guessing. Do not read every page —
-    only consult one when a project's "why" is unclear from its wiki lines.
+  - The **project pages** of the surviving projects (`wiki/projects/.../project-*.md`)
+    — read these for the survivors, not just when the "why" is unclear. Pull:
+    - the **`Status`** frontmatter → the health circle (see §5 / template);
+    - the one-line **objective** (Synopsis/Overview) and audience/stakeholder → to
+      phrase **why the work matters**;
+    - the **`## Weekly Signal`** block if present (see §3.G) → `Report Under:`
+      (merge target), `Weekly Highlight:` (a ready highlight candidate), and
+      `Weekly Focus:` (the outcome the lead wants surfaced this week).
 
 If the per-product wiki files for `<date>` don't exist, **STOP** and tell the user
 to run `/weekly-1-aggregate <date>` first.
@@ -57,9 +64,12 @@ to run `/weekly-1-aggregate <date>` first.
 
 1. Read both `<date>-product-*.md` files.
 2. Read `wiki/portal.md`; build a lookup of alias, target date, priority, and the
-   `[[project-x|...]]` link key per project.
-3. Collect, per product: the project list (with health circle, tasks, `:checked:`,
-   and its `[[...]]` link), the highlights, and the Eng Excellence / BAU items.
+   parent/child hierarchy per project. Note each project's `[[project-x|...]]` link
+   **key** — used only to locate the project page, never printed in the report.
+3. Collect, per product: the project list (health circle, tasks, `:checked:`, project
+   key), the highlights, and the Eng Excellence / BAU items.
+4. Read the `## Weekly Signal` block (if any) and `Status` from each surviving
+   project's page (see Inputs → Judgment context).
 
 ## 2. File name
 
@@ -106,7 +116,20 @@ thin line. Flagship / P1 / `:checked:` projects always survive.
 
 **F. Reprioritize.** Order by strategic importance, not by input order or completion
 count. A single high-impact shipped line outranks five mechanical `[:done:]` lines.
-Use L1/L2/L3 framework from product-search.md to decide importance.
+Use L1/L2/L3 framework from product-a.md to decide importance.
+
+**G. Merge related projects under one flagship.** The audience thinks in flagships,
+not in the internal sub-project split, so collapse sibling / parent-child efforts
+into the single recognizable name **before** formatting:
+
+- **Portal hierarchy:** indented projects in `portal.md` are children of the project
+  above. When a parent and child (or two siblings) both have surviving lines, emit
+  **one** bullet under the most externally-recognizable name — usually the flagship
+  child — and nest the merged lines beneath it. Check examples from prior weeks.
+- **`Report Under:` clue:** if a surviving project's `## Weekly Signal` block sets
+  `Report Under: <alias>`, roll its line into that flagship's bullet.
+- Keep the flagship's date and health when you merge into it. Do not emit a separate
+  bullet for the absorbed project.
 
 ## 4. Wider-audience expression & honest status
 
@@ -139,13 +162,29 @@ verb. When in doubt, downgrade to `[:work_in_progress:]`.
 
 Also keep **target dates honest** — prefer a tighter, truthful target (`End of July`, `Mid Q3`) over a vague optimistic one (`Q3`).
 
-**C. Highlights — admit strictly, N/A only when empty**
+**Project health circle — from `Status`, default green.** Take each project's health
+circle from its **project-page `Status`** (In Progress / On Track → green, At Risk /
+has-blockers → yellow, Blocked → red), **not** from counting open task markers. This
+is an audience-facing signal: a project that is simply progressing is **green** even
+if its lines are `[:work_in_progress:]` / `[:todo_new:]`. Only show yellow/red when
+there is a real blocker worth communicating to a wider audience. Do not infer yellow
+from the mere presence of unfinished work.
+
+**C. Highlights — admit strictly, promote quantified wins, N/A only when empty**
 
 A highlight qualifies **only** if it has **end-user impact** (a customer, domain
 team, or partner is materially affected) **OR** a **significant release**
 (production cutover, GA, major migration complete, deprecation closed). A qualifying
 highlight can usually **name the team or customer who benefits**; if it can't, it
 probably doesn't qualify.
+
+**Promote quantified shipped wins from the project lines.** The most commonly missed
+highlight is a strong result the draft leaves buried as a `[:done:]` project bullet.
+After §3, scan the surviving `[:done:]` lines for an outcome that shipped **and**
+carries a number or a named beneficiary (a latency/throughput gain like
+`P99 >30s → <1s`, a production enablement, a team adopting the platform) and **lift the
+strongest 1-2 up** into the Highlights section, naming who benefits. It can stay in
+the project list too, but it must also surface as a highlight.
 
 **Never** promote these to a highlight — they are internal wins, not audience news:
 
@@ -173,16 +212,44 @@ wins, `:bomb:` for resolved incidents.
 
 Pour the denoised, rewritten survivors into the output structure defined in
 **`references/weekly-report-template.md`**. Read that file and follow its fill
-instructions exactly — it owns the header format, section order, health/status
-emoji, drill-down `[[project|Display]]` links, priority-stripping, product ordering,
-emphasis (`**bold**` / `~~strikethrough~~`), and Eng Excellence formatting.
+instructions exactly — it owns the header format, Slack layout/spacing, section
+order, health/status emoji, **plain-bold project names (no wiki links)**,
+priority-stripping, project merging, product ordering, emphasis (`**bold**` /
+`~~strikethrough~~`), and Eng Excellence formatting.
 
 ## 6. In case of doubt
 
 - If a surviving line is unclear, consult the project page for its objective and
   audience (see Inputs → Judgment context).
 - Still unclear, ask the project lead or team for clarification.
-- After clarification, propose to enrich project page.
+- After clarification, propose to enrich the project page — ideally by filling its
+  `## Weekly Signal` block (below) so the clue is captured for next time.
+
+## Project-page `## Weekly Signal` clues
+
+Project pages may carry a `## Weekly Signal` section that tells this phase how to
+surface the project. It is **optional and advisory** — when present, prefer it over
+inference; when absent, fall back to the heuristics above. Read it for each surviving
+project. Format:
+
+```markdown
+## Weekly Signal
+
+- **Importance:** L1 · flagship        <!-- why it earns space; L1/L2/L3 + flagship/steady/mechanics -->
+- **Report Under:** User service.      <!-- omit if this IS the flagship; else the alias to merge into -->
+- **Weekly Highlight:** Performance gain P99 from 30s to 1s   <!-- a ready highlight sentence naming who benefits; omit if none -->
+- **Weekly Focus:** Refactor authentication logic   <!-- the one outcome the lead wants surfaced this week -->
+- **Surface:** yes | no                <!-- "no" = keep out of the report (PoC/mechanics-only), still logged in Phase 1 -->
+```
+
+How the fields map:
+
+- **Importance / Surface** → §3 cut & §3.F ordering. `Surface: no` means drop from the
+  report even if it has activity (PoC/mechanics-only projects).
+- **Report Under** → §3.G merge target.
+- **Weekly Highlight** → a pre-vetted candidate for the Highlights section (§4.C). Still
+  apply the admission bar; the lead's suggestion is not automatic.
+- **Weekly Focus** → the survivor line to lead with when denoising this project.
 
 ## 7. Write the consolidated file (iterative)
 
@@ -232,8 +299,18 @@ Source wiki pages:
   image/publish fixes, plumbing, CI fixes, alert tuning); drop process noise
   (meetings, setup, onboarding steps); drop projects whose only update is thin or
   PoC-only.
-- **Drill-down links:** KEEP the `[[project-x|Display Name]]` link on each project
-  line so reviewers can click through. Display label = clean alias.
+- **Strip wiki links:** the report is pasted into Slack, so print the **plain bold
+  alias** (`**:large_green_circle:** User service`), NOT
+  `[[project-x|…]]`. Use the Phase-1 link only to locate the project page.
+- **Slack layout:** capitalized month, trailing double-space after the header and
+  each `**Section**` label, one spacer line between sections, and NO blank line
+  between a section label and its bullets.
+- **Merge to flagships:** collapse portal parent/child (and `Report Under:` clues)
+  into one bullet under the recognizable name before ordering.
+- **Health from `Status`, default green:** circle comes from the project page
+  Status, not task-marker counting; yellow/red only for a real blocker.
+- **Promote quantified wins:** lift the strongest shipped, numbered/named outcome up
+  into Highlights.
 - **Keep `[:emoji:]` text** for task status — Slack renders them.
 - **Priority markers are ordering-only** — never print `(P1)`/`(P2)`.
 - **Product order:** Product A first, then Product B. Never interlace. Within a
@@ -263,3 +340,10 @@ Source wiki pages:
 - **Project with only PoC/exploration/design work:** drop it entirely from the report.
 - **Project with only a mechanical/plumbing update:** drop it from the report rather than surface a thin line.
 - **Project with only process steps (meetings, setup, onboarding):** drop it entirely.
+- **Parent and child both have updates:** merge into one bullet under the flagship
+  (usually the child) per §3.G — do not emit two bullets.
+- **Project page sets `Report Under:`:** fold its line into that flagship rather than
+  giving it its own bullet.
+- **Project page sets `Surface: no`:** keep it out of the report regardless of activity.
+- **Project page has no `## Weekly Signal`:** fall back to inference (portal hierarchy,
+  L1/L2/L3, `Status` for health) — the block is advisory, never required.
