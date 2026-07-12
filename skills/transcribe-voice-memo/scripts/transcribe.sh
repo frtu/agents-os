@@ -3,12 +3,13 @@ set -euo pipefail
 
 # Transcribe a voice memo using Whisper and format output with template
 #
-# Usage: transcribe.sh <audio_path> <language> <output_path>
+# Usage: transcribe.sh <audio_path> <language> <output_path> [device]
 #
 # Arguments:
 #   audio_path  - Path to the .m4a file
 #   language    - Language for transcription (English, French, etc.)
 #   output_path - Path for the output markdown file
+#   device      - (optional) "mps" (default) or "cpu" for fallback
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
@@ -22,6 +23,7 @@ fi
 AUDIO_PATH="$1"
 LANGUAGE="$2"
 OUTPUT_PATH="$3"
+DEVICE="${4:-mps}"
 
 # Validate audio file exists
 if [[ ! -f "$AUDIO_PATH" ]]; then
@@ -46,16 +48,17 @@ TODAY=$(date +%Y-%m-%d)
 
 echo "Transcribing: $RECORDING_NAME"
 echo "Language: $LANGUAGE"
+echo "Device: $DEVICE"
 echo ""
 
-# Run whisper transcription using MPS (Metal Performance Shaders) on Apple Silicon
+# Run whisper transcription (MPS for Apple Silicon GPU, CPU as fallback)
 START_TIME=$(date +%s)
 whisper "$AUDIO_PATH" \
     --language "$LANGUAGE" \
     --output_format txt \
     --output_dir "$TEMP_DIR" \
     --model turbo \
-    --device mps \
+    --device "$DEVICE" \
     --verbose False
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))

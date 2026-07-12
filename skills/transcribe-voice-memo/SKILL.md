@@ -13,6 +13,7 @@ metadata:
 variables:
   recording_path: "~/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings/*.m4a"
   target_path: "raw/transcripts/{YYYY-MM-DD} {recording-name}.md"
+  max_recordings: 7
 ---
 
 # Transcribe Voice Memo
@@ -21,7 +22,7 @@ Transcribe Apple Voice Memos to markdown using OpenAI Whisper.
 
 ## Workflow
 
-1. **List recordings** — Show the 5 most recent voice memos
+1. **List recordings** — Show the {max_recordings} most recent voice memos
 2. **User selects recording** — Present the list and ask which to transcribe
 3. **Select language** — Ask: English (default) or French
 4. **Transcribe** — Run whisper with selected language
@@ -32,7 +33,7 @@ Transcribe Apple Voice Memos to markdown using OpenAI Whisper.
 Run the listing script to get recent voice memos:
 
 ```bash
-python3 scripts/list_recordings.py --limit 5
+python3 scripts/list_recordings.py --limit {max_recordings}
 ```
 
 Output format: `title;path` (CSV), one per line, newest first.
@@ -50,17 +51,28 @@ After the user selects a recording, ask for the language:
 Run the transcription script:
 
 ```bash
-bash scripts/transcribe.sh "<recording_path>" "<language>" "<output_path>"
+bash scripts/transcribe.sh "<recording_path>" "<language>" "<output_path>" [device]
 ```
 
 Arguments:
 - `recording_path`: Full path to the .m4a file (from step 1 selection)
 - `language`: "English" or "French"
 - `output_path`: Target file path, e.g., `raw/transcripts/2026-07-12 Meeting Notes.md`
+- `device`: (optional) "mps" (default) or "cpu"
 
 The output path should be constructed from `{target_path}` variable:
 - Replace `{YYYY-MM-DD}` with today's date
 - Replace `{recording-name}` with the recording title (sanitized for filename)
+
+### Auto-fallback on MPS failure
+
+If the transcription fails with MPS (common error: `ValueError` with NaN/inf tensors), **automatically retry with CPU**:
+
+```bash
+bash scripts/transcribe.sh "<recording_path>" "<language>" "<output_path>" cpu
+```
+
+Do not ask the user — just retry silently with CPU and report success when done.
 
 ## Variables
 
