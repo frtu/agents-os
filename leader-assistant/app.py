@@ -1,4 +1,7 @@
 """Gradio UI for the Leader Assistant - an IM-style chat interface."""
+import argparse
+import logging
+import os
 import warnings
 
 warnings.filterwarnings("ignore", message=r".*HTTP_422_UNPROCESSABLE_ENTITY.*")
@@ -7,6 +10,8 @@ import gradio as gr
 
 import core
 from style import CSS, HEAD
+
+logger = logging.getLogger("leader-assistant")
 
 THINKING = '<span class="thinking"><i></i><i></i><i></i></span>'
 GREETING = "Hi! I'm your project assistant. Ask me anything about the codebase and I'll search the documentation to help you."
@@ -30,6 +35,8 @@ def user_submit(msg, history):
 async def bot_respond(history, session_id):
     """Stream the assistant's reply."""
     user_msg = _text(history[-1]["content"])
+    logger.debug(f"[REQUEST] session={session_id}\n{user_msg}")
+
     history = history + [{"role": "assistant", "content": THINKING}]
     yield history, session_id
 
@@ -38,7 +45,9 @@ async def bot_respond(history, session_id):
         history[-1]["content"] = reply
         yield history, sid
 
-    history[-1]["content"] = reply or "I couldn't find relevant information. Could you rephrase your question?"
+    reply = reply or "I couldn't find relevant information. Could you rephrase your question?"
+    history[-1]["content"] = reply
+    logger.debug(f"[RESPONSE] session={sid}\n{reply}")
     yield history, sid
 
 
@@ -69,10 +78,32 @@ def build_demo():
     return demo
 
 
-def launch(**kwargs):
+def launch(debug: bool = False, **kwargs):
     """Build and launch the app."""
+    if debug:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s %(levelname)s %(name)s: %(message)s",
+            datefmt="%H:%M:%S",
+        ))
+        for name in ("leader-assistant", "leader-assistant.core"):
+            log = logging.getLogger(name)
+            log.setLevel(logging.DEBUG)
+            log.addHandler(handler)
+        logger.info("Debug mode enabled - logging all requests and responses")
     return build_demo().launch(css=CSS, head=HEAD, theme=gr.themes.Base(), **kwargs)
 
 
+def main():
+    parser = argparse.ArgumentParser(description="Leader Assistant server")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("--port", type=int, default=7860, help="Server port")
+    parser.add_argument("--share", action="store_true", help="Create public URL")
+    args = parser.parse_args()
+
+    print(f"Starting Leader Assistant: port={args.port}, debug={args.debug}, share={args.share}", flush=True)
+    launch(debug=args.debug, server_port=args.port, share=args.share)
+
+
 if __name__ == "__main__":
-    launch()
+    main()
