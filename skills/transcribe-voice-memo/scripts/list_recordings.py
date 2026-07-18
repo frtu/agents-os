@@ -52,6 +52,13 @@ def list_recordings(recordings_dir: Path, limit: int = None) -> list:
     return results
 
 
+def match_name(title: str, pattern: str) -> bool:
+    """Check if title matches pattern (case-insensitive, supports 'latest')."""
+    if pattern.lower() == "latest":
+        return True
+    return pattern.lower() in title.lower()
+
+
 def main():
     parser = argparse.ArgumentParser(description="List Voice Memos")
     parser.add_argument(
@@ -62,11 +69,23 @@ def main():
         "--dir", "-d", type=str, default=None,
         help="Recordings directory (default: Voice Memos folder)"
     )
+    parser.add_argument(
+        "--name", type=str, default=None,
+        help="Filter by title (case-insensitive substring match, or 'latest' for newest)"
+    )
     args = parser.parse_args()
 
     recordings_dir = Path(args.dir) if args.dir else DEFAULT_RECORDINGS_DIR
 
-    recordings = list_recordings(recordings_dir, limit=args.limit)
+    recordings = list_recordings(recordings_dir, limit=None if args.name else args.limit)
+
+    if args.name:
+        if args.name.lower() == "latest" and recordings:
+            recordings = [recordings[0]]
+        else:
+            recordings = [(t, p) for t, p in recordings if match_name(t, args.name)]
+            if args.limit:
+                recordings = recordings[:args.limit]
 
     if not recordings:
         print("No recordings found.", file=sys.stderr)
