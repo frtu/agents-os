@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """
-Convert Slack emoji image syntax to plain text emoji syntax in markdown files.
+Convert Slack emoji and Zoom speaker image syntax to plain text in markdown files.
 
-Example:
-    ![:tada-animated:](https://emoji.slack-edge.com/T086B9BTPEJ/tada-animated/3743b73b31c22c82.gif)
-    -> :tada-animated:
+Examples:
+    Slack emoji:
+        ![:tada-animated:](https://emoji.slack-edge.com/T086B9BTPEJ/tada-animated/3743b73b31c22c82.gif)
+        -> :tada-animated:
 
-    [![:done:](https://emoji.slack-edge.com/T086B9BTPEJ/done/c11bf3db1f90897f.jpg)]
-    -> [:done:]
+        [![:done:](https://emoji.slack-edge.com/T086B9BTPEJ/done/c11bf3db1f90897f.jpg)]
+        -> [:done:]
+
+    Zoom speaker images:
+        ![Speaker 1](https://us01cnst1.zoom.com/fe-static/recording-player/img/zr_default.b8180c09.png)
+        -> Speaker 1
+
+        ![Speaker 1](data:image/png;base64,iVBORw0KGgo...)
+        -> Speaker 1
 """
 
 import re
@@ -15,13 +23,15 @@ import sys
 from pathlib import Path
 
 
-def normalize_slack_emoji(content: str) -> str:
+def normalize_markdown_images(content: str) -> str:
     """
-    Replace Slack emoji image syntax with plain text emoji syntax.
+    Replace Slack emoji and Zoom speaker image syntax with plain text.
 
     Patterns handled:
     1. ![:emoji_name:](url) -> :emoji_name:
     2. [![:emoji_name:](url)] -> [:emoji_name:]
+    3. ![Speaker N](https://...zoom.../...) -> Speaker N
+    4. ![alt](data:image/...;base64,...) -> alt
     """
     # Pattern 1: ![:emoji_name:](url) -> :emoji_name:
     pattern1 = r'!\[(:[\w-]+:)\]\([^)]+\)'
@@ -30,6 +40,14 @@ def normalize_slack_emoji(content: str) -> str:
     # Pattern 2: [![:emoji_name:](url)] -> [:emoji_name:]
     pattern2 = r'\[!\[(:[\w-]+:)\]\([^)]+\)\]'
     content = re.sub(pattern2, r'[\1]', content)
+
+    # Pattern 3: ![Speaker N](https://...zoom.../...) -> Speaker N
+    pattern3 = r'!\[(Speaker \d+)\]\(https?://[^)]*zoom*[^)]*\)'
+    content = re.sub(pattern3, r'\1', content)
+
+    # Pattern 4: ![alt](data:image/...;base64,...) -> alt
+    pattern4 = r'!\[([^\]]*)\]\(data:image/[^;]+;base64,[^)]+\)'
+    content = re.sub(pattern4, r'\1', content)
 
     return content
 
@@ -43,18 +61,22 @@ def process_file(filepath: Path, dry_run: bool = False) -> tuple[bool, int]:
     """
     try:
         original_content = filepath.read_text(encoding='utf-8')
-        normalized_content = normalize_slack_emoji(original_content)
+        normalized_content = normalize_markdown_images(original_content)
 
         if original_content == normalized_content:
             return False, 0
 
-        num_replacements = len(re.findall(r'!\[(:[\w-]+:)\]|!\[!\[(:[\w-]+:)\]', original_content))
+        # Count all patterns: Slack emoji + Zoom speakers + base64 images
+        slack_matches = len(re.findall(r'!\[(:[\w-]+:)\]|\[!\[(:[\w-]+:)\]', original_content))
+        zoom_matches = len(re.findall(r'!\[Speaker \d+\]\(https?://[^)]*zoom*[^)]*\)', original_content))
+        base64_matches = len(re.findall(r'!\[[^\]]*\]\(data:image/[^;]+;base64,[^)]+\)', original_content))
+        num_replacements = slack_matches + zoom_matches + base64_matches
 
         if not dry_run:
             filepath.write_text(normalized_content, encoding='utf-8')
-            print(f"✓ Updated {filepath} ({num_replacements} emoji normalized)")
+            print(f"✓ Updated {filepath} ({num_replacements} images normalized)")
         else:
-            print(f"[DRY RUN] Would update {filepath} ({num_replacements} emoji)")
+            print(f"[DRY RUN] Would update {filepath} ({num_replacements} images)")
 
         return True, num_replacements
 
@@ -67,7 +89,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description='Normalize Slack emoji syntax in markdown files',
+        description='Normalize Slack emoji and Zoom speaker images in markdown files',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -120,7 +142,7 @@ Examples:
             total_changed += 1
             total_replacements += num_replacements
 
-    print(f"\n{'[DRY RUN] ' if args.dry_run else ''}Summary: {total_changed}/{total_files} files modified, {total_replacements} emoji normalized")
+    print(f"\n{'[DRY RUN] ' if args.dry_run else ''}Summary: {total_changed}/{total_files} files modified, {total_replacements} images normalized")
 
     return 0 if total_files > 0 else 1
 
