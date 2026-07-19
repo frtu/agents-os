@@ -9,7 +9,7 @@ allowed-tools: Bash Read Write Edit Glob Grep AskUserQuestion
 
 # Interview Preparation (Pre-Interview)
 
-Create a comprehensive candidate source page with profile analysis and interview preparation materials.
+Create comprehensive candidate evaluation materials with profile analysis, leveling assessment, and tailored interview questions.
 
 ## Input
 
@@ -22,27 +22,51 @@ Optional files:
 - Interview briefing — Role context, team, hiring manager
 - LinkedIn profile — Current role, tenure
 - Recruiting intake form — Success metrics, challenges
+- Previous feedback — Prior interview rounds
+
+## Output Structure
+
+```
+wiki/projects/product-{product}/_interviews_/
+└── candidate-{slug}/
+    ├── 1-candidate-{slug}.md          # Candidate evaluation page
+    └── 2-{step}-questions-{slug}.md   # Interview guide with tailored questions
+```
+
+Also creates/updates:
+- `wiki/sources/source-{slug}.md` — Raw profile source
+- Product page candidate pipeline table
+- `wiki/portal.md` candidate evaluations section
+- `wiki/log.md`
 
 ## Workflow
 
 ### 1. Gather Context
 
-**Question 1: Role Details**
+**Question 1: Product/Team**
+> "Which product/team is this candidate interviewing for?"
+
+List all projects from `wiki/projects/` as options. User can select one or provide a new product name.
+
+**Question 2: Role and Level**
 > "What role and level is this candidate interviewing for?"
 
 Examples:
 - "Senior Software Engineer, Product (IC Level 3)"
 - "Engineering Lead, Product (Manager Level 1)"
 
-**Question 2: Interview Step**
+For IC {Level} evaluated vs {Level+1} level range: "Level {Level}-{Level+1} evaluation" — skill generates leveling comparison.
+
+**Question 3: Interview Step**
 > "Which interview step are you preparing for?"
 
-Options: `bar-raiser`, `technical`, `system-design`, `hiring-manager`, `culture`, `screening`
+Options: `coding`, `system-design`, `hiring-manager` or `team-match`, `bar-raiser`
 
-**Question 3: Focus Areas (Optional)**
+**Question 4: Focus Areas (Optional)**
+
+Check previous feedback for any identified concerns or strengths. Ask:
+
 > "Any specific areas you want to probe? Leave blank for standard assessment."
-
-Allow user to specify concerns or areas of interest.
 
 ### 2. Read Raw Materials
 
@@ -64,41 +88,50 @@ Look for existing pages to link:
 - Rubric: `wiki/resources/artifacts/interview-rubric-{step}.md`
 - Competencies: `wiki/people/competencies/{competency}.md`
 - Interview guide (synthesis): `wiki/synthesis/{step}-{level}-{domain}.md`
+- Product interviews: `wiki/projects/product-{product}/interviews-{product}.md`
 
-### 4. Create Source Page
+### 4. Create Output Directory
 
-Write `wiki/sources/source-{candidate-slug}.md`:
+```bash
+mkdir -p wiki/projects/product-{product}/_interviews_/candidate-{slug}
+```
+
+### 5. Create Candidate Evaluation Page
+
+Write `wiki/projects/product-{product}/_interviews_/candidate-{slug}/1-candidate-{slug}.md`:
 
 ```markdown
 ---
-Category: sources
-Tags: [candidate, resume, {level}, {domain}, hiring]
+Category: projects
+Tags: [hiring, candidate, evaluation, {product}, {level}, {step}]
+Source links:
+  - [[source-{slug}]]
 Created: {date}
 Last Updated: {date}
 ---
 
-# Source: {Candidate Name} Profile
+# Candidate Evaluation: {Full Name}
 
-**Source:** {Candidate Name} folder (Interview Briefing, LinkedIn, Resume, Recruiting Intake Form)
-**Date ingested:** {date}
-**Type:** candidate profile
+**Role:** {Title} ({Level})
+**Team:** {Product}
+**Interview Steps:** [[step-hire-1-recruiter|Recruiter]] | [[step-hire-2-coding|Coding]] | [[step-hire-3-system|System Design]] | [[{step}-questions-{slug}|{Step} Guide]]
+**Status:** Pre-Interview
 
-## Summary
+## Candidate Profile
 
-{1-2 sentence overview: who they are, what role, key background}
+| Attribute | Details |
+|-----------|---------|
+| **Current Role** | {Role} @ {Company} |
+| **Experience** | {X}+ years |
+| **Education** | {Degree}, {School} |
+| **Location** | {City} ({Visa/Citizenship if relevant}) |
+| **Target Level** | {Level} ({Title}) |
 
-## Candidate Overview
+## Background Summary
 
-| Field | Value |
-|-------|-------|
-| **Name** | {Name} |
-| **Current Role** | {Title} @ {Company} |
-| **Location** | {Location} |
-| **Target Role** | {Role Title} |
-| **Target Level** | {Level} ({Level Description}) |
-| **Languages** | {Languages if relevant} |
+> "{1-2 sentence compelling summary from resume}"
 
-## Experience Summary
+## Experience Highlights
 
 ### {Company} ({Dates}) — {Title}
 
@@ -108,50 +141,30 @@ Last Updated: {date}
 
 {Repeat for each relevant role}
 
-## Education
+## Strengths ({Product} Fit)
 
-- {University} — {Degree} ({Years})
+### {Strength Category}
+{Evidence from resume with metrics. Why it matters for the role.}
 
-## Strengths Assessment
-
-| Strength | Evidence | Relevance to Role |
-|----------|----------|-------------------|
-| **{Strength}** | {Specific example from resume} | {Why it matters} |
+### {Strength Category}
 ...
 
-## Potential Concerns
+## Weaknesses (Areas to Probe)
 
-| Concern | Context | Mitigation |
-|---------|---------|------------|
-| **{Concern}** | {Why it's a concern} | {How to probe in interview} |
+### {Concern}
+{Why it's a concern for the role. How to probe in interview.}
+
+### {Concern}
 ...
 
-## Role Context
+## Role Match Analysis
 
-### Position Details
-
-- **PID:** {if available}
-- **Hiring Manager:** {Name}
-- **Division:** {Division}
-- **Location:** {Location}
-
-### Team Structure
-
-{Who they'd work with, report to, coordinate with}
-
-### Success Metrics (6-12 months)
-
-1. {Metric 1}
-2. {Metric 2}
+| {Product} Requirement | Candidate Evidence | Fit |
+|-----------------------|-------------------|-----|
+| **{Requirement}** | {Evidence} | Strong/Probe/Gap |
 ...
 
-### Challenges
-
-1. {Challenge 1}
-2. {Challenge 2}
-...
-
-## Pre-Interview Assessment Summary
+## Pre-Interview Assessment
 
 ### 5 Buckets Framework
 
@@ -163,62 +176,282 @@ Last Updated: {date}
 | 4. Culture & Collaboration | {Assessment} | {Priority} |
 | 5. Talent & Team Building | {Assessment} | {Priority} |
 
-### Key Interview Questions
+{If {Level}-{Level+1} evaluation requested, include leveling section:}
 
-**Shine Questions:** (let them demonstrate strengths)
-- "{Question about their strongest area}"
-- "{Question about quantified accomplishment}"
+## {Level}-{Level+1} Leveling
 
-**Gap Questions:** (probe concerns)
-- "{Question about identified gap}"
-- "{Question about potential concern}"
+### Level Comparison
 
-**Open Exploration Questions:** (discover unknowns)
-- "{Question to uncover working style}"
-- "{Question about decision-making approach}"
-- "{Question about failure/learning}"
+| Dimension | [[role-ic-{Level}|{Level}]] Signal | [[role-ic-{Level+1}|{Level+1}]] Signal | Evidence |
+|-----------|-------------------------------------|----------------------------------------|----------|
+| **Scope** | Feature/Team | Domain | {Assessment} |
+| **Ownership** | Features end-to-end | Domain technical direction | {Assessment} |
+| **Strategy** | Multi-phase projects | Domain roadmaps | {Assessment} |
+| **Design** | Components (well-defined) | Ambiguity, cross-boundary | {Assessment} |
+| **Domain Expertise** | Team domain | SME for domain | {Assessment} |
+| **Influence** | Cross-team | Cross-domain | {Assessment} |
+
+### Leveling Decision Questions
+
+After interview, answer:
+1. Did they *define* technical direction, or *execute* someone else's vision?
+2. Did they align stakeholders across domains, or within their team?
+3. Did they change engineers' career trajectories, or just help on tasks?
+4. Can they present to executives, or only technical peers?
+
+## Recommendation
+
+**{Pre-interview recommendation}**
+
+{Brief rationale with suggested focus areas for interview.}
 
 ## Related
 
+- [[source-{slug}|Candidate Profile]] — Full source materials
+- [[interviews-{product}|{Product} Hiring]] — Team hiring
 - [[role-{track}-{level}|{Level} {Title}]] — Target level
-- [[hiring-process|Hiring Process]] — Interview pipeline
-- [[step-hire-{n}-{step}|{Step Name}]] — Next interview
-- [[interview-rubric-{step}|{Step} Rubric]] — Scoring criteria
+- [[{step}-questions-{slug}|{Step} Interview Guide]] — Tailored questions
 ```
 
-### 5. Update Log
+### 6. Create Interview Questions Guide
+
+Write `wiki/projects/product-{product}/_interviews_/candidate-{slug}/2-{step}-questions-{slug}.md`:
+
+```markdown
+---
+Category: projects
+Tags: [hiring, {step}, candidate, {slug}, {product}, {level}, interview-guide]
+Source links:
+  - [[1-candidate-{slug}]]
+  - [[source-{slug}]]
+  - [[interview-rubric-{step}]]
+  - [[step-hire-{n}-{step}]]
+Created: {date}
+Last Updated: {date}
+---
+
+# {Step} Guide: {Full Name}
+
+Tailored {step} question bank for [[1-candidate-{slug}|{Full Name}]] ({Level} {Title} candidate, {Product}).
+
+## Calibration Framing
+
+{If leveling evaluation:}
+
+### {Level} vs {Level+1} — What "Yes at {Level+1}" Requires
+
+| Dimension | {Level} baseline | **{Level+1} must show** |
+|-----------|------------------|-------------------------|
+| [[software-design|Software Design]] | Components in well-defined scenarios | **Designs in ambiguity, cross-boundary** |
+| [[system-design|System Design]] | Contributes to tech strategy | **Owns domain tech strategy** |
+| [[domain-expertise|Domain Expertise]] | Team domain | **SME for domain** |
+| [[strategy|Strategy]] | Multi-phase projects | **Domain roadmaps, secures buy-in** |
+| [[ownership|Ownership]] | Team ownership | **Domain ownership, sets roadmap** |
+
+### Risk Profile (from prior rounds)
+
+**Confirmed strengths:**
+- {Strength from prior feedback}
+...
+
+**Open concerns to probe:**
+- {Concern to address}
+...
+
+## Question Bank (Tailored to Resume)
+
+### A. {Category} — {Focus}
+
+{Brief rationale for this category based on candidate's background.}
+
+1. **"{Question tailored to specific resume experience}"**
+   - *Listening for:* {What distinguishes good from great answer}
+
+2. **"{Question}"**
+   - *Listening for:* {Signals}
+
+...
+
+### B. {Category} — {Focus}
+
+...
+
+{Include 5-7 categories with 3-5 questions each, tailored to:
+- Specific resume accomplishments to probe deeper
+- Gaps identified in strengths assessment
+- Level-distinguishing behaviors
+- Role-specific requirements}
+
+## Recommended Interview Flow ({duration} min)
+
+| Time | Section | Top Picks | Purpose |
+|------|---------|-----------|---------|
+| 5 min | Warmup | Self-intro, Q{n} | Establish tone, motivation |
+| 10 min | {Category} | Q{n}, Q{n} | {Purpose} |
+...
+
+## Red Flags to Watch For
+
+| Question | Red Flag | What It Indicates |
+|----------|----------|-------------------|
+| Q{n} | {Pattern} | {Concern} |
+...
+
+## Positive Signals to Confirm "Strong Yes"
+
+- {Specific behavior to look for}
+...
+
+## Decision Framework
+
+| Recommendation | Threshold | When to Apply |
+|----------------|-----------|---------------|
+| **Strong Yes** | 4.0+ | {Criteria} |
+| **Yes ({Level})** | 3.5-3.9 | {Criteria} |
+| **Yes (down-level)** | 3.0-3.4 | {Criteria} |
+| **No** | <3.0 | {Criteria} |
+
+## Related
+
+- [[1-candidate-{slug}|Candidate Evaluation: {Full Name}]]
+- [[source-{slug}|Source: {Full Name} Profile]]
+- [[interviews-{product}|{Product} Hiring]]
+- [[step-hire-{n}-{step}|{Step} Interview Step]]
+- [[interview-rubric-{step}|{Step} Rubric]]
+- [[role-{track}-{lower-level}|{Lower Level} {Title}]]
+- [[role-{track}-{upper-level}|{Upper Level} {Title}]]
+```
+
+### 7. Create Source Page
+
+Write `wiki/sources/source-{slug}.md`:
+
+```markdown
+---
+Category: sources
+Tags: [candidate, resume, {level}, {product}, hiring]
+Created: {date}
+Last Updated: {date}
+---
+
+# Source: {Full Name} Profile
+
+**Source:** {Folder path} (Resume, Briefing, Previous Feedback, etc.)
+**Date ingested:** {date}
+**Type:** candidate profile
+
+## Summary
+
+{1-2 sentence overview}
+
+## Candidate Overview
+
+| Field | Value |
+|-------|-------|
+| **Name** | {Full Name} |
+| **Current Role** | {Title} @ {Company} |
+| **Location** | {Location} |
+| **Target Role** | {Title} |
+| **Target Level** | {Level} ({Description}) |
+
+## Full Experience
+
+{Complete experience extracted from resume with all details}
+
+## Education
+
+{All education details}
+
+## Technical Skills
+
+{Complete skills list}
+
+## Raw Extracts
+
+### From Resume
+{Key quotes/details}
+
+### From Briefing
+{Role context, success metrics}
+
+### From Previous Feedback
+{Summary of prior round scores and notes}
+
+## Related
+
+- [[1-candidate-{slug}|Candidate Evaluation]]
+- [[2-{step}-questions-{slug}|Interview Guide]]
+```
+
+### 8. Update Product Page
+
+Find `wiki/projects/product-{product}/product-{product}.md` and add/update Candidate Pipeline table:
+
+```markdown
+## Candidate Pipeline
+
+| Candidate | Role | Status | Score |
+|-----------|------|--------|-------|
+| [[1-candidate-{slug}\|{Full Name}]] | {Title} ({Level}) | **Pre-Interview** | — |
+```
+
+### 9. Update Portal
+
+Find `wiki/portal.md` and add under `#### Candidate Evaluations` → `##### product-{product}`:
+
+```markdown
+- [[1-candidate-{slug}|{Full Name}]] — {Level} candidate, {Brief background} — **Pre-Interview**
+  - [[2-{step}-questions-{slug}|{Step} Guide]] — Tailored questions
+```
+
+### 10. Update Log
 
 Append to `wiki/log.md`:
 
 ```markdown
 ## [{date}] ingest | Candidate {Name} (pre-interview)
 
-Processed candidate materials for {Name} ({Role}).
+Processed candidate materials for {Name} ({Role}, {Level}).
 
 **Phase:** pre-interview
 **Step:** {Step}
-**Created:** source-{slug}.md
+**Product:** {Product}
+
+**Created:**
+- [[1-candidate-{slug}|Candidate Evaluation]]
+- [[2-{step}-questions-{slug}|{Step} Interview Guide]]
+- [[source-{slug}|Source Profile]]
+
+**Updated:**
+- product-{product}.md — Candidate Pipeline table
+- portal.md — Candidate Evaluations section
 ```
 
-### 6. Report Results
+### 11. Report Results
 
 ```
-Created: wiki/sources/source-{slug}.md
+Created: wiki/projects/product-{product}/_interviews_/candidate-{slug}/
+├── 1-candidate-{slug}.md
+└── 2-{step}-questions-{slug}.md
 
-Candidate: {Name}
-Role: {Role} ({Level})
+Source: wiki/sources/source-{slug}.md
+
+Candidate: {Full Name}
+Role: {Title} ({Level})
+Product: {Product}
+Interview Step: {Step}
+
 5 Buckets: {Strong count} Strong, {Probe count} Probe, {Gap count} Gap
+{If leveling}: {Level} vs {Level + 1} comparison included
 
-Shine questions: {N}
-Gap questions: {N}
-Open exploration questions: {N}
+Questions: {N} tailored questions across {M} categories
 
 Ready for {Step} interview.
 ```
 
-### 7. Stage Changes
+### 12. Stage Changes
 
-Call `/capture-changes-git` to stage all changes and create the change log entry:
+Call `/capture-changes-git` to stage all changes:
 
 ```
 /capture-changes-git
@@ -226,23 +459,31 @@ Call `/capture-changes-git` to stage all changes and create the change log entry
   operation: pre-interview
   subject: {Candidate Name}
   input_files: {all raw files in candidate folder}
-  created_files: {source page created}
-  updated_files: {log.md}
+  created_files: {all pages created}
+  updated_files: {product page, portal.md, log.md}
 ```
 
-Do not commit unless the user explicitly asks.
+Do not commit unless user explicitly asks.
 
 ## Conventions
 
 - **Slug format:** Lowercase, hyphenated name (e.g., `fred-t`)
-- **Open questions:** Include 2-3 exploratory questions beyond standard probes
+- **File numbering:** `1-` for candidate page, `2-` for questions guide
+- **Step names in files:** `coding`, `system-design`, `hiring-manager` or `team-match`, `bar-raiser`
+- **Leveling:** Include {Level} vs {Level + 1} comparison when level range requested
+- **Questions:** 25-35 tailored questions across 5-7 categories
 - **Evidence tables:** Always include specific examples from source materials
 - **Pre-assessment:** Mark each bucket as Strong/Probe/Gap with priority
+- **Red flags/signals:** 4-6 specific patterns per section
 
 ## Edge Cases
 
-**Missing briefing:** Focus on resume analysis, ask user for role context.
+**Missing briefing:** Focus on resume; ask user for role context.
 
-**No role specified:** Ask user before proceeding — needed for accurate assessment.
+**No product specified:** Ask user — needed for output location.
+
+**Prior feedback exists:** Extract scores, concerns, strengths; build on them.
+
+**Level range ({Level}-{Level + 1}):** Include full leveling comparison framework.
 
 **Synthesis doesn't exist:** Offer to create role-specific interview guide first.

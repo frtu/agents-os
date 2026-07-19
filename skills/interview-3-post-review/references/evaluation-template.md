@@ -1,4 +1,4 @@
-	# Evaluation Template
+# Evaluation Template
 
 Post-interview evaluation page template.
 
@@ -203,6 +203,7 @@ Communication is multi-dimensional — distinguish team-fit risk from content cl
 | [[ownership\|Ownership]] | {Pre} | **{Post}** or **N/E** | {Notes} |
 | [[operational-excellence\|Operational Excellence]] | {Pre} | **{Post}** or **N/E** | {Notes} |
 | [[inspire\|Inspire]] | {Pre} | **{Post}** or **N/E** | {Notes} |
+| [[ai-mindset\|AI Mindset]] | {Pre} | **{Post}** or **N/E** | {Notes} |
 
 ---
 
@@ -353,6 +354,7 @@ When pulling quotes/evidence, name specific concepts:
 | ------------------------------------ | -------------------------------------------------------------------------------------- |
 | "Demonstrated idempotency knowledge" | "Used epoch numbers + 2 trace IDs (write vs read, ordering by time)"                   |
 | "Knows distributed systems"          | "Identified consumer-side connection pool saturation, not Redis itself, as root cause" |
+| "Good debugging"                     | "Layered approach: metrics → traces → correlation ID reconstruction"  |
 
 ### Score Granularity
 
@@ -368,3 +370,25 @@ Use 0.5 increments (e.g., 2.5/5, 3.5/5) for more nuanced assessments.
 | 3/5   | Adequate — meets minimum bar             |
 | 2.5/5 | Borderline — slight gap                  |
 | 2/5   | Weak — significant gap                   |
+
+### Example Pros & Cons (Restricted)
+
+```markdown
+### Pros
+
+- **Problem Solving** (3.5/5) : Systematic debugging with 2 trace IDs (write vs read, ordering by time); manipulates concepts beyond past examples
+- **Domain Expertise** (4/5) : Deep event-driven (strong consistency, idempotency), state machine patterns, identified consumer saturation as root cause
+- **Communication** (4/5) : Clear communication and asking good questions (relevant clarification on ambiguous area)
+- **Passion** (3/5) **:** Shared many ideas to improve his system
+
+### Cons
+
+- **Tech depth** (2/5) : light understanding & wrong decision making on middleware selection.
+- **Complex architecture** : Candidate hasn't been able to share concrete depth in bottleneck, IO vs CPU bound, etc
+- **Level gap** : Jumps to conclusion too fast, lacks clarifications, required redirects before landing structured answers
+
+### Not Evaluated
+
+- **Strategy** : Not evaluated — team match scope
+- **Inspire** : Not evaluated — mentorship not discussed
+```

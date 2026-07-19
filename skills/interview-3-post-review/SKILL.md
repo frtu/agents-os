@@ -1,10 +1,10 @@
 ---
-name: interview-2-post-review
+name: interview-3-post-review
 description: >
   Post-interview evaluation skill. Creates structured evaluation page with scores,
   evidence, and recommendation. All evaluation aspects are documented — unevaluated
   areas marked as "Not evaluated". Use when the user says "post-interview {name}",
-  "bar raiser for {name}", "complete evaluation", or has interview transcript.
+  "post interview for {name}", "complete evaluation", or has interview transcript.
 allowed-tools: Bash Read Write Edit Glob Grep AskUserQuestion
 references:
   - references/evaluation-template.md
