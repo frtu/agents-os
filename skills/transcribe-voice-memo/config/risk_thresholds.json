@@ -1,0 +1,21 @@
+{
+  "duration": {
+    "safe": 1500,
+    "warn": 1800
+  },
+  "bitrate_high": 256,
+  "gpu_min_free_mb": 2048,
+  "failure_window_seconds": 3600,
+  "scores": {
+    "duration_high": 40,
+    "duration_moderate": 20,
+    "recent_failure": 30,
+    "low_memory": 25,
+    "high_bitrate": 10
+  },
+  "thresholds": {
+    "critical": 50,
+    "high": 30,
+    "moderate": 15
+  }
+}

@@ -8,7 +8,7 @@ description: >
 compatibility: Requires python3, ffprobe, whisper (pip install openai-whisper)
 allowed-tools: Bash(python3 *list_recordings.py*), Bash(bash *transcribe.sh*)
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
 variables:
   recording_path: "~/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings/*.m4a"
   target_path: "raw/transcripts/{YYYY-MM-DD} {recording-name}.md"
@@ -43,7 +43,7 @@ When inputs are provided, skip the corresponding prompts.
 **If user provided a memo name or "latest":**
 
 ```bash
-python3 scripts/list_recordings.py --name "<name_or_latest>"
+python3 -m voice_memo list --name "<name_or_latest>"
 ```
 
 This returns matching recordings. If exactly one match, proceed directly to transcription.
@@ -52,7 +52,7 @@ If multiple matches, present them for selection. If no matches, show all recent 
 **If no name provided:**
 
 ```bash
-python3 scripts/list_recordings.py --limit {max_recordings}
+python3 -m voice_memo list --limit {max_recordings}
 ```
 
 Present the list using AskUserQuestion with recording titles as options.
@@ -113,6 +113,31 @@ If MPS fails unexpectedly (tensor errors), the script:
 3. No manual intervention needed
 
 Failure history persists for 1 hour, so subsequent transcriptions will detect the recent failure and use CPU preemptively.
+
+### Statistics & Calibration
+
+The script records every transcription outcome to `config/transcription_stats.csv`:
+- timestamp, duration, bitrate, device, success/failure, risk level/score
+
+**Analyze statistics:**
+```bash
+python3 -m mode_selection analyze
+```
+
+Returns: total records, MPS success/failure counts, max successful duration, min failed duration, and suggested threshold updates.
+
+**Calibrate thresholds from statistics:**
+```bash
+python3 -m mode_selection calibrate --dry-run  # preview changes
+python3 -m mode_selection calibrate            # apply changes
+```
+
+Updates `config/risk_thresholds.json` with duration thresholds derived from actual success/failure patterns.
+
+**Show current config:**
+```bash
+python3 -m mode_selection show-config
+```
 
 ## Variables
 

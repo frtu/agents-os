@@ -16,7 +16,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TEMPLATE_FILE="$SKILL_DIR/references/transcribe_template.md"
 MPS_FAILURE_LOG="$SKILL_DIR/.mps_failures"
-HELPER_SCRIPT="$SCRIPT_DIR/list_recordings.py"
+
+# Python module invocation
+run_voice_memo() { python3 -m voice_memo "$@"; }
+run_mode_selection() { python3 -m mode_selection "$@"; }
 
 if [[ $# -lt 3 ]]; then
     echo "Usage: $0 <audio_path> <language> <output_path>" >&2
@@ -34,19 +37,42 @@ if [[ ! -f "$AUDIO_PATH" ]]; then
     exit 1
 fi
 
-# Auto-select device using Python helper
+# Validate template file exists
+if [[ ! -f "$TEMPLATE_FILE" ]]; then
+    echo "Error: Template file not found: $TEMPLATE_FILE" >&2
+    exit 1
+fi
+
+# Get metadata (needed for both risk evaluation and stats recording)
+META_OUTPUT=$(run_voice_memo metadata "$AUDIO_PATH")
+DURATION=$(echo "$META_OUTPUT" | grep "^duration:" | cut -d: -f2)
+BITRATE=$(echo "$META_OUTPUT" | grep "^bitrate:" | cut -d: -f2)
+RECORDING_NAME=$(echo "$META_OUTPUT" | grep "^title:" | cut -d: -f2-)
+
+if [[ -z "$RECORDING_NAME" ]]; then
+    RECORDING_NAME=$(basename "${AUDIO_PATH%.*}")
+fi
+
+# Initialize risk tracking
+RISK_LEVEL=""
+RISK_SCORE=0
+
+# Auto-select device using risk evaluator
 if [[ "$DEVICE" == "auto" ]]; then
     echo "MPS Risk Evaluation:"
 
-    # Get risk evaluation from Python helper
-    RISK_OUTPUT=$(python3 "$HELPER_SCRIPT" risk "$AUDIO_PATH" --failure-log "$MPS_FAILURE_LOG")
+    # Build risk evaluation args
+    RISK_ARGS="--failure-log $MPS_FAILURE_LOG"
+    [[ "$DURATION" != "unknown" ]] && RISK_ARGS="$RISK_ARGS --duration $DURATION"
+    [[ "$BITRATE" != "unknown" ]] && RISK_ARGS="$RISK_ARGS --bitrate $BITRATE"
+
+    # Evaluate risk
+    RISK_OUTPUT=$(run_mode_selection evaluate $RISK_ARGS)
 
     RISK_LEVEL=$(echo "$RISK_OUTPUT" | grep "^level:" | cut -d: -f2)
     RISK_SCORE=$(echo "$RISK_OUTPUT" | grep "^score:" | cut -d: -f2)
     USE_CPU=$(echo "$RISK_OUTPUT" | grep "^use_cpu:" | cut -d: -f2)
     RISK_REASONS=$(echo "$RISK_OUTPUT" | grep "^reasons:" | cut -d: -f2)
-    DURATION=$(echo "$RISK_OUTPUT" | grep "^duration:" | cut -d: -f2)
-    BITRATE=$(echo "$RISK_OUTPUT" | grep "^bitrate:" | cut -d: -f2)
 
     echo "  Duration: ${DURATION}s"
     echo "  Bitrate: ${BITRATE}kbps"
@@ -64,17 +90,12 @@ if [[ "$DEVICE" == "auto" ]]; then
     echo ""
 fi
 
+# Track actual device used (may change on MPS fallback)
+ACTUAL_DEVICE="$DEVICE"
+
 # Create temp directory for whisper output
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
-
-# Get recording name from Python helper
-META_OUTPUT=$(python3 "$HELPER_SCRIPT" metadata "$AUDIO_PATH")
-RECORDING_NAME=$(echo "$META_OUTPUT" | grep "^title:" | cut -d: -f2-)
-
-if [[ -z "$RECORDING_NAME" ]]; then
-    RECORDING_NAME=$(basename "${AUDIO_PATH%.*}")
-fi
 
 # Get today's date
 TODAY=$(date +%Y-%m-%d)
@@ -99,6 +120,21 @@ run_whisper() {
         --verbose False
 }
 
+# Helper to record result
+record_result() {
+    local device="$1"
+    local success="$2"
+    local args="--device $device"
+    [[ "$DURATION" != "unknown" ]] && args="$args --duration $DURATION"
+    [[ "$BITRATE" != "unknown" ]] && args="$args --bitrate $BITRATE"
+    [[ -n "$RISK_LEVEL" ]] && args="$args --risk-level $RISK_LEVEL --risk-score $RISK_SCORE"
+    if [[ "$success" == "true" ]]; then
+        run_mode_selection record-result $args --success >/dev/null 2>&1 || true
+    else
+        run_mode_selection record-result $args --failure >/dev/null 2>&1 || true
+    fi
+}
+
 AUDIO_BASENAME=$(basename "${AUDIO_PATH%.*}")
 TXT_FILE="$TEMP_DIR/$AUDIO_BASENAME.txt"
 
@@ -112,14 +148,16 @@ if [[ "$DEVICE" == "mps" ]]; then
         if grep -qiE "(nan|inf|ValueError|invalid values|Skipping)" "$ERROR_LOG"; then
             echo ""
             echo "MPS failed with tensor error, recording failure and retrying with CPU..."
-            python3 "$HELPER_SCRIPT" record-failure --failure-log "$MPS_FAILURE_LOG"
+            run_mode_selection record-failure --failure-log "$MPS_FAILURE_LOG"
+            record_result "mps" "false"
             echo ""
-            DEVICE="cpu"
+            ACTUAL_DEVICE="cpu"
             rm -f "$TEMP_DIR"/*.txt
             run_whisper cpu
             WHISPER_EXIT=$?
         else
             cat "$ERROR_LOG" >&2
+            record_result "mps" "false"
             exit 1
         fi
     else
@@ -133,6 +171,7 @@ set -e
 
 if [[ $WHISPER_EXIT -ne 0 ]]; then
     echo "Error: Whisper transcription failed" >&2
+    record_result "$ACTUAL_DEVICE" "false"
     exit 1
 fi
 
@@ -141,6 +180,7 @@ ELAPSED=$((END_TIME - START_TIME))
 
 if [[ ! -f "$TXT_FILE" ]]; then
     echo "Error: Transcription output not found: $TXT_FILE" >&2
+    record_result "$ACTUAL_DEVICE" "false"
     exit 1
 fi
 
