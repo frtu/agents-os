@@ -152,28 +152,16 @@ OUTPUT_DIR=$(dirname "$OUTPUT_PATH")
 mkdir -p "$OUTPUT_DIR"
 
 # Apply template
-if [[ -f "$TEMPLATE_FILE" ]]; then
-    TEMPLATE=$(cat "$TEMPLATE_FILE")
-    OUTPUT="$TEMPLATE"
-    OUTPUT="${OUTPUT//\{recording-name\}/$RECORDING_NAME}"
-    OUTPUT="${OUTPUT//\{YYYY-MM-DD\}/$TODAY}"
-    OUTPUT="${OUTPUT//\{language\}/$LANGUAGE}"
-    OUTPUT="${OUTPUT//\{transcript\}/$TRANSCRIPT}"
-    echo "$OUTPUT" > "$OUTPUT_PATH"
-else
-    cat > "$OUTPUT_PATH" << EOF
----
-title: "$RECORDING_NAME"
-date: "$TODAY"
-language: "$LANGUAGE"
-source: Voice Memo
----
+TEMPLATE=$(cat "$TEMPLATE_FILE")
+OUTPUT="$TEMPLATE"
+OUTPUT="${OUTPUT//\{recording-name\}/$RECORDING_NAME}"
+OUTPUT="${OUTPUT//\{YYYY-MM-DD\}/$TODAY}"
+OUTPUT="${OUTPUT//\{language\}/$LANGUAGE}"
+OUTPUT="${OUTPUT//\{transcript\}/$TRANSCRIPT}"
+echo "$OUTPUT" > "$OUTPUT_PATH"
 
-# $RECORDING_NAME
-
-$TRANSCRIPT
-EOF
-fi
+# Record success
+record_result "$ACTUAL_DEVICE" "true"
 
 echo ""
 echo "Transcription complete"
