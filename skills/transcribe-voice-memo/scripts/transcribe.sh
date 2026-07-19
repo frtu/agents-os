@@ -17,6 +17,9 @@ SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 TEMPLATE_FILE="$SKILL_DIR/references/transcribe_template.md"
 MPS_FAILURE_LOG="$SKILL_DIR/.mps_failures"
 
+# Set PYTHONPATH to include local modules
+export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH:-}"
+
 # Python module invocation
 run_voice_memo() { python3 -m voice_memo "$@"; }
 run_mode_selection() { python3 -m mode_selection "$@"; }
