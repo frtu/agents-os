@@ -71,11 +71,19 @@ def main():
                 "title": meta.title,
                 "duration_seconds": meta.duration_seconds,
                 "bitrate_kbps": meta.bitrate_kbps,
+                "file_size_bytes": meta.file_size_bytes,
+                "sample_rate_hz": meta.sample_rate_hz,
+                "channels": meta.channels,
+                "codec": meta.codec,
             }))
         else:
             print(f"title:{meta.title}")
             print(f"duration:{meta.duration_seconds or 'unknown'}")
             print(f"bitrate:{meta.bitrate_kbps or 'unknown'}")
+            print(f"file_size:{meta.file_size_bytes or 'unknown'}")
+            print(f"sample_rate:{meta.sample_rate_hz or 'unknown'}")
+            print(f"channels:{meta.channels or 'unknown'}")
+            print(f"codec:{meta.codec or 'unknown'}")
 
 
 if __name__ == "__main__":

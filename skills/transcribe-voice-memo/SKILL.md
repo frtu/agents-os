@@ -118,6 +118,7 @@ Failure history persists for 1 hour, so subsequent transcriptions will detect th
 
 The script records every transcription outcome to `config/transcription_stats.csv`:
 - timestamp, duration, bitrate, device, success/failure, risk level/score
+- file_size_bytes, sample_rate_hz, channels, codec (for failure analysis)
 
 **Analyze statistics:**
 ```bash

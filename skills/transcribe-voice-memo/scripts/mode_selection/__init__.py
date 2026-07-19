@@ -98,7 +98,10 @@ class MPSRiskResult:
 class TranscriptionStats:
     """Track transcription outcomes for calibration."""
 
-    FIELDS = ["timestamp", "duration", "bitrate", "device", "success", "risk_level", "risk_score"]
+    FIELDS = [
+        "timestamp", "duration", "bitrate", "device", "success", "risk_level", "risk_score",
+        "file_size_bytes", "sample_rate_hz", "channels", "codec",
+    ]
 
     def __init__(self, stats_path: Optional[Path] = None):
         self.stats_path = stats_path or DEFAULT_STATS_PATH
@@ -111,6 +114,10 @@ class TranscriptionStats:
         success: bool,
         risk_level: str = "",
         risk_score: int = 0,
+        file_size_bytes: Optional[int] = None,
+        sample_rate_hz: Optional[int] = None,
+        channels: Optional[int] = None,
+        codec: Optional[str] = None,
     ) -> None:
         """Record a transcription outcome."""
         self.stats_path.parent.mkdir(parents=True, exist_ok=True)
@@ -128,6 +135,10 @@ class TranscriptionStats:
                 "success": "1" if success else "0",
                 "risk_level": risk_level,
                 "risk_score": risk_score,
+                "file_size_bytes": file_size_bytes or "",
+                "sample_rate_hz": sample_rate_hz or "",
+                "channels": channels or "",
+                "codec": codec or "",
             })
 
     def load(self) -> list[dict]:

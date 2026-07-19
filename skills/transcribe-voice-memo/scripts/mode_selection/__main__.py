@@ -41,6 +41,10 @@ def main():
     result_parser.add_argument("--risk-level", type=str, default="", help="Risk level at evaluation")
     result_parser.add_argument("--risk-score", type=int, default=0, help="Risk score at evaluation")
     result_parser.add_argument("--stats-path", type=str, default=None, help="Path to stats CSV")
+    result_parser.add_argument("--file-size", type=int, default=None, help="File size in bytes")
+    result_parser.add_argument("--sample-rate", type=int, default=None, help="Sample rate in Hz")
+    result_parser.add_argument("--channels", type=int, default=None, help="Number of audio channels")
+    result_parser.add_argument("--codec", type=str, default=None, help="Audio codec name")
 
     # analyze command
     analyze_parser = subparsers.add_parser("analyze", help="Analyze statistics")
@@ -96,6 +100,10 @@ def main():
             success=args.success,
             risk_level=args.risk_level,
             risk_score=args.risk_score,
+            file_size_bytes=args.file_size,
+            sample_rate_hz=args.sample_rate,
+            channels=args.channels,
+            codec=args.codec,
         )
         print(f"Recorded {'success' if args.success else 'failure'} for {args.device}")
 

@@ -16,6 +16,10 @@ class AudioMetadata:
     title: str
     duration_seconds: Optional[int] = None
     bitrate_kbps: Optional[int] = None
+    file_size_bytes: Optional[int] = None
+    sample_rate_hz: Optional[int] = None
+    channels: Optional[int] = None
+    codec: Optional[str] = None
 
 
 class VoiceMemoHelper:
@@ -79,6 +83,71 @@ class VoiceMemoHelper:
             pass
         return None
 
+    def get_file_size(self, filepath: Path) -> Optional[int]:
+        """Get file size in bytes."""
+        try:
+            return filepath.stat().st_size
+        except Exception:
+            pass
+        return None
+
+    def get_sample_rate(self, filepath: Path) -> Optional[int]:
+        """Get audio sample rate in Hz using ffprobe."""
+        try:
+            result = subprocess.run(
+                [
+                    "ffprobe", "-v", "quiet",
+                    "-select_streams", "a:0",
+                    "-show_entries", "stream=sample_rate",
+                    "-of", "csv=p=0", str(filepath)
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if result.stdout.strip():
+                return int(result.stdout.strip())
+        except Exception:
+            pass
+        return None
+
+    def get_channels(self, filepath: Path) -> Optional[int]:
+        """Get number of audio channels using ffprobe."""
+        try:
+            result = subprocess.run(
+                [
+                    "ffprobe", "-v", "quiet",
+                    "-select_streams", "a:0",
+                    "-show_entries", "stream=channels",
+                    "-of", "csv=p=0", str(filepath)
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if result.stdout.strip():
+                return int(result.stdout.strip())
+        except Exception:
+            pass
+        return None
+
+    def get_codec(self, filepath: Path) -> Optional[str]:
+        """Get audio codec name using ffprobe."""
+        try:
+            result = subprocess.run(
+                [
+                    "ffprobe", "-v", "quiet",
+                    "-select_streams", "a:0",
+                    "-show_entries", "stream=codec_name",
+                    "-of", "csv=p=0", str(filepath)
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if result.stdout.strip():
+                return result.stdout.strip()
+        except Exception:
+            pass
+        return None
+
     def get_metadata(self, filepath: Path) -> AudioMetadata:
         """Get full metadata for an audio file."""
         return AudioMetadata(
@@ -86,6 +155,10 @@ class VoiceMemoHelper:
             title=self.get_title(filepath),
             duration_seconds=self.get_duration(filepath),
             bitrate_kbps=self.get_bitrate(filepath),
+            file_size_bytes=self.get_file_size(filepath),
+            sample_rate_hz=self.get_sample_rate(filepath),
+            channels=self.get_channels(filepath),
+            codec=self.get_codec(filepath),
         )
 
     def list_recordings(self, limit: Optional[int] = None) -> list[tuple[str, str]]:

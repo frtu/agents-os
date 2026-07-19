@@ -51,6 +51,10 @@ META_OUTPUT=$(run_voice_memo metadata "$AUDIO_PATH")
 DURATION=$(echo "$META_OUTPUT" | grep "^duration:" | cut -d: -f2)
 BITRATE=$(echo "$META_OUTPUT" | grep "^bitrate:" | cut -d: -f2)
 RECORDING_NAME=$(echo "$META_OUTPUT" | grep "^title:" | cut -d: -f2-)
+FILE_SIZE=$(echo "$META_OUTPUT" | grep "^file_size:" | cut -d: -f2)
+SAMPLE_RATE=$(echo "$META_OUTPUT" | grep "^sample_rate:" | cut -d: -f2)
+CHANNELS=$(echo "$META_OUTPUT" | grep "^channels:" | cut -d: -f2)
+CODEC=$(echo "$META_OUTPUT" | grep "^codec:" | cut -d: -f2)
 
 if [[ -z "$RECORDING_NAME" ]]; then
     RECORDING_NAME=$(basename "${AUDIO_PATH%.*}")
@@ -131,6 +135,10 @@ record_result() {
     [[ "$DURATION" != "unknown" ]] && args="$args --duration $DURATION"
     [[ "$BITRATE" != "unknown" ]] && args="$args --bitrate $BITRATE"
     [[ -n "$RISK_LEVEL" ]] && args="$args --risk-level $RISK_LEVEL --risk-score $RISK_SCORE"
+    [[ "$FILE_SIZE" != "unknown" ]] && args="$args --file-size $FILE_SIZE"
+    [[ "$SAMPLE_RATE" != "unknown" ]] && args="$args --sample-rate $SAMPLE_RATE"
+    [[ "$CHANNELS" != "unknown" ]] && args="$args --channels $CHANNELS"
+    [[ "$CODEC" != "unknown" ]] && args="$args --codec $CODEC"
     if [[ "$success" == "true" ]]; then
         run_mode_selection record-result $args --success >/dev/null 2>&1 || true
     else
