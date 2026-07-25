@@ -158,23 +158,22 @@ Keep under the project (NOT Eng Excellence):
 - Issue fix that materially advances a Key Feature of an in-progress project
 - Documentation co-shipped with a feature (RFC complete, design doc for a milestone)
 
-After mapping, **show the BAU candidate list** and ask:
+After mapping, **show the BAU candidate list** with inline reassignment option:
 
 ```
-Proposed Eng Excellence items (press enter to accept all, or list IDs to reassign):
+Proposed Eng Excellence items:
   [1] HTTP 504 alerts on long-running Task endpoint resolved (Armel)
   [2] Reduce log volume -18% for user-service (Armel)
   [3] Async HTTP callback guidance doc (Armel)
-  [4] Capacity planning: 31 May schedule spike analysis (Armel)
-  [5] xxx template followup (Willy)
-  [6] domain multi-index help (Willy)
-  [7] template validation logic MR (Willy)
-  [8] 1 candidate interview (Danny)
+  ...
 
-Reassign? [enter / 3,4 → project-x / ...]
+Options:
+  a) Accept all as Eng Excellence (Recommended)
+  b) Reassign items — specify in format: "1,3 → project-x; 5 → project-y"
 ```
 
-User can press enter to validate all, or specify items to reassign.
+**Single prompt** — user either accepts or provides reassignment string. Do NOT ask
+a follow-up question; parse the reassignment string directly.
 
 ### 1.5 Show mapping table and confirm
 
@@ -187,14 +186,17 @@ Project (display name)              | Tasks
 Product A - Migration               | 5 tasks (Harry, Karine, Willy)
 Reload from Archive.                | 3 tasks (Harry, Willy)
 XXX Pilot                           | 2 tasks (Mary)
-Cluster Migration                   | 1 task (Karine)
-[Eng Excellence]                    | 4 tasks (BAU, support, hiring)
+[Eng Excellence]                    | 4 tasks (BAU, support, ...)
 
 === PRODUCT B ===
 ...
 
-Confirm mappings? [y / edit]
+Options:
+  a) Confirm mappings
+  b) Edit mappings — specify changes (can include "create new project: <name> for items X,Y")
 ```
+
+**Creating new projects:** If the user requests a new project (e.g., "items 4,5 → new project New provider integration"), create the project page with basic structure, add it to portal.md, and ask for target date in the same flow. Do not require a separate confirmation step.
 
 **Wait for confirmation before proceeding.**
 
@@ -261,8 +263,13 @@ Draft Highlights / Lowlights:
 - :tada: Product feature migrated successfully from legacy service for XX teams
 - :bomb: Heavy query by domain team triggered circuit breaker (recovered)
 
-Confirm or edit? [y / edit]
+Options:
+  a) Use these highlights
+  b) No highlights this week — skip to Key Projects only
+  c) Edit highlights — provide replacement list
 ```
+
+If user selects (b), omit the `## Highlights / Lowlights` section from the wiki file entirely.
 
 **Wait for confirmation before proceeding.**
 
@@ -313,9 +320,9 @@ For each project that had activity this week, classify each existing Key Feature
    - Complex enough that one feature is too coarse? → propose **add as feature with subtasks**
    - Tactical / one-off? → no change (handled in weekly file only)
 
-### 3.2 Show the diff preview and confirm all at once (Pattern: batched approval)
+### 3.2 Show the diff preview and apply (Pattern: batched approval)
 
-Show ALL proposed project-page changes in a single diff preview, then ask once:
+Show ALL proposed project-page changes in a single diff preview:
 
 ```
 === Proposed project-page changes ===
@@ -331,11 +338,13 @@ project-xx:
 
 === Projects marked Complete? ===
 (none this week)
-
-Apply all changes? [enter / per-item edit / skip]
 ```
 
-User can press enter to accept everything, request edits, or skip individual items.
+**Default behavior:** Apply all changes immediately without asking for confirmation.
+The user reviews via `git diff` / `git add` before committing — that is the approval gate.
+
+**Only ask for confirmation** if there are ambiguous changes (conflicting status, unclear
+completion state). For routine feature-tick updates, proceed directly.
 
 ### 3.3 Project completion check
 

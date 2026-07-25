@@ -17,9 +17,12 @@ Orchestrates the weekly digest end-to-end by chaining two sub-skills:
 | 1 — Aggregate   | `weekly-1-aggregate`   | Per-product wiki pages (`<date>-product-*.md`) + updated project `## Key Features` |
 | 2 — Consolidate | `weekly-2-consolidate` | Slack-ready `<date>-consolidated.md` for a wider audience                          |
 
-Each sub-skill is **interactive** and pauses for confirmation. This router simply
-selects the date and runs the phases in order; the detailed rules live in the
-sub-skills.
+This router selects the date and runs the phases in order; the detailed rules live
+in the sub-skills.
+
+**Streamlined flow:** The workflow minimizes confirmation prompts. User approval
+happens via `git diff` / `git add` after all files are written. Only genuinely
+ambiguous decisions (new project creation, conflicting mappings) pause for input.
 
 ## Inputs
 

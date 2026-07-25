@@ -251,11 +251,13 @@ How the fields map:
   apply the admission bar; the lead's suggestion is not automatic.
 - **Weekly Focus** → the survivor line to lead with when denoising this project.
 
-## 7. Write the consolidated file (iterative)
+## 7. Write the consolidated file
 
-A. Write the final consolidated report to `wiki/projects/_weekly_/<date>-consolidated.md`, submit to git and **STOP**. 
-B. Ask the user to review it & ask for feedbacks. Apply user comments and loop to step A.
-C. If all good, proceed to post-phase bookkeeping.
+Write the final consolidated report to `wiki/projects/_weekly_/<date>-consolidated.md`
+and proceed directly to post-phase bookkeeping.
+
+**Do not ask for review** — the user reviews the output file directly and provides
+feedback if needed. The git staging (`git add`) is the approval gate.
 
 ---
 
