@@ -53,6 +53,19 @@ For each source file, follow this workflow:
 
 Read the entire file. If the file contains image references, note them — read the images separately if they contain important information.
 
+### 1b. Resolve entity names before writing any link
+
+**If the source is an auto-generated transcript (Whisper/Zoom/...), run `/lint-transcript-normalise` on it FIRST** — that pre-skill fixes garbled proper nouns against its correction dictionary and produces an "Entities to confirm" list. Do not start decomposition until the transcript is normalised and the ambiguous mentions are confirmed.
+
+Whatever the source, before you write **any** `[[wikilink]]` for a person, product, or system:
+
+1. **Resolve against what exists.** Grep  `wiki/**/members/`, `raw/People/**`, and `wiki/portal.md`, and reuse the entity's **exact** slug + display form. Never invent a slug when an entity already exists under a different name.
+2. **Cross-check roles, don't infer them.** "User service deals with Paul" does not mean Paul is on the User team. Only state a person's team/role if the source or an existing wiki page says so.
+3. **Don't trust speaker labels.** Transcripts often collapse every line to one speaker — do not assert who said what; attribute to the meeting or participants collectively.
+4. **Carry forward the "Entities to confirm" list** from `/lint-transcript-normalise` (plus anything else you could not resolve) and confirm it with the user in step 2 before committing. Write confirmed forms; leave unresolved ones as plain text rather than guessing.
+
+Do not silently promote a transcription artifact into a wikilink. A wrong `[[name]]` is worse than an unlinked plain-text mention flagged for review. See `.claude/commands/lint-transcript-normalise/SKILL.md` for the full failure-mode reference and dictionary schema.
+
 ### 2. Present brief summary and gather context (for single clipping documents)
 
 **For single web clipping files from `raw/clippings/`:**
@@ -72,7 +85,7 @@ Example prompt:
 Wait for user response before proceeding.
 
 **For other source types** (docs, notes, or multiple files):
-Share the 3-5 most important takeaways from the source. Ask the user if they want to emphasize any particular aspects or skip any topics. Wait for confirmation before proceeding.
+Share the 3-5 most important takeaways from the source. Ask the user if they want to emphasize any particular aspects or skip any topics. If the source is a transcript, also present the **"Entities to confirm"** list from step 1b (garbled names, lone initials, unresolved people/products, uncertain roles) and ask the user to confirm or correct them. Wait for confirmation before proceeding.
 
 ### 3. Decompose into atomic units (PTCA)
 
@@ -239,7 +252,6 @@ Do not commit unless the user explicitly asks.
 ### Entity vs Persona
 - **Entity** (in `product/entities/`): Business object manipulated by features (e.g., lease, property, tenant)
 - **Persona** (in `product/persona/`): User type with specific needs (e.g., student, domain-developer)
-- Example: `renter` is an entity (contractual party), `renter-student` is a persona (student renter profile)
 
 ### Feature vs Process vs Artifact
 - **Feature** (in `product/features/`): Capability offered (e.g., performance-review, yield-calculation)
@@ -271,6 +283,7 @@ Do not commit unless the user explicitly asks.
 ## Conventions
 
 - Source summary pages are **factual only**. Save interpretation and synthesis for concept and synthesis pages.
+- **Never write a `[[wikilink]]` for a name you have not resolved** against people or members name in portal (see step 1b). Transcripts mangle proper nouns; confirm garbled names, lone initials, and inferred roles with the user before committing them.
 - Wiki pages should be **factual**. Focus on what the source says about the topic.
 - A single source typically touches **5-15 wiki pages** along the PTCA layers. This is normal.
 - When new information contradicts existing wiki content, **update the wiki page and note the contradiction** with both sources cited.
