@@ -52,6 +52,44 @@ def normalize_markdown_images(content: str) -> str:
     return content
 
 
+def normalize_whitespace(content: str) -> str:
+    """
+    Clean up whitespace issues common in Slack exports.
+
+    Fixes:
+    1. Remove trailing whitespace from blank lines (lines that are only whitespace)
+    2. Preserve trailing double-space on content lines (Slack line break syntax)
+    3. Collapse multiple consecutive blank lines into single blank line
+    4. Ensure file ends with exactly one newline
+    """
+    result = []
+    prev_blank = False
+
+    for line in content.splitlines():
+        # Check if line is blank (only whitespace)
+        stripped = line.strip()
+        is_blank = len(stripped) == 0
+
+        if is_blank:
+            # Blank line: remove all whitespace
+            if prev_blank:
+                continue  # Skip consecutive blank lines
+            result.append('')
+            prev_blank = True
+        else:
+            # Content line: preserve trailing double-space (Slack line break)
+            # but remove other trailing whitespace patterns
+            if line.endswith('  '):
+                # Keep trailing double-space (intentional line break)
+                result.append(line.rstrip() + '  ')
+            else:
+                result.append(line.rstrip())
+            prev_blank = False
+
+    # Join and ensure single trailing newline
+    return '\n'.join(result) + '\n'
+
+
 def process_file(filepath: Path, dry_run: bool = False) -> tuple[bool, int]:
     """
     Process a single markdown file.
@@ -62,6 +100,7 @@ def process_file(filepath: Path, dry_run: bool = False) -> tuple[bool, int]:
     try:
         original_content = filepath.read_text(encoding='utf-8')
         normalized_content = normalize_markdown_images(original_content)
+        normalized_content = normalize_whitespace(normalized_content)
 
         if original_content == normalized_content:
             return False, 0
