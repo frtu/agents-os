@@ -6,7 +6,7 @@ description: >
   to text", or mentions Voice Memos transcription. Supports direct
   invocation with memo name and language to skip prompts.
 compatibility: Requires python3, ffprobe, whisper (pip install openai-whisper)
-allowed-tools: Bash(python3 *list_recordings.py*), Bash(bash *transcribe.sh*)
+allowed-tools: Bash(PYTHONPATH=scripts python3 -m voice_memo*), Bash(PYTHONPATH=scripts python3 -m mode_selection*), Bash(bash scripts/transcribe.sh*)
 metadata:
   version: "1.2.0"
 variables:
@@ -43,7 +43,7 @@ When inputs are provided, skip the corresponding prompts.
 **If user provided a memo name or "latest":**
 
 ```bash
-python3 -m voice_memo list --name "<name_or_latest>"
+PYTHONPATH=scripts python3 -m voice_memo list --name "<name_or_latest>"
 ```
 
 This returns matching recordings. If exactly one match, proceed directly to transcription.
@@ -52,7 +52,7 @@ If multiple matches, present them for selection. If no matches, show all recent 
 **If no name provided:**
 
 ```bash
-python3 -m voice_memo list --limit {max_recordings}
+PYTHONPATH=scripts python3 -m voice_memo list --limit {max_recordings}
 ```
 
 Present the list using AskUserQuestion with recording titles as options.
@@ -122,22 +122,22 @@ The script records every transcription outcome to `config/transcription_stats.cs
 
 **Analyze statistics:**
 ```bash
-python3 -m mode_selection analyze
+PYTHONPATH=scripts python3 -m mode_selection analyze
 ```
 
 Returns: total records, MPS success/failure counts, max successful duration, min failed duration, and suggested threshold updates.
 
 **Calibrate thresholds from statistics:**
 ```bash
-python3 -m mode_selection calibrate --dry-run  # preview changes
-python3 -m mode_selection calibrate            # apply changes
+PYTHONPATH=scripts python3 -m mode_selection calibrate --dry-run  # preview changes
+PYTHONPATH=scripts python3 -m mode_selection calibrate            # apply changes
 ```
 
 Updates `config/risk_thresholds.json` with duration thresholds derived from actual success/failure patterns.
 
 **Show current config:**
 ```bash
-python3 -m mode_selection show-config
+PYTHONPATH=scripts python3 -m mode_selection show-config
 ```
 
 ## Variables
