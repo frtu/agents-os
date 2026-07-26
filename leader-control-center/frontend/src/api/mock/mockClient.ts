@@ -13,6 +13,10 @@ import type {
 import type { ApiClient, DecisionInput } from "@/api/types";
 import { mockServer } from "@/api/mock/server";
 
+// Seed eagerly so any query (including deep-linked pages that never hit
+// getBoards) returns data on its first call, not only after a realtime tick.
+mockServer.ensureSeeded();
+
 /** Simulate a little network latency so loading states are exercised. */
 function delay<T>(value: T, ms = 120): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
