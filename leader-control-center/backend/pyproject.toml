@@ -1,0 +1,23 @@
+[project]
+name = "leader-control-center-backend"
+version = "0.1.0"
+description = "Leader Control Center backend — human-in-the-loop control plane for durable AI workflows."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.uv]
+package = false

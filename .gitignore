@@ -126,3 +126,4 @@ pip-log.txt
 .coverage
 .tox
 leader-toolbox/.venv
+leader-control-center/frontend/node_modules
