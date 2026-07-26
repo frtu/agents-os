@@ -8,95 +8,155 @@ A human-in-the-loop control center for supervising durable AI workflows.
 
 # Vision
 
-Modern AI agents are capable of executing work that spans minutes, hours, or even days. Unlike chat interactions, these workflows frequently pause to request clarification, approval, or additional information.
+Modern AI agents are capable of executing work that spans minutes, hours, or even days. Unlike conversational assistants, these workflows frequently pause to request clarification, approvals, permissions, or additional information before they can continue.
 
-As a leader, you don't have time to constantly context-switch between conversations and monitor every running workflow.
+As leaders, we don't have time to constantly context-switch between dozens of conversations just to answer simple questions like:
 
-**Leader Control Center** is a supervisory application that provides a single operational view over all long-running AI executions, allowing leaders to:
+- "Can I continue?"
+- "Which option should I choose?"
+- "Can I access this system?"
+- "Please review this document."
 
-* Plan work
-* Launch executions
-* Monitor progress
-* Respond to requests for attention
-* Review outputs
-* Continue execution
+Today's AI interfaces are conversation-centric.
+
+Leader Control Center is execution-centric.
+
+Instead of managing one AI conversation at a time, leaders supervise multiple concurrent initiatives through a single operational control center.
+
+The application allows leaders to:
+
+- Plan work
+- Launch AI executions
+- Monitor progress
+- Respond to human requests
+- Review generated artifacts
+- Continue execution
+- Audit execution history
 
 without losing context.
 
-The application is **not an orchestration engine**.
+The application is **not** a workflow engine.
 
 It is a **Meta Orchestration Control Plane** built on top of durable workflow engines.
-
-Unlike traditional project management tools, Leader Control Center is designed around how leaders naturally think about work.
-
-Leaders think in terms of **business initiatives** (for example *Platform Modernization*, *Create Agent Orchestration Flow*, or *Agent Worklfow V2*), not planning artifacts such as Epics or Stories.
-
-Internally, the system continues to organize planning using **Epics**, **Stories**, and **Tasks**, while presenting an **Initiative-centric experience** that combines planning, execution, decisions, and generated artifacts into a single operational view.
 
 ---
 
 # Goals
 
-The application aims to:
+Leader Control Center aims to become the operational console for durable AI execution.
 
-* Supervise multiple concurrent AI workflows
-* Organize work into business outcomes instead of conversations
-* Reduce interruption fatigue
-* Keep humans in control of strategic decisions
-* Support durable, resumable execution
-* Provide complete execution history and traceability
-* Scale from manual execution to autonomous orchestration
+The application should allow leaders to:
+
+- supervise multiple concurrent AI initiatives
+- organize work around business outcomes
+- reduce interruption fatigue
+- maintain human strategic control
+- support long-running execution
+- provide complete execution history
+- progressively automate execution over time
+- remain independent of any specific workflow engine or AI provider
 
 ---
 
-# Core Principles
+# Non Goals
 
-## Human-in-the-loop
+Leader Control Center is NOT:
+
+- a workflow engine
+- a chat application
+- a project management replacement
+- an LLM framework
+- an MCP server
+- an AI coding IDE
+
+Instead, it coordinates these systems.
+
+---
+
+# Product Principles
+
+## Human First
 
 Humans remain responsible for:
 
-* Prioritization
-* Approvals
-* Clarifications
-* Strategic decisions
+- planning
+- priorities
+- approvals
+- clarifications
+- strategic decisions
 
-AI agents remain responsible for execution.
+AI remains responsible for execution.
+
+---
+
+## Business First
+
+The platform models business outcomes.
+
+Workflow engines, LLMs, MCP servers and providers are implementation details hidden behind the execution layer.
 
 ---
 
 ## Human View ≠ System View
 
-The application intentionally separates the user's mental model from the internal planning model.
+Leaders naturally think in terms of business initiatives.
 
-Leaders supervise **Initiatives**.
+Examples:
 
-The platform internally manages **Epics, Stories, Tasks and Executions**.
+- Platform Modernization
+- Create Agent Orchestration Flow
+- Agent Worklfow V2
+- AI Adoption
+- Database Migration
 
-This separation keeps the user experience focused on business outcomes while allowing the underlying planning model to evolve independently.
+Internally, however, planning is still represented using familiar concepts:
+
+- Epic
+- Story
+- Task
+
+This separation allows the system to present a business-centric experience while preserving a clean and extensible planning model.
 
 ---
 
 ## Planning ≠ Runtime
 
-Planning and execution are intentionally separated.
+Planning defines what should happen.
 
-Planning describes **what should be built**.
+Runtime records what is happening.
 
-Runtime describes **what is currently happening**.
+Planning should remain stable throughout execution.
 
-This distinction allows executions to be retried, cancelled or restarted without changing the original plan.
+Executions may:
+
+- retry
+- fail
+- pause
+- resume
+- restart
+
+without modifying planning.
 
 ---
 
 ## Progressive Automation
 
-The system starts with manual orchestration.
+Every autonomous capability must first exist as an explicit capability.
 
-Future versions progressively automate decision making without requiring architectural changes.
+Users should always be able to choose between:
 
-```
+- explicit planning
+- AI-assisted planning
+- fully autonomous planning
+
+without changing the architecture.
+
+The evolution path should look like:
+
 Leader
-        ↓
+
+↓
+
 Manual Scheduling (MVP)
 
 ↓
@@ -106,7 +166,75 @@ Dependency Scheduling
 ↓
 
 AI Planning
-```
+
+↓
+
+Autonomous Coordination
+
+---
+
+# Domain Overview
+
+Leader Control Center separates the platform into two complementary perspectives.
+
+## Human View
+
+The user supervises **Initiatives**.
+
+An Initiative represents a business outcome.
+
+Examples:
+
+- Platform Modernization
+- Create Agent Orchestration Flow
+- Agent Worklfow V2
+- AI Adoption
+- Database Migration
+
+Everything the leader needs is grouped under an Initiative:
+
+- planning
+- progress
+- executions
+- waiting approvals
+- artifacts
+- history
+
+The leader never needs to understand workflow engine concepts.
+
+---
+
+## System View
+
+Internally, an Initiative is composed of:
+
+Workspace
+
+↓
+
+Epic
+
+↓
+
+Story
+
+↓
+
+Task
+
+↓
+
+Execution
+
+↓
+
+Capability Execution
+
+↓
+
+Provider Execution
+
+The planning hierarchy remains stable while runtime evolves independently.
 
 ---
 
@@ -114,20 +242,22 @@ AI Planning
 
 From a leader's perspective, every business outcome is represented as an **Initiative**.
 
-Internally, an Initiative is primarily backed by an **Epic** together with its planning objects and runtime executions.
-
 ```
-Workspace
+Portfolio
 │
 └── Initiative (Human View)
       │
-      ├── Epic (Planning)
+      ├── Planning
       │     │
-      │     ├── Story
-      │     │     │
-      │     │     ├── Task
-      │     │     ├── Dependency
-      │     │     └── Acceptance Criteria
+      │     ├── Epic
+      │     │      │
+      │     │      ├── Story
+      │     │      │      │
+      │     │      │      ├── Task
+      │     │      │      ├── Dependency
+      │     │      │      └── Acceptance Criteria
+      │     │
+      │     └── Planning Metadata
       │
       └── Runtime
             │
@@ -135,77 +265,85 @@ Workspace
             │      │
             │      ├── Task Execution
             │      │      │
-            │      │      ├── Agent Execution
-            │      │      └── Agent Execution
+            │      │      ├── Capability Execution
+            │      │      │      │
+            │      │      │      ├── Provider Execution
+            │      │      │      ├── Provider Execution
+            │      │      │      └── Provider Execution
+            │      │      │
+            │      │      ├── Timeline
+            │      │      ├── Human Requests
+            │      │      ├── Decisions
+            │      │      └── Artifacts
             │      │
-            │      ├── Timeline
-            │      ├── Human Requests
-            │      ├── Decisions
-            │      └── Artifacts
+            │      └── Metrics
             │
-            └── Notifications
+            └── Attention Queue
 ```
 
----
+Planning remains immutable.
 
-# Human Mental Model
+Runtime is disposable.
 
-The application is designed around how leaders supervise work rather than how planning data is stored.
-
-Typical Initiatives include:
-
-* Platform Modernization
-* Create Agent Orchestration Flow
-* Agent Worklfow V2
-* Database Migration
-
-When a leader opens an Initiative they expect to immediately understand:
-
-* The business objective
-* Current progress
-* Running work
-* Waiting decisions
-* Produced artifacts
-* Execution history
-
-Planning and Runtime are therefore two complementary views of the same business outcome.
+History is permanent.
 
 ---
 
 # Core Concepts
 
-## Workspace
+## Portfolio
 
-Top-level container.
+The top-level organizational boundary backed by a `Workspace`.
 
-Future versions may support multiple workspaces.
+A Portfolio owns:
+
+- Initiatives
+- Users
+- Providers
+- Credentials
+- Capability Catalog
+- Integrations
+- Default AI configuration
+
+Future versions may support multiple Portfolio.
 
 ---
 
-## Initiative (Human View)
+## Initiative
 
-Represents the business outcome being supervised.
+The primary business object presented to leaders.
+
+An Initiative represents a business outcome.
 
 Examples:
 
-* Platform Modernization
-* Create Agent Orchestration Flow
-* Agent Worklfow V2
-* Database Migration
+- Platform Modernization
+- Create Agent Orchestration Flow
+- Agent Worklfow V2
+- AI Adoption
+- Database Migration
 
-An Initiative is the primary object presented to leaders.
+An Initiative groups:
 
-Internally it is composed of planning objects (Epic, Stories and Tasks) together with their runtime executions.
+- planning
+- runtime
+- decisions
+- artifacts
+- history
+
+Internally an Initiative is backed by one or more Epics together with their runtime executions.
 
 ---
 
 ## Epic
 
-Represents the primary planning container for an Initiative.
+Represents the primary planning container.
 
-An Epic groups Stories that contribute toward a single business outcome.
+An Epic groups Stories contributing toward one Initiative.
 
-From the leader's perspective this planning structure is presented simply as an Initiative.
+Epics remain implementation details.
+
+Leaders interact with Initiatives rather than Epics.
 
 Epics should remain achievable within approximately one month.
 
@@ -217,28 +355,820 @@ Represents a business deliverable.
 
 Examples:
 
-* Write promotion document
-* Create architecture proposal
-* Build migration plan
+- Write promotion document
+- Create architecture proposal
+- Build migration strategy
 
-Stories move across the Kanban board.
+Stories progress through the planning board and own one or more Tasks.
 
 ---
 
 ## Task
 
-A unit of executable work.
+A Task represents a unit of planned work.
+
+A Task defines **what** should be accomplished.
+
+A Task never defines **how** execution occurs.
+
+Execution decisions are deferred until runtime.
+
+Tasks may be planned in two different modes:
+
+- Structured
+- Goal-Oriented
+
+## Planning Modes
+
+Leader Control Center intentionally separates **planning** from **execution**.
+
+Planning defines business intent.
+
+Execution determines how that intent is fulfilled.
+
+Every Task is created using exactly one **Planning Mode**.
+
+```
+Planning Mode
+
+├── Structured
+└── Goal-Oriented
+```
+
+Both planning modes ultimately normalize into the same execution model.
+
+This allows users to progressively adopt AI planning without changing the runtime architecture.
+
+---
+
+### Structured Planning
+
+Structured Planning is the default.
+
+The leader explicitly defines:
+
+- Task name
+- Capability
+- Dependencies
+- Acceptance Criteria
+
+Example
+
+```
+Task
+
+Write Promotion Document
+
+Capability
+
+Write Markdown
+
+Acceptance Criteria
+
+- Executive quality
+- Less than three pages
+- Ready for manager review
+```
+
+This mode provides predictable and deterministic execution.
+
+It is recommended for production workflows.
+
+---
+
+### Goal-Oriented Planning
+
+Goal-Oriented Planning delegates task decomposition to the AI Planner.
+
+Instead of selecting a Capability, the leader describes the desired outcome.
+
+Example
+
+```
+Goal
+
+Prepare a promotion package that demonstrates my
+technical leadership and business impact.
+
+Success Criteria
+
+- Executive quality
+- Metrics included
+- Ready for review
+```
+
+The AI Planner determines:
+
+- Capabilities
+- Dependencies
+- Execution order
+- Suggested providers
+
+before execution begins.
+
+---
+
+### Progressive Planning
+
+The application intentionally supports increasing levels of autonomy.
+
+```
+Structured
+
+↓
+
+AI Suggestions
+
+↓
+
+Goal-Oriented
+
+↓
+
+Autonomous Planning
+```
+
+Users can gradually adopt AI planning without changing their workflows.
+
+---
+
+# Runtime Objects
+
+Planning creates runtime objects.
+
+Planning itself is never modified.
+
+```
+Planning
+
+↓
+
+Execution
+
+↓
+
+History
+```
+
+Every execution is immutable history.
+
+---
+
+## Story Execution
+
+Represents one runtime instance of a Story.
+
+Responsibilities:
+
+- orchestrate Tasks
+- monitor progress
+- aggregate status
+- produce artifacts
+- expose timeline
+
+---
+
+## Task Execution
+
+Represents one execution instance of a Task.
+
+Responsibilities:
+
+- invoke capabilities
+- monitor execution
+- request human interaction
+- publish runtime events
+
+A Task may execute multiple times without modifying planning.
+
+---
+
+## Capability Execution
+
+Capability Execution represents **what ability is required**.
 
 Examples:
 
-* Research
-* Write document
-* Generate diagram
-* Review architecture
+- Research
+- Write
+- Review
+- Search
+- Diagram
+- Code
+- Translate
+- Test
+- Analyze
+- Summarize
 
-Tasks define **what** should happen.
+Capabilities are stable business concepts.
 
-They are not execution instances.
+They are intentionally independent from AI providers.
+
+---
+
+## Provider Execution
+
+Provider Execution represents the concrete implementation.
+
+Examples
+
+```
+OpenAI
+
+Anthropic
+
+Gemini
+
+Cursor
+
+GitHub MCP
+
+Slack MCP
+
+Temporal Activity
+
+Human
+```
+
+Providers may change over time.
+
+Capabilities remain stable.
+
+---
+
+# Capability Model
+
+Capabilities describe **what the platform can do**.
+
+They do not describe:
+
+- prompts
+- LLMs
+- providers
+- execution engines
+
+```
+Capability
+
+id
+
+name
+
+description
+
+inputs
+
+outputs
+
+supported providers
+```
+
+Example
+
+```
+Capability
+
+Write Markdown
+
+Inputs
+
+Markdown Specification
+
+Outputs
+
+Markdown Document
+```
+
+---
+
+## Capability Catalog
+
+Capabilities are reusable across every Initiative.
+
+```
+Capability Catalog
+
+Research
+
+Search
+
+Review
+
+Write Markdown
+
+Generate Diagram
+
+Generate Presentation
+
+Generate Code
+
+Analyze
+
+Summarize
+
+Translate
+
+Test
+
+Deploy
+
+Review Architecture
+```
+
+The Capability Catalog is managed at Workspace level.
+
+---
+
+# Provider Model
+
+Providers execute Capabilities.
+
+Providers are completely interchangeable.
+
+Examples
+
+```
+OpenAI
+
+Anthropic
+
+Google Gemini
+
+GitHub Copilot
+
+Cursor
+
+Claude Code
+
+Human
+
+Slack MCP
+
+GitHub MCP
+
+Temporal Activity
+```
+
+Providers expose a common contract.
+
+```
+supports()
+
+estimate()
+
+execute()
+
+cancel()
+
+resume()
+```
+
+Providers should never contain business logic.
+
+---
+
+# Execution Strategy
+
+Execution Strategy determines **how** a Capability is executed.
+
+```
+Capability
+
+↓
+
+Execution Strategy
+
+↓
+
+Provider
+
+↓
+
+Execution
+```
+
+Separating strategy from provider enables progressively more advanced orchestration.
+
+---
+
+## Supported Strategies
+
+### Single Provider
+
+```
+Capability
+
+↓
+
+Claude
+```
+
+---
+
+### Retry
+
+```
+Claude
+
+↓
+
+Retry
+
+↓
+
+Retry
+
+↓
+
+Completed
+```
+
+---
+
+### Parallel
+
+```
+Capability
+
+↓
+
+Claude
+
+GPT
+
+Gemini
+```
+
+---
+
+### Consensus
+
+```
+Capability
+
+↓
+
+Claude
+
+GPT
+
+Gemini
+
+↓
+
+Merge
+
+↓
+
+Result
+```
+
+---
+
+### Human Review
+
+```
+Capability
+
+↓
+
+LLM
+
+↓
+
+Human Approval
+
+↓
+
+Continue
+```
+
+---
+
+### Pipeline
+
+```
+Research
+
+↓
+
+Write
+
+↓
+
+Review
+
+↓
+
+Publish
+```
+
+---
+
+### Loop
+
+```
+Generate
+
+↓
+
+Evaluate
+
+↓
+
+Improve
+
+↓
+
+Satisfied?
+```
+
+---
+
+### Fan-Out
+
+```
+Research
+
+↓
+
+Region A
+
+Region B
+
+Region C
+
+↓
+
+Merge
+```
+
+Execution Strategies are implementation details and may evolve independently from planning.
+
+---
+
+# Human Requests
+
+The platform pauses execution only through Human Requests.
+
+Examples
+
+- Approval
+- Clarification
+- Budget
+- Tool Permission
+- Missing Information
+- Choose Option
+- Risk Acceptance
+
+Human Requests are first-class runtime objects.
+
+---
+
+# Decisions
+
+Every Human Request produces exactly one Decision.
+
+Supported decisions:
+
+- Approve
+- Reject
+- Clarify
+- Continue
+- Abort
+- Retry
+- Select Option
+
+Decision history is immutable.
+
+---
+
+# Artifact Model
+
+Artifacts are first-class business objects.
+
+Examples
+
+- Markdown
+- Specification
+- Diagram
+- Image
+- PDF
+- Spreadsheet
+- Presentation
+- Source Code
+- Test Report
+
+Artifacts are immutable.
+
+Updating an Artifact always creates a new version.
+
+```
+Artifact
+
+id
+
+type
+
+version
+
+owner
+
+created by
+
+created at
+
+metadata
+```
+
+---
+
+# Timeline
+
+Everything that happens becomes an immutable event.
+
+Examples
+
+```
+Execution Started
+
+Capability Started
+
+Capability Completed
+
+Provider Failed
+
+Retry Scheduled
+
+Approval Requested
+
+Decision Received
+
+Artifact Produced
+
+Execution Completed
+```
+
+The Timeline is append-only.
+
+History is never modified.
+
+---
+
+# Workflow Hierarchy
+
+```
+Story Execution
+
+│
+
+├── Task Execution
+
+│      │
+
+│      ├── Capability Execution
+
+│      │       │
+
+│      │       ├── Provider Execution
+
+│      │       ├── Provider Execution
+
+│      │       └── Provider Execution
+
+│      │
+
+│      ├── Human Requests
+
+│      ├── Artifacts
+
+│      └── Timeline
+
+│
+
+└── Task Execution
+```
+
+Every layer has exactly one responsibility.
+
+Planning never depends on Runtime.
+
+Runtime never modifies Planning.
+
+---
+
+# State Machines
+
+## Planning
+
+```
+Draft
+
+↓
+
+Ready
+
+↓
+
+Archived
+```
+
+---
+
+## Task
+
+```
+Draft
+
+↓
+
+Ready
+
+↓
+
+Cancelled
+```
+
+---
+
+## Story Execution
+
+```
+Created
+
+↓
+
+Running
+
+↓
+
+Waiting
+
+↓
+
+Completed
+
+↓
+
+Cancelled
+
+↓
+
+Failed
+```
+
+---
+
+## Capability Execution
+
+```
+Pending
+
+↓
+
+Running
+
+↓
+
+Waiting
+
+↓
+
+Completed
+
+↓
+
+Failed
+```
+
+---
+
+## Provider Execution
+
+```
+Scheduled
+
+↓
+
+Running
+
+↓
+
+Succeeded
+
+↓
+
+Failed
+
+↓
+
+Cancelled
+```
+
+Provider failures do not necessarily imply Capability failures.
+
+Execution Strategy determines whether retries, failover, consensus, or human intervention should occur.
+
 
 ---
 
