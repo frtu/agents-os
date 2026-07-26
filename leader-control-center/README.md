@@ -1,6 +1,6 @@
 # Leader Control Center
 
-> As leaders, we don't have time to only solve one task as a time.
+> As leaders, we don't have time to only solve one task at a time.
 
 A human-in-the-loop control center for supervising durable AI workflows.
 
@@ -14,12 +14,12 @@ As a leader, you don't have time to constantly context-switch between conversati
 
 **Leader Control Center** is a supervisory application that provides a single operational view over all long-running AI executions, allowing leaders to:
 
-- Plan work
-- Launch executions
-- Monitor progress
-- Respond to requests for attention
-- Review outputs
-- Continue execution
+* Plan work
+* Launch executions
+* Monitor progress
+* Respond to requests for attention
+* Review outputs
+* Continue execution
 
 without losing context.
 
@@ -27,19 +27,25 @@ The application is **not an orchestration engine**.
 
 It is a **Meta Orchestration Control Plane** built on top of durable workflow engines.
 
+Unlike traditional project management tools, Leader Control Center is designed around how leaders naturally think about work.
+
+Leaders think in terms of **business initiatives** (for example *Platform Modernization*, *Create Agent Orchestration Flow*, or *Agent Worklfow V2*), not planning artifacts such as Epics or Stories.
+
+Internally, the system continues to organize planning using **Epics**, **Stories**, and **Tasks**, while presenting an **Initiative-centric experience** that combines planning, execution, decisions, and generated artifacts into a single operational view.
+
 ---
 
 # Goals
 
 The application aims to:
 
-- Supervise multiple concurrent AI workflows
-- Organize work into business outcomes instead of chats
-- Reduce interruption fatigue
-- Keep humans in control of strategic decisions
-- Support durable, resumable execution
-- Provide complete execution history and traceability
-- Scale from manual execution to autonomous orchestration
+* Supervise multiple concurrent AI workflows
+* Organize work into business outcomes instead of conversations
+* Reduce interruption fatigue
+* Keep humans in control of strategic decisions
+* Support durable, resumable execution
+* Provide complete execution history and traceability
+* Scale from manual execution to autonomous orchestration
 
 ---
 
@@ -49,12 +55,24 @@ The application aims to:
 
 Humans remain responsible for:
 
-- Prioritization
-- Approvals
-- Clarifications
-- Strategic decisions
+* Prioritization
+* Approvals
+* Clarifications
+* Strategic decisions
 
 AI agents remain responsible for execution.
+
+---
+
+## Human View ≠ System View
+
+The application intentionally separates the user's mental model from the internal planning model.
+
+Leaders supervise **Initiatives**.
+
+The platform internally manages **Epics, Stories, Tasks and Executions**.
+
+This separation keeps the user experience focused on business outcomes while allowing the underlying planning model to evolve independently.
 
 ---
 
@@ -94,33 +112,63 @@ AI Planning
 
 # Domain Model
 
+From a leader's perspective, every business outcome is represented as an **Initiative**.
+
+Internally, an Initiative is primarily backed by an **Epic** together with its planning objects and runtime executions.
+
 ```
 Workspace
 │
-├── Epic
-│
-├── Story
-│     │
-│     ├── Task
-│     ├── Dependency
-│     └── Acceptance Criteria
-│
-└── Runtime
+└── Initiative (Human View)
       │
-      ├── Story Execution
-      │      │
-      │      ├── Task Execution
-      │      │      │
-      │      │      ├── Agent Execution
-      │      │      └── Agent Execution
-      │      │
-      │      ├── Timeline
-      │      ├── Human Requests
-      │      ├── Decisions
-      │      └── Artifacts
+      ├── Epic (Planning)
+      │     │
+      │     ├── Story
+      │     │     │
+      │     │     ├── Task
+      │     │     ├── Dependency
+      │     │     └── Acceptance Criteria
       │
-      └── Notifications
+      └── Runtime
+            │
+            ├── Story Execution
+            │      │
+            │      ├── Task Execution
+            │      │      │
+            │      │      ├── Agent Execution
+            │      │      └── Agent Execution
+            │      │
+            │      ├── Timeline
+            │      ├── Human Requests
+            │      ├── Decisions
+            │      └── Artifacts
+            │
+            └── Notifications
 ```
+
+---
+
+# Human Mental Model
+
+The application is designed around how leaders supervise work rather than how planning data is stored.
+
+Typical Initiatives include:
+
+* Platform Modernization
+* Create Agent Orchestration Flow
+* Agent Worklfow V2
+* Database Migration
+
+When a leader opens an Initiative they expect to immediately understand:
+
+* The business objective
+* Current progress
+* Running work
+* Waiting decisions
+* Produced artifacts
+* Execution history
+
+Planning and Runtime are therefore two complementary views of the same business outcome.
 
 ---
 
@@ -134,16 +182,30 @@ Future versions may support multiple workspaces.
 
 ---
 
-## Epic
+## Initiative (Human View)
 
-Represents a business initiative.
+Represents the business outcome being supervised.
 
 Examples:
 
-- Promotion
-- Platform Modernization
-- Search V2
-- AI Adoption
+* Platform Modernization
+* Create Agent Orchestration Flow
+* Agent Worklfow V2
+* Database Migration
+
+An Initiative is the primary object presented to leaders.
+
+Internally it is composed of planning objects (Epic, Stories and Tasks) together with their runtime executions.
+
+---
+
+## Epic
+
+Represents the primary planning container for an Initiative.
+
+An Epic groups Stories that contribute toward a single business outcome.
+
+From the leader's perspective this planning structure is presented simply as an Initiative.
 
 Epics should remain achievable within approximately one month.
 
@@ -155,9 +217,9 @@ Represents a business deliverable.
 
 Examples:
 
-- Write promotion document
-- Create architecture proposal
-- Build migration plan
+* Write promotion document
+* Create architecture proposal
+* Build migration plan
 
 Stories move across the Kanban board.
 
@@ -169,10 +231,10 @@ A unit of executable work.
 
 Examples:
 
-- Research
-- Write document
-- Generate diagram
-- Review architecture
+* Research
+* Write document
+* Generate diagram
+* Review architecture
 
 Tasks define **what** should happen.
 
@@ -202,12 +264,12 @@ Lowest execution level.
 
 Responsible for:
 
-- LLM interaction
-- Tool usage
-- MCP integration
-- Search
-- Code generation
-- Document generation
+* LLM interaction
+* MCP integration
+* Tool usage
+* Search and retrieval
+* Code generation
+* Document generation
 
 ---
 
@@ -219,11 +281,11 @@ Represents something requiring human attention.
 
 Examples:
 
-- Approval required
-- Clarification required
-- Tool permission
-- Missing information
-- Budget exceeded
+* Approval required
+* Clarification required
+* Tool permission
+* Missing information
+* Budget exceeded
 
 ---
 
@@ -233,12 +295,12 @@ Represents a human response.
 
 Examples:
 
-- Approve
-- Reject
-- Clarify
-- Continue
-- Abort
-- Select option
+* Approve
+* Reject
+* Clarify
+* Continue
+* Abort
+* Select option
 
 Workflows wait for Decisions instead of approvals.
 
@@ -250,13 +312,13 @@ Output produced by an execution.
 
 Examples:
 
-- Markdown
-- Specification
-- Presentation
-- Diagram
-- Spreadsheet
-- Source code
-- Image
+* Markdown
+* Specification
+* Presentation
+* Diagram
+* Spreadsheet
+* Source code
+* Image
 
 Artifacts are first-class domain objects.
 
@@ -268,16 +330,18 @@ Every execution produces an immutable event timeline.
 
 Examples:
 
-- Started
-- Waiting Approval
-- Clarification Requested
-- Continued
-- Failed
-- Completed
+* Started
+* Waiting Approval
+* Clarification Requested
+* Continued
+* Failed
+* Completed
 
 ---
 
 # Planning Workflow
+
+Planning is the internal representation of an Initiative.
 
 ```
 Epic
@@ -421,12 +485,12 @@ Story Execution
 
 This hierarchy enables:
 
-- Parallel execution
-- Retry
-- Pause
-- Resume
-- Human approval
-- Dynamic fan-out
+* Parallel execution
+* Retry
+* Pause
+* Resume
+* Human approval
+* Dynamic fan-out
 
 ---
 
@@ -434,9 +498,9 @@ This hierarchy enables:
 
 The primary interface is a Kanban board.
 
-Each Epic appears as a collapsible vertical drawer.
+Each **Initiative** (backed by an Epic) appears as a collapsible vertical drawer.
 
-Inside each Epic:
+Inside each Initiative:
 
 ```
 Todo
@@ -454,13 +518,13 @@ Selecting a Story opens its execution details.
 
 Execution details include:
 
-- Timeline
-- Running Tasks
-- Human Requests
-- Artifacts
-- Logs
-- Chat
-- Decisions
+* Timeline
+* Running Tasks
+* Human Requests
+* Artifacts
+* Logs
+* Chat
+* Decisions
 
 ---
 
@@ -470,13 +534,75 @@ The application continuously aggregates requests requiring human attention.
 
 Examples:
 
-- Waiting approval
-- Clarification required
-- Execution failed
-- Tool permission
-- Budget approval
+* Waiting approval
+* Clarification required
+* Execution failed
+* Tool permission
+* Budget approval
 
 This allows leaders to supervise many concurrent workflows without constant interruption.
+
+---
+
+# Human View vs Internal Model
+
+The application intentionally separates presentation from implementation.
+
+## Human View
+
+```
+Workspace
+
+↓
+
+Initiative
+
+↓
+
+Current Progress
+
+↓
+
+Decisions
+
+↓
+
+Artifacts
+```
+
+## Internal Planning Model
+
+```
+Workspace
+
+↓
+
+Epic
+
+↓
+
+Story
+
+↓
+
+Task
+
+↓
+
+Execution
+```
+
+This mapping allows future automation without changing the user experience while preserving compatibility with established planning concepts.
+
+| Human View   | Internal Domain            |
+| ------------ | -------------------------- |
+| Initiative   | Epic + Runtime             |
+| Progress     | Story Executions           |
+| Running Work | Task Executions            |
+| AI Activity  | Agent Executions           |
+| Decisions    | Human Requests + Decisions |
+| Outputs      | Artifacts                  |
+| History      | Timeline                   |
 
 ---
 
@@ -510,21 +636,21 @@ The frontend never communicates directly with workflow engines.
 
 ## Frontend
 
-- React
-- TypeScript
-- Tailwind CSS
-- shadcn/ui
-- TanStack Query
-- Zustand
+* React
+* TypeScript
+* Tailwind CSS
+* shadcn/ui
+* TanStack Query
+* Zustand
 
 ---
 
 ## Backend
 
-- Python
-- FastAPI
-- OpenAPI
-- PostgreSQL
+* Python
+* FastAPI
+* OpenAPI
+* PostgreSQL
 
 ---
 
@@ -532,11 +658,11 @@ The frontend never communicates directly with workflow engines.
 
 Initial target:
 
-- Temporal
+* Temporal
 
 Future:
 
-- Additional workflow engines via adapters
+* Additional workflow engines via adapters
 
 ---
 
@@ -572,16 +698,16 @@ The first version intentionally focuses on simplicity.
 
 Features:
 
-- Epic management
-- Story management
-- Task management
-- Manual task execution
-- Temporal integration
-- Execution monitoring
-- Timeline
-- Human decisions
-- Artifact viewing
-- Attention queue
+* Epic management
+* Story management
+* Task management
+* Manual task execution
+* Temporal integration
+* Execution monitoring
+* Timeline
+* Human decisions
+* Artifact viewing
+* Attention queue
 
 Automation is intentionally deferred.
 
@@ -591,18 +717,18 @@ Automation is intentionally deferred.
 
 Without changing the architecture, future versions can introduce:
 
-- Dependency-based scheduling
-- AI planning
-- Dynamic task creation
-- Multiple workflow engines
-- Multiple workspaces
-- Team collaboration
-- Notifications
-- Plugin ecosystem
-- MCP integrations
-- Analytics
-- Cost tracking
-- Execution replay
+* Dependency-based scheduling
+* AI planning
+* Dynamic task creation
+* Multiple workflow engines
+* Multiple workspaces
+* Team collaboration
+* Notifications
+* Plugin ecosystem
+* MCP integrations
+* Analytics
+* Cost tracking
+* Execution replay
 
 ---
 
