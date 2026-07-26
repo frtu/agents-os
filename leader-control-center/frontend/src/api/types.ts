@@ -8,6 +8,7 @@ import type {
   Notification,
   Provider,
   StoryExecution,
+  Task,
   TimelineEvent,
 } from "@/types/domain";
 
@@ -24,6 +25,7 @@ export interface DecisionInput {
 export interface ApiClient {
   // Queries
   getBoards(): Promise<InitiativeBoardView[]>;
+  getStoryTasks(storyId: string): Promise<Task[]>;
   getExecution(executionId: string): Promise<StoryExecution>;
   getTimeline(storyExecutionId: string): Promise<TimelineEvent[]>;
   getArtifacts(storyId: string): Promise<Artifact[]>;
