@@ -85,6 +85,7 @@ async def stream_reply(user_msg: str, session_id: str | None = None):
     )
 
     reply, sid = "", session_id
+    logger.debug(f"[SDK] query: prompt={user_msg[:100]}{'...' if len(user_msg) > 100 else ''}")
     async for message in query(prompt=user_msg, options=opts):
         if isinstance(message, SystemMessage) and message.subtype == "init":
             sid = message.data.get("session_id", sid)
@@ -95,13 +96,30 @@ async def stream_reply(user_msg: str, session_id: str | None = None):
             if ev_type == "content_block_delta" and ev.get("delta", {}).get("type") == "text_delta":
                 reply += ev["delta"]["text"]
                 yield reply, sid
+            elif ev_type == "content_block_start":
+                block = ev.get("content_block", {})
+                if block.get("type") == "tool_use":
+                    logger.debug(f"[SDK] tool_start: {block.get('name')}")
             elif ev_type == "tool_use":
-                logger.debug(f"[SDK] tool_use: {ev.get('name', 'unknown')}")
-            elif ev_type not in ("content_block_delta", "content_block_start", "content_block_stop"):
-                logger.debug(f"[SDK] event: {ev_type}")
+                tool_input = ev.get("input", {})
+                input_str = str(tool_input)[:200] + "..." if len(str(tool_input)) > 200 else str(tool_input)
+                logger.debug(f"[SDK] tool_use: {ev.get('name')} input={input_str}")
+            elif ev_type == "tool_result":
+                content = ev.get("content", "")
+                content_str = str(content)[:300] + "..." if len(str(content)) > 300 else str(content)
+                logger.debug(f"[SDK] tool_result: {content_str}")
+            elif ev_type == "message_start":
+                msg = ev.get("message", {})
+                logger.debug(f"[SDK] message_start: model={msg.get('model')} role={msg.get('role')}")
+            elif ev_type == "message_stop":
+                logger.debug(f"[SDK] message_stop: reason={ev.get('stop_reason', 'unknown')}")
+            elif ev_type not in ("content_block_delta", "content_block_stop"):
+                logger.debug(f"[SDK] event: {ev_type} data={ev}")
         elif isinstance(message, ResultMessage):
             sid = message.session_id or sid
-            logger.debug(f"[SDK] result session={sid}")
+            cost = getattr(message, "cost_usd", None)
+            cost_str = f" cost=${cost:.4f}" if cost else ""
+            logger.debug(f"[SDK] result: session={sid}{cost_str}")
     yield reply, sid
 
 
