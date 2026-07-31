@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 """
-Comprehensive unit tests for lint-emoji-unformat scripts.
-Tests all functions in normalize_slack_emoji.py and remove_blank_lines.py
+Comprehensive unit tests for lint-unformat scripts.
+Tests all functions in normalize_image_links.py and normalize_whitespaces.py
 """
 
 import unittest
 import tempfile
 from pathlib import Path
 
-from normalize_slack_emoji import (
+from normalize_image_links import (
     normalize_markdown_images,
     process_file as process_slack_emoji_file,
 )
-from remove_blank_lines import (
+from normalize_whitespaces import (
     normalize_whitespace,
-    remove_blank_lines_in_code_blocks,
+    normalize_whitespace_in_code_blocks,
     process_file as process_blank_lines_file,
 )
 
 
 class TestNormalizeWhitespace(unittest.TestCase):
-    """Test normalize_whitespace from remove_blank_lines.py"""
+    """Test normalize_whitespace from normalize_whitespaces.py"""
 
     def test_removes_trailing_spaces_on_blank_lines(self):
         input_text = "line1\n    \nline2\n"
@@ -73,47 +73,47 @@ class TestNormalizeWhitespace(unittest.TestCase):
 
 
 class TestRemoveBlankLinesInCodeBlocks(unittest.TestCase):
-    """Test remove_blank_lines_in_code_blocks function"""
+    """Test normalize_whitespace_in_code_blocks function"""
 
     def test_removes_blank_lines_in_code_block(self):
         input_text = "```\nline1\n\nline2\n```\n"
         expected = "```\nline1\nline2\n```\n"
-        self.assertEqual(remove_blank_lines_in_code_blocks(input_text), expected)
+        self.assertEqual(normalize_whitespace_in_code_blocks(input_text), expected)
 
     def test_preserves_blank_lines_outside_code_blocks(self):
         input_text = "text\n\n\nmore text\n```\ncode\n```\n"
         expected = "text\n\n\nmore text\n```\ncode\n```\n"
-        self.assertEqual(remove_blank_lines_in_code_blocks(input_text), expected)
+        self.assertEqual(normalize_whitespace_in_code_blocks(input_text), expected)
 
     def test_multiple_code_blocks(self):
         input_text = "```\na\n\nb\n```\ntext\n```\nc\n\nd\n```\n"
         expected = "```\na\nb\n```\ntext\n```\nc\nd\n```\n"
-        self.assertEqual(remove_blank_lines_in_code_blocks(input_text), expected)
+        self.assertEqual(normalize_whitespace_in_code_blocks(input_text), expected)
 
     def test_nested_triple_backticks(self):
         input_text = "```\ncode\n```\ntext\n```\nmore\n```\n"
         expected = "```\ncode\n```\ntext\n```\nmore\n```\n"
-        self.assertEqual(remove_blank_lines_in_code_blocks(input_text), expected)
+        self.assertEqual(normalize_whitespace_in_code_blocks(input_text), expected)
 
     def test_code_block_with_only_blank_lines(self):
         input_text = "```\n\n\n```\n"
         expected = "```\n```\n"
-        self.assertEqual(remove_blank_lines_in_code_blocks(input_text), expected)
+        self.assertEqual(normalize_whitespace_in_code_blocks(input_text), expected)
 
     def test_no_code_blocks(self):
         input_text = "just regular text\nwith some lines\n"
         expected = "just regular text\nwith some lines\n"
-        self.assertEqual(remove_blank_lines_in_code_blocks(input_text), expected)
+        self.assertEqual(normalize_whitespace_in_code_blocks(input_text), expected)
 
     def test_code_block_with_indented_content(self):
         input_text = "```\n  indented\n\n  more indented\n```\n"
         expected = "```\n  indented\n  more indented\n```\n"
-        self.assertEqual(remove_blank_lines_in_code_blocks(input_text), expected)
+        self.assertEqual(normalize_whitespace_in_code_blocks(input_text), expected)
 
     def test_code_block_with_whitespace_lines(self):
         input_text = "```\nline1\n   \nline2\n```\n"
         expected = "```\nline1\nline2\n```\n"
-        self.assertEqual(remove_blank_lines_in_code_blocks(input_text), expected)
+        self.assertEqual(normalize_whitespace_in_code_blocks(input_text), expected)
 
 
 class TestNormalizeMarkdownImages(unittest.TestCase):
@@ -304,12 +304,12 @@ class TestProcessFileSlackEmoji(unittest.TestCase):
 class TestIntegration(unittest.TestCase):
     """Integration tests combining multiple functions"""
 
-    def test_normalize_whitespace_then_remove_blank_lines(self):
+    def test_normalize_whitespace_then_normalize_whitespaces(self):
         input_text = "```\nline1\n  \nline2  \n\n\nline3\n```\ntext"
         # First normalize whitespace
         after_whitespace = normalize_whitespace(input_text)
         # Then remove blank lines in code blocks
-        result = remove_blank_lines_in_code_blocks(after_whitespace)
+        result = normalize_whitespace_in_code_blocks(after_whitespace)
         # Should have removed blank lines from code block and normalized whitespace
         self.assertIn("```\nline1\nline2", result)
 

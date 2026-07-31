@@ -59,7 +59,7 @@ def normalize_whitespace(content: str) -> str:
     return '\n'.join(result) + '\n'
 
 
-def remove_blank_lines_in_code_blocks(content: str) -> str:
+def normalize_whitespace_in_code_blocks(content: str) -> str:
     """
     Remove unnecessary blank lines inside markdown code blocks.
 
@@ -101,7 +101,7 @@ def process_file(filepath: Path, dry_run: bool = False) -> tuple[bool, str]:
     """
     try:
         original_content = filepath.read_text(encoding='utf-8')
-        processed_content = remove_blank_lines_in_code_blocks(original_content)
+        processed_content = normalize_whitespace_in_code_blocks(original_content)
 
         if original_content == processed_content:
             return False, f"No changes needed for {filepath}"

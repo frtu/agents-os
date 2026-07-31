@@ -63,13 +63,13 @@ Never invent project groupings. Never silently guess.
 
 In raw inputs, contributors use Slack image-style emoji (`![:emoji:](url)`).
 Normalize these to plain text form (`:emoji:` / `[:emoji:]`) using the
-**`lint-emoji-unformat`** skill before parsing — run it over the raw files for the date:
+**`lint-unformat`** skill before parsing — run it over the raw files for the date:
 
 ```bash
-python3 .claude/commands/lint-emoji-unformat/scripts/normalize_slack_emoji.py "raw/daily/Weekly updates/<date>-<product>/"*.md
+python3 .claude/commands/lint-unformat/scripts/normalize_image_links.py "raw/daily/Weekly updates/<date>-<product>/"*.md
 ```
 
-Use `--dry-run` first to preview. See the `lint-emoji-unformat` skill for details.
+Use `--dry-run` first to preview. See the `lint-unformat` skill for details.
 
 ---
 
@@ -100,7 +100,7 @@ Which date should I process? (both products will be digested)
 
 For each `raw/daily/Weekly updates/<date>-<product>/<date> <Name>.md`:
 
-1. Normalize emoji first with the `lint-emoji-unformat` skill (see [Emoji Normalization](#emoji-normalization)).
+1. Normalize emoji first with the `lint-unformat` skill (see [Emoji Normalization](#emoji-normalization)).
 2. Read the file.
 3. Extract contributor name from filename.
 4. Parse sections: **Highlights / lowlights**, **Key Projects**, **Eng Excellence**.

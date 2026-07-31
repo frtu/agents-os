@@ -145,7 +145,7 @@ Examples:
     # Load whitespace normalizer if requested
     normalize_function = None
     if args.normalize_whitespace:
-        from remove_blank_lines import normalize_whitespace
+        from normalize_whitespaces import normalize_whitespace
         normalize_function = normalize_whitespace
 
     total_files = 0

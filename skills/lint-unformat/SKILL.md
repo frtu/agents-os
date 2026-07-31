@@ -1,5 +1,5 @@
 ---
-name: lint-emoji-unformat
+name: lint-unformat
 description: Clean up Slack formatting with emoji images, Zoom speaker images, and whitespace issues. Use when the user says "clean slack", "normalize slack emoji", "unformat slack", "clean zoom transcript", or has markdown files with Slack emoji image syntax like `![:emoji:](url)` or Zoom speaker images like `![Speaker 1](https://...zoom.com/...)`.
 version: 0.3.0
 ---
@@ -38,21 +38,21 @@ Run the Python script on markdown files. **Always use `--normalize-whitespace`**
 
 ```bash
 # Single file
-python3 .claude/commands/lint-emoji-unformat/scripts/normalize_slack_emoji.py --normalize-whitespace /path/to/file.md
+python3 .claude/commands/lint-unformat/scripts/normalize_image_links.py --normalize-whitespace /path/to/file.md
 
 # Dry run (preview changes)
-python3 .claude/commands/lint-emoji-unformat/scripts/normalize_slack_emoji.py --dry-run --normalize-whitespace /path/to/file.md
+python3 .claude/commands/lint-unformat/scripts/normalize_image_links.py --dry-run --normalize-whitespace /path/to/file.md
 
 # Process multiple files
-python3 .claude/commands/lint-emoji-unformat/scripts/normalize_slack_emoji.py --normalize-whitespace file1.md file2.md
+python3 .claude/commands/lint-unformat/scripts/normalize_image_links.py --normalize-whitespace file1.md file2.md
 
 # Process all files in a directory
-python3 .claude/commands/lint-emoji-unformat/scripts/normalize_slack_emoji.py --normalize-whitespace /path/to/_reports_/*.md
+python3 .claude/commands/lint-unformat/scripts/normalize_image_links.py --normalize-whitespace /path/to/_reports_/*.md
 ```
 
 ## Script
 
-Located at `scripts/normalize_slack_emoji.py` within this command folder.
+Located at `scripts/normalize_image_links.py` within this command folder.
 
 ## When to Use
 
