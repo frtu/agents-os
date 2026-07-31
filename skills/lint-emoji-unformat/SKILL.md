@@ -34,20 +34,20 @@ Fixes common Slack export whitespace issues:
 
 ## Usage
 
-Run the Python script on markdown files:
+Run the Python script on markdown files. **Always use `--normalize-whitespace`** to also clean up blank lines and trailing spaces.
 
 ```bash
 # Single file
-python3 .claude/commands/lint-emoji-unformat/scripts/normalize_slack_emoji.py /path/to/file.md
+python3 .claude/commands/lint-emoji-unformat/scripts/normalize_slack_emoji.py --normalize-whitespace /path/to/file.md
 
 # Dry run (preview changes)
-python3 .claude/commands/lint-emoji-unformat/scripts/normalize_slack_emoji.py --dry-run /path/to/file.md
+python3 .claude/commands/lint-emoji-unformat/scripts/normalize_slack_emoji.py --dry-run --normalize-whitespace /path/to/file.md
 
 # Process multiple files
-python3 .claude/commands/lint-emoji-unformat/scripts/normalize_slack_emoji.py file1.md file2.md
+python3 .claude/commands/lint-emoji-unformat/scripts/normalize_slack_emoji.py --normalize-whitespace file1.md file2.md
 
 # Process all files in a directory
-python3 .claude/commands/lint-emoji-unformat/scripts/normalize_slack_emoji.py /path/to/_reports_/*.md
+python3 .claude/commands/lint-emoji-unformat/scripts/normalize_slack_emoji.py --normalize-whitespace /path/to/_reports_/*.md
 ```
 
 ## Script

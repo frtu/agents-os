@@ -21,6 +21,7 @@ Examples:
 import re
 import sys
 from pathlib import Path
+from typing import Callable, Optional
 
 
 def normalize_markdown_images(content: str) -> str:
@@ -51,48 +52,18 @@ def normalize_markdown_images(content: str) -> str:
 
     return content
 
-
-def normalize_whitespace(content: str) -> str:
-    """
-    Clean up whitespace issues common in Slack exports.
-
-    Fixes:
-    1. Remove trailing whitespace from blank lines (lines that are only whitespace)
-    2. Preserve trailing double-space on content lines (Slack line break syntax)
-    3. Collapse multiple consecutive blank lines into single blank line
-    4. Ensure file ends with exactly one newline
-    """
-    result = []
-    prev_blank = False
-
-    for line in content.splitlines():
-        # Check if line is blank (only whitespace)
-        stripped = line.strip()
-        is_blank = len(stripped) == 0
-
-        if is_blank:
-            # Blank line: remove all whitespace
-            if prev_blank:
-                continue  # Skip consecutive blank lines
-            result.append('')
-            prev_blank = True
-        else:
-            # Content line: preserve trailing double-space (Slack line break)
-            # but remove other trailing whitespace patterns
-            if line.endswith('  '):
-                # Keep trailing double-space (intentional line break)
-                result.append(line.rstrip() + '  ')
-            else:
-                result.append(line.rstrip())
-            prev_blank = False
-
-    # Join and ensure single trailing newline
-    return '\n'.join(result) + '\n'
-
-
-def process_file(filepath: Path, dry_run: bool = False) -> tuple[bool, int]:
+def process_file(
+    filepath: Path,
+    dry_run: bool = False,
+    normalize_function: Optional[Callable[[str], str]] = None
+) -> tuple[bool, int]:
     """
     Process a single markdown file.
+
+    Args:
+        filepath: Path to the markdown file
+        dry_run: If True, don't write changes
+        normalize_function: Optional function to normalize content
 
     Returns:
         (changed, num_replacements)
@@ -100,7 +71,8 @@ def process_file(filepath: Path, dry_run: bool = False) -> tuple[bool, int]:
     try:
         original_content = filepath.read_text(encoding='utf-8')
         normalized_content = normalize_markdown_images(original_content)
-        normalized_content = normalize_whitespace(normalized_content)
+        if normalize_function:
+            normalized_content = normalize_function(normalized_content)
 
         if original_content == normalized_content:
             return False, 0
@@ -143,6 +115,9 @@ Examples:
 
   # Dry run (show what would be changed without modifying files)
   %(prog)s --dry-run /path/to/file.md
+
+  # Also normalize whitespace (collapse blank lines, trim trailing spaces)
+  %(prog)s --normalize-whitespace /path/to/file.md
         """
     )
 
@@ -159,7 +134,19 @@ Examples:
         help='Show what would be changed without modifying files'
     )
 
+    parser.add_argument(
+        '--normalize-whitespace',
+        action='store_true',
+        help='Also normalize whitespace (collapse blank lines, trim trailing spaces)'
+    )
+
     args = parser.parse_args()
+
+    # Load whitespace normalizer if requested
+    normalize_function = None
+    if args.normalize_whitespace:
+        from remove_blank_lines import normalize_whitespace
+        normalize_function = normalize_whitespace
 
     total_files = 0
     total_changed = 0
@@ -175,7 +162,7 @@ Examples:
             continue
 
         total_files += 1
-        changed, num_replacements = process_file(filepath, args.dry_run)
+        changed, num_replacements = process_file(filepath, args.dry_run, normalize_function)
 
         if changed:
             total_changed += 1
