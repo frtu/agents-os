@@ -3,10 +3,6 @@
 Utility functions for whitespace normalization and code block formatting.
 """
 
-import sys
-from pathlib import Path
-
-
 def normalize_whitespace(content: str) -> str:
     """
     Clean up whitespace issues common in Slack exports.
@@ -86,93 +82,3 @@ def normalize_whitespace_in_code_blocks(content: str) -> str:
             result.append(line)
 
     return ''.join(result)
-
-
-def process_file(filepath: Path, dry_run: bool = False) -> tuple[bool, str]:
-    """
-    Process a single file to remove blank lines in code blocks.
-
-    Args:
-        filepath: Path to the file to process
-        dry_run: If True, don't write changes, just show what would happen
-
-    Returns:
-        Tuple of (file_was_changed, operation_message)
-    """
-    try:
-        original_content = filepath.read_text(encoding='utf-8')
-        processed_content = normalize_whitespace_in_code_blocks(original_content)
-
-        if original_content == processed_content:
-            return False, f"No changes needed for {filepath}"
-
-        if not dry_run:
-            filepath.write_text(processed_content, encoding='utf-8')
-            return True, f"✓ Updated {filepath}"
-        else:
-            return True, f"[DRY RUN] Would update {filepath}"
-
-    except Exception as e:
-        return False, f"✗ Error processing {filepath}: {e}"
-
-
-def main():
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description='Remove blank lines inside markdown code blocks',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Process a single file
-  %(prog)s /path/to/file.md
-
-  # Process multiple files
-  %(prog)s file1.md file2.md file3.md
-
-  # Dry run (preview changes)
-  %(prog)s --dry-run /path/to/file.md
-        """
-    )
-
-    parser.add_argument(
-        'files',
-        nargs='+',
-        type=Path,
-        help='File(s) to process'
-    )
-
-    parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Show what would be changed without modifying files'
-    )
-
-    args = parser.parse_args()
-
-    total_files = 0
-    total_changed = 0
-
-    for filepath in args.files:
-        if not filepath.exists():
-            print(f"✗ File not found: {filepath}", file=sys.stderr)
-            continue
-
-        if not filepath.is_file():
-            print(f"✗ Not a file: {filepath}", file=sys.stderr)
-            continue
-
-        total_files += 1
-        changed, message = process_file(filepath, args.dry_run)
-        print(message)
-
-        if changed:
-            total_changed += 1
-
-    print(f"\n{'[DRY RUN] ' if args.dry_run else ''}Summary: {total_changed}/{total_files} files processed")
-
-    return 0 if total_files > 0 else 1
-
-
-if __name__ == '__main__':
-    sys.exit(main())

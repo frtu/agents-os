@@ -1,63 +1,71 @@
 ---
 name: lint-unformat
-description: Clean up Slack formatting with emoji images, Zoom speaker images, and whitespace issues. Use when the user says "clean slack", "normalize slack emoji", "unformat slack", "clean zoom transcript", or has markdown files with Slack emoji image syntax like `![:emoji:](url)` or Zoom speaker images like `![Speaker 1](https://...zoom.com/...)`.
-version: 0.3.0
+description: Clean up Slack formatting with emoji images, Zoom speaker images, whitespace issues, and code block formatting. Use when the user says "clean slack", "normalize slack emoji", "unformat slack", "clean zoom transcript", "normalize code blocks", "clean whitespace", "remove blank lines", or has markdown files with Slack emoji image syntax, Zoom speaker images, or code blocks with extra blank lines.
+version: 0.4.0
 ---
 
-# Lint Emoji Unformat
+# Lint Unformat
 
-Clean up Slack-style emoji, Zoom speaker images, and whitespace issues in markdown files.
+Clean up Slack-style emoji, Zoom speaker images, whitespace issues, and code block formatting in markdown files. Normalizers can be run independently or all together.
 
-## What It Does
+## Normalizers
 
-### Image Normalization
+| Name            | Flag            | What it does                                                        |
+| --------------- | --------------- | ------------------------------------------------------------------- |
+| **images**      | `--images`      | Converts Slack emoji and Zoom speaker images to plain text          |
+| **whitespace**  | `--whitespace`  | Collapses blank lines, trims trailing spaces, ensures final newline |
+| **code-blocks** | `--code-blocks` | Removes blank lines inside fenced code blocks                       |
 
-Transforms image markdown to plain text:
+## Procedure
 
-| Before                                          | After       |
-| ----------------------------------------------- | ----------- |
-| `![:tada:](https://emoji.slack-edge.com/...)`   | `:tada:`    |
-| `[![:done:](https://emoji.slack-edge.com/...)]` | `[:done:]`  |
-| `![Speaker 1](https://us01cnst1.zoom.com/...)`  | `Speaker 1` |
-| `![alt](data:image/png;base64,...)`             | `alt`       |
+1. **Parse the ARGUMENTS** to determine which normalizer(s) to run:
+   - If user says "images", "emoji", "slack emoji", "zoom" → use `--images`
+   - If user says "whitespace", "blank lines", "trailing spaces" → use `--whitespace`
+   - If user says "code blocks", "code block cleanup" → use `--code-blocks`
+   - If user says "all" or doesn't specify → run with no flags (applies all three)
 
-### Whitespace Cleanup
+2. **Determine target files**:
+   - If ARGUMENTS specifies file paths → use those
+   - If ARGUMENTS says "local files" or "modified files" → get from `git status --porcelain | grep -E '^\s*M.*\.md$' | sed 's/^...//'`
+   - If ARGUMENTS says "all files" → use `find . -name "*.md" -type f`
 
-Fixes common Slack export whitespace issues:
+3. **Run the normalizer**:
+   ```bash
+   python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py [FLAGS] [FILES...]
+   ```
 
-| Issue                              | Fix                                          |
-| ---------------------------------- | -------------------------------------------- |
-| Trailing spaces on blank lines     | Removed                                      |
-| Trailing double-space on content   | **Preserved** (Slack line break syntax)      |
-| Multiple consecutive blank lines   | Collapsed to single blank line               |
-| Missing newline at end of file     | Added                                        |
+4. **Report summary** from script output.
 
-## Usage
-
-Run the Python script on markdown files. **Always use `--normalize-whitespace`** to also clean up blank lines and trailing spaces.
+## Examples
 
 ```bash
-# Single file
-python3 .claude/commands/lint-unformat/scripts/normalize_image_links.py --normalize-whitespace /path/to/file.md
-
-# Dry run (preview changes)
-python3 .claude/commands/lint-unformat/scripts/normalize_image_links.py --dry-run --normalize-whitespace /path/to/file.md
-
-# Process multiple files
-python3 .claude/commands/lint-unformat/scripts/normalize_image_links.py --normalize-whitespace file1.md file2.md
-
-# Process all files in a directory
-python3 .claude/commands/lint-unformat/scripts/normalize_image_links.py --normalize-whitespace /path/to/_reports_/*.md
+# All normalizers (default)
+python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py /path/to/file.md
+# Single normalizer
+python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py --images /path/to/file.md
+python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py --whitespace /path/to/file.md
+python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py --code-blocks /path/to/file.md
+# Multiple normalizers
+python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py --whitespace --code-blocks /path/to/file.md
+# Dry run
+python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py --dry-run /path/to/file.md
+# Multiple files
+python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py file1.md file2.md
 ```
 
-## Script
+## Normalizer Details
 
-Located at `scripts/normalize_image_links.py` within this command folder.
+### images
+Transforms image markdown to plain text:
+- `![:tada:](https://emoji.slack-edge.com/...)` → `:tada:`
+- `![Speaker 1](https://us01cnst1.zoom.com/...)` → `Speaker 1`
+- `![alt](data:image/png;base64,...)` → `alt`
 
-## When to Use
+### whitespace
+- Removes trailing spaces on blank lines
+- Preserves trailing double-space on content (Slack line break syntax)
+- Collapses multiple consecutive blank lines to one
+- Ensures file ends with newline
 
-- After copying content from Slack that contains custom emoji
-- When ingesting Slack exports or transcripts into the wiki
-- When markdown files have broken emoji image links from Slack
-- After exporting Zoom transcripts that contain speaker avatar images
-- When files have trailing whitespace or excessive blank lines from copy-paste
+### code-blocks
+Removes blank lines inside fenced code blocks (between triple backticks).
