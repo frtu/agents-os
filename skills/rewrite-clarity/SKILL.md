@@ -1,10 +1,10 @@
 ---
-name: rewrite-clear
+name: rewrite-clarity
 description: Apply Amazon-style clear writing rules to a document. Use when the user says "rewrite for clarity", "apply writing guidelines", "clean up this doc", "remove weasel words", or wants to improve document clarity with data-driven language.
 version: 0.1.0
 ---
 
-# Rewrite Clear
+# Rewrite for Clarity
 
 Apply `references/writing-communication.md` guidelines to improve document clarity. Based on Amazon's "Write Like an Amazonian" principles.
 
