@@ -55,6 +55,17 @@ git add \
 - Include all wiki pages (new and updated)
 - Include `wiki/portal.md` and `wiki/log.md` if touched
 
+**Gotcha — a path silently refuses to stage.** If `git add {path}` prints `The following paths are ignored by one of your .gitignore files` (or the file just never appears in `git status`), a **global** gitignore is catching it. A bare pattern like `area_name` in `~/.gitignore_global` matches any `product/area_name/` directory. 
+
+Force-stage the intended files explicitly:
+
+```bash
+git check-ignore -v xx/wiki/product/area_name   # shows which ignore rule + file matched
+git add -f xx/wiki/product/area_name/           # -f overrides the ignore for these paths only
+```
+
+Print all the force-added wiki pages you deliberately created.
+
 ### 2. Verify Staged Files
 
 Run `git status` to confirm only intended files are staged:
