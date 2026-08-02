@@ -14,8 +14,25 @@ workflows. It has two parts:
 | -------------------------------- | ------- | -------------------------------- |
 | [uv](https://docs.astral.sh/uv/) | latest  | Python env + running the backend |
 | Python                           | 3.11+   | backend runtime (managed by uv)  |
-| Node.js                          | 18+     | frontend build/dev server        |
+| Node.js                          | ^18.17 or >=20.5 | frontend build/dev server |
 | npm                              | 9+      | frontend dependencies            |
+
+The frontend pins these in `frontend/package.json` (`engines`), `frontend/.nvmrc`
+(`nvm use`), and `frontend/.npmrc` (`engine-strict=true`), so npm refuses to run
+on an unsupported Node with a clear message.
+
+> **`SyntaxError: Unexpected token .` when running `npm run dev` / `npm install`?**
+> Your shell is on an old Node (e.g. v10) — npm itself can't parse modern syntax,
+> so this crashes *before* any project check runs. Point your shell at a modern
+> Node and retry:
+>
+> ```bash
+> node -v                              # must be ^18.17 or >=20.5
+> # Homebrew node already installed? put it first on PATH:
+> export PATH="/opt/homebrew/bin:$PATH"
+> # …or via nvm (reads frontend/.nvmrc):
+> nvm install 20 && nvm use
+> ```
 
 ## Choose how to run
 
