@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -30,23 +31,40 @@ from app.config import settings
 
 _API_PREFIX = "/api/v1"
 
+# Log under uvicorn's own logger so our lines share its formatting and level.
+log = logging.getLogger("uvicorn.error")
+
 
 async def _simulation_loop(app: FastAPI) -> None:
     interval = settings.simulation_tick_seconds
     while True:
         await asyncio.sleep(interval)
-        app.state.control_center.engine.tick()
+        # A single bad tick must not silently kill the background task — log it
+        # and keep ticking so the engine recovers on the next iteration.
+        try:
+            app.state.control_center.engine.tick()
+        except Exception:
+            log.exception("Simulation tick failed; continuing")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    log.info(
+        "Starting Leader Control Center (tick=%.1fs, cors=%s)",
+        settings.simulation_tick_seconds,
+        ", ".join(settings.cors_origins) or "(none)",
+    )
     app.state.control_center = build_control_center()
     tick_task: asyncio.Task | None = None
     if settings.simulation_tick_seconds > 0:
         tick_task = asyncio.create_task(_simulation_loop(app))
+        log.info("Simulation engine ticking every %.1fs", settings.simulation_tick_seconds)
+    else:
+        log.info("Simulation engine disabled (SIMULATION_TICK_SECONDS<=0)")
     try:
         yield
     finally:
+        log.info("Shutting down — cancelling tick loop and closing SQLite")
         if tick_task is not None:
             tick_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):

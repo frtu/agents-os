@@ -442,20 +442,42 @@ def build_control_center() -> ControlCenter:
     """Compose the object graph (store + engine + service), restore persisted
     state from SQLite (or seed on first run), and wire write-through persistence:
     every state change signalled on the event bus flushes the store to SQLite."""
+    import logging
+    from pathlib import Path
+
     from app.config import settings
     from app.infra.db import Database
     from app.infra.seed import seed
 
+    # Share uvicorn's logger so these lines appear with the same formatting/level
+    # as the rest of the startup output (a bare app logger has no handler attached).
+    log = logging.getLogger("uvicorn.error")
+
     store = Store()
     engine = SimulationEngine(store)
 
+    # Log the absolute path so it's obvious where state lives — the default is
+    # relative to the process CWD, a common source of "why is my data gone?".
+    db_path = Path(settings.sqlite_path).resolve()
+    log.info("Opening SQLite store at %s", db_path)
     db = Database(settings.sqlite_path)
     store.db = db
     if db.has_data():
         db.load_into(store)
+        log.info(
+            "Restored state from SQLite: %d initiatives, %d stories",
+            len(store.initiatives),
+            len(store.stories),
+        )
     else:
+        log.info("No existing data — seeding initial state")
         seed(store, engine)
         db.save(store)
+        log.info(
+            "Seeded and persisted: %d initiatives, %d stories",
+            len(store.initiatives),
+            len(store.stories),
+        )
 
     # Persist on every state change. Subscribed after seed so the initial load
     # is a single write, not one per seeded aggregate.
