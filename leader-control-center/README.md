@@ -48,7 +48,7 @@ Leader Control Center aims to become the operational console for durable AI exec
 The application should allow leaders to:
 
 - supervise multiple concurrent AI initiatives
-- organize work around business outcomes
+- organise work around business outcomes
 - reduce interruption fatigue
 - maintain human strategic control
 - support long-running execution
@@ -153,23 +153,18 @@ without changing the architecture.
 
 The evolution path should look like:
 
-Leader
-
-↓
-
-Manual Scheduling (MVP)
-
-↓
-
-Dependency Scheduling
-
-↓
-
-AI Planning
-
-↓
-
-Autonomous Coordination
+```mermaid
+flowchart TD
+    N0[Leader]
+    N1["Manual Scheduling (MVP)"]
+    N2[Dependency Scheduling]
+    N3[AI Planning]
+    N4[Autonomous Coordination]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+```
 
 ---
 
@@ -208,31 +203,22 @@ The leader never needs to understand workflow engine concepts.
 
 Internally, an Initiative is composed of:
 
-Workspace
-
-↓
-
-Epic
-
-↓
-
-Story
-
-↓
-
-Task
-
-↓
-
-Execution
-
-↓
-
-Capability Execution
-
-↓
-
-Provider Execution
+```mermaid
+flowchart TD
+    N0[Workspace]
+    N1[Epic]
+    N2[Story]
+    N3[Task]
+    N4[Execution]
+    N5[Capability Execution]
+    N6[Provider Execution]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5
+    N5 --> N6
+```
 
 The planning hierarchy remains stable while runtime evolves independently.
 
@@ -244,9 +230,7 @@ From a leader's perspective, every business outcome is represented as an **Initi
 
 ```
 Portfolio
-│
 └── Initiative (Human View)
-      │
       ├── Planning
       │     │
       │     ├── Epic
@@ -256,28 +240,21 @@ Portfolio
       │     │      │      ├── Task
       │     │      │      ├── Dependency
       │     │      │      └── Acceptance Criteria
-      │     │
       │     └── Planning Metadata
       │
       └── Runtime
-            │
             ├── Story Execution
-            │      │
             │      ├── Task Execution
-            │      │      │
             │      │      ├── Capability Execution
             │      │      │      │
             │      │      │      ├── Provider Execution
             │      │      │      ├── Provider Execution
             │      │      │      └── Provider Execution
-            │      │      │
             │      │      ├── Timeline
             │      │      ├── Human Requests
             │      │      ├── Decisions
             │      │      └── Artifacts
-            │      │
             │      └── Metrics
-            │
             └── Attention Queue
 ```
 
@@ -390,7 +367,6 @@ Every Task is created using exactly one **Planning Mode**.
 
 ```
 Planning Mode
-
 ├── Structured
 └── Goal-Oriented
 ```
@@ -415,16 +391,11 @@ The leader explicitly defines:
 Example
 
 ```
-Task
-
-Write Promotion Document
-
-Capability
-
+# Task
+Write Design Document
+# Capability
 Write Markdown
-
-Acceptance Criteria
-
+# Acceptance Criteria
 - Executive quality
 - Less than three pages
 - Ready for manager review
@@ -445,13 +416,10 @@ Instead of selecting a Capability, the leader describes the desired outcome.
 Example
 
 ```
-Goal
-
+# Goal
 Prepare a promotion package that demonstrates my
 technical leadership and business impact.
-
-Success Criteria
-
+# Success Criteria
 - Executive quality
 - Metrics included
 - Ready for review
@@ -472,20 +440,15 @@ before execution begins.
 
 The application intentionally supports increasing levels of autonomy.
 
-```
-Structured
-
-↓
-
-AI Suggestions
-
-↓
-
-Goal-Oriented
-
-↓
-
-Autonomous Planning
+```mermaid
+flowchart TD
+    N0[Structured]
+    N1[AI Suggestions]
+    N2[Goal-Oriented]
+    N3[Autonomous Planning]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
 ```
 
 Users can gradually adopt AI planning without changing their workflows.
@@ -498,16 +461,13 @@ Planning creates runtime objects.
 
 Planning itself is never modified.
 
-```
-Planning
-
-↓
-
-Execution
-
-↓
-
-History
+```mermaid
+flowchart TD
+    N0[Planning]
+    N1[Execution]
+    N2[History]
+    N0 --> N1
+    N1 --> N2
 ```
 
 Every execution is immutable history.
@@ -574,19 +534,12 @@ Examples
 
 ```
 OpenAI
-
 Anthropic
-
 Gemini
-
 Cursor
-
 GitHub MCP
-
 Slack MCP
-
 Temporal Activity
-
 Human
 ```
 
@@ -609,17 +562,11 @@ They do not describe:
 
 ```
 Capability
-
 id
-
 name
-
 description
-
 inputs
-
 outputs
-
 supported providers
 ```
 
@@ -627,15 +574,10 @@ Example
 
 ```
 Capability
-
 Write Markdown
-
 Inputs
-
 Markdown Specification
-
 Outputs
-
 Markdown Document
 ```
 
@@ -647,31 +589,18 @@ Capabilities are reusable across every Initiative.
 
 ```
 Capability Catalog
-
 Research
-
 Search
-
 Review
-
 Write Markdown
-
 Generate Diagram
-
 Generate Presentation
-
 Generate Code
-
 Analyze
-
 Summarize
-
 Translate
-
 Test
-
 Deploy
-
 Review Architecture
 ```
 
@@ -689,23 +618,14 @@ Examples
 
 ```
 OpenAI
-
 Anthropic
-
 Google Gemini
-
 GitHub Copilot
-
 Cursor
-
 Claude Code
-
 Human
-
 Slack MCP
-
 GitHub MCP
-
 Temporal Activity
 ```
 
@@ -713,13 +633,9 @@ Providers expose a common contract.
 
 ```
 supports()
-
 estimate()
-
 execute()
-
 cancel()
-
 resume()
 ```
 
@@ -731,20 +647,15 @@ Providers should never contain business logic.
 
 Execution Strategy determines **how** a Capability is executed.
 
-```
-Capability
-
-↓
-
-Execution Strategy
-
-↓
-
-Provider
-
-↓
-
-Execution
+```mermaid
+flowchart TD
+    N0[Capability]
+    N1[Execution Strategy]
+    N2[Provider]
+    N3[Execution]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
 ```
 
 Separating strategy from provider enables progressively more advanced orchestration.
@@ -755,152 +666,122 @@ Separating strategy from provider enables progressively more advanced orchestrat
 
 ### Single Provider
 
-```
-Capability
-
-↓
-
-Claude
+```mermaid
+flowchart TD
+    N0[Capability]
+    N1[Claude]
+    N0 --> N1
 ```
 
 ---
 
 ### Retry
 
-```
-Claude
-
-↓
-
-Retry
-
-↓
-
-Retry
-
-↓
-
-Completed
+```mermaid
+flowchart TD
+    N0[Claude]
+    N1[Retry]
+    N2[Retry]
+    N3[Completed]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
 ```
 
 ---
 
 ### Parallel
 
-```
-Capability
-
-↓
-
-Claude
-
-GPT
-
-Gemini
+```mermaid
+flowchart TD
+    N0[Capability]
+    N1[Claude]
+    N2[GPT]
+    N3[Gemini]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
 ```
 
 ---
 
 ### Consensus
 
-```
-Capability
-
-↓
-
-Claude
-
-GPT
-
-Gemini
-
-↓
-
-Merge
-
-↓
-
-Result
+```mermaid
+flowchart TD
+    N0[Capability]
+    N1[Claude]
+    N2[GPT]
+    N3[Gemini]
+    N4[Merge]
+    N5[Result]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5
 ```
 
 ---
 
 ### Human Review
 
-```
-Capability
-
-↓
-
-LLM
-
-↓
-
-Human Approval
-
-↓
-
-Continue
+```mermaid
+flowchart TD
+    N0[Capability]
+    N1[LLM]
+    N2[Human Approval]
+    N3[Continue]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
 ```
 
 ---
 
 ### Pipeline
 
-```
-Research
-
-↓
-
-Write
-
-↓
-
-Review
-
-↓
-
-Publish
+```mermaid
+flowchart TD
+    N0[Research]
+    N1[Write]
+    N2[Review]
+    N3[Publish]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
 ```
 
 ---
 
 ### Loop
 
-```
-Generate
-
-↓
-
-Evaluate
-
-↓
-
-Improve
-
-↓
-
-Satisfied?
+```mermaid
+flowchart TD
+    N0[Generate]
+    N1[Evaluate]
+    N2[Improve]
+    N3[Satisfied?]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
 ```
 
 ---
 
 ### Fan-Out
 
-```
-Research
-
-↓
-
-Region A
-
-Region B
-
-Region C
-
-↓
-
-Merge
+```mermaid
+flowchart TD
+    N0[Research]
+    N1[Region A]
+    N2[Region B]
+    N3[Region C]
+    N4[Merge]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
 ```
 
 Execution Strategies are implementation details and may evolve independently from planning.
@@ -965,19 +846,12 @@ Updating an Artifact always creates a new version.
 
 ```
 Artifact
-
 id
-
 type
-
 version
-
 owner
-
 created by
-
 created at
-
 metadata
 ```
 
@@ -991,21 +865,13 @@ Examples
 
 ```
 Execution Started
-
 Capability Started
-
 Capability Completed
-
 Provider Failed
-
 Retry Scheduled
-
 Approval Requested
-
 Decision Received
-
 Artifact Produced
-
 Execution Completed
 ```
 
@@ -1019,33 +885,15 @@ History is never modified.
 
 ```
 Story Execution
-
-│
-
 ├── Task Execution
-
-│      │
-
 │      ├── Capability Execution
-
 │      │       │
-
 │      │       ├── Provider Execution
-
 │      │       ├── Provider Execution
-
 │      │       └── Provider Execution
-
-│      │
-
-│      ├── Human Requests
-
+│      ├── Human Request
 │      ├── Artifacts
-
 │      └── Timeline
-
-│
-
 └── Task Execution
 ```
 
@@ -1061,108 +909,79 @@ Runtime never modifies Planning.
 
 ## Planning
 
-```
-Draft
-
-↓
-
-Ready
-
-↓
-
-Archived
+```mermaid
+flowchart TD
+    N0[Draft]
+    N1[Ready]
+    N2[Archived]
+    N0 --> N1
+    N1 --> N2
 ```
 
 ---
 
 ## Task
 
-```
-Draft
-
-↓
-
-Ready
-
-↓
-
-Cancelled
+```mermaid
+flowchart TD
+    N0[Draft]
+    N1[Ready]
+    N2[Cancelled]
+    N0 --> N1
+    N1 --> N2
 ```
 
 ---
 
 ## Story Execution
 
-```
-Created
-
-↓
-
-Running
-
-↓
-
-Waiting
-
-↓
-
-Completed
-
-↓
-
-Cancelled
-
-↓
-
-Failed
+```mermaid
+flowchart TD
+    N0[Created]
+    N1[Running]
+    N2[Waiting]
+    N3[Completed]
+    N4[Cancelled]
+    N5[Failed]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5
 ```
 
 ---
 
 ## Capability Execution
 
-```
-Pending
-
-↓
-
-Running
-
-↓
-
-Waiting
-
-↓
-
-Completed
-
-↓
-
-Failed
+```mermaid
+flowchart TD
+    N0[Pending]
+    N1[Running]
+    N2[Waiting]
+    N3[Completed]
+    N4[Failed]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
 ```
 
 ---
 
 ## Provider Execution
 
-```
-Scheduled
-
-↓
-
-Running
-
-↓
-
-Succeeded
-
-↓
-
-Failed
-
-↓
-
-Cancelled
+```mermaid
+flowchart TD
+    N0[Scheduled]
+    N1[Running]
+    N2[Succeeded]
+    N3[Failed]
+    N4[Cancelled]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
 ```
 
 Provider failures do not necessarily imply Capability failures.
@@ -1273,20 +1092,15 @@ Examples:
 
 Planning is the internal representation of an Initiative.
 
-```
-Epic
-
-↓
-
-Story
-
-↓
-
-Task
-
-↓
-
-Ready
+```mermaid
+flowchart TD
+    N0[Epic]
+    N1[Story]
+    N2[Task]
+    N3[Ready]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
 ```
 
 Planning remains stable throughout execution.
@@ -1295,16 +1109,13 @@ Planning remains stable throughout execution.
 
 # Execution Workflow
 
-```
-Story Execution
-
-↓
-
-Task Execution
-
-↓
-
-Agent Execution
+```mermaid
+flowchart TD
+    N0[Story Execution]
+    N1[Task Execution]
+    N2[Agent Execution]
+    N0 --> N1
+    N1 --> N2
 ```
 
 Each level owns a different responsibility.
@@ -1315,32 +1126,21 @@ Each level owns a different responsibility.
 
 Planning states.
 
-```
-Draft
-
-↓
-
-Ready
-
-↓
-
-Running
-
-↓
-
-Waiting
-
-↓
-
-Blocked
-
-↓
-
-Completed
-
-↓
-
-Cancelled
+```mermaid
+flowchart TD
+    N0[Draft]
+    N1[Ready]
+    N2[Running]
+    N3[Waiting]
+    N4[Blocked]
+    N5[Completed]
+    N6[Cancelled]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5
+    N5 --> N6
 ```
 
 Only **Ready** tasks may be started.
@@ -1353,11 +1153,8 @@ The application intentionally separates scheduling policy from execution.
 
 ```
 Story Workflow
-
 ↓
-
 Scheduling Strategy
-
 ├── Manual Scheduling
 ├── Dependency Scheduling
 └── AI Planning
@@ -1369,20 +1166,15 @@ Manual Scheduling.
 
 The leader explicitly starts every task.
 
-```
-Leader
-
-↓
-
-Start Task
-
-↓
-
-Backend
-
-↓
-
-Workflow Engine
+```mermaid
+flowchart TD
+    N0[Leader]
+    N1[Start Task]
+    N2[Backend]
+    N3[Workflow Engine]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
 ```
 
 ## Future
@@ -1403,13 +1195,10 @@ AI dynamically creates, reprioritizes and launches Tasks.
 
 ```
 Story Execution
-
 ├── Task Execution
-
 │     ├── Agent Execution
 │     ├── Agent Execution
 │     └── Agent Execution
-
 └── Task Execution
 ```
 
@@ -1426,139 +1215,221 @@ This hierarchy enables:
 
 # User Interface
 
-The primary interface is a Kanban board.
+The primary interface is an **Initiative Board**.
 
-Each **Initiative** (backed by an Epic) appears as a collapsible vertical drawer.
+Unlike traditional Kanban applications that organize work around planning artifacts, Leader Control Center organizes work around **business initiatives**.
 
-Inside each Initiative:
+```
+Workspace
+├── Platform Modernization
+├── Create Agent Orchestration Flow
+├── Agent Worklfow V2
+├── AI Adoption
+└── Database Migration
+```
+
+Each Initiative acts as a collapsible workspace exposing both planning and runtime.
+
+---
+
+## Initiative View
+
+Selecting an Initiative presents a unified operational view.
+
+```
+┌──────────────────────────────────────────────┐
+│ Platform Modernization                       │
+├──────────────────────────────────────────────┤
+│ Goal                                         │
+│ Progress                                     │
+│ Attention Queue                              │
+│                                              │
+│ Stories                                      │
+│ Runtime                                      │
+│ Artifacts                                    │
+│ Timeline                                     │
+│ AI Activity                                  │
+└──────────────────────────────────────────────┘
+```
+
+The objective is to answer the leader's primary question:
+
+> **"What requires my attention right now?"**
+
+---
+
+## Planning Board
+
+Planning remains Kanban-based.
 
 ```
 Todo
-
 Ready
-
 Running
-
 Blocked
-
 Completed
 ```
 
-Selecting a Story opens its execution details.
+Stories move across the board.
 
-Execution details include:
+Tasks remain visible inside Stories.
 
-* Timeline
-* Running Tasks
-* Human Requests
-* Artifacts
-* Logs
-* Chat
-* Decisions
+Planning never displays provider-specific information.
 
 ---
 
-# Attention Queue
+## Runtime Inspector
 
-The application continuously aggregates requests requiring human attention.
+Selecting a Story opens the Runtime Inspector.
+
+```mermaid
+flowchart TD
+    N0[Story]
+    N1[Executions]
+    N2[Capabilities]
+    N3[Providers]
+    N4[Logs]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+```
+
+The Runtime Inspector focuses on operational visibility rather than planning.
+
+---
+
+## Execution Timeline
+
+Every execution exposes a complete event history.
+
+Example:
+
+```
+09:00 Story Started
+09:01 Research Started
+09:05 Claude Completed
+09:06 Review Started
+09:08 Waiting Approval
+09:15 Approved
+09:16 Continue
+09:18 Completed
+```
+
+The Timeline is immutable and fully auditable.
+
+---
+
+## Artifact Explorer
+
+Artifacts are grouped by Story and Initiative.
+
+```
+Promotion
+├── README.md
+├── Architecture Diagram
+├── Presentation
+├── Resume
+└── Final Proposal
+```
+
+Every Artifact exposes:
+
+- Version history
+- Producer
+- Creation timestamp
+- Associated execution
+- Associated capability
+
+---
+
+## Attention Queue
+
+The Attention Queue aggregates every execution requiring human intervention.
 
 Examples:
 
-* Waiting approval
-* Clarification required
-* Execution failed
-* Tool permission
-* Budget approval
+```
+Waiting Approval
+Waiting Clarification
+Execution Failed
+Budget Approval
+Permission Required
+Review Requested
+```
 
-This allows leaders to supervise many concurrent workflows without constant interruption.
+This queue is global across all Initiatives.
+
+The leader should never need to manually inspect every execution.
 
 ---
 
-# Human View vs Internal Model
+## AI Activity
 
-The application intentionally separates presentation from implementation.
+The platform continuously displays AI activity.
 
-## Human View
-
-```
-Workspace
-
-↓
-
-Initiative
-
-↓
-
-Current Progress
-
-↓
-
-Decisions
-
-↓
-
-Artifacts
-```
-
-## Internal Planning Model
+Examples:
 
 ```
-Workspace
-
-↓
-
-Epic
-
-↓
-
-Story
-
-↓
-
-Task
-
-↓
-
-Execution
+Researching...
+Generating Architecture...
+Reviewing Code...
+Waiting Human...
+Retrying Provider...
+Completed
 ```
 
-This mapping allows future automation without changing the user experience while preserving compatibility with established planning concepts.
+The UI intentionally exposes capabilities instead of provider names.
 
-| Human View   | Internal Domain            |
-| ------------ | -------------------------- |
-| Initiative   | Epic + Runtime             |
-| Progress     | Story Executions           |
-| Running Work | Task Executions            |
-| AI Activity  | Agent Executions           |
-| Decisions    | Human Requests + Decisions |
-| Outputs      | Artifacts                  |
-| History      | Timeline                   |
+Instead of
+
+```
+Claude Running
+```
+
+the leader sees
+
+```
+Generating Architecture
+```
+
+Provider details remain available inside execution details.
 
 ---
 
 # Architecture
 
+```mermaid
+flowchart TD
+    FE[React Frontend]
+    API[REST + WebSocket API]
+    BE[Backend API]
+    DOM[Domain Application Layer]
+    EXEC[Execution Coordination Layer]
+    CAP[Capability Engine]
+    STRAT[Execution Strategies]
+    REG[Provider Registry]
+    subgraph Providers
+        OAI[OpenAI]
+        ANT[Anthropic]
+        FUT[Future Providers]
+    end
+    WF[Workflow Adapter]
+    subgraph Engines
+        TEMP[Temporal]
+        FUTE[Future Engines]
+    end
+    FE --> API
+    API --> BE
+    BE --> DOM
+    DOM --> EXEC
+    EXEC --> CAP
+    CAP --> STRAT
+    STRAT --> REG
+    REG --> OAI & ANT & FUT
+    OAI & ANT & FUT --> WF
+    WF --> TEMP & FUTE
 ```
-                React Frontend
-                       │
-             REST + WebSocket
-                       │
-                Backend API
-                       │
-          Workflow Management Layer
-                       │
-          Workflow Engine Adapter
-                       │
-        ┌──────────────┴──────────────┐
-        │                             │
-    Temporal                  Future Engines
-```
-
-The backend owns the business model.
-
-Workflow engines own execution.
-
-The frontend never communicates directly with workflow engines.
 
 ---
 
@@ -1566,102 +1437,249 @@ The frontend never communicates directly with workflow engines.
 
 ## Frontend
 
-* React
-* TypeScript
-* Tailwind CSS
-* shadcn/ui
-* TanStack Query
-* Zustand
+- React
+- TypeScript
+- TailwindCSS
+- shadcn/ui
+- TanStack Query
+- Zustand
 
 ---
 
 ## Backend
 
-* Python
-* FastAPI
-* OpenAPI
-* PostgreSQL
+- Python
+- FastAPI
+- Pydantic
+- OpenAPI
+- PostgreSQL
 
 ---
 
-## Workflow
+## Runtime
 
-Initial target:
+- Temporal
 
-* Temporal
+Future adapters:
+
+- Azure Durable Functions
+- AWS Step Functions
+- Google Workflows
+
+---
+
+## AI Providers
+
+Initially supported:
+
+- OpenAI
+- Anthropic
 
 Future:
 
-* Additional workflow engines via adapters
+- Gemini
+- Cursor
+- Claude Code
+- Local Models
+
+---
+
+## Storage
+
+Planning and Runtime are intentionally separated.
+
+Planning Database
+
+- Workspace
+- Initiative
+- Epic
+- Story
+- Task
+- Dependencies
+
+Runtime Database
+
+- Executions
+- Timeline
+- Artifacts
+- Human Requests
+- Decisions
+- Metrics
+
+This separation prevents execution concerns from polluting planning.
 
 ---
 
 # API Philosophy
 
-The API exposes business commands instead of CRUD operations.
+The API exposes **business commands**, not CRUD operations.
 
-Examples:
+Examples
 
 ```
+POST /initiatives
 POST /stories
-
 POST /tasks
-
 POST /tasks/{id}/start
-
-POST /executions/{id}/approve
-
-POST /executions/{id}/clarify
-
+POST /tasks/{id}/cancel
+POST /stories/{id}/start
 POST /executions/{id}/cancel
-
 POST /executions/{id}/retry
+POST /executions/{id}/decisions/{decisionId}/approve
+POST /executions/{id}/decisions/{decisionId}/clarify
+POST /executions/{id}/decisions/{decisionId}/select
+POST /notifications/{id}/ack
 ```
+
+Decisions are resolved per open request under `/executions/{id}/decisions`, and
+notifications carry the decision reference (see `specs/api/rest-api.md`).
 
 The backend translates these commands into workflow engine operations.
+
+Clients never communicate directly with Temporal or any workflow engine.
 
 ---
 
 # MVP Scope
 
-The first version intentionally focuses on simplicity.
+The first release intentionally focuses on simplicity.
 
-Features:
+Included
 
-* Epic management
-* Story management
-* Task management
-* Manual task execution
-* Temporal integration
-* Execution monitoring
-* Timeline
-* Human decisions
-* Artifact viewing
-* Attention queue
+- Initiative management
+- Epic management
+- Story management
+- Task management
+- Structured planning
+- Manual execution
+- Capability execution
+- Provider execution
+- Temporal integration
+- Timeline
+- Human Requests
+- Decisions
+- Artifact viewing
+- Attention Queue
+- Execution monitoring
 
-Automation is intentionally deferred.
+---
+
+## Deferred Features
+
+The following capabilities are intentionally postponed.
+
+Planning
+
+- Goal-oriented planning
+- AI-generated Stories
+- AI-generated Tasks
+- Workflow templates
+
+Execution
+
+- Dependency scheduling
+- AI scheduling
+- Consensus execution
+- Multi-provider orchestration
+- Dynamic fan-out
+
+Platform
+
+- Multiple workspaces
+- Collaboration
+- Teams
+- Notifications
+- Cost tracking
+- Analytics
+- Execution replay
+- Plugin Marketplace
+- Capability Marketplace
 
 ---
 
 # Future Evolution
 
-Without changing the architecture, future versions can introduce:
+The architecture intentionally allows progressive evolution.
 
-* Dependency-based scheduling
-* AI planning
-* Dynamic task creation
-* Multiple workflow engines
-* Multiple workspaces
-* Team collaboration
-* Notifications
-* Plugin ecosystem
-* MCP integrations
-* Analytics
-* Cost tracking
-* Execution replay
+```mermaid
+flowchart TD
+    N0[MVP]
+    N1[Dependency Scheduling]
+    N2[AI Planning]
+    N3[Autonomous Coordination]
+    N4[Self Optimizing Execution]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+```
+
+Every stage builds upon the previous one.
+
+No architectural redesign should be required.
+
+---
+
+# Design Rules
+
+The following architectural constraints are considered fundamental.
+
+## Planning Rules
+
+- Planning never references runtime state.
+- Tasks describe intent, not implementation.
+- Planning remains deterministic.
+- Goal-oriented planning must normalise into structured execution before runtime.
+
+---
+
+## Runtime Rules
+
+- Runtime never mutates planning.
+- Every execution is traceable.
+- Every event is timestamped.
+- Timeline is append-only.
+- Every Human Request produces one Decision.
+
+---
+
+## Capability Rules
+
+- Capabilities define **what** should happen.
+- Providers define **who** performs the work.
+- Strategies define **how** execution occurs.
+- Providers are interchangeable.
+- Business logic never depends on providers.
+
+---
+
+## Artifact Rules
+
+- Artifacts are immutable.
+- Every modification creates a new version.
+- Artifacts remain linked to their originating execution.
+- Artifacts are first-class domain objects.
+
+---
+
+## Human Interaction Rules
+
+Humans remain responsible for:
+
+- priorities
+- planning
+- approvals
+- clarifications
+- strategic decisions
+
+AI remains responsible for execution.
 
 ---
 
 # Guiding Principle
 
-> Build the simplest system that supports today's workflow while making tomorrow's automation a configuration change rather than an architectural rewrite.
+> Build the simplest system that satisfies today's operational needs while ensuring every future automation capability becomes a configuration change rather than an architectural rewrite.
+
+Leader Control Center is not designed to replace leaders.
+
+It is designed to amplify their ability to supervise increasingly autonomous AI systems while preserving human ownership of business decisions.
