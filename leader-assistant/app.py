@@ -10,6 +10,7 @@ warnings.filterwarnings("ignore", message=r".*HTTP_422_UNPROCESSABLE_ENTITY.*")
 import gradio as gr
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -96,6 +97,15 @@ class AgentResponse(BaseModel):
 def build_api() -> FastAPI:
     """Build the FastAPI app exposing REST endpoints for the skilled agent."""
     api = FastAPI(title="Leader Assistant API")
+
+    # Allow browser clients (e.g. the leader-control-center frontend) to call
+    # the REST API directly when not going through a same-origin proxy.
+    api.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @api.get("/api/health")
     def health():

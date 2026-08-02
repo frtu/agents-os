@@ -14,7 +14,10 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:7865/)",
       "Bash(curl -s -X POST http://localhost:7865/api/agent -H 'Content-Type: application/json' -d '{\"message\":\"Reply with exactly the word: pong\"}' --max-time 90)",
       "Bash(curl -s -N -X POST http://localhost:7865/api/agent/stream -H 'Content-Type: application/json' -d '{\"message\":\"List the installed skills, one sentence.\"}' --max-time 90)",
-      "Bash(kill 33796)"
+      "Bash(kill 33796)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"tsc exit: $?\")",
+      "Bash(echo \"pid $!\")"
     ]
   }
 }

@@ -18,6 +18,12 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
+      // Local leader-assistant REST service (story-drafting chat).
+      "/assistant": {
+        target: "http://localhost:7860",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/assistant/, ""),
+      },
     },
   },
 });

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
+import { draftStoryViaAssistant } from "@/api/assistant";
 import type { DecisionInput } from "@/api/types";
 import type {
   CreateStoryInput,
@@ -63,7 +64,8 @@ export function useCreateStory(initiativeId: string) {
 
 export function useDraftStory() {
   return useMutation({
-    mutationFn: (input: { initiativeId: string; message: string }) => api.draftStory(input),
+    mutationFn: (input: { initiativeId: string; message: string }) =>
+      draftStoryViaAssistant(input),
   });
 }
 
