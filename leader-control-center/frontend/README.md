@@ -9,10 +9,10 @@ Task detail, an **Attention Queue**, Notifications, and an Artifact viewer.
 - React + TypeScript + Vite
 - Tailwind CSS + shadcn/ui-style primitives
 - TanStack Query (server state) + Zustand (UI state)
-- WebSocket realtime layer ([realtime spec](../specs/api/realtime.md))
+- WebSocket realtime layer ([realtime spec](../_specs_/api/realtime.md))
 
 The UI issues **business commands** (Start, Approve, Retry…) rather than CRUD,
-mirroring the [REST API spec](../specs/api/rest-api.md), and never surfaces
+mirroring the [REST API spec](../_specs_/api/rest-api.md), and never surfaces
 workflow-engine internals.
 
 ## Run

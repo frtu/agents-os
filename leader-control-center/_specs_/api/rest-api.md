@@ -18,7 +18,8 @@ Base path: `/api/v1`
 ## Planning
 
 ```
-POST   /initiatives                 create Initiative
+POST   /initiatives                 create Initiative { title, description }
+POST   /initiatives/reorder         reorder initiatives { initiativeIds: [...] }
 POST   /initiatives/{id}/epics      create Epic
 POST   /stories                     create Story
 POST   /tasks                       create Task (Structured or Goal-Oriented)
@@ -85,8 +86,8 @@ POST   /executions/{id}/decisions/{decisionId}/custom      { "actionName": "..."
 ## Runtime Queries
 
 ```
-GET    /initiatives                 list initiatives (board summary)
-GET    /initiatives/{id}/board      Kanban view
+GET    /initiatives                 list initiative summaries (order + counts)
+GET    /initiatives/{id}/board      per-initiative Kanban view
 GET    /executions                  list executions (filterable)
 GET    /executions/{id}             execution detail + live status
 GET    /executions/{id}/timeline    append-only timeline
@@ -99,10 +100,13 @@ GET    /attention                   Attention Queue (cross-initiative)
 > **Story**. `GET /executions` returns all executions, and an execution's
 > timeline and decisions live under `/executions/{id}`.
 
-> **Board (MVP status).** The target shape is `GET /initiatives` (list) +
-> `GET /initiatives/{id}/board` (per-initiative Kanban). The MVP currently
-> serves the full board projection directly from `GET /initiatives`;
-> `/initiatives/{id}/board` is kept as the target but not yet implemented.
+> **Board.** `GET /initiatives` returns lightweight summaries — each carries the
+> `Initiative` (including its `order`), its `epicId`, a `storyCount`, and the
+> `openHumanRequests` count — so the board list renders (and shows badges) with
+> every initiative collapsed by default. Unfolding an initiative loads its Kanban
+> columns on demand via `GET /initiatives/{id}/board`. Initiatives are returned
+> in ascending `order`; drag-to-reorder persists the new order atomically via
+> `POST /initiatives/reorder` (`{ initiativeIds: [...] }`, order = list index).
 
 ---
 
