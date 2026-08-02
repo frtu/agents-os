@@ -160,6 +160,28 @@ class ControlCenter:
             )
         return self.store.create_initiative(title, description, workflow_definition_id)
 
+    def update_initiative(
+        self, initiative_id: str, title: str, description: str,
+        workflow_definition_id: str | None = None,
+    ) -> Initiative:
+        from app.infra.store import MISC_INITIATIVE_ID
+
+        initiative = self.store.initiatives.get(initiative_id)
+        if not initiative or initiative.status == PlanningStatus.DELETED:
+            raise NotFoundError(f"Initiative not found: {initiative_id}")
+        if initiative_id == MISC_INITIATIVE_ID:
+            raise InvariantError("The Misc initiative cannot be edited")
+        if (
+            workflow_definition_id is not None
+            and workflow_definition_id not in self.store.workflow_definitions
+        ):
+            raise NotFoundError(
+                f"Workflow definition not found: {workflow_definition_id}"
+            )
+        return self.store.update_initiative(
+            initiative_id, title, description, workflow_definition_id
+        )
+
     def delete_initiative(self, initiative_id: str) -> list[InitiativeSummary]:
         """Soft-delete an initiative (status -> DELETED) and reparent its stories
         onto the default `Misc` initiative. Returns the refreshed summary list."""

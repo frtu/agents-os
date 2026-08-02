@@ -2,6 +2,7 @@ import type {
   Artifact,
   Capability,
   CreateStoryInput,
+  UpdateInitiativeInput,
   Decision,
   DecisionKind,
   HumanRequest,
@@ -57,6 +58,10 @@ export interface ApiClient {
     description?: string;
     workflowDefinitionId?: string;
   }): Promise<Initiative>;
+  updateInitiative(
+    initiativeId: string,
+    input: UpdateInitiativeInput,
+  ): Promise<Initiative>;
   reorderInitiatives(initiativeIds: string[]): Promise<InitiativeSummary[]>;
   // Soft-delete an initiative; its stories are reparented onto the Misc initiative.
   deleteInitiative(initiativeId: string): Promise<void>;

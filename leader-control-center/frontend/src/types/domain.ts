@@ -64,6 +64,12 @@ export interface StoryDraft {
   acceptanceCriteria: string[];
 }
 
+export interface UpdateInitiativeInput {
+  title: string;
+  description?: string;
+  workflowDefinitionId?: string;
+}
+
 export interface CreateStoryInput {
   epicId: string;
   title: string;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, AlertCircle, GripVertical, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, AlertCircle, GripVertical, Pencil, Trash2 } from "lucide-react";
 import type { BoardColumn as ColumnKey, InitiativeSummary } from "@/types/domain";
 import { BoardColumn } from "@/features/board/BoardColumn";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,8 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/ui";
-import { useInitiativeBoard } from "@/hooks/queries";
-import { useDeleteInitiative } from "@/hooks/mutations";
+import { useInitiativeBoard, useWorkflowDefinitions } from "@/hooks/queries";
+import { useDeleteInitiative, useUpdateInitiative } from "@/hooks/mutations";
+
+const inputClass =
+  "w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary";
 
 const ORDER: ColumnKey[] = ["Todo", "Ready", "Running", "Blocked", "Completed"];
 
@@ -39,8 +42,42 @@ export function InitiativeBoard({
   const toggle = useUiStore((s) => s.toggleInitiative);
   const { data: board, isLoading } = useInitiativeBoard(initiative.id, expanded);
   const deleteInitiative = useDeleteInitiative();
+  const updateInitiative = useUpdateInitiative();
+  const { data: workflowDefinitions } = useWorkflowDefinitions();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState(initiative.title);
+  const [editDescription, setEditDescription] = useState(initiative.description);
+  const [editWorkflowId, setEditWorkflowId] = useState(initiative.workflowDefinitionId ?? "");
+  const [editError, setEditError] = useState<string | null>(null);
   const isMisc = initiative.id === MISC_INITIATIVE_ID;
+
+  const openEdit = () => {
+    setEditTitle(initiative.title);
+    setEditDescription(initiative.description);
+    setEditWorkflowId(initiative.workflowDefinitionId ?? "");
+    setEditError(null);
+    setEditOpen(true);
+  };
+
+  const submitEdit = () => {
+    if (!editTitle.trim()) return;
+    setEditError(null);
+    updateInitiative.mutate(
+      {
+        initiativeId: initiative.id,
+        input: {
+          title: editTitle.trim(),
+          description: editDescription.trim(),
+          workflowDefinitionId: editWorkflowId || undefined,
+        },
+      },
+      {
+        onSuccess: () => setEditOpen(false),
+        onError: (e) => setEditError(e instanceof Error ? e.message : "Failed to save"),
+      },
+    );
+  };
 
   return (
     <section
@@ -77,15 +114,80 @@ export function InitiativeBoard({
           )}
         </button>
         {!isMisc && (
-          <button
-            onClick={() => setConfirmOpen(true)}
-            aria-label={`Delete initiative ${initiative.title}`}
-            className="ml-1 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <>
+            <button
+              onClick={openEdit}
+              aria-label={`Edit initiative ${initiative.title}`}
+              className="ml-1 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setConfirmOpen(true)}
+              aria-label={`Delete initiative ${initiative.title}`}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </>
         )}
       </div>
+
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
+        <div className="text-base font-semibold">Edit initiative</div>
+        <div className="mt-4 flex flex-col gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground">Title</span>
+            <input
+              autoFocus
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              placeholder="Initiative title"
+              className={inputClass}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground">Description</span>
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              placeholder="Description (optional)"
+              rows={2}
+              className={`${inputClass} resize-none`}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground">
+              Workflow definition (optional)
+            </span>
+            <select
+              value={editWorkflowId}
+              onChange={(e) => setEditWorkflowId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">None</option>
+              {workflowDefinitions?.map((wd) => (
+                <option key={wd.id} value={wd.id}>
+                  {wd.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {editError && <p className="mt-3 text-sm text-status-blocked">{editError}</p>}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button size="sm" variant="outline" onClick={() => setEditOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            disabled={!editTitle.trim() || updateInitiative.isPending}
+            onClick={submitEdit}
+          >
+            Save changes
+          </Button>
+        </div>
+      </Dialog>
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
         <div className="text-base font-semibold">Delete initiative</div>

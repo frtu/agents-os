@@ -109,6 +109,8 @@ export const httpClient: ApiClient = {
 
   // Planning commands
   createInitiative: (input) => post<Initiative>("/initiatives", input),
+  updateInitiative: (initiativeId, input) =>
+    patch<Initiative>(`/initiatives/${initiativeId}`, input),
   reorderInitiatives: (initiativeIds) =>
     post<InitiativeSummary[]>("/initiatives/reorder", { initiativeIds }),
   deleteInitiative: (initiativeId) => post<void>(`/initiatives/${initiativeId}/delete`),

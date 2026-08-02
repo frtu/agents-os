@@ -29,6 +29,12 @@ class CreateInitiativeBody(Schema):
     workflow_definition_id: str | None = None
 
 
+class UpdateInitiativeBody(Schema):
+    title: str
+    description: str = ""
+    workflow_definition_id: str | None = None
+
+
 class ReorderInitiativesBody(Schema):
     initiative_ids: list[str]
 

@@ -50,6 +50,8 @@ export const mockClient: ApiClient = {
 
   // Planning commands
   createInitiative: (input): Promise<Initiative> => delay(mockServer.createInitiative(input)),
+  updateInitiative: (initiativeId, input): Promise<Initiative> =>
+    delay(mockServer.updateInitiative(initiativeId, input)),
   reorderInitiatives: (initiativeIds: string[]): Promise<InitiativeSummary[]> =>
     delay(mockServer.reorderInitiatives(initiativeIds)),
   deleteInitiative: (initiativeId: string): Promise<void> => delay(mockServer.deleteInitiative(initiativeId)),

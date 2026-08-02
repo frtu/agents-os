@@ -3,7 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, status
 
 from app.api.deps import get_control_center
-from app.api.schemas import CreateInitiativeBody, ReorderInitiativesBody
+from app.api.schemas import (
+    CreateInitiativeBody,
+    ReorderInitiativesBody,
+    UpdateInitiativeBody,
+)
 from app.application.service import ControlCenter
 from app.domain.models import Initiative, InitiativeBoardView, InitiativeSummary
 
@@ -20,6 +24,17 @@ async def create_initiative(
     body: CreateInitiativeBody, cc: ControlCenter = Depends(get_control_center)
 ):
     return cc.create_initiative(body.title, body.description, body.workflow_definition_id)
+
+
+@router.patch("/initiatives/{initiative_id}", response_model=Initiative)
+async def update_initiative(
+    initiative_id: str,
+    body: UpdateInitiativeBody,
+    cc: ControlCenter = Depends(get_control_center),
+):
+    return cc.update_initiative(
+        initiative_id, body.title, body.description, body.workflow_definition_id
+    )
 
 
 @router.post("/initiatives/reorder", response_model=list[InitiativeSummary])

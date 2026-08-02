@@ -76,6 +76,35 @@ def test_create_and_reorder_initiatives() -> None:
         assert [s["initiative"]["id"] for s in result] == reversed_ids
 
 
+def test_update_initiative() -> None:
+    with _client() as client:
+        summary = client.get(f"{BASE}/initiatives").json()[0]
+        init_id = summary["initiative"]["id"]
+        wd_id = client.get(f"{BASE}/workflow-definitions").json()[0]["id"]
+
+        resp = client.patch(
+            f"{BASE}/initiatives/{init_id}",
+            json={
+                "title": "Renamed",
+                "description": "updated",
+                "workflowDefinitionId": wd_id,
+            },
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["title"] == "Renamed"
+        assert body["description"] == "updated"
+        assert body["workflowDefinitionId"] == wd_id
+        assert body["version"] == summary["initiative"]["version"] + 1
+
+        # Unknown workflow definition is rejected.
+        bad = client.patch(
+            f"{BASE}/initiatives/{init_id}",
+            json={"title": "x", "workflowDefinitionId": "wfd_missing"},
+        )
+        assert bad.status_code == 404
+
+
 def test_create_story_lands_in_todo() -> None:
     with _client() as client:
         summary = client.get(f"{BASE}/initiatives").json()[0]

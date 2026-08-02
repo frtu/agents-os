@@ -3,6 +3,7 @@ import { api } from "@/api";
 import type { DecisionInput } from "@/api/types";
 import type {
   CreateStoryInput,
+  UpdateInitiativeInput,
   CreateWorkflowDefinitionInput,
   UpdateWorkflowDefinitionInput,
 } from "@/types/domain";
@@ -14,6 +15,18 @@ export function useCreateInitiative() {
     mutationFn: (input: { title: string; description?: string; workflowDefinitionId?: string }) =>
       api.createInitiative(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.initiatives }),
+  });
+}
+
+export function useUpdateInitiative() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ initiativeId, input }: { initiativeId: string; input: UpdateInitiativeInput }) =>
+      api.updateInitiative(initiativeId, input),
+    onSuccess: (_r, { initiativeId }) => {
+      qc.invalidateQueries({ queryKey: qk.initiatives });
+      qc.invalidateQueries({ queryKey: qk.board(initiativeId) });
+    },
   });
 }
 

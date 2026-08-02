@@ -166,6 +166,27 @@ class Store:
         self.bus.emit(MessageType.STORY_UPDATED, init_id)
         return initiative
 
+    def update_initiative(
+        self, initiative_id: str, title: str, description: str,
+        workflow_definition_id: str | None = None,
+    ) -> Initiative:
+        """Update an initiative's editable planning fields, keeping its backing
+        epic title in sync. Bumps version; leaves runtime aggregates untouched."""
+        existing = self.initiatives[initiative_id]
+        updated = existing.model_copy(update={
+            "title": title,
+            "description": description,
+            "workflow_definition_id": workflow_definition_id,
+            "version": existing.version + 1,
+            "updated_at": now(),
+        })
+        self.initiatives[initiative_id] = updated
+        for epic in self.epics.values():
+            if epic.initiative_id == initiative_id:
+                epic.title = title
+        self.bus.emit(MessageType.STORY_UPDATED, initiative_id)
+        return updated
+
     def ensure_misc_initiative(self) -> Initiative:
         """The `Misc` initiative is created lazily the first time a deletion
         orphans a story, so it never clutters a fresh install."""

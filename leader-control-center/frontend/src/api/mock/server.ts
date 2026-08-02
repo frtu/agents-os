@@ -714,6 +714,36 @@ export const mockServer = {
     emit("StoryUpdated", id);
     return initiative;
   },
+  updateInitiative(
+    initiativeId: string,
+    input: { title: string; description?: string; workflowDefinitionId?: string },
+  ): Initiative {
+    ensureSeeded();
+    const initiative = initiatives.get(initiativeId);
+    if (!initiative || initiative.status === "Deleted") {
+      throw new Error(`Initiative not found: ${initiativeId}`);
+    }
+    if (initiativeId === MISC_INITIATIVE_ID) {
+      throw new Error("The Misc initiative cannot be edited");
+    }
+    if (input.workflowDefinitionId && !workflowDefinitions.has(input.workflowDefinitionId)) {
+      throw new Error(`Workflow definition not found: ${input.workflowDefinitionId}`);
+    }
+    const updated: Initiative = {
+      ...initiative,
+      title: input.title,
+      description: input.description ?? "",
+      workflowDefinitionId: input.workflowDefinitionId,
+      version: initiative.version + 1,
+      updatedAt: now(),
+    };
+    initiatives.set(initiativeId, updated);
+    [...epics.values()]
+      .filter((e) => e.initiativeId === initiativeId)
+      .forEach((e) => (e.title = input.title));
+    emit("StoryUpdated", initiativeId);
+    return updated;
+  },
   deleteInitiative(initiativeId: string): void {
     ensureSeeded();
     const initiative = initiatives.get(initiativeId);
