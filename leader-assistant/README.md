@@ -20,6 +20,8 @@ uv run python app.py --debug
 
 Then open http://localhost:7860 in your browser.
 
+The same server also exposes a REST API under `/api` (see [REST API](#rest-api)).
+
 ## Project Structure
 
 ```text
@@ -43,6 +45,52 @@ The assistant uses **claude-agent-sdk** with Read/Glob/Grep tools to:
 1. Search for relevant files in the knowledge base
 2. Read file contents to gather information
 3. Synthesize answers with source citations
+
+## REST API
+
+The Gradio UI is mounted onto a FastAPI app, so the UI and REST API are served
+together on the same port (default 7860). Use the REST API to trigger the agent
+(and its installed skills) programmatically.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`  | `/api/health` | Health check. Returns `{"status": "ok"}`. |
+| `GET`  | `/api/skills` | List available and installed skills. |
+| `POST` | `/api/agent` | Trigger the agent, return the full reply as JSON. |
+| `POST` | `/api/agent/stream` | Trigger the agent, stream the reply via Server-Sent Events. |
+
+Request body for `/api/agent` and `/api/agent/stream`:
+
+```json
+{ "message": "your question", "session_id": "optional-session-to-resume" }
+```
+
+Examples:
+
+```bash
+# Trigger the agent (JSON reply)
+curl -X POST http://localhost:7860/api/agent \
+  -H 'Content-Type: application/json' \
+  -d '{"message": "What skills are installed?"}'
+# -> {"reply": "...", "session_id": "..."}
+
+# Continue a conversation by passing the returned session_id
+curl -X POST http://localhost:7860/api/agent \
+  -H 'Content-Type: application/json' \
+  -d '{"message": "and the available ones?", "session_id": "<id>"}'
+
+# Stream the reply (Server-Sent Events)
+curl -N -X POST http://localhost:7860/api/agent/stream \
+  -H 'Content-Type: application/json' \
+  -d '{"message": "Summarize the project docs"}'
+# -> data: {"reply": "...", "session_id": "..."}
+#    data: {"reply": "...", "session_id": "...", "done": true}
+
+# List skills
+curl http://localhost:7860/api/skills
+```
+
+Interactive API docs are available at http://localhost:7860/docs.
 
 ## Skill Management
 
@@ -79,8 +127,8 @@ uv run python app.py [options]
 | Option | Description |
 |--------|-------------|
 | `--debug` | Enable debug logging (logs SDK events, requests, and responses) |
+| `--host HOST` | Server host (default: 0.0.0.0) |
 | `--port PORT` | Server port (default: 7860) |
-| `--share` | Create a public Gradio URL |
 
 ## Configuration
 

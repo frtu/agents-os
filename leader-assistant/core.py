@@ -59,6 +59,28 @@ def _load_prompt() -> str:
     skills_context = _get_skills_context()
     return f"{base_prompt}\n\n{skills_context}"
 
+
+def list_skills() -> dict:
+    """Return available and installed skills as structured data."""
+    available = []
+    if skill_manager.SKILLS_SOURCE.exists():
+        for skill_dir in sorted(skill_manager.SKILLS_SOURCE.iterdir()):
+            if skill_dir.is_dir() and not skill_dir.name.startswith("."):
+                if (skill_dir / "SKILL.md").exists():
+                    info = skill_manager.parse_skill_frontmatter(skill_dir)
+                    available.append({
+                        "name": skill_dir.name,
+                        "description": info.get("description", "No description"),
+                    })
+
+    installed = []
+    if skill_manager.SKILLS_DEST.exists():
+        for item in sorted(skill_manager.SKILLS_DEST.iterdir()):
+            if not item.name.startswith(".") and (item.is_symlink() or item.is_dir()):
+                installed.append(item.name)
+
+    return {"available": available, "installed": installed}
+
 assistant_options = ClaudeAgentOptions(
     system_prompt=_load_prompt(),
     model="sonnet",

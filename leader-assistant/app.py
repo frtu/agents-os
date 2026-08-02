@@ -1,5 +1,6 @@
-"""Gradio UI for the Leader Assistant - an IM-style chat interface."""
+"""Gradio UI + REST API for the Leader Assistant - an IM-style chat interface."""
 import argparse
+import json
 import logging
 import os
 import warnings
@@ -7,6 +8,10 @@ import warnings
 warnings.filterwarnings("ignore", message=r".*HTTP_422_UNPROCESSABLE_ENTITY.*")
 
 import gradio as gr
+import uvicorn
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 import core
 from style import CSS, HEAD
@@ -78,31 +83,93 @@ def build_demo():
     return demo
 
 
-def launch(debug: bool = False, **kwargs):
-    """Build and launch the app."""
+class AgentRequest(BaseModel):
+    message: str
+    session_id: str | None = None
+
+
+class AgentResponse(BaseModel):
+    reply: str
+    session_id: str | None = None
+
+
+def build_api() -> FastAPI:
+    """Build the FastAPI app exposing REST endpoints for the skilled agent."""
+    api = FastAPI(title="Leader Assistant API")
+
+    @api.get("/api/health")
+    def health():
+        return {"status": "ok"}
+
+    @api.get("/api/skills")
+    def skills():
+        """List available and installed skills the agent can use."""
+        return core.list_skills()
+
+    @api.post("/api/agent", response_model=AgentResponse)
+    async def run_agent(req: AgentRequest):
+        """Trigger the agent (with its skills) and return the full reply."""
+        logger.debug(f"[API] agent session={req.session_id}\n{req.message}")
+        reply, sid = await core.get_reply(req.message, req.session_id)
+        return AgentResponse(reply=reply, session_id=sid)
+
+    @api.post("/api/agent/stream")
+    async def run_agent_stream(req: AgentRequest):
+        """Trigger the agent and stream the reply as Server-Sent Events."""
+        logger.debug(f"[API] agent/stream session={req.session_id}\n{req.message}")
+
+        async def events():
+            reply, sid = "", req.session_id
+            async for reply, sid in core.stream_reply(req.message, req.session_id):
+                data = json.dumps({"reply": reply, "session_id": sid})
+                yield f"data: {data}\n\n"
+            done = json.dumps({"reply": reply, "session_id": sid, "done": True})
+            yield f"data: {done}\n\n"
+
+        return StreamingResponse(events(), media_type="text/event-stream")
+
+    return api
+
+
+def build_app() -> FastAPI:
+    """Mount the Gradio UI onto the FastAPI app so both share one server."""
+    api = build_api()
+    demo = build_demo()
+    return gr.mount_gradio_app(api, demo, path="/")
+
+
+def _enable_debug_logging():
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    ))
+    for name in ("leader-assistant", "leader-assistant.core"):
+        log = logging.getLogger(name)
+        log.setLevel(logging.DEBUG)
+        log.addHandler(handler)
+    logger.info("Debug mode enabled - logging all requests and responses")
+
+
+def launch(debug: bool = False, host: str = "0.0.0.0", port: int = 7860):
+    """Build the combined UI + REST app and serve it with uvicorn."""
     if debug:
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter(
-            "%(asctime)s %(levelname)s %(name)s: %(message)s",
-            datefmt="%H:%M:%S",
-        ))
-        for name in ("leader-assistant", "leader-assistant.core"):
-            log = logging.getLogger(name)
-            log.setLevel(logging.DEBUG)
-            log.addHandler(handler)
-        logger.info("Debug mode enabled - logging all requests and responses")
-    return build_demo().launch(css=CSS, head=HEAD, theme=gr.themes.Base(), **kwargs)
+        _enable_debug_logging()
+    app = build_app()
+    uvicorn.run(app, host=host, port=port)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Leader Assistant server")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("--host", default="0.0.0.0", help="Server host")
     parser.add_argument("--port", type=int, default=7860, help="Server port")
-    parser.add_argument("--share", action="store_true", help="Create public URL")
     args = parser.parse_args()
 
-    print(f"Starting Leader Assistant: port={args.port}, debug={args.debug}, share={args.share}", flush=True)
-    launch(debug=args.debug, server_port=args.port, share=args.share)
+    print(f"Starting Leader Assistant: host={args.host}, port={args.port}, debug={args.debug}", flush=True)
+    print(f"  UI:  http://localhost:{args.port}/", flush=True)
+    print(f"  API: http://localhost:{args.port}/api/agent (POST), /api/skills (GET)", flush=True)
+    launch(debug=args.debug, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":
