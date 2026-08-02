@@ -48,6 +48,9 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         case "NotificationCreated":
           qc.invalidateQueries({ queryKey: qk.notifications });
           break;
+        case "WorkflowDefinitionUpdated":
+          qc.invalidateQueries({ queryKey: qk.workflowDefinitions });
+          break;
       }
     };
 

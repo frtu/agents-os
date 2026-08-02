@@ -1,10 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Plus, Send, Sparkles, X } from "lucide-react";
+import Form from "@rjsf/core";
+import validator from "@rjsf/validator-ajv8";
+import type { RJSFSchema, UiSchema } from "@rjsf/utils";
 import { Sheet, SheetHeader } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { useUiStore } from "@/store/ui";
+import { useInitiatives, useWorkflowDefinition } from "@/hooks/queries";
 import { useCreateStory, useDraftStory } from "@/hooks/mutations";
+
+// react-jsonschema-form renders its own submit button; we submit from the
+// sheet's footer instead, so suppress it.
+const RJSF_UI_SCHEMA: UiSchema = { "ui:submitButtonOptions": { norender: true } };
 
 const PRIORITY_OPTIONS = [
   { value: 0, label: "High" },
@@ -31,6 +39,15 @@ export function CreateStorySheet() {
   const [priority, setPriority] = useState(1);
   const [criteria, setCriteria] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [useTemplate, setUseTemplate] = useState(false);
+  const [templateInput, setTemplateInput] = useState<Record<string, unknown>>({});
+
+  // Resolve the workflow definition attached to this story's initiative (if any).
+  const { data: summaries } = useInitiatives();
+  const workflowDefinitionId = summaries?.find(
+    (s) => s.initiative.id === initiativeId,
+  )?.initiative.workflowDefinitionId;
+  const { data: workflowDefinition } = useWorkflowDefinition(workflowDefinitionId);
 
   // Reset the form each time the drawer opens (possibly for a new initiative).
   useEffect(() => {
@@ -40,6 +57,8 @@ export function CreateStorySheet() {
       setPriority(1);
       setCriteria([]);
       setMessage("");
+      setUseTemplate(false);
+      setTemplateInput({});
     }
   }, [open]);
 
@@ -69,6 +88,8 @@ export function CreateStorySheet() {
     );
   };
 
+  const templating = useTemplate && !!workflowDefinition;
+
   const submit = () => {
     if (!title.trim() || !epicId) return;
     create.mutate(
@@ -78,6 +99,9 @@ export function CreateStorySheet() {
         description: description.trim(),
         priority,
         acceptanceCriteria: criteria.map((c) => c.trim()).filter(Boolean),
+        ...(templating
+          ? { workflowDefinitionId: workflowDefinition!.id, templateInput }
+          : {}),
       },
       { onSuccess: () => closePanel() },
     );
@@ -162,6 +186,36 @@ export function CreateStorySheet() {
               Add criterion
             </Button>
           </div>
+
+          {workflowDefinition && (
+            <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={useTemplate}
+                  onChange={(e) => setUseTemplate(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <span className="font-medium">
+                  Use template
+                  <span className="ml-1 font-normal text-muted-foreground">
+                    ({workflowDefinition.name})
+                  </span>
+                </span>
+              </label>
+              {useTemplate && (
+                <div className="rjsf-compact">
+                  <Form
+                    schema={workflowDefinition.input as RJSFSchema}
+                    uiSchema={RJSF_UI_SCHEMA}
+                    validator={validator}
+                    formData={templateInput}
+                    onChange={(e) => setTemplateInput(e.formData ?? {})}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </ScrollArea>
 

@@ -16,6 +16,7 @@ class MessageType(StrEnum):
     ARTIFACT_PRODUCED = "ArtifactProduced"
     ATTENTION_UPDATED = "AttentionUpdated"
     NOTIFICATION_CREATED = "NotificationCreated"
+    WORKFLOW_DEFINITION_UPDATED = "WorkflowDefinitionUpdated"
 
 
 class RealtimeMessage(Schema):

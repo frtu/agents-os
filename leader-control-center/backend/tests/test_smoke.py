@@ -160,6 +160,79 @@ def test_unknown_execution_returns_problem_json() -> None:
         assert body["title"] == "Not Found"
 
 
+def test_workflow_definition_crud() -> None:
+    with _client() as client:
+        # Seeded sample is present.
+        listed = client.get(f"{BASE}/workflow-definitions")
+        assert listed.status_code == 200
+        names = [w["name"] for w in listed.json()]
+        assert "Research Report" in names
+
+        created = client.post(
+            f"{BASE}/workflow-definitions",
+            json={
+                "name": "Onboarding",
+                "input": {"type": "object", "required": ["team"],
+                          "properties": {"team": {"type": "string"}}},
+                "definition": "welcome(team)",
+            },
+        )
+        assert created.status_code == 201
+        wd = created.json()
+        wd_id = wd["id"]
+        for key in ("id", "version", "createdAt", "updatedAt"):
+            assert key in wd
+
+        patched = client.patch(
+            f"{BASE}/workflow-definitions/{wd_id}", json={"name": "Onboarding v2"}
+        )
+        assert patched.status_code == 200
+        assert patched.json()["name"] == "Onboarding v2"
+        assert patched.json()["version"] == wd["version"] + 1
+
+        deleted = client.delete(f"{BASE}/workflow-definitions/{wd_id}")
+        assert deleted.status_code == 204
+        assert client.get(f"{BASE}/workflow-definitions/{wd_id}").status_code == 404
+
+
+def test_delete_referenced_workflow_definition_conflicts() -> None:
+    with _client() as client:
+        wd_id = client.get(f"{BASE}/workflow-definitions").json()[0]["id"]
+        # Reference it from a new initiative.
+        client.post(
+            f"{BASE}/initiatives",
+            json={"title": "Templated", "workflowDefinitionId": wd_id},
+        )
+        resp = client.delete(f"{BASE}/workflow-definitions/{wd_id}")
+        assert resp.status_code == 409
+        assert resp.headers["content-type"].startswith("application/problem+json")
+
+
+def test_create_templated_story_requires_input() -> None:
+    with _client() as client:
+        wd_id = client.get(f"{BASE}/workflow-definitions").json()[0]["id"]
+        epic_id = client.get(f"{BASE}/initiatives").json()[0]["epicId"]
+
+        # Missing required "topic" -> 422.
+        bad = client.post(
+            f"{BASE}/stories",
+            json={"epicId": epic_id, "title": "T",
+                  "workflowDefinitionId": wd_id, "templateInput": {}},
+        )
+        assert bad.status_code == 422
+
+        ok = client.post(
+            f"{BASE}/stories",
+            json={"epicId": epic_id, "title": "T",
+                  "workflowDefinitionId": wd_id,
+                  "templateInput": {"topic": "GenAI"}},
+        )
+        assert ok.status_code == 201
+        story = ok.json()
+        assert story["workflowDefinitionId"] == wd_id
+        assert story["templateInput"] == {"topic": "GenAI"}
+
+
 def test_websocket_accepts_connection() -> None:
     with _client() as client:
         with client.websocket_connect(f"{BASE}/stream") as ws:

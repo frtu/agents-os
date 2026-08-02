@@ -47,6 +47,8 @@ class Initiative(Resource):
     description: str
     status: PlanningStatus
     order: int = 0
+    # Optional blueprint governing stories created under this initiative.
+    workflow_definition_id: str | None = None
 
 
 class AcceptanceCriteria(Schema):
@@ -61,6 +63,9 @@ class Story(Resource):
     priority: int
     status: PlanningStatus
     acceptance_criteria: list[AcceptanceCriteria] = []
+    # Set when the story was authored from a workflow definition template.
+    workflow_definition_id: str | None = None
+    template_input: dict | None = None
 
 
 class StoryDraft(Schema):
@@ -98,6 +103,17 @@ class Provider(Schema):
     id: str
     name: str
     type: ProviderType
+
+
+class WorkflowDefinition(Resource):
+    """Authoring-time blueprint (a DSL) for creating workflow executions. Its
+    `input` is a JSON Schema governing the parameters a templated story supplies;
+    `definition` is the DSL body. Distinct from the Temporal workflow engine."""
+
+    portfolio_id: str
+    name: str
+    input: dict = {}
+    definition: str = ""
 
 
 # --- Runtime --------------------------------------------------------------

@@ -12,6 +12,7 @@ from app.domain.models import (
     Provider,
     Story,
     Task,
+    WorkflowDefinition,
 )
 from app.infra.store import EpicRow, Store, now, uid
 
@@ -36,6 +37,34 @@ _CAPABILITIES = [
     ("cap_review_arch", "Review Architecture", "Assess an architecture proposal", "Proposal", "Assessment", ["prov_anthropic", "prov_human"]),
     ("cap_code", "Generate Code", "Generate source code", "Spec", "Source Code", ["prov_claude_code", "prov_openai"]),
     ("cap_summarize", "Summarize", "Summarize long content", "Document", "Summary", ["prov_anthropic", "prov_openai"]),
+]
+
+# Sample authoring-time blueprints. `input` is a JSON Schema governing the
+# parameters a templated story supplies (rendered by react-jsonschema-form).
+_WORKFLOW_DEFINITIONS = [
+    {
+        "id": "wfd_research_report",
+        "name": "Research Report",
+        "input": {
+            "type": "object",
+            "required": ["topic"],
+            "properties": {
+                "topic": {"type": "string", "title": "Topic"},
+                "depth": {
+                    "type": "string",
+                    "title": "Depth",
+                    "enum": ["Quick", "Standard", "Deep"],
+                    "default": "Standard",
+                },
+                "includeSources": {
+                    "type": "boolean",
+                    "title": "Include sources",
+                    "default": True,
+                },
+            },
+        },
+        "definition": "research(topic) -> draft(depth) -> review",
+    },
 ]
 
 # initiative -> stories -> tasks; `state` drives runtime instantiation.
@@ -156,6 +185,13 @@ def seed(store: Store, engine: "SimulationEngine") -> None:
         store.capabilities[cid] = Capability(
             id=cid, name=name, description=desc,
             inputs=inputs, outputs=outputs, supported_providers=provs,
+        )
+
+    for wd in _WORKFLOW_DEFINITIONS:
+        store.workflow_definitions[wd["id"]] = WorkflowDefinition(
+            id=wd["id"], portfolio_id="portfolio_default",
+            name=wd["name"], input=wd["input"], definition=wd["definition"],
+            created_at=now(-86_400_000), updated_at=now(),
         )
 
     for order, spec in enumerate(_INITIATIVES):

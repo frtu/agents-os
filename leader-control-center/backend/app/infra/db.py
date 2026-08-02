@@ -27,6 +27,7 @@ from app.domain.models import (
     StoryExecution,
     Task,
     TimelineEvent,
+    WorkflowDefinition,
 )
 
 if TYPE_CHECKING:
@@ -49,6 +50,7 @@ _MAPPED = (
     ("tasks", "tasks", Task),
     ("capabilities", "capabilities", Capability),
     ("providers", "providers", Provider),
+    ("workflow_definitions", "workflow_definitions", WorkflowDefinition),
     ("executions", "story_executions", StoryExecution),
     ("human_requests", "human_requests", HumanRequest),
     ("decisions", "decisions", Decision),

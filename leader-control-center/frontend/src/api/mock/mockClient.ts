@@ -14,6 +14,9 @@ import type {
   StoryExecution,
   Task,
   TimelineEvent,
+  WorkflowDefinition,
+  CreateWorkflowDefinitionInput,
+  UpdateWorkflowDefinitionInput,
 } from "@/types/domain";
 import type { ApiClient, DecisionInput } from "@/api/types";
 import { mockServer } from "@/api/mock/server";
@@ -42,6 +45,8 @@ export const mockClient: ApiClient = {
   getCapabilities: (): Promise<Capability[]> => delay(mockServer.getCapabilities()),
   getProviders: (): Promise<Provider[]> => delay(mockServer.getProviders()),
   getNotifications: (): Promise<Notification[]> => delay(mockServer.getNotifications()),
+  getWorkflowDefinitions: (): Promise<WorkflowDefinition[]> => delay(mockServer.getWorkflowDefinitions()),
+  getWorkflowDefinition: (wdId: string): Promise<WorkflowDefinition> => delay(mockServer.getWorkflowDefinition(wdId)),
 
   // Planning commands
   createInitiative: (input): Promise<Initiative> => delay(mockServer.createInitiative(input)),
@@ -67,4 +72,11 @@ export const mockClient: ApiClient = {
   openNotification: (notificationId: string): Promise<void> => delay(mockServer.openNotification(notificationId)),
   ackNotification: (notificationId: string): Promise<void> => delay(mockServer.ackNotification(notificationId)),
   closeNotification: (notificationId: string): Promise<void> => delay(mockServer.closeNotification(notificationId)),
+
+  // Workflow definitions
+  createWorkflowDefinition: (input: CreateWorkflowDefinitionInput): Promise<WorkflowDefinition> =>
+    delay(mockServer.createWorkflowDefinition(input)),
+  updateWorkflowDefinition: (wdId: string, input: UpdateWorkflowDefinitionInput): Promise<WorkflowDefinition> =>
+    delay(mockServer.updateWorkflowDefinition(wdId, input)),
+  deleteWorkflowDefinition: (wdId: string): Promise<void> => delay(mockServer.deleteWorkflowDefinition(wdId)),
 };

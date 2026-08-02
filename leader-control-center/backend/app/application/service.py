@@ -23,6 +23,7 @@ from app.domain.models import (
     StoryExecution,
     Task,
     TimelineEvent,
+    WorkflowDefinition,
 )
 from app.infra.store import Store
 from app.workflow.simulation import (
@@ -67,6 +68,15 @@ class NotFoundError(Exception):
 
 class InvariantError(Exception):
     """A command that violates an aggregate invariant (maps to HTTP 422)."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
+class ConflictError(Exception):
+    """A command blocked by the current state of related data (maps to HTTP 409),
+    e.g. deleting a workflow definition still referenced by a planning object."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
@@ -137,8 +147,18 @@ class ControlCenter:
             open_human_requests=open_total,
         )
 
-    def create_initiative(self, title: str, description: str) -> Initiative:
-        return self.store.create_initiative(title, description)
+    def create_initiative(
+        self, title: str, description: str,
+        workflow_definition_id: str | None = None,
+    ) -> Initiative:
+        if (
+            workflow_definition_id is not None
+            and workflow_definition_id not in self.store.workflow_definitions
+        ):
+            raise NotFoundError(
+                f"Workflow definition not found: {workflow_definition_id}"
+            )
+        return self.store.create_initiative(title, description, workflow_definition_id)
 
     def delete_initiative(self, initiative_id: str) -> list[InitiativeSummary]:
         """Soft-delete an initiative (status -> DELETED) and reparent its stories
@@ -156,12 +176,33 @@ class ControlCenter:
     def create_story(
         self, epic_id: str, title: str, description: str = "",
         priority: int = 1, acceptance_criteria: list[str] | None = None,
+        workflow_definition_id: str | None = None,
+        template_input: dict | None = None,
     ) -> Story:
         if epic_id not in self.store.epics:
             raise NotFoundError(f"Epic not found: {epic_id}")
+        if workflow_definition_id is not None:
+            wd = self.store.workflow_definitions.get(workflow_definition_id)
+            if not wd:
+                raise NotFoundError(
+                    f"Workflow definition not found: {workflow_definition_id}"
+                )
+            self._validate_template_input(wd, template_input or {})
         return self.store.create_story(
-            epic_id, title, description, priority, acceptance_criteria
+            epic_id, title, description, priority, acceptance_criteria,
+            workflow_definition_id, template_input,
         )
+
+    @staticmethod
+    def _validate_template_input(wd: WorkflowDefinition, values: dict) -> None:
+        """Lightweight JSON Schema check: ensure declared `required` keys are
+        present. Full validation is done client-side by react-jsonschema-form."""
+        required = wd.input.get("required", []) if isinstance(wd.input, dict) else []
+        missing = [key for key in required if key not in values]
+        if missing:
+            raise InvariantError(
+                f"Missing required template input: {', '.join(missing)}"
+            )
 
     def draft_story(self, initiative_id: str, message: str) -> StoryDraft:
         """LLM-assisted prefill for the create-story form. Until an LLM provider
@@ -173,6 +214,46 @@ class ControlCenter:
     def reorder_initiatives(self, ids: list[str]) -> list[InitiativeSummary]:
         self.store.reorder_initiatives(ids)
         return self.get_initiatives()
+
+    # -- workflow definitions ---------------------------------------------
+    def get_workflow_definitions(self) -> list[WorkflowDefinition]:
+        return sorted(self.store.workflow_definitions.values(), key=lambda w: w.name)
+
+    def get_workflow_definition(self, wd_id: str) -> WorkflowDefinition:
+        wd = self.store.workflow_definitions.get(wd_id)
+        if not wd:
+            raise NotFoundError(f"Workflow definition not found: {wd_id}")
+        return wd
+
+    def create_workflow_definition(
+        self, name: str, input: dict, definition: str,
+    ) -> WorkflowDefinition:
+        return self.store.create_workflow_definition(name, input, definition)
+
+    def update_workflow_definition(
+        self, wd_id: str,
+        name: str | None = None, input: dict | None = None,
+        definition: str | None = None,
+    ) -> WorkflowDefinition:
+        if wd_id not in self.store.workflow_definitions:
+            raise NotFoundError(f"Workflow definition not found: {wd_id}")
+        return self.store.update_workflow_definition(wd_id, name, input, definition)
+
+    def delete_workflow_definition(self, wd_id: str) -> None:
+        if wd_id not in self.store.workflow_definitions:
+            raise NotFoundError(f"Workflow definition not found: {wd_id}")
+        referencing = [
+            i.title for i in self.store.initiatives.values()
+            if i.workflow_definition_id == wd_id
+        ] + [
+            s.title for s in self.store.stories.values()
+            if s.workflow_definition_id == wd_id
+        ]
+        if referencing:
+            raise ConflictError(
+                f"Workflow definition is still referenced by: {', '.join(referencing)}"
+            )
+        self.store.delete_workflow_definition(wd_id)
 
     def _epic_for_initiative(self, initiative_id: str):
         return next(

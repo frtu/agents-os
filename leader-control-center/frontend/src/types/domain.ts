@@ -28,6 +28,8 @@ export interface Initiative extends Resource {
   description: string;
   status: PlanningStatus;
   order: number;
+  // Optional blueprint governing stories created under this initiative.
+  workflowDefinitionId?: string;
 }
 
 export interface Epic extends Resource {
@@ -44,6 +46,9 @@ export interface Story extends Resource {
   priority: number;
   status: PlanningStatus;
   acceptanceCriteria: AcceptanceCriteria[];
+  // Set when the story was authored from a workflow definition template.
+  workflowDefinitionId?: string;
+  templateInput?: Record<string, unknown>;
 }
 
 export interface AcceptanceCriteria {
@@ -65,6 +70,8 @@ export interface CreateStoryInput {
   description?: string;
   priority?: number;
   acceptanceCriteria?: string[];
+  workflowDefinitionId?: string;
+  templateInput?: Record<string, unknown>;
 }
 
 export interface Task extends Resource {
@@ -100,6 +107,30 @@ export interface Provider {
   id: string;
   name: string;
   type: ProviderType;
+}
+
+/**
+ * Authoring-time blueprint for creating workflow executions. `input` is a JSON
+ * Schema governing the parameters a templated story supplies (rendered by
+ * react-jsonschema-form). Distinct from the Temporal workflow engine.
+ */
+export interface WorkflowDefinition extends Resource {
+  portfolioId: string;
+  name: string;
+  input: Record<string, unknown>;
+  definition: string;
+}
+
+export interface CreateWorkflowDefinitionInput {
+  name: string;
+  input?: Record<string, unknown>;
+  definition?: string;
+}
+
+export interface UpdateWorkflowDefinitionInput {
+  name?: string;
+  input?: Record<string, unknown>;
+  definition?: string;
 }
 
 // ---------------------------------------------------------------------------

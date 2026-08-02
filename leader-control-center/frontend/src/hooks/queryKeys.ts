@@ -5,6 +5,8 @@ export const qk = {
   capabilities: ["capabilities"] as const,
   providers: ["providers"] as const,
   notifications: ["notifications"] as const,
+  workflowDefinitions: ["workflowDefinitions"] as const,
+  workflowDefinition: (wdId: string) => ["workflowDefinition", wdId] as const,
   storyTasks: (storyId: string) => ["storyTasks", storyId] as const,
   execution: (executionId: string) => ["execution", executionId] as const,
   timeline: (executionId: string) => ["timeline", executionId] as const,

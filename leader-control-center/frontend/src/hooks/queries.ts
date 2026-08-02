@@ -52,6 +52,21 @@ export function useNotifications() {
   return useQuery({ queryKey: qk.notifications, queryFn: () => api.getNotifications() });
 }
 
+export function useWorkflowDefinitions() {
+  return useQuery({
+    queryKey: qk.workflowDefinitions,
+    queryFn: () => api.getWorkflowDefinitions(),
+  });
+}
+
+export function useWorkflowDefinition(wdId: string | undefined) {
+  return useQuery({
+    queryKey: qk.workflowDefinition(wdId ?? ""),
+    queryFn: () => api.getWorkflowDefinition(wdId!),
+    enabled: !!wdId,
+  });
+}
+
 export function useStoryTasks(storyId: string | undefined) {
   return useQuery({
     queryKey: qk.storyTasks(storyId ?? ""),

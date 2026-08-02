@@ -15,6 +15,7 @@ async def create_story(body: CreateStoryBody, cc: ControlCenter = Depends(get_co
     return cc.create_story(
         body.epic_id, body.title, body.description,
         body.priority, body.acceptance_criteria,
+        body.workflow_definition_id, body.template_input,
     )
 
 

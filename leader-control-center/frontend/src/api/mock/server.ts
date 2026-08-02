@@ -26,6 +26,9 @@ import type {
   Task,
   TaskExecution,
   TimelineEvent,
+  WorkflowDefinition,
+  CreateWorkflowDefinitionInput,
+  UpdateWorkflowDefinitionInput,
 } from "@/types/domain";
 import type { DecisionInput } from "@/api/types";
 import type { RealtimeMessage } from "@/realtime/types";
@@ -50,6 +53,7 @@ const stories = new Map<string, Story>();
 const tasks = new Map<string, Task>();
 const capabilities = new Map<string, Capability>();
 const providers = new Map<string, Provider>();
+const workflowDefinitions = new Map<string, WorkflowDefinition>();
 const executions = new Map<string, StoryExecution>(); // by story execution id
 const executionByStory = new Map<string, string>(); // storyId -> executionId
 const humanRequests = new Map<string, HumanRequest>();
@@ -114,6 +118,26 @@ function seed() {
   seedCapability("cap_review_arch", "Review Architecture", "Assess an architecture proposal", "Proposal", "Assessment", ["prov_anthropic", "prov_human"]);
   seedCapability("cap_code", "Generate Code", "Generate source code", "Spec", "Source Code", ["prov_claude_code", "prov_openai"]);
   seedCapability("cap_summarize", "Summarize", "Summarize long content", "Document", "Summary", ["prov_anthropic", "prov_openai"]);
+
+  // Workflow definitions (authoring-time blueprints; mirrors backend seed).
+  workflowDefinitions.set(
+    "wfd_research_report",
+    resource<WorkflowDefinition>({
+      id: "wfd_research_report",
+      portfolioId: "portfolio_default",
+      name: "Research Report",
+      input: {
+        type: "object",
+        required: ["topic"],
+        properties: {
+          topic: { type: "string", title: "Topic" },
+          depth: { type: "string", title: "Depth", enum: ["Quick", "Standard", "Deep"], default: "Standard" },
+          includeSources: { type: "boolean", title: "Include sources", default: true },
+        },
+      },
+      definition: "research(topic) -> draft(depth) -> review",
+    }) as WorkflowDefinition,
+  );
 
   // Initiatives (each backed by one Epic)
   const specs: Array<{
@@ -669,8 +693,11 @@ export const mockServer = {
     ensureSeeded();
     return buildBoard(initiativeId);
   },
-  createInitiative(input: { title: string; description?: string }): Initiative {
+  createInitiative(input: { title: string; description?: string; workflowDefinitionId?: string }): Initiative {
     ensureSeeded();
+    if (input.workflowDefinitionId && !workflowDefinitions.has(input.workflowDefinitionId)) {
+      throw new Error(`Workflow definition not found: ${input.workflowDefinitionId}`);
+    }
     const id = uid("init");
     const initiative = resource<Initiative>({
       id,
@@ -679,6 +706,7 @@ export const mockServer = {
       description: input.description ?? "",
       status: "Draft",
       order: initiatives.size,
+      workflowDefinitionId: input.workflowDefinitionId,
     }) as Initiative;
     initiatives.set(id, initiative);
     const epicId = `epic_${id}`;
@@ -714,6 +742,16 @@ export const mockServer = {
   },
   createStory(input: CreateStoryInput): Story {
     ensureSeeded();
+    if (input.workflowDefinitionId) {
+      const wd = workflowDefinitions.get(input.workflowDefinitionId);
+      if (!wd) throw new Error(`Workflow definition not found: ${input.workflowDefinitionId}`);
+      const required = Array.isArray((wd.input as { required?: unknown }).required)
+        ? ((wd.input as { required: string[] }).required)
+        : [];
+      const values = input.templateInput ?? {};
+      const missing = required.filter((k) => !(k in values));
+      if (missing.length > 0) throw new Error(`Missing required template input: ${missing.join(", ")}`);
+    }
     const story = resource<Story>({
       id: uid("story"),
       epicId: input.epicId,
@@ -724,6 +762,8 @@ export const mockServer = {
       acceptanceCriteria: (input.acceptanceCriteria ?? [])
         .filter((c) => c.trim())
         .map((c) => ({ id: uid("ac"), description: c })),
+      workflowDefinitionId: input.workflowDefinitionId,
+      templateInput: input.templateInput,
     }) as Story;
     stories.set(story.id, story);
     emit("StoryUpdated", story.id);
@@ -787,6 +827,60 @@ export const mockServer = {
         if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       });
+  },
+
+  getWorkflowDefinitions(): WorkflowDefinition[] {
+    ensureSeeded();
+    return [...workflowDefinitions.values()].sort((a, b) => a.name.localeCompare(b.name));
+  },
+  getWorkflowDefinition(wdId: string): WorkflowDefinition {
+    ensureSeeded();
+    const wd = workflowDefinitions.get(wdId);
+    if (!wd) throw new Error(`Workflow definition not found: ${wdId}`);
+    return wd;
+  },
+  createWorkflowDefinition(input: CreateWorkflowDefinitionInput): WorkflowDefinition {
+    ensureSeeded();
+    const id = uid("wfd");
+    const wd = resource<WorkflowDefinition>({
+      id,
+      portfolioId: "portfolio_default",
+      name: input.name,
+      input: input.input ?? {},
+      definition: input.definition ?? "",
+    }) as WorkflowDefinition;
+    workflowDefinitions.set(id, wd);
+    emit("WorkflowDefinitionUpdated", id);
+    return wd;
+  },
+  updateWorkflowDefinition(wdId: string, input: UpdateWorkflowDefinitionInput): WorkflowDefinition {
+    ensureSeeded();
+    const existing = workflowDefinitions.get(wdId);
+    if (!existing) throw new Error(`Workflow definition not found: ${wdId}`);
+    const updated: WorkflowDefinition = {
+      ...existing,
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.input !== undefined ? { input: input.input } : {}),
+      ...(input.definition !== undefined ? { definition: input.definition } : {}),
+      version: existing.version + 1,
+      updatedAt: now(),
+    };
+    workflowDefinitions.set(wdId, updated);
+    emit("WorkflowDefinitionUpdated", wdId);
+    return updated;
+  },
+  deleteWorkflowDefinition(wdId: string): void {
+    ensureSeeded();
+    if (!workflowDefinitions.has(wdId)) throw new Error(`Workflow definition not found: ${wdId}`);
+    const referencing = [
+      ...[...initiatives.values()].filter((i) => i.workflowDefinitionId === wdId).map((i) => i.title),
+      ...[...stories.values()].filter((s) => s.workflowDefinitionId === wdId).map((s) => s.title),
+    ];
+    if (referencing.length > 0) {
+      throw new Error(`Workflow definition is still referenced by: ${referencing.join(", ")}`);
+    }
+    workflowDefinitions.delete(wdId);
+    emit("WorkflowDefinitionUpdated", wdId);
   },
 
   markTaskReady(taskId: string) {

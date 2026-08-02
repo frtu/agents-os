@@ -6,11 +6,12 @@ import { InitiativeBoard } from "@/features/board/InitiativeBoard";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { useInitiatives } from "@/hooks/queries";
+import { useInitiatives, useWorkflowDefinitions } from "@/hooks/queries";
 import { useCreateInitiative, useReorderInitiatives } from "@/hooks/mutations";
 
 export function BoardPage() {
   const { data: summaries, isLoading } = useInitiatives();
+  const { data: workflowDefinitions } = useWorkflowDefinitions();
   const createInitiative = useCreateInitiative();
   const reorder = useReorderInitiatives();
 
@@ -37,14 +38,20 @@ export function BoardPage() {
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [workflowDefinitionId, setWorkflowDefinitionId] = useState("");
   const submitCreate = () => {
     if (!title.trim()) return;
     createInitiative.mutate(
-      { title: title.trim(), description: description.trim() },
+      {
+        title: title.trim(),
+        description: description.trim(),
+        workflowDefinitionId: workflowDefinitionId || undefined,
+      },
       {
         onSuccess: () => {
           setTitle("");
           setDescription("");
+          setWorkflowDefinitionId("");
           setCreating(false);
         },
       },
@@ -78,6 +85,23 @@ export function BoardPage() {
               rows={2}
               className="resize-none rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">
+                Workflow definition (optional)
+              </span>
+              <select
+                value={workflowDefinitionId}
+                onChange={(e) => setWorkflowDefinitionId(e.target.value)}
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              >
+                <option value="">None</option>
+                {workflowDefinitions?.map((wd) => (
+                  <option key={wd.id} value={wd.id}>
+                    {wd.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="flex items-center gap-2">
               <Button size="sm" onClick={submitCreate} disabled={!title.trim() || createInitiative.isPending}>
                 Create

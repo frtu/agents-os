@@ -15,6 +15,9 @@ import type {
   StoryExecution,
   Task,
   TimelineEvent,
+  WorkflowDefinition,
+  CreateWorkflowDefinitionInput,
+  UpdateWorkflowDefinitionInput,
 } from "@/types/domain";
 
 export interface DecisionInput {
@@ -45,9 +48,15 @@ export interface ApiClient {
   getCapabilities(): Promise<Capability[]>;
   getProviders(): Promise<Provider[]>;
   getNotifications(): Promise<Notification[]>;
+  getWorkflowDefinitions(): Promise<WorkflowDefinition[]>;
+  getWorkflowDefinition(wdId: string): Promise<WorkflowDefinition>;
 
   // Planning commands
-  createInitiative(input: { title: string; description?: string }): Promise<Initiative>;
+  createInitiative(input: {
+    title: string;
+    description?: string;
+    workflowDefinitionId?: string;
+  }): Promise<Initiative>;
   reorderInitiatives(initiativeIds: string[]): Promise<InitiativeSummary[]>;
   // Soft-delete an initiative; its stories are reparented onto the Misc initiative.
   deleteInitiative(initiativeId: string): Promise<void>;
@@ -69,4 +78,13 @@ export interface ApiClient {
   openNotification(notificationId: string): Promise<void>;
   ackNotification(notificationId: string): Promise<void>;
   closeNotification(notificationId: string): Promise<void>;
+
+  // Workflow definition commands (authoring-time blueprints)
+  createWorkflowDefinition(input: CreateWorkflowDefinitionInput): Promise<WorkflowDefinition>;
+  updateWorkflowDefinition(
+    wdId: string,
+    input: UpdateWorkflowDefinitionInput,
+  ): Promise<WorkflowDefinition>;
+  // Blocked with 409 if the definition is still referenced by planning objects.
+  deleteWorkflowDefinition(wdId: string): Promise<void>;
 }

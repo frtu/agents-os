@@ -39,8 +39,9 @@ echo "VITE_USE_MOCKS=true" > .env.local   # override the checked-in default
 npm run dev                               # http://localhost:5173
 ```
 
-The mock seeds sample initiatives and emits simulated realtime events, so the
-Board and Attention Queue update live without a backend.
+The mock seeds sample initiatives and a sample workflow definition, and emits
+simulated realtime events, so the Board, Workflow, and Attention Queue update
+live without a backend.
 
 ---
 
@@ -111,8 +112,9 @@ Backend, from `backend/`:
 ```bash
 uv sync --extra dev
 uv run pytest                             # smoke tests
-curl http://localhost:8000/api/v1/initiatives   # board projection
-curl http://localhost:8000/api/v1/attention     # open decisions-to-make
+curl http://localhost:8000/api/v1/initiatives           # board projection
+curl http://localhost:8000/api/v1/attention             # open decisions-to-make
+curl http://localhost:8000/api/v1/workflow-definitions   # workflow blueprints
 ```
 
 Frontend, from `frontend/`:
@@ -123,8 +125,13 @@ npm run build                             # typecheck + production build
 ```
 
 In the browser at `http://localhost:5173` you should see the Initiative board,
-the Attention Queue with actionable decisions, and the notifications tray in the
-top bar.
+the Workflow page for authoring workflow definitions, the Attention Queue with
+actionable decisions, and the notifications tray in the top bar.
+
+Workflow definitions are reusable blueprints (a name, an input JSON Schema, and a
+DSL definition string). Attach one to an initiative when creating it, then use
+the "Use template" checkbox in the New Story sheet to render the definition's
+input schema as a form.
 
 ---
 

@@ -27,6 +27,7 @@ from app.domain.models import (
     StoryExecution,
     Task,
     TimelineEvent,
+    WorkflowDefinition,
 )
 
 _counter = itertools.count(1)
@@ -94,6 +95,7 @@ class Store:
         self.tasks: dict[str, Task] = {}
         self.capabilities: dict[str, Capability] = {}
         self.providers: dict[str, Provider] = {}
+        self.workflow_definitions: dict[str, WorkflowDefinition] = {}
         self.executions: dict[str, StoryExecution] = {}
         self.execution_by_story: dict[str, str] = {}
         self.human_requests: dict[str, HumanRequest] = {}
@@ -145,13 +147,17 @@ class Store:
         return self.initiatives.get(epic.initiative_id)
 
     # -- initiative commands ----------------------------------------------
-    def create_initiative(self, title: str, description: str) -> Initiative:
+    def create_initiative(
+        self, title: str, description: str,
+        workflow_definition_id: str | None = None,
+    ) -> Initiative:
         """Create an initiative plus its backing epic (a board needs an epic)."""
         init_id = uid("init")
         initiative = Initiative(
             id=init_id, portfolio_id="portfolio_default",
             title=title, description=description, status="Draft",
             order=len(self.initiatives),
+            workflow_definition_id=workflow_definition_id,
             created_at=now(), updated_at=now(),
         )
         self.initiatives[init_id] = initiative
@@ -211,6 +217,8 @@ class Store:
     def create_story(
         self, epic_id: str, title: str, description: str = "",
         priority: int = 1, acceptance_criteria: list[str] | None = None,
+        workflow_definition_id: str | None = None,
+        template_input: dict | None = None,
     ) -> Story:
         """Create a Draft story on an epic (lands in the Todo column)."""
         story_id = uid("story")
@@ -222,8 +230,46 @@ class Store:
                 for d in (acceptance_criteria or [])
                 if d.strip()
             ],
+            workflow_definition_id=workflow_definition_id,
+            template_input=template_input,
             created_at=now(), updated_at=now(),
         )
         self.stories[story_id] = story
         self.bus.emit(MessageType.STORY_UPDATED, story_id)
         return story
+
+    # -- workflow-definition commands -------------------------------------
+    def create_workflow_definition(
+        self, name: str, input: dict, definition: str,
+    ) -> WorkflowDefinition:
+        wd_id = uid("wfd")
+        wd = WorkflowDefinition(
+            id=wd_id, portfolio_id="portfolio_default",
+            name=name, input=input, definition=definition,
+            created_at=now(), updated_at=now(),
+        )
+        self.workflow_definitions[wd_id] = wd
+        self.bus.emit(MessageType.WORKFLOW_DEFINITION_UPDATED, wd_id)
+        return wd
+
+    def update_workflow_definition(
+        self, wd_id: str,
+        name: str | None = None, input: dict | None = None,
+        definition: str | None = None,
+    ) -> WorkflowDefinition:
+        existing = self.workflow_definitions[wd_id]
+        updates: dict = {"updated_at": now(), "version": existing.version + 1}
+        if name is not None:
+            updates["name"] = name
+        if input is not None:
+            updates["input"] = input
+        if definition is not None:
+            updates["definition"] = definition
+        updated = existing.model_copy(update=updates)
+        self.workflow_definitions[wd_id] = updated
+        self.bus.emit(MessageType.WORKFLOW_DEFINITION_UPDATED, wd_id)
+        return updated
+
+    def delete_workflow_definition(self, wd_id: str) -> None:
+        del self.workflow_definitions[wd_id]
+        self.bus.emit(MessageType.WORKFLOW_DEFINITION_UPDATED, wd_id)

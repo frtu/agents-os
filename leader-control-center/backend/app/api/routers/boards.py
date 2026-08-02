@@ -19,7 +19,7 @@ async def list_initiatives(cc: ControlCenter = Depends(get_control_center)):
 async def create_initiative(
     body: CreateInitiativeBody, cc: ControlCenter = Depends(get_control_center)
 ):
-    return cc.create_initiative(body.title, body.description)
+    return cc.create_initiative(body.title, body.description, body.workflow_definition_id)
 
 
 @router.post("/initiatives/reorder", response_model=list[InitiativeSummary])

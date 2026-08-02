@@ -13,6 +13,7 @@ import type {
   StoryExecution,
   Task,
   TimelineEvent,
+  WorkflowDefinition,
 } from "@/types/domain";
 import type { ApiClient, DecisionInput } from "@/api/types";
 
@@ -62,6 +63,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const get = <T>(path: string) => request<T>(path, { method: "GET" });
 const post = <T>(path: string, body?: unknown) =>
   request<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
+const patch = <T>(path: string, body?: unknown) =>
+  request<T>(path, { method: "PATCH", body: body === undefined ? undefined : JSON.stringify(body) });
+const del = <T>(path: string) => request<T>(path, { method: "DELETE" });
 
 /** Maps a DecisionKind to its REST endpoint segment + optional body. */
 function decisionEndpoint(input: DecisionInput): { path: string; body?: unknown } {
@@ -100,6 +104,8 @@ export const httpClient: ApiClient = {
   getCapabilities: () => get<Capability[]>("/capabilities"),
   getProviders: () => get<Provider[]>("/providers"),
   getNotifications: () => get<Notification[]>("/notifications"),
+  getWorkflowDefinitions: () => get<WorkflowDefinition[]>("/workflow-definitions"),
+  getWorkflowDefinition: (wdId) => get<WorkflowDefinition>(`/workflow-definitions/${wdId}`),
 
   // Planning commands
   createInitiative: (input) => post<Initiative>("/initiatives", input),
@@ -126,4 +132,11 @@ export const httpClient: ApiClient = {
   openNotification: (notificationId) => post<void>(`/notifications/${notificationId}/open`),
   ackNotification: (notificationId) => post<void>(`/notifications/${notificationId}/ack`),
   closeNotification: (notificationId) => post<void>(`/notifications/${notificationId}/close`),
+
+  // Workflow definitions
+  createWorkflowDefinition: (input) =>
+    post<WorkflowDefinition>("/workflow-definitions", input),
+  updateWorkflowDefinition: (wdId, input) =>
+    patch<WorkflowDefinition>(`/workflow-definitions/${wdId}`, input),
+  deleteWorkflowDefinition: (wdId) => del<void>(`/workflow-definitions/${wdId}`),
 };

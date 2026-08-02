@@ -1,0 +1,2 @@
+# Local runtime state — the backend's SQLite database (see backend/storage.md).
+data/

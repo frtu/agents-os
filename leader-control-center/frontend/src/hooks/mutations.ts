@@ -1,13 +1,18 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
 import type { DecisionInput } from "@/api/types";
-import type { CreateStoryInput } from "@/types/domain";
+import type {
+  CreateStoryInput,
+  CreateWorkflowDefinitionInput,
+  UpdateWorkflowDefinitionInput,
+} from "@/types/domain";
 import { qk } from "@/hooks/queryKeys";
 
 export function useCreateInitiative() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { title: string; description?: string }) => api.createInitiative(input),
+    mutationFn: (input: { title: string; description?: string; workflowDefinitionId?: string }) =>
+      api.createInitiative(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.initiatives }),
   });
 }
@@ -125,6 +130,34 @@ export function useSubmitDecision(executionId?: string) {
         qc.invalidateQueries({ queryKey: qk.decisions(executionId) });
       }
     },
+  });
+}
+
+export function useCreateWorkflowDefinition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateWorkflowDefinitionInput) => api.createWorkflowDefinition(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.workflowDefinitions }),
+  });
+}
+
+export function useUpdateWorkflowDefinition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ wdId, input }: { wdId: string; input: UpdateWorkflowDefinitionInput }) =>
+      api.updateWorkflowDefinition(wdId, input),
+    onSuccess: (_r, { wdId }) => {
+      qc.invalidateQueries({ queryKey: qk.workflowDefinitions });
+      qc.invalidateQueries({ queryKey: qk.workflowDefinition(wdId) });
+    },
+  });
+}
+
+export function useDeleteWorkflowDefinition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (wdId: string) => api.deleteWorkflowDefinition(wdId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.workflowDefinitions }),
   });
 }
 

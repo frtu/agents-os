@@ -26,6 +26,7 @@ class CustomBody(Schema):
 class CreateInitiativeBody(Schema):
     title: str
     description: str = ""
+    workflow_definition_id: str | None = None
 
 
 class ReorderInitiativesBody(Schema):
@@ -38,8 +39,22 @@ class CreateStoryBody(Schema):
     description: str = ""
     priority: int = 1
     acceptance_criteria: list[str] = []
+    workflow_definition_id: str | None = None
+    template_input: dict | None = None
 
 
 class DraftStoryBody(Schema):
     initiative_id: str
     message: str
+
+
+class CreateWorkflowDefinitionBody(Schema):
+    name: str
+    input: dict = {}
+    definition: str = ""
+
+
+class UpdateWorkflowDefinitionBody(Schema):
+    name: str | None = None
+    input: dict | None = None
+    definition: str | None = None

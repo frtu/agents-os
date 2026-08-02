@@ -23,6 +23,7 @@ from app.api.routers import (
     notifications,
     stories,
     tasks,
+    workflows,
 )
 from app.application.service import build_control_center
 from app.config import settings
@@ -77,6 +78,7 @@ def create_app() -> FastAPI:
         attention.router,
         catalog.router,
         notifications.router,
+        workflows.router,
         ws.router,
     ):
         app.include_router(router, prefix=_API_PREFIX)
