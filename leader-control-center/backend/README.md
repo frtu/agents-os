@@ -9,11 +9,19 @@ The backend implements the specs in [`../_specs_/`](../_specs_) and the condense
 design docs in [`../_docs_/`](../_docs_). If code and spec disagree, `_specs_/domain/`
 wins, then the root [`../README.md`](../README.md).
 
+**Persistence:** the datastore for the MVP is **SQLite**, a single file under the
+project-root `data/` directory (`../data/` relative to `backend/`). The storage
+technology and its deltas from the canonical Postgres data model are defined in
+[`storage.md`](storage.md), which overlays
+[`../_specs_/database/data-model.md`](../_specs_/database/data-model.md).
+
 ## Stack
 
 - Python 3.11+ · FastAPI · Pydantic v2 · Uvicorn
 - [uv](https://docs.astral.sh/uv/) for env + running
-- No database in the MVP — state is in-memory and re-seeds on every start
+- **SQLite** file at `../data/leader-control-center.db` (see [`storage.md`](storage.md));
+  an in-memory adapter behind the same repository seam is used until the SQLite
+  store lands
 
 ## Run
 
@@ -147,5 +155,6 @@ See [`.env.example`](.env.example). Copy to `.env` to customize, or set inline:
 | -------- | ------- | ------- |
 | `HOST` | `0.0.0.0` | bind address |
 | `PORT` | `8000` | bind port (vite proxy targets `:8000`) |
+| `SQLITE_PATH` | `../data/leader-control-center.db` | SQLite file path (project-root `data/`); dir is created on startup |
 | `SIMULATION_TICK_SECONDS` | `2.5` | seconds between simulation ticks; `0` disables |
 | `CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | allowed origins |
