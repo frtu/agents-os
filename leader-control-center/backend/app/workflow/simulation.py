@@ -273,6 +273,7 @@ class SimulationEngine:
     def apply_decision(
         self, human_request_id: str, decision: DecisionKind,
         comment: str | None = None, selected_option: str | None = None,
+        action_name: str | None = None,
     ) -> Decision:
         req = self.store.human_requests.get(human_request_id)
         if not req:
@@ -280,7 +281,7 @@ class SimulationEngine:
 
         record = Decision(
             id=uid("dec"), human_request_id=human_request_id, decision=decision,
-            selected_option=selected_option, comment=comment,
+            selected_option=selected_option, comment=comment, action_name=action_name,
             user="you@leader", created_at=now(),
         )
         self.store.decisions[record.id] = record
@@ -311,12 +312,6 @@ class SimulationEngine:
             self.store.bus.emit(MessageType.STORY_UPDATED, exec.story_id)
         self.store.bus.emit(MessageType.ATTENTION_UPDATED, req.id)
         return record
-
-    def dismiss_notification(self, notification_id: str) -> None:
-        for n in self.store.notifications:
-            if n.id == notification_id:
-                n.read = True
-                break
 
     # -- background simulation --------------------------------------------
     def tick(self) -> None:

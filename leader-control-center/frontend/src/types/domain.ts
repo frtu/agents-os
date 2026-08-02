@@ -27,6 +27,7 @@ export interface Initiative extends Resource {
   title: string;
   description: string;
   status: PlanningStatus;
+  order: number;
 }
 
 export interface Epic extends Resource {
@@ -200,7 +201,8 @@ export type DecisionKind =
   | "Continue"
   | "Abort"
   | "Retry"
-  | "SelectOption";
+  | "SelectOption"
+  | "Custom";
 
 export interface HumanRequestOption {
   id: string;
@@ -220,6 +222,8 @@ export interface HumanRequest {
   status: HumanRequestStatus;
   priority: "low" | "medium" | "high";
   createdAt: string;
+  // Actions this open decision-to-make accepts; the UI renders exactly these.
+  actions: DecisionKind[];
 }
 
 export interface Decision {
@@ -228,6 +232,7 @@ export interface Decision {
   decision: DecisionKind;
   selectedOption?: string;
   comment?: string;
+  actionName?: string;
   user: string;
   createdAt: string;
 }
@@ -285,11 +290,13 @@ export interface TimelineEvent {
 // Notifications
 // ---------------------------------------------------------------------------
 
+export type NotificationStatus = "UNREAD" | "READ" | "ACKED" | "CLOSED";
+
 export interface Notification {
   id: string;
   type: string;
   message: string;
-  read: boolean;
+  status: NotificationStatus;
   createdAt: string;
 }
 
@@ -315,5 +322,12 @@ export interface InitiativeBoardView {
   initiative: Initiative;
   epicId: string;
   columns: Record<BoardColumn, StoryCardView[]>;
+  openHumanRequests: number;
+}
+
+export interface InitiativeSummary {
+  initiative: Initiative;
+  epicId: string;
+  storyCount: number;
   openHumanRequests: number;
 }

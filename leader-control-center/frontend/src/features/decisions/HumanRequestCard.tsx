@@ -11,6 +11,19 @@ const priorityStyle: Record<HumanRequest["priority"], string> = {
   low: "border-l-status-todo",
 };
 
+type ButtonVariant = "default" | "secondary" | "outline" | "destructive";
+
+const actionMeta: Record<DecisionKind, { label: string; variant: ButtonVariant }> = {
+  Approve: { label: "Approve", variant: "default" },
+  Continue: { label: "Continue", variant: "secondary" },
+  Clarify: { label: "Clarify", variant: "secondary" },
+  Reject: { label: "Reject", variant: "outline" },
+  Retry: { label: "Retry", variant: "outline" },
+  Abort: { label: "Abort", variant: "destructive" },
+  SelectOption: { label: "Select", variant: "default" },
+  Custom: { label: "Custom", variant: "outline" },
+};
+
 export function HumanRequestCard({
   request,
   showContext = false,
@@ -22,10 +35,13 @@ export function HumanRequestCard({
   const [comment, setComment] = useState("");
 
   const send = (decision: DecisionKind, selectedOption?: string) => {
-    submit.mutate({ humanRequestId: request.id, input: { decision, selectedOption, comment: comment || undefined } });
+    submit.mutate({
+      decisionId: request.id,
+      input: { decision, selectedOption, comment: comment || undefined },
+    });
   };
 
-  const hasOptions = request.type === "ChooseOption" && request.options && request.options.length > 0;
+  const hasOptions = request.options && request.options.length > 0;
 
   return (
     <div className={cn("rounded-md border border-l-4 border-border bg-card p-4", priorityStyle[request.priority])}>
@@ -51,28 +67,33 @@ export function HumanRequestCard({
       />
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {hasOptions ? (
-          request.options!.map((opt) => (
-            <Button key={opt.id} size="sm" disabled={submit.isPending} onClick={() => send("SelectOption", opt.id)}>
-              {opt.label}
+        {request.actions.map((action) => {
+          if (action === "SelectOption") {
+            if (!hasOptions) return null;
+            return request.options!.map((opt) => (
+              <Button
+                key={opt.id}
+                size="sm"
+                disabled={submit.isPending}
+                onClick={() => send("SelectOption", opt.id)}
+              >
+                {opt.label}
+              </Button>
+            ));
+          }
+          const meta = actionMeta[action];
+          return (
+            <Button
+              key={action}
+              size="sm"
+              variant={meta.variant === "default" ? undefined : meta.variant}
+              disabled={submit.isPending}
+              onClick={() => send(action)}
+            >
+              {meta.label}
             </Button>
-          ))
-        ) : (
-          <>
-            <Button size="sm" disabled={submit.isPending} onClick={() => send("Approve")}>
-              Approve
-            </Button>
-            <Button size="sm" variant="secondary" disabled={submit.isPending} onClick={() => send("Continue")}>
-              Continue
-            </Button>
-            <Button size="sm" variant="outline" disabled={submit.isPending} onClick={() => send("Reject")}>
-              Reject
-            </Button>
-          </>
-        )}
-        <Button size="sm" variant="destructive" disabled={submit.isPending} onClick={() => send("Abort")}>
-          Abort
-        </Button>
+          );
+        })}
       </div>
     </div>
   );

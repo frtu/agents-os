@@ -158,10 +158,11 @@ def seed(store: Store, engine: "SimulationEngine") -> None:
             inputs=inputs, outputs=outputs, supported_providers=provs,
         )
 
-    for spec in _INITIATIVES:
+    for order, spec in enumerate(_INITIATIVES):
         store.initiatives[spec["id"]] = Initiative(
             id=spec["id"], portfolio_id="portfolio_default",
             title=spec["title"], description=spec["description"], status="Ready",
+            order=order,
             created_at=now(-86_400_000), updated_at=now(),
         )
         epic_id = f"epic_{spec['id']}"

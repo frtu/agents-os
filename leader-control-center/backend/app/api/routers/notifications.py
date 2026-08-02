@@ -14,6 +14,16 @@ async def get_notifications(cc: ControlCenter = Depends(get_control_center)):
     return cc.get_notifications()
 
 
-@router.post("/notifications/{notification_id}/dismiss", status_code=status.HTTP_204_NO_CONTENT)
-async def dismiss_notification(notification_id: str, cc: ControlCenter = Depends(get_control_center)):
-    cc.dismiss_notification(notification_id)
+@router.post("/notifications/{notification_id}/open", status_code=status.HTTP_204_NO_CONTENT)
+async def open_notification(notification_id: str, cc: ControlCenter = Depends(get_control_center)):
+    cc.open_notification(notification_id)
+
+
+@router.post("/notifications/{notification_id}/ack", status_code=status.HTTP_204_NO_CONTENT)
+async def ack_notification(notification_id: str, cc: ControlCenter = Depends(get_control_center)):
+    cc.ack_notification(notification_id)
+
+
+@router.post("/notifications/{notification_id}/close", status_code=status.HTTP_204_NO_CONTENT)
+async def close_notification(notification_id: str, cc: ControlCenter = Depends(get_control_center)):
+    cc.close_notification(notification_id)

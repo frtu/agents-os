@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Ban, RotateCcw } from "lucide-react";
 import { Sheet, SheetHeader } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,9 +13,9 @@ import { useUiStore } from "@/store/ui";
 import {
   useArtifacts,
   useAttention,
-  useBoards,
-  useDecisions,
+  useDecisionHistory,
   useExecution,
+  useStoryCard,
   useStoryTasks,
   useTimeline,
 } from "@/hooks/queries";
@@ -27,24 +26,14 @@ export function StoryDetailSheet() {
   const closePanel = useUiStore((s) => s.closePanel);
   const open = panel.kind === "story";
   const storyId = panel.kind === "story" ? panel.storyId : undefined;
+  const panelExecutionId = panel.kind === "story" ? panel.executionId : undefined;
 
-  const { data: boards } = useBoards();
-  const card = useMemo(() => {
-    if (!boards || !storyId) return undefined;
-    for (const b of boards) {
-      for (const col of Object.values(b.columns)) {
-        const found = col.find((c) => c.story.id === storyId);
-        if (found) return found;
-      }
-    }
-    return undefined;
-  }, [boards, storyId]);
-
-  const executionId = card?.execution?.id;
+  const card = useStoryCard(storyId);
+  const executionId = panelExecutionId ?? card?.execution?.id;
   const { data: tasks, isLoading: tasksLoading } = useStoryTasks(open ? storyId : undefined);
   const { data: execution } = useExecution(open ? executionId : undefined);
   const { data: timeline, isLoading: timelineLoading } = useTimeline(open ? executionId : undefined);
-  const { data: decisions } = useDecisions(open ? executionId : undefined);
+  const { data: decisions } = useDecisionHistory(open ? executionId : undefined);
   const { data: artifacts } = useArtifacts(open ? storyId : undefined);
   const { data: attention } = useAttention();
 

@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Callable
 
+from app.domain.enums import NotificationStatus
 from app.domain.events import MessageType, RealtimeMessage
 from app.domain.models import (
     Artifact,
@@ -112,7 +113,8 @@ class Store:
 
     def push_notification(self, type: str, message: str) -> None:
         n = Notification(
-            id=uid("ntf"), type=type, message=message, read=False, created_at=now()
+            id=uid("ntf"), type=type, message=message,
+            status=NotificationStatus.UNREAD, created_at=now(),
         )
         self.notifications.insert(0, n)
         self.bus.emit(MessageType.NOTIFICATION_CREATED, n.id, {"message": message})
@@ -132,3 +134,29 @@ class Store:
         if not epic:
             return None
         return self.initiatives.get(epic.initiative_id)
+
+    # -- initiative commands ----------------------------------------------
+    def create_initiative(self, title: str, description: str) -> Initiative:
+        """Create an initiative plus its backing epic (a board needs an epic)."""
+        init_id = uid("init")
+        initiative = Initiative(
+            id=init_id, portfolio_id="portfolio_default",
+            title=title, description=description, status="Draft",
+            order=len(self.initiatives),
+            created_at=now(), updated_at=now(),
+        )
+        self.initiatives[init_id] = initiative
+        epic_id = f"epic_{init_id}"
+        self.epics[epic_id] = EpicRow(epic_id, init_id, title)
+        self.bus.emit(MessageType.STORY_UPDATED, init_id)
+        return initiative
+
+    def reorder_initiatives(self, ids: list[str]) -> None:
+        """Assign order = position for each known id (unlisted ones keep theirs)."""
+        for index, init_id in enumerate(ids):
+            initiative = self.initiatives.get(init_id)
+            if initiative:
+                self.initiatives[init_id] = initiative.model_copy(
+                    update={"order": index, "updated_at": now()}
+                )
+        self.bus.emit(MessageType.STORY_UPDATED, "initiatives")

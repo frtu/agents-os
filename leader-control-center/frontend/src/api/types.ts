@@ -4,7 +4,9 @@ import type {
   Decision,
   DecisionKind,
   HumanRequest,
+  Initiative,
   InitiativeBoardView,
+  InitiativeSummary,
   Notification,
   Provider,
   StoryExecution,
@@ -16,6 +18,7 @@ export interface DecisionInput {
   decision: DecisionKind;
   comment?: string;
   selectedOption?: string;
+  actionName?: string;
 }
 
 /**
@@ -24,19 +27,25 @@ export interface DecisionInput {
  */
 export interface ApiClient {
   // Queries
-  getBoards(): Promise<InitiativeBoardView[]>;
+  getInitiatives(): Promise<InitiativeSummary[]>;
+  getBoard(initiativeId: string): Promise<InitiativeBoardView>;
   getStoryTasks(storyId: string): Promise<Task[]>;
   getExecution(executionId: string): Promise<StoryExecution>;
   getTimeline(storyExecutionId: string): Promise<TimelineEvent[]>;
   getArtifacts(storyId: string): Promise<Artifact[]>;
   getArtifact(artifactId: string): Promise<Artifact>;
   getAttention(): Promise<HumanRequest[]>;
-  getDecisions(storyExecutionId: string): Promise<Decision[]>;
+  // Open decisions-to-make for an execution (each with its action enum).
+  getOpenDecisions(executionId: string): Promise<HumanRequest[]>;
+  // Recorded, immutable decisions (audit trail) for an execution.
+  getDecisionHistory(executionId: string): Promise<Decision[]>;
   getCapabilities(): Promise<Capability[]>;
   getProviders(): Promise<Provider[]>;
   getNotifications(): Promise<Notification[]>;
 
   // Planning commands
+  createInitiative(input: { title: string; description?: string }): Promise<Initiative>;
+  reorderInitiatives(initiativeIds: string[]): Promise<InitiativeSummary[]>;
   markTaskReady(taskId: string): Promise<void>;
 
   // Execution commands
@@ -45,9 +54,11 @@ export interface ApiClient {
   cancelExecution(executionId: string): Promise<void>;
   retryExecution(executionId: string): Promise<void>;
 
-  // Decision commands (resolve the execution's open Human Request)
-  submitDecision(humanRequestId: string, input: DecisionInput): Promise<Decision>;
+  // Decision commands (resolve an execution's open decision-to-make)
+  submitDecision(executionId: string, decisionId: string, input: DecisionInput): Promise<Decision>;
 
-  // Notifications
-  dismissNotification(notificationId: string): Promise<void>;
+  // Notifications (lifecycle: UNREAD -> READ -> ACKED -> CLOSED)
+  openNotification(notificationId: string): Promise<void>;
+  ackNotification(notificationId: string): Promise<void>;
+  closeNotification(notificationId: string): Promise<void>;
 }

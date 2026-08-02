@@ -6,6 +6,7 @@
   "description": "Human-in-the-loop control center for supervising durable AI workflows — frontend",
   "scripts": {
     "dev": "vite",
+    "prod": "vite --mode production",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

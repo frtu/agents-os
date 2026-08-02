@@ -1,9 +1,39 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
 import { qk } from "@/hooks/queryKeys";
+import type { InitiativeBoardView, StoryCardView } from "@/types/domain";
 
-export function useBoards() {
-  return useQuery({ queryKey: qk.boards, queryFn: () => api.getBoards() });
+export function useInitiatives() {
+  return useQuery({ queryKey: qk.initiatives, queryFn: () => api.getInitiatives() });
+}
+
+export function useInitiativeBoard(initiativeId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: qk.board(initiativeId),
+    queryFn: () => api.getBoard(initiativeId),
+    enabled,
+  });
+}
+
+/**
+ * Finds a story's card among the per-initiative boards already in the query
+ * cache. A board is loaded (and cached) before any of its cards can be clicked,
+ * so the detail panels can resolve their story without a dedicated endpoint.
+ * Subscribes to the initiatives list so it re-renders when the same realtime
+ * events that refresh boards fire.
+ */
+export function useStoryCard(storyId: string | undefined): StoryCardView | undefined {
+  const qc = useQueryClient();
+  useInitiatives();
+  if (!storyId) return undefined;
+  for (const [, board] of qc.getQueriesData<InitiativeBoardView>({ queryKey: ["board"] })) {
+    if (!board) continue;
+    for (const col of Object.values(board.columns)) {
+      const found = col.find((c) => c.story.id === storyId);
+      if (found) return found;
+    }
+  }
+  return undefined;
 }
 
 export function useAttention() {
@@ -46,10 +76,10 @@ export function useTimeline(executionId: string | undefined) {
   });
 }
 
-export function useDecisions(executionId: string | undefined) {
+export function useDecisionHistory(executionId: string | undefined) {
   return useQuery({
     queryKey: qk.decisions(executionId ?? ""),
-    queryFn: () => api.getDecisions(executionId!),
+    queryFn: () => api.getDecisionHistory(executionId!),
     enabled: !!executionId,
   });
 }

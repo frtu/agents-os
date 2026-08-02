@@ -7,8 +7,9 @@ type DetailPanel =
   | { kind: "artifact"; artifactId: string };
 
 interface UiState {
-  // Which initiative board is expanded on the board page.
-  collapsedInitiatives: Record<string, boolean>;
+  // Which initiative boards are expanded on the board page. Absent = collapsed,
+  // so every board starts closed and its columns load only on unfold.
+  expandedInitiatives: Record<string, boolean>;
   toggleInitiative: (id: string) => void;
 
   // Right-hand detail panel (story / task / artifact inspector).
@@ -24,9 +25,9 @@ interface UiState {
 }
 
 export const useUiStore = create<UiState>((set) => ({
-  collapsedInitiatives: {},
+  expandedInitiatives: {},
   toggleInitiative: (id) =>
-    set((s) => ({ collapsedInitiatives: { ...s.collapsedInitiatives, [id]: !s.collapsedInitiatives[id] } })),
+    set((s) => ({ expandedInitiatives: { ...s.expandedInitiatives, [id]: !s.expandedInitiatives[id] } })),
 
   panel: { kind: "none" },
   openStory: (storyId, executionId) => set({ panel: { kind: "story", storyId, executionId } }),

@@ -14,6 +14,7 @@ from app.domain.enums import (
     ExecutionStrategy,
     HumanRequestStatus,
     HumanRequestType,
+    NotificationStatus,
     PlanningMode,
     PlanningStatus,
     Priority,
@@ -45,6 +46,7 @@ class Initiative(Resource):
     title: str
     description: str
     status: PlanningStatus
+    order: int = 0
 
 
 class AcceptanceCriteria(Schema):
@@ -153,6 +155,7 @@ class HumanRequest(Schema):
     status: HumanRequestStatus
     priority: Priority
     created_at: str
+    actions: list[DecisionKind] = []
 
 
 class Decision(Schema):
@@ -161,6 +164,7 @@ class Decision(Schema):
     decision: DecisionKind
     selected_option: str | None = None
     comment: str | None = None
+    action_name: str | None = None
     user: str
     created_at: str
 
@@ -194,7 +198,7 @@ class Notification(Schema):
     id: str
     type: str
     message: str
-    read: bool
+    status: NotificationStatus
     created_at: str
 
 
@@ -210,4 +214,13 @@ class InitiativeBoardView(Schema):
     initiative: Initiative
     epic_id: str
     columns: dict[BoardColumn, list[StoryCardView]]
+    open_human_requests: int
+
+
+class InitiativeSummary(Schema):
+    """Lightweight board-list row: no columns, just counts for the header."""
+
+    initiative: Initiative
+    epic_id: str
+    story_count: int
     open_human_requests: int

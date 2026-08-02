@@ -1,14 +1,34 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 
 from app.api.deps import get_control_center
+from app.api.schemas import CreateInitiativeBody, ReorderInitiativesBody
 from app.application.service import ControlCenter
-from app.domain.models import InitiativeBoardView
+from app.domain.models import Initiative, InitiativeBoardView, InitiativeSummary
 
 router = APIRouter(tags=["boards"])
 
 
-@router.get("/initiatives", response_model=list[InitiativeBoardView])
-async def list_boards(cc: ControlCenter = Depends(get_control_center)):
-    return cc.get_boards()
+@router.get("/initiatives", response_model=list[InitiativeSummary])
+async def list_initiatives(cc: ControlCenter = Depends(get_control_center)):
+    return cc.get_initiatives()
+
+
+@router.post("/initiatives", response_model=Initiative, status_code=status.HTTP_201_CREATED)
+async def create_initiative(
+    body: CreateInitiativeBody, cc: ControlCenter = Depends(get_control_center)
+):
+    return cc.create_initiative(body.title, body.description)
+
+
+@router.post("/initiatives/reorder", response_model=list[InitiativeSummary])
+async def reorder_initiatives(
+    body: ReorderInitiativesBody, cc: ControlCenter = Depends(get_control_center)
+):
+    return cc.reorder_initiatives(body.initiative_ids)
+
+
+@router.get("/initiatives/{initiative_id}/board", response_model=InitiativeBoardView)
+async def get_board(initiative_id: str, cc: ControlCenter = Depends(get_control_center)):
+    return cc.get_board(initiative_id)

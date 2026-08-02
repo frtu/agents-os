@@ -4,13 +4,17 @@ to the WorkflowEngine port. No HTTP or persistence details leak in here."""
 from __future__ import annotations
 
 from app.domain.board import column_for, empty_columns
-from app.domain.enums import DecisionKind
+from app.domain.decisions import actions_for
+from app.domain.enums import DecisionKind, NotificationStatus
+from app.domain.events import MessageType
 from app.domain.models import (
     Artifact,
     Capability,
     Decision,
     HumanRequest,
+    Initiative,
     InitiativeBoardView,
+    InitiativeSummary,
     Notification,
     Provider,
     StoryCardView,
@@ -34,46 +38,88 @@ class NotFoundError(Exception):
         self.message = message
 
 
+class InvariantError(Exception):
+    """A command that violates an aggregate invariant (maps to HTTP 422)."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
+# Open notification states in display order; CLOSED is terminal (excluded).
+_NOTIFICATION_ORDER = {
+    NotificationStatus.UNREAD: 0,
+    NotificationStatus.READ: 1,
+    NotificationStatus.ACKED: 2,
+}
+
+
 class ControlCenter:
     def __init__(self, store: Store, engine: SimulationEngine) -> None:
         self.store = store
         self.engine = engine
 
     # -- queries -----------------------------------------------------------
-    def get_boards(self) -> list[InitiativeBoardView]:
-        views: list[InitiativeBoardView] = []
-        for initiative in self.store.initiatives.values():
-            epic = next(
-                (e for e in self.store.epics.values() if e.initiative_id == initiative.id),
-                None,
-            )
+    def get_initiatives(self) -> list[InitiativeSummary]:
+        """Lightweight board-list rows (no columns), sorted by initiative order."""
+        summaries: list[InitiativeSummary] = []
+        for initiative in sorted(self.store.initiatives.values(), key=lambda i: i.order):
+            epic = self._epic_for_initiative(initiative.id)
             if not epic:
                 continue
-            columns = empty_columns()
-            open_total = 0
-            stories = sorted(
-                (s for s in self.store.stories.values() if s.epic_id == epic.id),
-                key=lambda s: s.priority,
-            )
-            for story in stories:
-                exec_id = self.store.execution_by_story.get(story.id)
-                execution = self.store.executions.get(exec_id) if exec_id else None
-                open_reqs = self.store.open_requests_for_story(story.id)
-                open_total += open_reqs
-                column = column_for(story, execution, open_reqs)
-                columns[column].append(
-                    StoryCardView(
-                        story=story, column=column, execution=execution,
-                        open_human_requests=open_reqs,
-                    )
-                )
-            views.append(
-                InitiativeBoardView(
-                    initiative=initiative, epic_id=epic.id, columns=columns,
-                    open_human_requests=open_total,
+            stories = [s for s in self.store.stories.values() if s.epic_id == epic.id]
+            open_total = sum(self.store.open_requests_for_story(s.id) for s in stories)
+            summaries.append(
+                InitiativeSummary(
+                    initiative=initiative, epic_id=epic.id,
+                    story_count=len(stories), open_human_requests=open_total,
                 )
             )
-        return views
+        return summaries
+
+    def get_board(self, initiative_id: str) -> InitiativeBoardView:
+        """Full Kanban projection for a single initiative."""
+        initiative = self.store.initiatives.get(initiative_id)
+        if not initiative:
+            raise NotFoundError(f"Initiative not found: {initiative_id}")
+        epic = self._epic_for_initiative(initiative_id)
+        if not epic:
+            raise NotFoundError(f"Initiative has no epic: {initiative_id}")
+        columns = empty_columns()
+        open_total = 0
+        stories = sorted(
+            (s for s in self.store.stories.values() if s.epic_id == epic.id),
+            key=lambda s: s.priority,
+        )
+        for story in stories:
+            exec_id = self.store.execution_by_story.get(story.id)
+            execution = self.store.executions.get(exec_id) if exec_id else None
+            open_reqs = self.store.open_requests_for_story(story.id)
+            open_total += open_reqs
+            column = column_for(story, execution, open_reqs)
+            columns[column].append(
+                StoryCardView(
+                    story=story, column=column, execution=execution,
+                    open_human_requests=open_reqs,
+                )
+            )
+        return InitiativeBoardView(
+            initiative=initiative, epic_id=epic.id, columns=columns,
+            open_human_requests=open_total,
+        )
+
+    def create_initiative(self, title: str, description: str) -> Initiative:
+        return self.store.create_initiative(title, description)
+
+    def reorder_initiatives(self, ids: list[str]) -> list[InitiativeSummary]:
+        self.store.reorder_initiatives(ids)
+        return self.get_initiatives()
+
+    def _epic_for_initiative(self, initiative_id: str):
+        return next(
+            (e for e in self.store.epics.values() if e.initiative_id == initiative_id),
+            None,
+        )
 
     def get_story_tasks(self, story_id: str) -> list[Task]:
         return self.engine._story_tasks(story_id)
@@ -99,7 +145,7 @@ class ControlCenter:
 
     def get_attention(self) -> list[HumanRequest]:
         open_requests = [
-            r for r in self.store.human_requests.values()
+            self._with_actions(r) for r in self.store.human_requests.values()
             if r.status not in ("Closed", "Resolved")
         ]
         return sorted(
@@ -107,12 +153,24 @@ class ControlCenter:
             key=lambda r: (_PRIORITY_RANK.get(str(r.priority), 1), r.created_at),
         )
 
-    def get_decisions(self, execution_id: str) -> list[Decision]:
+    def get_open_decisions(self, execution_id: str) -> list[HumanRequest]:
+        """Open decisions-to-make for an execution, each carrying its action enum."""
+        return [
+            self._with_actions(r) for r in self.store.human_requests.values()
+            if r.execution_id == execution_id and r.status not in ("Closed", "Resolved")
+        ]
+
+    def get_decision_history(self, execution_id: str) -> list[Decision]:
+        """Recorded, immutable decisions (audit trail) for an execution."""
         req_ids = {
             r.id for r in self.store.human_requests.values()
             if r.execution_id == execution_id
         }
         return [d for d in self.store.decisions.values() if d.human_request_id in req_ids]
+
+    @staticmethod
+    def _with_actions(request: HumanRequest) -> HumanRequest:
+        return request.model_copy(update={"actions": actions_for(request.type)})
 
     def get_capabilities(self) -> list[Capability]:
         return list(self.store.capabilities.values())
@@ -121,7 +179,16 @@ class ControlCenter:
         return list(self.store.providers.values())
 
     def get_notifications(self) -> list[Notification]:
-        return list(self.store.notifications)
+        """Open notifications only (excludes CLOSED), ordered by status
+        (UNREAD, READ, ACKED) then ascending by time."""
+        open_notifications = [
+            n for n in self.store.notifications
+            if n.status != NotificationStatus.CLOSED
+        ]
+        return sorted(
+            open_notifications,
+            key=lambda n: (_NOTIFICATION_ORDER[n.status], n.created_at),
+        )
 
     # -- commands ----------------------------------------------------------
     def mark_task_ready(self, task_id: str) -> None:
@@ -145,16 +212,45 @@ class ControlCenter:
     def submit_decision(
         self, human_request_id: str, decision: DecisionKind,
         comment: str | None = None, selected_option: str | None = None,
+        action_name: str | None = None,
     ) -> Decision:
         try:
             return self.engine.apply_decision(
-                human_request_id, decision, comment=comment, selected_option=selected_option
+                human_request_id, decision, comment=comment,
+                selected_option=selected_option, action_name=action_name,
             )
         except HumanRequestNotFound as e:
             raise NotFoundError(f"Human request not found: {e}") from e
 
-    def dismiss_notification(self, notification_id: str) -> None:
-        self.engine.dismiss_notification(notification_id)
+    def open_notification(self, notification_id: str) -> None:
+        self._transition_notification(
+            notification_id, NotificationStatus.UNREAD, NotificationStatus.READ
+        )
+
+    def ack_notification(self, notification_id: str) -> None:
+        self._transition_notification(
+            notification_id, NotificationStatus.READ, NotificationStatus.ACKED
+        )
+
+    def close_notification(self, notification_id: str) -> None:
+        self._transition_notification(
+            notification_id, NotificationStatus.ACKED, NotificationStatus.CLOSED
+        )
+
+    def _transition_notification(
+        self, notification_id: str,
+        expected: NotificationStatus, target: NotificationStatus,
+    ) -> None:
+        n = next((x for x in self.store.notifications if x.id == notification_id), None)
+        if not n:
+            raise NotFoundError(f"Notification not found: {notification_id}")
+        if n.status != expected:
+            raise InvariantError(
+                f"Notification {notification_id} is {n.status}; "
+                f"{target} requires {expected}"
+            )
+        n.status = target
+        self.store.bus.emit(MessageType.NOTIFICATION_CREATED, n.id, {"status": str(target)})
 
 
 def build_control_center() -> ControlCenter:

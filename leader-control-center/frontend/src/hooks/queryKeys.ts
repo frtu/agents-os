@@ -1,5 +1,6 @@
 export const qk = {
-  boards: ["boards"] as const,
+  initiatives: ["initiatives"] as const,
+  board: (initiativeId: string) => ["board", initiativeId] as const,
   attention: ["attention"] as const,
   capabilities: ["capabilities"] as const,
   providers: ["providers"] as const,

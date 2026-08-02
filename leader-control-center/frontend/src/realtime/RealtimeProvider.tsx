@@ -16,11 +16,13 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     const handle = (msg: RealtimeMessage) => {
       switch (msg.type) {
         case "StoryUpdated":
-          qc.invalidateQueries({ queryKey: qk.boards });
+          qc.invalidateQueries({ queryKey: qk.initiatives });
+          qc.invalidateQueries({ queryKey: ["board"] });
           break;
         case "ExecutionUpdated":
           qc.invalidateQueries({ queryKey: qk.execution(msg.aggregateId) });
-          qc.invalidateQueries({ queryKey: qk.boards });
+          qc.invalidateQueries({ queryKey: qk.initiatives });
+          qc.invalidateQueries({ queryKey: ["board"] });
           break;
         case "TimelineUpdated":
           qc.invalidateQueries({ queryKey: qk.timeline(msg.aggregateId) });
@@ -28,7 +30,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         case "DecisionRequested":
         case "AttentionUpdated":
           qc.invalidateQueries({ queryKey: qk.attention });
-          qc.invalidateQueries({ queryKey: qk.boards });
+          qc.invalidateQueries({ queryKey: qk.initiatives });
+          qc.invalidateQueries({ queryKey: ["board"] });
           break;
         case "DecisionApplied": {
           const executionId = (msg.payload?.executionId as string) ?? msg.aggregateId;

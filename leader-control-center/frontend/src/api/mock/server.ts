@@ -11,9 +11,11 @@ import type {
   BoardColumn,
   Capability,
   Decision,
+  DecisionKind,
   HumanRequest,
   Initiative,
   InitiativeBoardView,
+  InitiativeSummary,
   Notification,
   Provider,
   Story,
@@ -75,7 +77,7 @@ function addTimeline(execId: string, type: string, category: TimelineEvent["cate
 }
 
 function pushNotification(type: string, message: string) {
-  const n: Notification = { id: uid("ntf"), type, message, read: false, createdAt: now() };
+  const n: Notification = { id: uid("ntf"), type, message, status: "UNREAD", createdAt: now() };
   notifications.unshift(n);
   emit("NotificationCreated", n.id, { message });
 }
@@ -244,13 +246,14 @@ function seed() {
     },
   ];
 
-  specs.forEach((spec) => {
+  specs.forEach((spec, order) => {
     initiatives.set(spec.id, resource<Initiative>({
       id: spec.id,
       portfolioId: "portfolio_default",
       title: spec.title,
       description: spec.description,
       status: "Ready",
+      order,
     }) as Initiative);
 
     const epicId = `epic_${spec.id}`;
@@ -366,6 +369,26 @@ function instantiateExecution(story: Story, taskRows: Task[], state: "running" |
   }
 }
 
+// Which actions an open decision-to-make accepts, keyed by request type.
+// Mirrors backend app/domain/decisions.py so mock and real backend agree.
+function actionsFor(type: HumanRequest["type"]): DecisionKind[] {
+  switch (type) {
+    case "Approval":
+      return ["Approve", "Reject", "Clarify", "Abort"];
+    case "Clarification":
+    case "MissingInformation":
+      return ["Clarify", "Continue", "Abort"];
+    case "Budget":
+    case "ToolPermission":
+    case "RiskAcceptance":
+      return ["Approve", "Reject", "Abort"];
+    case "ChooseOption":
+      return ["SelectOption", "Abort"];
+    default:
+      return ["Approve", "Continue", "Reject", "Abort"];
+  }
+}
+
 function raiseHumanRequest(story: Story, exec: StoryExecution, taskExec: TaskExecution) {
   const init = initiativeForStory(story.id)!;
   const types: HumanRequest["type"][] = ["Approval", "Clarification", "ToolPermission", "ChooseOption"];
@@ -396,6 +419,7 @@ function raiseHumanRequest(story: Story, exec: StoryExecution, taskExec: TaskExe
     status: "Visible",
     priority: type === "Approval" ? "high" : "medium",
     createdAt: now(),
+    actions: actionsFor(type),
   };
   humanRequests.set(req.id, req);
   taskExec.status = "WaitingDecision";
@@ -460,33 +484,50 @@ function columnFor(story: Story, exec: StoryExecution | undefined, openReqs: num
   return "Running";
 }
 
-function buildBoards(): InitiativeBoardView[] {
-  const views: InitiativeBoardView[] = [];
-  initiatives.forEach((initiative) => {
-    const epic = [...epics.values()].find((e) => e.initiativeId === initiative.id);
-    if (!epic) return;
-    const cols: Record<BoardColumn, StoryCardView[]> = {
-      Todo: [],
-      Ready: [],
-      Running: [],
-      Blocked: [],
-      Completed: [],
-    };
-    let openReqTotal = 0;
-    [...stories.values()]
-      .filter((s) => s.epicId === epic.id)
-      .sort((a, b) => a.priority - b.priority)
-      .forEach((story) => {
-        const execId = executionByStory.get(story.id);
-        const exec = execId ? executions.get(execId) : undefined;
-        const openReqs = openRequestsForStory(story.id);
-        openReqTotal += openReqs;
-        const column = columnFor(story, exec, openReqs);
-        cols[column].push({ story, column, execution: exec, openHumanRequests: openReqs });
+function buildSummaries(): InitiativeSummary[] {
+  const summaries: InitiativeSummary[] = [];
+  [...initiatives.values()]
+    .sort((a, b) => a.order - b.order)
+    .forEach((initiative) => {
+      const epic = [...epics.values()].find((e) => e.initiativeId === initiative.id);
+      if (!epic) return;
+      const storyList = [...stories.values()].filter((s) => s.epicId === epic.id);
+      const openReqTotal = storyList.reduce((n, s) => n + openRequestsForStory(s.id), 0);
+      summaries.push({
+        initiative,
+        epicId: epic.id,
+        storyCount: storyList.length,
+        openHumanRequests: openReqTotal,
       });
-    views.push({ initiative, epicId: epic.id, columns: cols, openHumanRequests: openReqTotal });
-  });
-  return views;
+    });
+  return summaries;
+}
+
+function buildBoard(initiativeId: string): InitiativeBoardView {
+  const initiative = initiatives.get(initiativeId);
+  if (!initiative) throw new Error(`Initiative not found: ${initiativeId}`);
+  const epic = [...epics.values()].find((e) => e.initiativeId === initiativeId);
+  if (!epic) throw new Error(`Initiative has no epic: ${initiativeId}`);
+  const cols: Record<BoardColumn, StoryCardView[]> = {
+    Todo: [],
+    Ready: [],
+    Running: [],
+    Blocked: [],
+    Completed: [],
+  };
+  let openReqTotal = 0;
+  [...stories.values()]
+    .filter((s) => s.epicId === epic.id)
+    .sort((a, b) => a.priority - b.priority)
+    .forEach((story) => {
+      const execId = executionByStory.get(story.id);
+      const exec = execId ? executions.get(execId) : undefined;
+      const openReqs = openRequestsForStory(story.id);
+      openReqTotal += openReqs;
+      const column = columnFor(story, exec, openReqs);
+      cols[column].push({ story, column, execution: exec, openHumanRequests: openReqs });
+    });
+  return { initiative, epicId: epic.id, columns: cols, openHumanRequests: openReqTotal };
 }
 
 // --------------------------------------------------------------------------
@@ -570,9 +611,38 @@ export const mockServer = {
   },
   tick,
 
-  getBoards(): InitiativeBoardView[] {
+  getInitiatives(): InitiativeSummary[] {
     ensureSeeded();
-    return buildBoards();
+    return buildSummaries();
+  },
+  getBoard(initiativeId: string): InitiativeBoardView {
+    ensureSeeded();
+    return buildBoard(initiativeId);
+  },
+  createInitiative(input: { title: string; description?: string }): Initiative {
+    ensureSeeded();
+    const id = uid("init");
+    const initiative = resource<Initiative>({
+      id,
+      portfolioId: "portfolio_default",
+      title: input.title,
+      description: input.description ?? "",
+      status: "Draft",
+      order: initiatives.size,
+    }) as Initiative;
+    initiatives.set(id, initiative);
+    const epicId = `epic_${id}`;
+    epics.set(epicId, { id: epicId, initiativeId: id, title: input.title });
+    emit("StoryUpdated", id);
+    return initiative;
+  },
+  reorderInitiatives(ids: string[]): InitiativeSummary[] {
+    ids.forEach((id, order) => {
+      const initiative = initiatives.get(id);
+      if (initiative) initiatives.set(id, { ...initiative, order, updatedAt: now() });
+    });
+    emit("StoryUpdated", "initiatives");
+    return buildSummaries();
   },
   getStoryTasks(storyId: string): Task[] {
     return [...tasks.values()].filter((t) => t.storyId === storyId).sort((a, b) => a.order - b.order);
@@ -604,7 +674,12 @@ export const mockServer = {
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       });
   },
-  getDecisions(execId: string): Decision[] {
+  getOpenDecisions(execId: string): HumanRequest[] {
+    return [...humanRequests.values()].filter(
+      (r) => r.executionId === execId && r.status !== "Closed" && r.status !== "Resolved",
+    );
+  },
+  getDecisionHistory(execId: string): Decision[] {
     const reqIds = new Set([...humanRequests.values()].filter((r) => r.executionId === execId).map((r) => r.id));
     return [...decisions.values()].filter((d) => reqIds.has(d.humanRequestId));
   },
@@ -617,7 +692,13 @@ export const mockServer = {
     return [...providers.values()];
   },
   getNotifications(): Notification[] {
-    return notifications;
+    const order: Record<string, number> = { UNREAD: 0, READ: 1, ACKED: 2 };
+    return notifications
+      .filter((n) => n.status !== "CLOSED")
+      .sort((a, b) => {
+        if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
   },
 
   markTaskReady(taskId: string) {
@@ -698,6 +779,7 @@ export const mockServer = {
       decision: input.decision,
       selectedOption: input.selectedOption,
       comment: input.comment,
+      actionName: input.actionName,
       user: "you@leader",
       createdAt: now(),
     };
@@ -727,8 +809,26 @@ export const mockServer = {
     return decision;
   },
 
-  dismissNotification(id: string) {
-    const n = notifications.find((x) => x.id === id);
-    if (n) n.read = true;
+  openNotification(id: string) {
+    transitionNotification(id, "UNREAD", "READ");
+  },
+  ackNotification(id: string) {
+    transitionNotification(id, "READ", "ACKED");
+  },
+  closeNotification(id: string) {
+    transitionNotification(id, "ACKED", "CLOSED");
   },
 };
+
+function transitionNotification(
+  id: string,
+  expected: Notification["status"],
+  target: Notification["status"],
+) {
+  const n = notifications.find((x) => x.id === id);
+  if (!n) throw new Error(`Notification not found: ${id}`);
+  if (n.status !== expected) {
+    throw new Error(`Notification ${id} is ${n.status}; ${target} requires ${expected}`);
+  }
+  n.status = target;
+}

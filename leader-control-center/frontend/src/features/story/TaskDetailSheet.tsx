@@ -1,11 +1,10 @@
-import { useMemo } from "react";
 import { Sheet, SheetHeader } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { ExecutionStatusBadge } from "@/components/ui/status-badge";
-import { useBoards, useExecution, useStoryTasks } from "@/hooks/queries";
+import { useExecution, useStoryCard, useStoryTasks } from "@/hooks/queries";
 import { useStartTask } from "@/hooks/mutations";
 import { useUiStore } from "@/store/ui";
 
@@ -16,17 +15,7 @@ export function TaskDetailSheet() {
   const taskId = panel.kind === "task" ? panel.taskId : undefined;
   const storyId = panel.kind === "task" ? panel.storyId : undefined;
 
-  const { data: boards } = useBoards();
-  const executionId = useMemo(() => {
-    if (!boards || !storyId) return undefined;
-    for (const b of boards) {
-      for (const col of Object.values(b.columns)) {
-        const found = col.find((c) => c.story.id === storyId);
-        if (found) return found.execution?.id;
-      }
-    }
-    return undefined;
-  }, [boards, storyId]);
+  const executionId = useStoryCard(storyId)?.execution?.id;
 
   const { data: tasks } = useStoryTasks(open ? storyId : undefined);
   const { data: execution } = useExecution(open ? executionId : undefined);

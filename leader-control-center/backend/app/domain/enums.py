@@ -111,12 +111,21 @@ class DecisionKind(StrEnum):
     ABORT = "Abort"
     RETRY = "Retry"
     SELECT_OPTION = "SelectOption"
+    CUSTOM = "Custom"
 
 
 class Priority(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
+
+
+# --- Notifications --------------------------------------------------------
+class NotificationStatus(StrEnum):
+    UNREAD = "UNREAD"
+    READ = "READ"
+    ACKED = "ACKED"
+    CLOSED = "CLOSED"
 
 
 # --- Artifacts & Timeline -------------------------------------------------

@@ -20,7 +20,6 @@ from app.api.routers import (
     boards,
     catalog,
     executions,
-    human_requests,
     notifications,
     stories,
     tasks,
@@ -75,7 +74,6 @@ def create_app() -> FastAPI:
         attention.router,
         catalog.router,
         notifications.router,
-        human_requests.router,
         ws.router,
     ):
         app.include_router(router, prefix=_API_PREFIX)

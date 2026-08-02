@@ -3,7 +3,9 @@ import type {
   Capability,
   Decision,
   HumanRequest,
+  Initiative,
   InitiativeBoardView,
+  InitiativeSummary,
   Notification,
   Provider,
   StoryExecution,
@@ -76,24 +78,31 @@ function decisionEndpoint(input: DecisionInput): { path: string; body?: unknown 
       return { path: "retry" };
     case "SelectOption":
       return { path: "select", body: { optionId: input.selectedOption } };
+    case "Custom":
+      return { path: "custom", body: { actionName: input.actionName, comment: input.comment } };
   }
 }
 
 export const httpClient: ApiClient = {
   // Queries
-  getBoards: () => get<InitiativeBoardView[]>("/initiatives"),
+  getInitiatives: () => get<InitiativeSummary[]>("/initiatives"),
+  getBoard: (initiativeId) => get<InitiativeBoardView>(`/initiatives/${initiativeId}/board`),
   getStoryTasks: (storyId) => get<Task[]>(`/stories/${storyId}/tasks`),
   getExecution: (executionId) => get<StoryExecution>(`/executions/${executionId}`),
   getTimeline: (storyExecutionId) => get<TimelineEvent[]>(`/executions/${storyExecutionId}/timeline`),
   getArtifacts: (storyId) => get<Artifact[]>(`/stories/${storyId}/artifacts`),
   getArtifact: (artifactId) => get<Artifact>(`/artifacts/${artifactId}`),
   getAttention: () => get<HumanRequest[]>("/attention"),
-  getDecisions: (storyExecutionId) => get<Decision[]>(`/executions/${storyExecutionId}/decisions`),
+  getOpenDecisions: (executionId) => get<HumanRequest[]>(`/executions/${executionId}/decisions`),
+  getDecisionHistory: (executionId) => get<Decision[]>(`/executions/${executionId}/decisions/history`),
   getCapabilities: () => get<Capability[]>("/capabilities"),
   getProviders: () => get<Provider[]>("/providers"),
   getNotifications: () => get<Notification[]>("/notifications"),
 
   // Planning commands
+  createInitiative: (input) => post<Initiative>("/initiatives", input),
+  reorderInitiatives: (initiativeIds) =>
+    post<InitiativeSummary[]>("/initiatives/reorder", { initiativeIds }),
   markTaskReady: (taskId) => post<void>(`/tasks/${taskId}/ready`),
 
   // Execution commands
@@ -102,12 +111,14 @@ export const httpClient: ApiClient = {
   cancelExecution: (executionId) => post<void>(`/executions/${executionId}/cancel`),
   retryExecution: (executionId) => post<void>(`/executions/${executionId}/retry`),
 
-  // Decisions — resolve the execution's open Human Request
-  submitDecision: (humanRequestId, input) => {
+  // Decisions — resolve an execution's open decision-to-make
+  submitDecision: (executionId, decisionId, input) => {
     const { path, body } = decisionEndpoint(input);
-    return post<Decision>(`/human-requests/${humanRequestId}/${path}`, body);
+    return post<Decision>(`/executions/${executionId}/decisions/${decisionId}/${path}`, body);
   },
 
-  // Notifications
-  dismissNotification: (notificationId) => post<void>(`/notifications/${notificationId}/dismiss`),
+  // Notifications (lifecycle: UNREAD -> READ -> ACKED -> CLOSED)
+  openNotification: (notificationId) => post<void>(`/notifications/${notificationId}/open`),
+  ackNotification: (notificationId) => post<void>(`/notifications/${notificationId}/ack`),
+  closeNotification: (notificationId) => post<void>(`/notifications/${notificationId}/close`),
 };

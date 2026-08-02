@@ -16,3 +16,17 @@ class ClarifyBody(Schema):
 
 class SelectBody(Schema):
     option_id: str | None = None
+
+
+class CustomBody(Schema):
+    action_name: str
+    comment: str | None = None
+
+
+class CreateInitiativeBody(Schema):
+    title: str
+    description: str = ""
+
+
+class ReorderInitiativesBody(Schema):
+    initiative_ids: list[str]

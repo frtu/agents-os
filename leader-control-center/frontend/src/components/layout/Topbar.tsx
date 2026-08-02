@@ -5,7 +5,7 @@ import { useUiStore } from "@/store/ui";
 
 export function Topbar({ title }: { title: string }) {
   const { data: notifications } = useNotifications();
-  const unread = notifications?.filter((n) => !n.read).length ?? 0;
+  const unread = notifications?.filter((n) => n.status === "UNREAD").length ?? 0;
   const setNotificationsOpen = useUiStore((s) => s.setNotificationsOpen);
 
   return (
