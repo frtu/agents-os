@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { FormBuilder } from "@ginkgo-bioworks/react-json-schema-form-builder";
+import "bootstrap/dist/css/bootstrap.min.css";
 import type { WorkflowDefinition } from "@/types/domain";
 import { AppShell } from "@/components/layout/AppShell";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -26,7 +28,8 @@ const SAMPLE_SCHEMA = JSON.stringify(
 interface EditorState {
   id: string | null; // null = creating a new definition
   name: string;
-  inputText: string;
+  inputText: string; // JSON Schema (string) driven by the visual builder
+  uiSchemaText: string; // builder-managed uiSchema; not persisted (backend has no field)
   definition: string;
 }
 
@@ -34,6 +37,7 @@ const emptyEditor: EditorState = {
   id: null,
   name: "",
   inputText: SAMPLE_SCHEMA,
+  uiSchemaText: "{}",
   definition: "",
 };
 
@@ -42,6 +46,7 @@ function editorFrom(wd: WorkflowDefinition): EditorState {
     id: wd.id,
     name: wd.name,
     inputText: JSON.stringify(wd.input ?? {}, null, 2),
+    uiSchemaText: "{}",
     definition: wd.definition,
   };
 }
@@ -185,21 +190,27 @@ export function WorkflowPage() {
                   />
                 </label>
 
-                <label className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1">
                   <span className="text-xs font-medium text-muted-foreground">
-                    Input (JSON Schema)
+                    Input parameters
                   </span>
-                  <textarea
-                    value={editor.inputText}
-                    onChange={(e) => setEditor({ ...editor, inputText: e.target.value })}
-                    spellCheck={false}
-                    rows={12}
-                    className={`${inputClass} resize-y font-mono text-xs`}
-                  />
+                  <div className="rounded-md border border-border bg-background p-3">
+                    <FormBuilder
+                      schema={editor.inputText}
+                      uischema={editor.uiSchemaText}
+                      onChange={(newSchema: string, newUiSchema: string) =>
+                        setEditor({
+                          ...editor,
+                          inputText: newSchema,
+                          uiSchemaText: newUiSchema,
+                        })
+                      }
+                    />
+                  </div>
                   {jsonError && (
                     <span className="text-xs text-status-blocked">Invalid JSON: {jsonError}</span>
                   )}
-                </label>
+                </div>
 
                 <label className="flex flex-col gap-1">
                   <span className="text-xs font-medium text-muted-foreground">Definition (DSL)</span>

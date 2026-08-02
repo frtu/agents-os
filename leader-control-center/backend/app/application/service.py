@@ -106,7 +106,10 @@ class ControlCenter:
             epic = self._epic_for_initiative(initiative.id)
             if not epic:
                 continue
-            stories = [s for s in self.store.stories.values() if s.epic_id == epic.id]
+            stories = [
+                s for s in self.store.stories.values()
+                if s.epic_id == epic.id and s.status != PlanningStatus.DELETED
+            ]
             open_total = sum(self.store.open_requests_for_story(s.id) for s in stories)
             summaries.append(
                 InitiativeSummary(
@@ -127,7 +130,10 @@ class ControlCenter:
         columns = empty_columns()
         open_total = 0
         stories = sorted(
-            (s for s in self.store.stories.values() if s.epic_id == epic.id),
+            (
+                s for s in self.store.stories.values()
+                if s.epic_id == epic.id and s.status != PlanningStatus.DELETED
+            ),
             key=lambda s: s.priority,
         )
         for story in stories:
@@ -214,6 +220,23 @@ class ControlCenter:
             epic_id, title, description, priority, acceptance_criteria,
             workflow_definition_id, template_input,
         )
+
+    def update_story(
+        self, story_id: str, title: str, description: str = "",
+        priority: int = 1, acceptance_criteria: list[str] | None = None,
+    ) -> Story:
+        story = self.store.stories.get(story_id)
+        if not story or story.status == PlanningStatus.DELETED:
+            raise NotFoundError(f"Story not found: {story_id}")
+        return self.store.update_story(
+            story_id, title, description, priority, acceptance_criteria
+        )
+
+    def delete_story(self, story_id: str) -> None:
+        story = self.store.stories.get(story_id)
+        if not story or story.status == PlanningStatus.DELETED:
+            raise NotFoundError(f"Story not found: {story_id}")
+        self.store.soft_delete_story(story_id)
 
     @staticmethod
     def _validate_template_input(wd: WorkflowDefinition, values: dict) -> None:

@@ -139,6 +139,41 @@ def test_create_story_lands_in_todo() -> None:
         assert bad.status_code == 404
 
 
+def test_update_and_delete_story() -> None:
+    with _client() as client:
+        summary = client.get(f"{BASE}/initiatives").json()[0]
+        init_id = summary["initiative"]["id"]
+        epic_id = summary["epicId"]
+        story_id = client.post(
+            f"{BASE}/stories", json={"epicId": epic_id, "title": "Temp"}
+        ).json()["id"]
+
+        # Update editable fields (acceptance criteria replaced wholesale).
+        patched = client.patch(
+            f"{BASE}/stories/{story_id}",
+            json={
+                "title": "Renamed",
+                "description": "updated",
+                "priority": 0,
+                "acceptanceCriteria": ["done"],
+            },
+        )
+        assert patched.status_code == 200
+        body = patched.json()
+        assert body["title"] == "Renamed"
+        assert body["priority"] == 0
+        assert [ac["description"] for ac in body["acceptanceCriteria"]] == ["done"]
+
+        # Soft delete drops it from the board projection.
+        assert client.delete(f"{BASE}/stories/{story_id}").status_code == 204
+        board = client.get(f"{BASE}/initiatives/{init_id}/board").json()
+        all_ids = [c["story"]["id"] for col in board["columns"].values() for c in col]
+        assert story_id not in all_ids
+
+        # Deleting again -> 404.
+        assert client.delete(f"{BASE}/stories/{story_id}").status_code == 404
+
+
 def test_draft_story_prefills_fields() -> None:
     with _client() as client:
         init_id = client.get(f"{BASE}/initiatives").json()[0]["initiative"]["id"]

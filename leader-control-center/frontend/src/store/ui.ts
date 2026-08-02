@@ -1,11 +1,13 @@
 import { create } from "zustand";
+import type { Story } from "@/types/domain";
 
 type DetailPanel =
   | { kind: "none" }
   | { kind: "story"; storyId: string; executionId?: string }
   | { kind: "task"; taskId: string; storyId: string }
   | { kind: "artifact"; artifactId: string }
-  | { kind: "createStory"; initiativeId: string; epicId: string };
+  | { kind: "createStory"; initiativeId: string; epicId: string }
+  | { kind: "editStory"; story: Story };
 
 interface UiState {
   // Which initiative boards are expanded on the board page. Absent = collapsed,
@@ -19,6 +21,7 @@ interface UiState {
   openTask: (taskId: string, storyId: string) => void;
   openArtifact: (artifactId: string) => void;
   openCreateStory: (initiativeId: string, epicId: string) => void;
+  openEditStory: (story: Story) => void;
   closePanel: () => void;
 
   // Notifications flyout.
@@ -36,6 +39,7 @@ export const useUiStore = create<UiState>((set) => ({
   openTask: (taskId, storyId) => set({ panel: { kind: "task", taskId, storyId } }),
   openArtifact: (artifactId) => set({ panel: { kind: "artifact", artifactId } }),
   openCreateStory: (initiativeId, epicId) => set({ panel: { kind: "createStory", initiativeId, epicId } }),
+  openEditStory: (story) => set({ panel: { kind: "editStory", story } }),
   closePanel: () => set({ panel: { kind: "none" } }),
 
   notificationsOpen: false,

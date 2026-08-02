@@ -259,6 +259,38 @@ class Store:
         self.bus.emit(MessageType.STORY_UPDATED, story_id)
         return story
 
+    def update_story(
+        self, story_id: str, title: str, description: str,
+        priority: int, acceptance_criteria: list[str] | None = None,
+    ) -> Story:
+        """Update a story's editable planning fields. Acceptance criteria are
+        replaced wholesale (re-issued fresh ids). Bumps version."""
+        existing = self.stories[story_id]
+        updated = existing.model_copy(update={
+            "title": title,
+            "description": description,
+            "priority": priority,
+            "acceptance_criteria": [
+                AcceptanceCriteria(id=uid("ac"), description=d)
+                for d in (acceptance_criteria or [])
+                if d.strip()
+            ],
+            "version": existing.version + 1,
+            "updated_at": now(),
+        })
+        self.stories[story_id] = updated
+        self.bus.emit(MessageType.STORY_UPDATED, story_id)
+        return updated
+
+    def soft_delete_story(self, story_id: str) -> None:
+        """Mark a story DELETED so it drops out of every board projection.
+        Runtime aggregates (executions/history) are left untouched."""
+        existing = self.stories[story_id]
+        self.stories[story_id] = existing.model_copy(
+            update={"status": PlanningStatus.DELETED, "updated_at": now()}
+        )
+        self.bus.emit(MessageType.STORY_UPDATED, story_id)
+
     # -- workflow-definition commands -------------------------------------
     def create_workflow_definition(
         self, name: str, input: dict, definition: str,

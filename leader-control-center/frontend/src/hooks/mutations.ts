@@ -5,6 +5,7 @@ import type { DecisionInput } from "@/api/types";
 import type {
   CreateStoryInput,
   UpdateInitiativeInput,
+  UpdateStoryInput,
   CreateWorkflowDefinitionInput,
   UpdateWorkflowDefinitionInput,
 } from "@/types/domain";
@@ -57,6 +58,29 @@ export function useCreateStory(initiativeId: string) {
     mutationFn: (input: CreateStoryInput) => api.createStory(input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.board(initiativeId) });
+      qc.invalidateQueries({ queryKey: qk.initiatives });
+    },
+  });
+}
+
+export function useUpdateStory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ storyId, input }: { storyId: string; input: UpdateStoryInput }) =>
+      api.updateStory(storyId, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["board"] });
+      qc.invalidateQueries({ queryKey: qk.initiatives });
+    },
+  });
+}
+
+export function useDeleteStory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (storyId: string) => api.deleteStory(storyId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["board"] });
       qc.invalidateQueries({ queryKey: qk.initiatives });
     },
   });

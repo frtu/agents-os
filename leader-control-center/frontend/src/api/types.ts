@@ -3,6 +3,7 @@ import type {
   Capability,
   CreateStoryInput,
   UpdateInitiativeInput,
+  UpdateStoryInput,
   Decision,
   DecisionKind,
   HumanRequest,
@@ -66,6 +67,9 @@ export interface ApiClient {
   // Soft-delete an initiative; its stories are reparented onto the Misc initiative.
   deleteInitiative(initiativeId: string): Promise<void>;
   createStory(input: CreateStoryInput): Promise<Story>;
+  updateStory(storyId: string, input: UpdateStoryInput): Promise<Story>;
+  // Soft-delete a story; it drops out of every board projection.
+  deleteStory(storyId: string): Promise<void>;
   // LLM-assisted prefill: turn a free-text brief into draft story fields.
   draftStory(input: { initiativeId: string; message: string }): Promise<StoryDraft>;
   markTaskReady(taskId: string): Promise<void>;

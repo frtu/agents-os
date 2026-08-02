@@ -1,8 +1,10 @@
-import { Ban, RotateCcw } from "lucide-react";
+import { useState } from "react";
+import { Ban, Pencil, RotateCcw, X } from "lucide-react";
 import { Sheet, SheetHeader } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { ExecutionStatusBadge } from "@/components/ui/status-badge";
 import { TaskList } from "@/features/story/TaskList";
 import { Timeline } from "@/features/story/Timeline";
@@ -19,11 +21,13 @@ import {
   useStoryTasks,
   useTimeline,
 } from "@/hooks/queries";
-import { useCancelExecution, useRetryExecution } from "@/hooks/mutations";
+import { useCancelExecution, useRetryExecution, useDeleteStory } from "@/hooks/mutations";
 
 export function StoryDetailSheet() {
   const panel = useUiStore((s) => s.panel);
   const closePanel = useUiStore((s) => s.closePanel);
+  const openEditStory = useUiStore((s) => s.openEditStory);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const open = panel.kind === "story";
   const storyId = panel.kind === "story" ? panel.storyId : undefined;
   const panelExecutionId = panel.kind === "story" ? panel.executionId : undefined;
@@ -39,6 +43,7 @@ export function StoryDetailSheet() {
 
   const cancel = useCancelExecution();
   const retry = useRetryExecution();
+  const discard = useDeleteStory();
 
   const openRequests = (attention ?? []).filter((r) => r.executionId === executionId);
   const running = execution?.status === "Running" || execution?.status === "Waiting";
@@ -57,22 +62,57 @@ export function StoryDetailSheet() {
         onClose={closePanel}
       />
 
-      {execution && (
+      {card && (
         <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+          <Button size="sm" variant="outline" onClick={() => openEditStory(card.story)}>
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
+          </Button>
           {running && (
-            <Button size="sm" variant="destructive" onClick={() => cancel.mutate(execution.id)} disabled={cancel.isPending}>
+            <Button size="sm" variant="destructive" onClick={() => cancel.mutate(execution!.id)} disabled={cancel.isPending}>
               <Ban className="h-3.5 w-3.5" />
               Cancel
             </Button>
           )}
           {retryable && (
-            <Button size="sm" variant="outline" onClick={() => retry.mutate(execution.id)} disabled={retry.isPending}>
+            <Button size="sm" variant="outline" onClick={() => retry.mutate(execution!.id)} disabled={retry.isPending}>
               <RotateCcw className="h-3.5 w-3.5" />
               Retry
             </Button>
           )}
+          <Button size="sm" variant="outline" onClick={() => setConfirmDiscard(true)}>
+            <X className="h-3.5 w-3.5" />
+            Discard
+          </Button>
         </div>
       )}
+
+      <Dialog open={confirmDiscard} onClose={() => setConfirmDiscard(false)}>
+        <h2 className="text-base font-semibold">Discard story?</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          "{card?.story.title}" will be removed from the board. This can't be undone here.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => setConfirmDiscard(false)}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={() =>
+              storyId &&
+              discard.mutate(storyId, {
+                onSuccess: () => {
+                  setConfirmDiscard(false);
+                  closePanel();
+                },
+              })
+            }
+            disabled={discard.isPending}
+          >
+            Discard
+          </Button>
+        </div>
+      </Dialog>
 
       <ScrollArea className="min-h-0 flex-1 p-4">
         {openRequests.length > 0 && (

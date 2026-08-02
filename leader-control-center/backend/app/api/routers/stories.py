@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 
 from app.api.deps import get_control_center
-from app.api.schemas import CreateStoryBody, DraftStoryBody
+from app.api.schemas import CreateStoryBody, DraftStoryBody, UpdateStoryBody
 from app.application.service import ControlCenter
 from app.domain.models import Artifact, Story, StoryDraft, StoryExecution, Task
 
@@ -17,6 +17,22 @@ async def create_story(body: CreateStoryBody, cc: ControlCenter = Depends(get_co
         body.priority, body.acceptance_criteria,
         body.workflow_definition_id, body.template_input,
     )
+
+
+@router.patch("/stories/{story_id}", response_model=Story)
+async def update_story(
+    story_id: str, body: UpdateStoryBody,
+    cc: ControlCenter = Depends(get_control_center),
+):
+    return cc.update_story(
+        story_id, body.title, body.description,
+        body.priority, body.acceptance_criteria,
+    )
+
+
+@router.delete("/stories/{story_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_story(story_id: str, cc: ControlCenter = Depends(get_control_center)):
+    cc.delete_story(story_id)
 
 
 @router.post("/stories/draft", response_model=StoryDraft)

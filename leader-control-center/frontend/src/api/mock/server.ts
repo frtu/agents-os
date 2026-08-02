@@ -11,6 +11,7 @@ import type {
   BoardColumn,
   Capability,
   CreateStoryInput,
+  UpdateStoryInput,
   Decision,
   DecisionKind,
   HumanRequest,
@@ -565,7 +566,9 @@ function buildSummaries(): InitiativeSummary[] {
     .forEach((initiative) => {
       const epic = [...epics.values()].find((e) => e.initiativeId === initiative.id);
       if (!epic) return;
-      const storyList = [...stories.values()].filter((s) => s.epicId === epic.id);
+      const storyList = [...stories.values()].filter(
+        (s) => s.epicId === epic.id && s.status !== "Deleted",
+      );
       const openReqTotal = storyList.reduce((n, s) => n + openRequestsForStory(s.id), 0);
       summaries.push({
         initiative,
@@ -591,7 +594,7 @@ function buildBoard(initiativeId: string): InitiativeBoardView {
   };
   let openReqTotal = 0;
   [...stories.values()]
-    .filter((s) => s.epicId === epic.id)
+    .filter((s) => s.epicId === epic.id && s.status !== "Deleted")
     .sort((a, b) => a.priority - b.priority)
     .forEach((story) => {
       const execId = executionByStory.get(story.id);
@@ -798,6 +801,32 @@ export const mockServer = {
     stories.set(story.id, story);
     emit("StoryUpdated", story.id);
     return story;
+  },
+  updateStory(storyId: string, input: UpdateStoryInput): Story {
+    ensureSeeded();
+    const existing = stories.get(storyId);
+    if (!existing || existing.status === "Deleted") throw new Error(`Story not found: ${storyId}`);
+    const updated: Story = {
+      ...existing,
+      title: input.title,
+      description: input.description ?? "",
+      priority: input.priority ?? 1,
+      acceptanceCriteria: (input.acceptanceCriteria ?? [])
+        .filter((c) => c.trim())
+        .map((c) => ({ id: uid("ac"), description: c })),
+      version: existing.version + 1,
+      updatedAt: now(),
+    };
+    stories.set(storyId, updated);
+    emit("StoryUpdated", storyId);
+    return updated;
+  },
+  deleteStory(storyId: string): void {
+    ensureSeeded();
+    const existing = stories.get(storyId);
+    if (!existing || existing.status === "Deleted") throw new Error(`Story not found: ${storyId}`);
+    stories.set(storyId, { ...existing, status: "Deleted", updatedAt: now() });
+    emit("StoryUpdated", storyId);
   },
   draftStory(input: { initiativeId: string; message: string }): StoryDraft {
     return draftFromMessage(input.message);

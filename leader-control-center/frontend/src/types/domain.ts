@@ -80,6 +80,13 @@ export interface CreateStoryInput {
   templateInput?: Record<string, unknown>;
 }
 
+export interface UpdateStoryInput {
+  title: string;
+  description?: string;
+  priority?: number;
+  acceptanceCriteria?: string[];
+}
+
 export interface Task extends Resource {
   storyId: string;
   name: string;

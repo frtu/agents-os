@@ -3,6 +3,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { StoryDetailSheet } from "@/features/story/StoryDetailSheet";
 import { TaskDetailSheet } from "@/features/story/TaskDetailSheet";
 import { CreateStorySheet } from "@/features/story/CreateStorySheet";
+import { EditStorySheet } from "@/features/story/EditStorySheet";
 import { ArtifactSheet } from "@/features/artifacts/ArtifactSheet";
 import { NotificationsSheet } from "@/features/notifications/NotificationsSheet";
 
@@ -19,6 +20,7 @@ export function AppShell({ title, children }: { title: string; children: React.R
       <StoryDetailSheet />
       <TaskDetailSheet />
       <CreateStorySheet />
+      <EditStorySheet />
       <ArtifactSheet />
       <NotificationsSheet />
     </div>

@@ -49,6 +49,13 @@ class CreateStoryBody(Schema):
     template_input: dict | None = None
 
 
+class UpdateStoryBody(Schema):
+    title: str
+    description: str = ""
+    priority: int = 1
+    acceptance_criteria: list[str] = []
+
+
 class DraftStoryBody(Schema):
     initiative_id: str
     message: str
