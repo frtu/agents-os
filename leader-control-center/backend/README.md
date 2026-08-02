@@ -2,8 +2,9 @@
 
 FastAPI service that exposes the human-in-the-loop control plane for durable AI
 workflows. It serves a **command-oriented** REST API plus a WebSocket stream
-under `/api/v1`, backed by an in-memory store and a background **simulation
-engine** that stands in for a real durable engine (Temporal) during the MVP.
+under `/api/v1`, backed by a **SQLite** store (in-memory working set, write-through
+to disk) and a background **simulation engine** that stands in for a real durable
+engine (Temporal) during the MVP.
 
 The backend implements the specs in [`../_specs_/`](../_specs_) and the condensed
 design docs in [`../_docs_/`](../_docs_). If code and spec disagree, `_specs_/domain/`
@@ -19,9 +20,9 @@ technology and its deltas from the canonical Postgres data model are defined in
 
 - Python 3.11+ · FastAPI · Pydantic v2 · Uvicorn
 - [uv](https://docs.astral.sh/uv/) for env + running
-- **SQLite** file at `../data/leader-control-center.db` (see [`storage.md`](storage.md));
-  an in-memory adapter behind the same repository seam is used until the SQLite
-  store lands
+- **SQLite** file at `../data/leader-control-center.db` (see [`storage.md`](storage.md)):
+  aggregates persist as JSON documents, written through on the event bus; state
+  survives restarts and seeds only on first run
 
 ## Run
 
@@ -80,8 +81,9 @@ app/
     events.py        realtime message bus types (MessageType, RealtimeMessage)
 
   infra/
-    store.py         in-memory aggregates + indexes + realtime event bus
-    seed.py          sample portfolio/initiatives/stories/tasks on startup
+    store.py         in-memory working set (aggregates + indexes) + event bus
+    db.py            SQLite persistence (write-through on the bus); see storage.md
+    seed.py          sample portfolio/initiatives/stories/tasks on first run
 
   workflow/
     port.py          WorkflowEngine Protocol (engine-agnostic contract)

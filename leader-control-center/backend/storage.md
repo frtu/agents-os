@@ -70,9 +70,36 @@ Planning has no FK to Runtime; `dependency` forms a DAG within a Story.
 ## Fit with the architecture
 
 SQLite sits behind the existing repository / event-bus seam (`app/infra/`), the
-same seam the in-memory MVP store uses today (`app/infra/store.py` — "a
-persistence-backed store slots in here later without touching the application or
-domain layers"). Swapping in-memory → SQLite, or SQLite → Postgres later, is an
-`infra/` change only; `application/` and `domain/` are untouched. This keeps the
+same seam the in-memory MVP store uses today (`app/infra/store.py`). Swapping
+in-memory → SQLite, or SQLite → Postgres later, is an `infra/` change only;
+`application/` and `domain/` are untouched. This keeps the
 [architecture](../_specs_/backend/architecture.md) invariant intact:
 `api → application → domain`, adapters depend on domain ports.
+
+---
+
+## MVP implementation (as built)
+
+The MVP realizes storage as **aggregate persistence**, not the normalized schema
+above — that (per-entity tables, FKs, event log) is deferred.
+
+- **Working set + write-through.** The `Store`'s in-memory dicts remain the
+  runtime working set. `app/infra/db.py` (`Database`) is the durable seam: on
+  boot it loads persisted state (or the app seeds and saves on first run); every
+  state change signalled on the domain **event bus** flushes the store to SQLite.
+  Because the bus already fires on every mutation, `application/`, `domain/`, and
+  `workflow/` need no changes.
+- **One table, JSON documents.** All aggregates persist to a single table
+  `aggregates(collection, id, ord, data)`, where `data` is the aggregate
+  serialized as JSON (Pydantic `model_dump_json`). Deep runtime aggregates
+  (`StoryExecution → TaskExecution → CapabilityExecution → ProviderExecution`)
+  are stored as one document per story execution. `ord` preserves list order for
+  timelines, artifacts, and notifications. Derived indexes (e.g.
+  `execution_by_story`) are rebuilt from the loaded aggregates.
+- **Writes** are full-snapshot rewrites in a single transaction (guarded by a
+  lock, since the simulation tick and request handlers can both trigger a save).
+  Fine at MVP scale; splitting into per-aggregate writes or the normalized schema
+  is a later `infra/` change.
+- **Location & config.** File at `SQLITE_PATH` (default
+  `../data/leader-control-center.db`); the `data/` directory is created on
+  startup. Tests set `SQLITE_PATH=:memory:` for a fresh seed per app.

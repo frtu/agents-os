@@ -14,6 +14,11 @@ def _origins() -> list[str]:
 class Settings:
     host: str = field(default_factory=lambda: os.getenv("HOST", "0.0.0.0"))
     port: int = field(default_factory=lambda: int(os.getenv("PORT", "8000")))
+    sqlite_path: str = field(
+        default_factory=lambda: os.getenv(
+            "SQLITE_PATH", "../data/leader-control-center.db"
+        )
+    )
     simulation_tick_seconds: float = field(
         default_factory=lambda: float(os.getenv("SIMULATION_TICK_SECONDS", "2.5"))
     )

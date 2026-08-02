@@ -1,12 +1,16 @@
-"""In-memory persistence + event bus. This is the MVP adapter behind the
-repository/event-bus seam; a Postgres-backed store slots in here later without
-touching the application or domain layers."""
+"""In-memory working set + event bus. Aggregates live in these dicts at runtime;
+durability is provided by the SQLite `Database` (app/infra/db.py) wired in as a
+write-through behind the event bus, so the application and domain layers are
+untouched. A Postgres/normalized store can replace the seam later the same way."""
 from __future__ import annotations
 
 import itertools
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
+
+if TYPE_CHECKING:
+    from app.infra.db import Database
 
 from app.domain.enums import NotificationStatus
 from app.domain.events import MessageType, RealtimeMessage
@@ -96,6 +100,7 @@ class Store:
         self.notifications: list[Notification] = []
         self.bus = EventBus()
         self.seeded = False
+        self.db: "Database | None" = None  # set by build_control_center
 
     # -- projections helpers used across layers ---------------------------
     def add_timeline(

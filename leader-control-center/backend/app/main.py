@@ -1,8 +1,8 @@
-"""FastAPI application factory. Boots the in-memory control center, mounts the
-REST + WebSocket API under /api/v1, and runs the simulation engine on a
-background tick so executions advance, raise Human Requests, and produce
-Artifacts without any external engine (Temporal slots in behind the same port
-later)."""
+"""FastAPI application factory. Boots the control center (restoring state from
+SQLite or seeding on first run), mounts the REST + WebSocket API under /api/v1,
+and runs the simulation engine on a background tick so executions advance, raise
+Human Requests, and produce Artifacts without any external engine (Temporal slots
+in behind the same port later)."""
 from __future__ import annotations
 
 import asyncio
@@ -50,6 +50,9 @@ async def lifespan(app: FastAPI):
             tick_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await tick_task
+        db = app.state.control_center.store.db
+        if db is not None:
+            db.close()
 
 
 def create_app() -> FastAPI:

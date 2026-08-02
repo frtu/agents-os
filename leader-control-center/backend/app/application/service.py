@@ -298,10 +298,26 @@ class ControlCenter:
 
 
 def build_control_center() -> ControlCenter:
-    """Compose the object graph (store + engine + service) and seed it."""
+    """Compose the object graph (store + engine + service), restore persisted
+    state from SQLite (or seed on first run), and wire write-through persistence:
+    every state change signalled on the event bus flushes the store to SQLite."""
+    from app.config import settings
+    from app.infra.db import Database
     from app.infra.seed import seed
 
     store = Store()
     engine = SimulationEngine(store)
-    seed(store, engine)
+
+    db = Database(settings.sqlite_path)
+    store.db = db
+    if db.has_data():
+        db.load_into(store)
+    else:
+        seed(store, engine)
+        db.save(store)
+
+    # Persist on every state change. Subscribed after seed so the initial load
+    # is a single write, not one per seeded aggregate.
+    store.bus.subscribe(lambda _message: db.save(store))
+
     return ControlCenter(store, engine)
