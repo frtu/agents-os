@@ -18,10 +18,10 @@ Base path: `/api/v1`
 ## Planning
 
 ```
-POST   /initiatives                 create Initiative { title, description }
+POST   /initiatives                 create Initiative { title, description, workflowDefinitionId? }
 POST   /initiatives/reorder         reorder initiatives { initiativeIds: [...] }
 POST   /initiatives/{id}/epics      create Epic
-POST   /stories                     create Story { epicId, title, description?, priority?, acceptanceCriteria? }
+POST   /stories                     create Story { epicId, title, description?, priority?, acceptanceCriteria?, workflowDefinitionId?, templateInput? }
 POST   /stories/draft               draft Story fields from natural language (LLM-assisted prefill)
 POST   /tasks                       create Task (Structured or Goal-Oriented)
 PATCH  /stories/{id}                update Story
@@ -41,6 +41,36 @@ Task creation body selects the planning mode:
 { "storyId": "...", "name": "...", "planningMode": "GoalOriented",
   "goal": "...", "successCriteria": [] }
 ```
+
+> **Create Initiative.** `workflowDefinitionId` is optional; when present it links
+> the Initiative to a Workflow Definition blueprint (the UI picks it by name).
+>
+> **Create Story from template.** When the client sends `workflowDefinitionId`, it
+> must also send `templateInput` — the object produced by rendering the
+> definition's `input` JSON Schema as a form. The server validates `templateInput`
+> against that schema and returns `422` on violation.
+
+---
+
+## Workflow Definitions
+
+Reusable blueprints (authoring-time DSL) that govern how Initiatives and Stories
+are created. Unlike the command-oriented Planning/Runtime APIs, definitions are
+edited directly (create/modify/delete). They are Portfolio-scoped and *not* the
+Temporal Workflow Engine (see
+[../workflow-engine/workflow-engine.md](../workflow-engine/workflow-engine.md)).
+
+```
+GET    /workflow-definitions              list definitions (id, name, updatedAt)
+GET    /workflow-definitions/{id}         full definition (input schema + DSL body)
+POST   /workflow-definitions              create { name, input, definition }
+PATCH  /workflow-definitions/{id}         update { name?, input?, definition? }
+DELETE /workflow-definitions/{id}         delete a definition
+```
+
+- `input` is a JSON Schema object; `definition` is the DSL body (string).
+- `DELETE` is rejected with `409` if the definition is still referenced by an
+  Initiative or Story (`workflowDefinitionId`); callers must detach first.
 
 ---
 

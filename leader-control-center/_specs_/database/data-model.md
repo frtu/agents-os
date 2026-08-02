@@ -30,13 +30,28 @@ provider(id, portfolio_id, name, type,            -- llm|mcp|human|activity
          config jsonb, credential_ref, status)
 ```
 
+### workflow_definition
+A reusable **blueprint** (authoring-time DSL) that governs how work is created:
+`input` is a JSON Schema describing the parameters an instance requires;
+`definition` is the DSL text realizing the workflow. It is *not* the Temporal
+Workflow Engine (see [../workflow-engine/workflow-engine.md](../workflow-engine/workflow-engine.md)),
+which executes runtime work behind a port — a Workflow Definition is stored
+Planning-catalog intent that seeds Initiatives and Stories.
+```
+workflow_definition(id, portfolio_id, name,
+                    input jsonb,          -- JSON Schema for instance parameters
+                    definition text,      -- DSL body
+                    created_at, updated_at, version)
+```
+
 ---
 
 ## Planning (immutable intent)
 
 ### initiative
 ```
-initiative(id, portfolio_id, title, description, status)  -- Draft|Ready|Archived
+initiative(id, portfolio_id, title, description, status,  -- Draft|Ready|Archived
+           workflow_definition_id)                        -- nullable FK, optional blueprint
 ```
 
 ### epic
@@ -46,7 +61,9 @@ epic(id, initiative_id, title, description, status)       -- Draft|Ready|Archive
 
 ### story
 ```
-story(id, epic_id, title, description, priority, status)  -- Draft|Ready|Archived
+story(id, epic_id, title, description, priority, status,  -- Draft|Ready|Archived
+      workflow_definition_id,                             -- nullable FK, set when created from template
+      template_input jsonb)                               -- instance params captured from the definition's JSON Schema
 ```
 
 ### task
@@ -168,6 +185,11 @@ See [../auth/auth.md](../auth/auth.md) and
 
 - `task.capability_id` → `capability.id` (Structured tasks; enforced at command
   time).
+- `initiative.workflow_definition_id` and `story.workflow_definition_id` →
+  `workflow_definition.id` (both nullable; a Workflow Definition is Portfolio-level
+  catalog intent, so Planning may reference it just like `capability_id`).
+- `story.template_input` must validate against the referenced
+  `workflow_definition.input` JSON Schema when `workflow_definition_id` is set.
 - `dependency` forms a DAG within a Story (no cycles).
 - Runtime tables reference Planning by id but Planning has **no** FK to Runtime
   (Planning never depends on Runtime).

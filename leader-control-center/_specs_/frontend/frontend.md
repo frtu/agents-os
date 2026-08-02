@@ -19,6 +19,8 @@ answer:
 - TanStack Query (server state)
 - Zustand (local UI state)
 - WebSocket (realtime; see [../api/realtime.md](../api/realtime.md))
+- react-jsonschema-form (renders a Workflow Definition's `input` JSON Schema as a
+  form — see Create Story below)
 
 ---
 
@@ -38,6 +40,18 @@ with its latest execution status — they are not stored planning states (see
 
 ---
 
+## Navigation
+
+The left sidebar lists the top-level destinations, in order:
+
+```
+Board · Workflow · Attention
+```
+
+`Workflow` sits directly below `Board` and opens the Workflow Definitions manager.
+
+---
+
 ## Views
 
 ### Initiative Board
@@ -52,6 +66,31 @@ the bottom whose textarea auto-grows per line, with a Send button at the
 bottom-right. Sending a natural-language description asks the backend to prefill
 the form (LLM-assisted); the user reviews, edits, and presses Create to add the
 Story to Todo.
+
+The form also has a **Use template** checkbox. When ticked, the drawer resolves
+the Workflow Definition (the initiative's linked definition, or a select box to
+choose one) and renders its `input` JSON Schema as a form via
+react-jsonschema-form. On Create, the captured values are sent as `templateInput`
+together with `workflowDefinitionId`; the schema form's own validation blocks
+Create until the input is valid.
+
+### Create Initiative
+The create-initiative form includes an optional **Workflow** select box listing
+Workflow Definitions by name. Choosing one sets `workflowDefinitionId`; leaving it
+blank creates an Initiative with no linked definition.
+
+### Workflow
+Reached from the `Workflow` sidebar item. Manages **Workflow Definitions**
+(blueprints): a list on the left (name + last-updated) and an editor on the right.
+Leaders can **create**, **modify**, and **delete** definitions. The editor edits:
+
+- **Name** — display name shown in the initiative/story selectors.
+- **Input** — a JSON Schema (JSON editor) describing instance parameters; it is
+  what react-jsonschema-form renders in Create Story.
+- **Definition** — the DSL body (text editor).
+
+Deleting a definition still referenced by an Initiative or Story is blocked
+(surfaces the `409` from the API); the user detaches references first.
 
 ### Story Detail
 Opens when a Story is selected. Shows:

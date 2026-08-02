@@ -37,6 +37,7 @@ grouped by bounded context (see
 | **Acceptance Criteria** | Conditions defining completion for a Story or Task. |
 | **Capability** | A stable business ability the platform can perform (Research, Write, Review, Code…). Provider-independent. |
 | **Capability Catalog** | The reusable set of Capabilities managed at Portfolio/Workspace level. |
+| **Workflow Definition** | A reusable, Portfolio-level blueprint (authoring-time DSL): a `name`, an `input` JSON Schema for instance parameters, and a `definition` DSL body. Optionally linked from an Initiative; a templated Story references one and captures `templateInput`. Distinct from the Temporal **Workflow Engine** (runtime execution behind a port). |
 
 ---
 

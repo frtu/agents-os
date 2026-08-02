@@ -26,6 +26,24 @@ Commands express intent and are the only way to change state.
 | `MarkTaskReady` | Task | `TaskReady` |
 | `CancelTask` | Task | `TaskCancelled` |
 
+`CreateInitiative` accepts an optional `workflowDefinitionId`. `CreateStory`
+accepts an optional `workflowDefinitionId` + `templateInput`; when present the
+handler validates `templateInput` against the definition's `input` JSON Schema
+before emitting `StoryCreated`.
+
+### Workflow Definitions
+Blueprints are edited directly (not command/CRUD-hybrid like Planning). They are
+Portfolio-scoped catalog data, distinct from the Temporal Workflow Engine.
+
+| Command | Aggregate | Emits |
+| ------- | --------- | ----- |
+| `CreateWorkflowDefinition` | WorkflowDefinition | `WorkflowDefinitionCreated` |
+| `UpdateWorkflowDefinition` | WorkflowDefinition | `WorkflowDefinitionUpdated` |
+| `DeleteWorkflowDefinition` | WorkflowDefinition | `WorkflowDefinitionDeleted` |
+
+`DeleteWorkflowDefinition` fails (`409`) while any Initiative or Story references
+the definition.
+
 ### Runtime
 | Command | Effect | Emits |
 | ------- | ------ | ----- |
@@ -60,6 +78,8 @@ Queries never touch aggregates; they read projections.
 | `GetTimeline` | append-only events for an execution |
 | `GetArtifacts` | artifacts for a Story/Task |
 | `GetAttentionQueue` | cross-initiative human requests + failures |
+| `ListWorkflowDefinitions` | Workflow Definition blueprints (name + metadata) |
+| `GetWorkflowDefinition` | one definition (input JSON Schema + DSL body) |
 
 See [../domain/event-model.md](../domain/event-model.md) for projections.
 

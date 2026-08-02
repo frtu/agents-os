@@ -53,7 +53,7 @@ set, columns, relationships, and immutability rules are unchanged.
 | -------------------- | ------------------ | ----- |
 | `PostgreSQL` server | Embedded SQLite file at `../data/` | Single file; no network service. |
 | `uuid` id columns | `TEXT` (UUID/string ids) | Matches the app's string ids (e.g. `story_ab12cd34`). |
-| `jsonb` columns (`inputs`, `outputs`, `config`, `options`, `metadata`, `payload`, `success_criteria`, `default_ai_config`, `result`) | `TEXT` holding JSON | Query with SQLite's `json1` functions (`json_extract`, etc.). |
+| `jsonb` columns (`inputs`, `outputs`, `config`, `options`, `metadata`, `payload`, `success_criteria`, `default_ai_config`, `result`, `input` (workflow_definition JSON Schema), `template_input`) | `TEXT` holding JSON | Query with SQLite's `json1` functions (`json_extract`, etc.). |
 | `uuid[]` arrays (`provider.supported_capabilities`) | `TEXT` JSON array, **or** a junction table `provider_capability(provider_id, capability_id)` | Prefer the junction table if you need to query/join by capability. |
 | `timestamptz` (`created_at`, `updated_at`, `started_at`, …) | `TEXT` ISO-8601 UTC (`…Z`) | Same wire format the app already emits; string-sortable. |
 | `version` (optimistic locking) | `INTEGER` | Semantics unchanged: bump on write, guard with `WHERE version = ?`. |

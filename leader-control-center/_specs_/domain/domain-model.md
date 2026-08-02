@@ -140,6 +140,24 @@ contract. Examples: OpenAI, Anthropic, Gemini, Claude Code, Cursor, GitHub MCP,
 Slack MCP, Temporal Activity, Human. See
 [../execution/providers.md](../execution/providers.md).
 
+### Workflow Definition
+A reusable **blueprint** (authoring-time DSL) that governs how work is created.
+Shape:
+
+```
+WorkflowDefinition { id, name, input, definition }
+```
+
+- `input` is a JSON Schema describing the parameters an instance requires.
+- `definition` is the DSL body realizing the workflow.
+
+An Initiative may optionally reference a Workflow Definition; a Story created from
+a template references one and captures `templateInput` validated against its
+`input` schema. A Workflow Definition is **not** the Temporal Workflow Engine
+(which executes runtime work behind a port, see
+[../workflow-engine/workflow-engine.md](../workflow-engine/workflow-engine.md)) —
+it is Portfolio-level catalog intent, like Capability.
+
 ---
 
 ## Runtime Entities

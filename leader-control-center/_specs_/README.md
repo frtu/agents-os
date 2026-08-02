@@ -81,6 +81,7 @@ Full detail: [domain/domain-model.md](./domain/domain-model.md).
 | Timeline / Events | [domain/event-model.md](./domain/event-model.md) |
 | Planning Modes (Structured / Goal-Oriented) | [planning/planning-modes.md](./planning/planning-modes.md) |
 | Capability Model / Catalog | [planning/capabilities.md](./planning/capabilities.md) |
+| Workflow Definition (blueprint/template) | [domain/domain-model.md](./domain/domain-model.md) · [database/data-model.md](./database/data-model.md) · [api/rest-api.md](./api/rest-api.md) · [frontend/frontend.md](./frontend/frontend.md) |
 | Scheduling (Manual / Dependency / AI) | [planning/scheduling.md](./planning/scheduling.md) |
 | Runtime Objects / Execution | [execution/execution-model.md](./execution/execution-model.md) |
 | Execution Strategy | [execution/execution-strategy.md](./execution/execution-strategy.md) |
