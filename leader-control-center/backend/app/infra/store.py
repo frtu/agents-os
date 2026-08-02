@@ -11,6 +11,7 @@ from typing import Callable
 from app.domain.enums import NotificationStatus
 from app.domain.events import MessageType, RealtimeMessage
 from app.domain.models import (
+    AcceptanceCriteria,
     Artifact,
     Capability,
     Decision,
@@ -160,3 +161,24 @@ class Store:
                     update={"order": index, "updated_at": now()}
                 )
         self.bus.emit(MessageType.STORY_UPDATED, "initiatives")
+
+    # -- story commands ---------------------------------------------------
+    def create_story(
+        self, epic_id: str, title: str, description: str = "",
+        priority: int = 1, acceptance_criteria: list[str] | None = None,
+    ) -> Story:
+        """Create a Draft story on an epic (lands in the Todo column)."""
+        story_id = uid("story")
+        story = Story(
+            id=story_id, epic_id=epic_id, title=title, description=description,
+            priority=priority, status="Draft",
+            acceptance_criteria=[
+                AcceptanceCriteria(id=uid("ac"), description=d)
+                for d in (acceptance_criteria or [])
+                if d.strip()
+            ],
+            created_at=now(), updated_at=now(),
+        )
+        self.stories[story_id] = story
+        self.bus.emit(MessageType.STORY_UPDATED, story_id)
+        return story

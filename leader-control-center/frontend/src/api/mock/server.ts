@@ -10,6 +10,7 @@ import type {
   Artifact,
   BoardColumn,
   Capability,
+  CreateStoryInput,
   Decision,
   DecisionKind,
   HumanRequest,
@@ -20,6 +21,7 @@ import type {
   Provider,
   Story,
   StoryCardView,
+  StoryDraft,
   StoryExecution,
   Task,
   TaskExecution,
@@ -476,6 +478,30 @@ function openRequestsForStory(storyId: string): number {
   return n;
 }
 
+const BULLET_MARKERS = ["-", "*", "•"];
+
+/**
+ * Heuristic stand-in for an LLM (mirrors backend service._draft_from_message):
+ * bullet lines become acceptance criteria, the first sentence becomes a title.
+ */
+function draftFromMessage(message: string): StoryDraft {
+  const text = message.trim();
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const bullets = lines
+    .filter((l) => BULLET_MARKERS.includes(l[0]))
+    .map((l) => l.slice(1).trim())
+    .filter(Boolean);
+  const prose = lines.filter((l) => !BULLET_MARKERS.includes(l[0]));
+  const first = prose[0] ?? lines[0] ?? "";
+  const title = first.split(". ")[0].slice(0, 80).trim();
+  const description = prose.join("\n").trim() || text;
+  const lower = text.toLowerCase();
+  let priority = 1;
+  if (["urgent", "critical", "asap", "high priority"].some((k) => lower.includes(k))) priority = 0;
+  else if (lower.includes("low priority") || lower.includes("nice to have")) priority = 2;
+  return { title, description, priority, acceptanceCriteria: bullets };
+}
+
 function columnFor(story: Story, exec: StoryExecution | undefined, openReqs: number): BoardColumn {
   if (!exec) return story.status === "Ready" ? "Ready" : "Todo";
   if (openReqs > 0 || exec.status === "Waiting" || exec.status === "Failed") return "Blocked";
@@ -643,6 +669,26 @@ export const mockServer = {
     });
     emit("StoryUpdated", "initiatives");
     return buildSummaries();
+  },
+  createStory(input: CreateStoryInput): Story {
+    ensureSeeded();
+    const story = resource<Story>({
+      id: uid("story"),
+      epicId: input.epicId,
+      title: input.title,
+      description: input.description ?? "",
+      priority: input.priority ?? 1,
+      status: "Draft",
+      acceptanceCriteria: (input.acceptanceCriteria ?? [])
+        .filter((c) => c.trim())
+        .map((c) => ({ id: uid("ac"), description: c })),
+    }) as Story;
+    stories.set(story.id, story);
+    emit("StoryUpdated", story.id);
+    return story;
+  },
+  draftStory(input: { initiativeId: string; message: string }): StoryDraft {
+    return draftFromMessage(input.message);
   },
   getStoryTasks(storyId: string): Task[] {
     return [...tasks.values()].filter((t) => t.storyId === storyId).sort((a, b) => a.order - b.order);

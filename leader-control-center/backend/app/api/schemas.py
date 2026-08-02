@@ -30,3 +30,16 @@ class CreateInitiativeBody(Schema):
 
 class ReorderInitiativesBody(Schema):
     initiative_ids: list[str]
+
+
+class CreateStoryBody(Schema):
+    epic_id: str
+    title: str
+    description: str = ""
+    priority: int = 1
+    acceptance_criteria: list[str] = []
+
+
+class DraftStoryBody(Schema):
+    initiative_id: str
+    message: str

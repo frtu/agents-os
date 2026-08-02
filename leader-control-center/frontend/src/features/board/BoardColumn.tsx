@@ -1,5 +1,6 @@
 import type { BoardColumn as ColumnKey, StoryCardView } from "@/types/domain";
 import { StoryCard } from "@/features/board/StoryCard";
+import { AddStoryCard } from "@/features/board/AddStoryCard";
 import { columnToStatusKey } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +15,18 @@ const dotClass: Record<ReturnType<typeof columnToStatusKey>, string> = {
   cancelled: "bg-status-cancelled",
 };
 
-export function BoardColumn({ column, cards }: { column: ColumnKey; cards: StoryCardView[] }) {
+export function BoardColumn({
+  column,
+  cards,
+  initiativeId,
+  epicId,
+}: {
+  column: ColumnKey;
+  cards: StoryCardView[];
+  initiativeId: string;
+  epicId: string;
+}) {
+  const isTodo = column === "Todo";
   return (
     <div className="flex min-w-[240px] flex-1 flex-col">
       <div className="mb-2 flex items-center gap-2 px-1">
@@ -26,10 +38,14 @@ export function BoardColumn({ column, cards }: { column: ColumnKey; cards: Story
         {cards.map((card) => (
           <StoryCard key={card.story.id} card={card} />
         ))}
-        {cards.length === 0 && (
-          <div className="rounded-md border border-dashed border-border py-6 text-center text-xs text-muted-foreground">
-            Empty
-          </div>
+        {isTodo ? (
+          <AddStoryCard initiativeId={initiativeId} epicId={epicId} />
+        ) : (
+          cards.length === 0 && (
+            <div className="rounded-md border border-dashed border-border py-6 text-center text-xs text-muted-foreground">
+              Empty
+            </div>
+          )
         )}
       </div>
     </div>

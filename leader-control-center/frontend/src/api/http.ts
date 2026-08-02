@@ -8,6 +8,8 @@ import type {
   InitiativeSummary,
   Notification,
   Provider,
+  Story,
+  StoryDraft,
   StoryExecution,
   Task,
   TimelineEvent,
@@ -103,6 +105,8 @@ export const httpClient: ApiClient = {
   createInitiative: (input) => post<Initiative>("/initiatives", input),
   reorderInitiatives: (initiativeIds) =>
     post<InitiativeSummary[]>("/initiatives/reorder", { initiativeIds }),
+  createStory: (input) => post<Story>("/stories", input),
+  draftStory: (input) => post<StoryDraft>("/stories/draft", input),
   markTaskReady: (taskId) => post<void>(`/tasks/${taskId}/ready`),
 
   // Execution commands

@@ -1,6 +1,7 @@
 import type {
   Artifact,
   Capability,
+  CreateStoryInput,
   Decision,
   DecisionKind,
   HumanRequest,
@@ -9,6 +10,8 @@ import type {
   InitiativeSummary,
   Notification,
   Provider,
+  Story,
+  StoryDraft,
   StoryExecution,
   Task,
   TimelineEvent,
@@ -46,6 +49,9 @@ export interface ApiClient {
   // Planning commands
   createInitiative(input: { title: string; description?: string }): Promise<Initiative>;
   reorderInitiatives(initiativeIds: string[]): Promise<InitiativeSummary[]>;
+  createStory(input: CreateStoryInput): Promise<Story>;
+  // LLM-assisted prefill: turn a free-text brief into draft story fields.
+  draftStory(input: { initiativeId: string; message: string }): Promise<StoryDraft>;
   markTaskReady(taskId: string): Promise<void>;
 
   // Execution commands

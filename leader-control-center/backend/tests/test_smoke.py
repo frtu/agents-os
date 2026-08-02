@@ -76,6 +76,61 @@ def test_create_and_reorder_initiatives() -> None:
         assert [s["initiative"]["id"] for s in result] == reversed_ids
 
 
+def test_create_story_lands_in_todo() -> None:
+    with _client() as client:
+        summary = client.get(f"{BASE}/initiatives").json()[0]
+        init_id = summary["initiative"]["id"]
+        epic_id = summary["epicId"]
+
+        created = client.post(
+            f"{BASE}/stories",
+            json={
+                "epicId": epic_id, "title": "Wire billing",
+                "description": "d", "priority": 1,
+                "acceptanceCriteria": ["invoices export", "taxes computed"],
+            },
+        )
+        assert created.status_code == 201
+        story = created.json()
+        assert story["status"] == "Draft"
+        assert story["epicId"] == epic_id
+        assert [ac["description"] for ac in story["acceptanceCriteria"]] == [
+            "invoices export", "taxes computed"
+        ]
+
+        # New Draft story shows up in the Todo column of that board.
+        board = client.get(f"{BASE}/initiatives/{init_id}/board").json()
+        todo_ids = [c["story"]["id"] for c in board["columns"]["Todo"]]
+        assert story["id"] in todo_ids
+
+        # Unknown epic -> 404.
+        bad = client.post(
+            f"{BASE}/stories", json={"epicId": "nope", "title": "x"}
+        )
+        assert bad.status_code == 404
+
+
+def test_draft_story_prefills_fields() -> None:
+    with _client() as client:
+        init_id = client.get(f"{BASE}/initiatives").json()[0]["initiative"]["id"]
+        resp = client.post(
+            f"{BASE}/stories/draft",
+            json={
+                "initiativeId": init_id,
+                "message": "Urgent: add SSO login.\n- support Google\n- support Okta",
+            },
+        )
+        assert resp.status_code == 200
+        draft = resp.json()
+        assert draft["title"]
+        assert draft["priority"] == 0  # "urgent" -> highest
+        assert draft["acceptanceCriteria"] == ["support Google", "support Okta"]
+
+        assert client.post(
+            f"{BASE}/stories/draft", json={"initiativeId": "nope", "message": "x"}
+        ).status_code == 404
+
+
 def test_catalog_endpoints() -> None:
     with _client() as client:
         caps = client.get(f"{BASE}/capabilities")

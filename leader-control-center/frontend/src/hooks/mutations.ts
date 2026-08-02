@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api";
 import type { DecisionInput } from "@/api/types";
+import type { CreateStoryInput } from "@/types/domain";
 import { qk } from "@/hooks/queryKeys";
 
 export function useCreateInitiative() {
@@ -16,6 +17,23 @@ export function useReorderInitiatives() {
   return useMutation({
     mutationFn: (initiativeIds: string[]) => api.reorderInitiatives(initiativeIds),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.initiatives }),
+  });
+}
+
+export function useCreateStory(initiativeId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateStoryInput) => api.createStory(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.board(initiativeId) });
+      qc.invalidateQueries({ queryKey: qk.initiatives });
+    },
+  });
+}
+
+export function useDraftStory() {
+  return useMutation({
+    mutationFn: (input: { initiativeId: string; message: string }) => api.draftStory(input),
   });
 }
 

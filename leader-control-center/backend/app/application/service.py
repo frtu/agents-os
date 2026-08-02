@@ -17,7 +17,9 @@ from app.domain.models import (
     InitiativeSummary,
     Notification,
     Provider,
+    Story,
     StoryCardView,
+    StoryDraft,
     StoryExecution,
     Task,
     TimelineEvent,
@@ -30,6 +32,31 @@ from app.workflow.simulation import (
 )
 
 _PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}
+
+_BULLET_MARKERS = ("-", "*", "•")
+
+
+def _draft_from_message(message: str) -> StoryDraft:
+    """Heuristic stand-in for an LLM: split a free-text brief into story fields.
+    Bullet lines become acceptance criteria; the first sentence becomes a title."""
+    text = message.strip()
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    bullets = [ln[1:].strip() for ln in lines if ln[:1] in _BULLET_MARKERS and ln[1:].strip()]
+    prose = [ln for ln in lines if ln[:1] not in _BULLET_MARKERS]
+    first = prose[0] if prose else (lines[0] if lines else "")
+    title = first.split(". ")[0][:80].strip()
+    description = "\n".join(prose).strip() or text
+    lower = text.lower()
+    if any(k in lower for k in ("urgent", "critical", "asap", "high priority")):
+        priority = 0
+    elif "low priority" in lower or "nice to have" in lower:
+        priority = 2
+    else:
+        priority = 1
+    return StoryDraft(
+        title=title, description=description, priority=priority,
+        acceptance_criteria=bullets,
+    )
 
 
 class NotFoundError(Exception):
@@ -110,6 +137,23 @@ class ControlCenter:
 
     def create_initiative(self, title: str, description: str) -> Initiative:
         return self.store.create_initiative(title, description)
+
+    def create_story(
+        self, epic_id: str, title: str, description: str = "",
+        priority: int = 1, acceptance_criteria: list[str] | None = None,
+    ) -> Story:
+        if epic_id not in self.store.epics:
+            raise NotFoundError(f"Epic not found: {epic_id}")
+        return self.store.create_story(
+            epic_id, title, description, priority, acceptance_criteria
+        )
+
+    def draft_story(self, initiative_id: str, message: str) -> StoryDraft:
+        """LLM-assisted prefill for the create-story form. Until an LLM provider
+        is wired, this is a deterministic heuristic over the free-text message."""
+        if not self._epic_for_initiative(initiative_id):
+            raise NotFoundError(f"Initiative not found: {initiative_id}")
+        return _draft_from_message(message)
 
     def reorder_initiatives(self, ids: list[str]) -> list[InitiativeSummary]:
         self.store.reorder_initiatives(ids)

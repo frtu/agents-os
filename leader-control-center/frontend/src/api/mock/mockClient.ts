@@ -1,6 +1,7 @@
 import type {
   Artifact,
   Capability,
+  CreateStoryInput,
   Decision,
   HumanRequest,
   Initiative,
@@ -8,6 +9,8 @@ import type {
   InitiativeSummary,
   Notification,
   Provider,
+  Story,
+  StoryDraft,
   StoryExecution,
   Task,
   TimelineEvent,
@@ -44,6 +47,9 @@ export const mockClient: ApiClient = {
   createInitiative: (input): Promise<Initiative> => delay(mockServer.createInitiative(input)),
   reorderInitiatives: (initiativeIds: string[]): Promise<InitiativeSummary[]> =>
     delay(mockServer.reorderInitiatives(initiativeIds)),
+  createStory: (input: CreateStoryInput): Promise<Story> => delay(mockServer.createStory(input)),
+  draftStory: (input: { initiativeId: string; message: string }): Promise<StoryDraft> =>
+    delay(mockServer.draftStory(input), 400),
   markTaskReady: (taskId: string): Promise<void> => delay(mockServer.markTaskReady(taskId)),
 
   // Execution commands

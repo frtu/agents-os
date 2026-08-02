@@ -51,6 +51,22 @@ export interface AcceptanceCriteria {
   description: string;
 }
 
+// LLM-assisted prefill for the create-story form (not a stored resource).
+export interface StoryDraft {
+  title: string;
+  description: string;
+  priority: number;
+  acceptanceCriteria: string[];
+}
+
+export interface CreateStoryInput {
+  epicId: string;
+  title: string;
+  description?: string;
+  priority?: number;
+  acceptanceCriteria?: string[];
+}
+
 export interface Task extends Resource {
   storyId: string;
   name: string;

@@ -44,6 +44,15 @@ with its latest execution status — they are not stored planning states (see
 Collapsible drawers per Initiative; Stories as cards in columns; progress and
 attention badges.
 
+### Create Story
+The Todo column ends with an add-story card (a centered `+`). It opens a
+right-hand drawer scoped to the initiative's epic: a form on top (title `*`
+required; description, priority, acceptance criteria optional) and a chat box at
+the bottom whose textarea auto-grows per line, with a Send button at the
+bottom-right. Sending a natural-language description asks the backend to prefill
+the form (LLM-assisted); the user reviews, edits, and presses Create to add the
+Story to Todo.
+
 ### Story Detail
 Opens when a Story is selected. Shows:
 - Planning (Tasks, dependencies, acceptance criteria)

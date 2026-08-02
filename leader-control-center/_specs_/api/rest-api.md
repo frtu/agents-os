@@ -21,7 +21,8 @@ Base path: `/api/v1`
 POST   /initiatives                 create Initiative { title, description }
 POST   /initiatives/reorder         reorder initiatives { initiativeIds: [...] }
 POST   /initiatives/{id}/epics      create Epic
-POST   /stories                     create Story
+POST   /stories                     create Story { epicId, title, description?, priority?, acceptanceCriteria? }
+POST   /stories/draft               draft Story fields from natural language (LLM-assisted prefill)
 POST   /tasks                       create Task (Structured or Goal-Oriented)
 PATCH  /stories/{id}                update Story
 PATCH  /tasks/{id}                  update Task
@@ -107,6 +108,17 @@ GET    /attention                   Attention Queue (cross-initiative)
 > columns on demand via `GET /initiatives/{id}/board`. Initiatives are returned
 > in ascending `order`; drag-to-reorder persists the new order atomically via
 > `POST /initiatives/reorder` (`{ initiativeIds: [...] }`, order = list index).
+
+> **Create Story.** The Todo column of each board ends with an add-story card (a
+> centered `+`) that opens a right-hand drawer scoped to that initiative's epic.
+> The drawer has a form on top (title `*` required; description, priority, and
+> acceptance criteria optional) and a chat box at the bottom. Typing intent into
+> the chat and pressing Send calls `POST /stories/draft` (`{ initiativeId,
+> message }`), which returns prefilled fields (`{ title, description, priority,
+> acceptanceCriteria }`) the user can review and edit. This is an LLM-assisted
+> step; until an LLM provider is wired it is served by a deterministic heuristic
+> stub. Pressing Create submits `POST /stories`, which creates the Story with
+> planning status `Draft` (landing it in the Todo column) and returns it.
 
 ---
 

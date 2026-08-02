@@ -27,7 +27,7 @@ export function InitiativeBoard({
   onDrop,
   onDragEnd,
 }: Props) {
-  const { initiative, storyCount, openHumanRequests } = summary;
+  const { initiative, epicId, storyCount, openHumanRequests } = summary;
   const expanded = useUiStore((s) => s.expandedInitiatives[initiative.id] ?? false);
   const toggle = useUiStore((s) => s.toggleInitiative);
   const { data: board, isLoading } = useInitiativeBoard(initiative.id, expanded);
@@ -79,7 +79,13 @@ export function InitiativeBoard({
           ) : (
             <div className="flex gap-4 p-4 pt-0">
               {ORDER.map((column) => (
-                <BoardColumn key={column} column={column} cards={board.columns[column]} />
+                <BoardColumn
+                  key={column}
+                  column={column}
+                  cards={board.columns[column]}
+                  initiativeId={initiative.id}
+                  epicId={epicId}
+                />
               ))}
             </div>
           )}

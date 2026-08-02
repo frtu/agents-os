@@ -63,6 +63,15 @@ class Story(Resource):
     acceptance_criteria: list[AcceptanceCriteria] = []
 
 
+class StoryDraft(Schema):
+    """LLM-assisted prefill for the create-story form (not a stored resource)."""
+
+    title: str
+    description: str
+    priority: int
+    acceptance_criteria: list[str] = []
+
+
 class Task(Resource):
     story_id: str
     name: str
