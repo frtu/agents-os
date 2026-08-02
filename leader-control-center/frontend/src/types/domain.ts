@@ -18,7 +18,7 @@ export interface Resource {
 // Planning (immutable intent)
 // ---------------------------------------------------------------------------
 
-export type PlanningStatus = "Draft" | "Ready" | "Archived";
+export type PlanningStatus = "Draft" | "Ready" | "Archived" | "Deleted";
 export type TaskPlanningStatus = "Draft" | "Ready" | "Cancelled";
 export type PlanningMode = "Structured" | "GoalOriented";
 

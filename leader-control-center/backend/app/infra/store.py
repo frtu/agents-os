@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Callable
 if TYPE_CHECKING:
     from app.infra.db import Database
 
-from app.domain.enums import NotificationStatus
+from app.domain.enums import NotificationStatus, PlanningStatus
 from app.domain.events import MessageType, RealtimeMessage
 from app.domain.models import (
     AcceptanceCriteria,
@@ -30,6 +30,9 @@ from app.domain.models import (
 )
 
 _counter = itertools.count(1)
+
+# Stable id of the default initiative that hosts stories orphaned by a deletion.
+MISC_INITIATIVE_ID = "init_misc"
 
 
 def uid(prefix: str) -> str:
@@ -156,6 +159,43 @@ class Store:
         self.epics[epic_id] = EpicRow(epic_id, init_id, title)
         self.bus.emit(MessageType.STORY_UPDATED, init_id)
         return initiative
+
+    def ensure_misc_initiative(self) -> Initiative:
+        """The `Misc` initiative is created lazily the first time a deletion
+        orphans a story, so it never clutters a fresh install."""
+        misc = self.initiatives.get(MISC_INITIATIVE_ID)
+        if misc:
+            return misc
+        misc = Initiative(
+            id=MISC_INITIATIVE_ID, portfolio_id="portfolio_default",
+            title="Misc", description="Stories without a parent initiative.",
+            status="Ready", order=len(self.initiatives),
+            created_at=now(), updated_at=now(),
+        )
+        self.initiatives[MISC_INITIATIVE_ID] = misc
+        epic_id = f"epic_{MISC_INITIATIVE_ID}"
+        self.epics[epic_id] = EpicRow(epic_id, MISC_INITIATIVE_ID, "Misc")
+        return misc
+
+    def soft_delete_initiative(self, initiative_id: str) -> None:
+        """Mark an initiative DELETED and reparent its stories onto Misc so no
+        planning work is lost. Runtime aggregates are left untouched."""
+        initiative = self.initiatives[initiative_id]
+        epic_ids = {e.id for e in self.epics.values() if e.initiative_id == initiative_id}
+        orphans = [s for s in self.stories.values() if s.epic_id in epic_ids]
+        if orphans:
+            misc = self.ensure_misc_initiative()
+            misc_epic = next(
+                e.id for e in self.epics.values() if e.initiative_id == misc.id
+            )
+            for story in orphans:
+                self.stories[story.id] = story.model_copy(
+                    update={"epic_id": misc_epic, "updated_at": now()}
+                )
+        self.initiatives[initiative_id] = initiative.model_copy(
+            update={"status": PlanningStatus.DELETED, "updated_at": now()}
+        )
+        self.bus.emit(MessageType.STORY_UPDATED, initiative_id)
 
     def reorder_initiatives(self, ids: list[str]) -> None:
         """Assign order = position for each known id (unlisted ones keep theirs)."""

@@ -17,6 +17,7 @@ class PlanningStatus(StrEnum):
     DRAFT = "Draft"
     READY = "Ready"
     ARCHIVED = "Archived"
+    DELETED = "Deleted"  # soft-delete: filtered out of every API response
 
 
 class TaskPlanningStatus(StrEnum):

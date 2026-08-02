@@ -41,6 +41,9 @@ interface EpicRow {
   title: string;
 }
 
+// Stable id of the default initiative that hosts stories orphaned by a deletion.
+const MISC_INITIATIVE_ID = "init_misc";
+
 const initiatives = new Map<string, Initiative>();
 const epics = new Map<string, EpicRow>();
 const stories = new Map<string, Story>();
@@ -462,6 +465,26 @@ function addArtifact(storyId: string, execId: string, type: Artifact["type"], na
 // Projections
 // --------------------------------------------------------------------------
 
+/** Lazily create the default `Misc` initiative + epic; returns its epic id. */
+function ensureMiscInitiative(): string {
+  const epicId = `epic_${MISC_INITIATIVE_ID}`;
+  if (!initiatives.has(MISC_INITIATIVE_ID)) {
+    initiatives.set(
+      MISC_INITIATIVE_ID,
+      resource<Initiative>({
+        id: MISC_INITIATIVE_ID,
+        portfolioId: "portfolio_default",
+        title: "Misc",
+        description: "Stories without a parent initiative.",
+        status: "Ready",
+        order: initiatives.size,
+      }) as Initiative,
+    );
+    epics.set(epicId, { id: epicId, initiativeId: MISC_INITIATIVE_ID, title: "Misc" });
+  }
+  return epicId;
+}
+
 function initiativeForStory(storyId: string): Initiative | undefined {
   const story = stories.get(storyId);
   if (!story) return undefined;
@@ -513,6 +536,7 @@ function columnFor(story: Story, exec: StoryExecution | undefined, openReqs: num
 function buildSummaries(): InitiativeSummary[] {
   const summaries: InitiativeSummary[] = [];
   [...initiatives.values()]
+    .filter((i) => i.status !== "Deleted")
     .sort((a, b) => a.order - b.order)
     .forEach((initiative) => {
       const epic = [...epics.values()].find((e) => e.initiativeId === initiative.id);
@@ -531,7 +555,7 @@ function buildSummaries(): InitiativeSummary[] {
 
 function buildBoard(initiativeId: string): InitiativeBoardView {
   const initiative = initiatives.get(initiativeId);
-  if (!initiative) throw new Error(`Initiative not found: ${initiativeId}`);
+  if (!initiative || initiative.status === "Deleted") throw new Error(`Initiative not found: ${initiativeId}`);
   const epic = [...epics.values()].find((e) => e.initiativeId === initiativeId);
   if (!epic) throw new Error(`Initiative has no epic: ${initiativeId}`);
   const cols: Record<BoardColumn, StoryCardView[]> = {
@@ -661,6 +685,24 @@ export const mockServer = {
     epics.set(epicId, { id: epicId, initiativeId: id, title: input.title });
     emit("StoryUpdated", id);
     return initiative;
+  },
+  deleteInitiative(initiativeId: string): void {
+    ensureSeeded();
+    const initiative = initiatives.get(initiativeId);
+    if (!initiative || initiative.status === "Deleted") {
+      throw new Error(`Initiative not found: ${initiativeId}`);
+    }
+    if (initiativeId === MISC_INITIATIVE_ID) {
+      throw new Error("The Misc initiative cannot be deleted");
+    }
+    const epicIds = new Set([...epics.values()].filter((e) => e.initiativeId === initiativeId).map((e) => e.id));
+    const orphans = [...stories.values()].filter((s) => epicIds.has(s.epicId));
+    if (orphans.length > 0) {
+      const miscEpic = ensureMiscInitiative();
+      orphans.forEach((s) => stories.set(s.id, { ...s, epicId: miscEpic, updatedAt: now() }));
+    }
+    initiatives.set(initiativeId, { ...initiative, status: "Deleted", updatedAt: now() });
+    emit("StoryUpdated", initiativeId);
   },
   reorderInitiatives(ids: string[]): InitiativeSummary[] {
     ids.forEach((id, order) => {

@@ -49,6 +49,8 @@ export interface ApiClient {
   // Planning commands
   createInitiative(input: { title: string; description?: string }): Promise<Initiative>;
   reorderInitiatives(initiativeIds: string[]): Promise<InitiativeSummary[]>;
+  // Soft-delete an initiative; its stories are reparented onto the Misc initiative.
+  deleteInitiative(initiativeId: string): Promise<void>;
   createStory(input: CreateStoryInput): Promise<Story>;
   // LLM-assisted prefill: turn a free-text brief into draft story fields.
   draftStory(input: { initiativeId: string; message: string }): Promise<StoryDraft>;

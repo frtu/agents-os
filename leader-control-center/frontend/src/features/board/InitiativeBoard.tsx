@@ -1,12 +1,19 @@
-import { ChevronDown, ChevronRight, AlertCircle, GripVertical } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronRight, AlertCircle, GripVertical, Trash2 } from "lucide-react";
 import type { BoardColumn as ColumnKey, InitiativeSummary } from "@/types/domain";
 import { BoardColumn } from "@/features/board/BoardColumn";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/ui";
 import { useInitiativeBoard } from "@/hooks/queries";
+import { useDeleteInitiative } from "@/hooks/mutations";
 
 const ORDER: ColumnKey[] = ["Todo", "Ready", "Running", "Blocked", "Completed"];
+
+// Stable id of the default initiative that hosts orphaned stories; not deletable.
+const MISC_INITIATIVE_ID = "init_misc";
 
 interface Props {
   summary: InitiativeSummary;
@@ -31,6 +38,9 @@ export function InitiativeBoard({
   const expanded = useUiStore((s) => s.expandedInitiatives[initiative.id] ?? false);
   const toggle = useUiStore((s) => s.toggleInitiative);
   const { data: board, isLoading } = useInitiativeBoard(initiative.id, expanded);
+  const deleteInitiative = useDeleteInitiative();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const isMisc = initiative.id === MISC_INITIATIVE_ID;
 
   return (
     <section
@@ -66,7 +76,40 @@ export function InitiativeBoard({
             </span>
           )}
         </button>
+        {!isMisc && (
+          <button
+            onClick={() => setConfirmOpen(true)}
+            aria-label={`Delete initiative ${initiative.title}`}
+            className="ml-1 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
       </div>
+
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
+        <div className="text-base font-semibold">Delete initiative</div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Delete <span className="font-medium text-foreground">{initiative.title}</span>? Its stories
+          will be moved to the <span className="font-medium text-foreground">Misc</span> initiative.
+          This can&apos;t be undone.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button size="sm" variant="outline" onClick={() => setConfirmOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={deleteInitiative.isPending}
+            onClick={() =>
+              deleteInitiative.mutate(initiative.id, { onSuccess: () => setConfirmOpen(false) })
+            }
+          >
+            Delete
+          </Button>
+        </div>
+      </Dialog>
 
       {expanded && (
         <div className="overflow-x-auto scrollbar-thin">

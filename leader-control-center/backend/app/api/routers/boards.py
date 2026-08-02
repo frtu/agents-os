@@ -29,6 +29,13 @@ async def reorder_initiatives(
     return cc.reorder_initiatives(body.initiative_ids)
 
 
+@router.post("/initiatives/{initiative_id}/delete", response_model=list[InitiativeSummary])
+async def delete_initiative(
+    initiative_id: str, cc: ControlCenter = Depends(get_control_center)
+):
+    return cc.delete_initiative(initiative_id)
+
+
 @router.get("/initiatives/{initiative_id}/board", response_model=InitiativeBoardView)
 async def get_board(initiative_id: str, cc: ControlCenter = Depends(get_control_center)):
     return cc.get_board(initiative_id)

@@ -105,6 +105,7 @@ export const httpClient: ApiClient = {
   createInitiative: (input) => post<Initiative>("/initiatives", input),
   reorderInitiatives: (initiativeIds) =>
     post<InitiativeSummary[]>("/initiatives/reorder", { initiativeIds }),
+  deleteInitiative: (initiativeId) => post<void>(`/initiatives/${initiativeId}/delete`),
   createStory: (input) => post<Story>("/stories", input),
   draftStory: (input) => post<StoryDraft>("/stories/draft", input),
   markTaskReady: (taskId) => post<void>(`/tasks/${taskId}/ready`),

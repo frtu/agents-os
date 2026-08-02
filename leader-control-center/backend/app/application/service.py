@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from app.domain.board import column_for, empty_columns
 from app.domain.decisions import actions_for
-from app.domain.enums import DecisionKind, NotificationStatus
+from app.domain.enums import DecisionKind, NotificationStatus, PlanningStatus
 from app.domain.events import MessageType
 from app.domain.models import (
     Artifact,
@@ -91,6 +91,8 @@ class ControlCenter:
         """Lightweight board-list rows (no columns), sorted by initiative order."""
         summaries: list[InitiativeSummary] = []
         for initiative in sorted(self.store.initiatives.values(), key=lambda i: i.order):
+            if initiative.status == PlanningStatus.DELETED:
+                continue
             epic = self._epic_for_initiative(initiative.id)
             if not epic:
                 continue
@@ -107,7 +109,7 @@ class ControlCenter:
     def get_board(self, initiative_id: str) -> InitiativeBoardView:
         """Full Kanban projection for a single initiative."""
         initiative = self.store.initiatives.get(initiative_id)
-        if not initiative:
+        if not initiative or initiative.status == PlanningStatus.DELETED:
             raise NotFoundError(f"Initiative not found: {initiative_id}")
         epic = self._epic_for_initiative(initiative_id)
         if not epic:
@@ -137,6 +139,19 @@ class ControlCenter:
 
     def create_initiative(self, title: str, description: str) -> Initiative:
         return self.store.create_initiative(title, description)
+
+    def delete_initiative(self, initiative_id: str) -> list[InitiativeSummary]:
+        """Soft-delete an initiative (status -> DELETED) and reparent its stories
+        onto the default `Misc` initiative. Returns the refreshed summary list."""
+        from app.infra.store import MISC_INITIATIVE_ID
+
+        initiative = self.store.initiatives.get(initiative_id)
+        if not initiative or initiative.status == PlanningStatus.DELETED:
+            raise NotFoundError(f"Initiative not found: {initiative_id}")
+        if initiative_id == MISC_INITIATIVE_ID:
+            raise InvariantError("The Misc initiative cannot be deleted")
+        self.store.soft_delete_initiative(initiative_id)
+        return self.get_initiatives()
 
     def create_story(
         self, epic_id: str, title: str, description: str = "",

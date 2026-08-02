@@ -12,6 +12,18 @@ export function useCreateInitiative() {
   });
 }
 
+export function useDeleteInitiative() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (initiativeId: string) => api.deleteInitiative(initiativeId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.initiatives });
+      // Orphaned stories move to Misc, so any open board may have changed.
+      qc.invalidateQueries({ queryKey: ["board"] });
+    },
+  });
+}
+
 export function useReorderInitiatives() {
   const qc = useQueryClient();
   return useMutation({
