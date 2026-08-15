@@ -58,6 +58,39 @@ The director's test battery for any high-stakes doc — distilled from real coac
 | 9   | **Borrow credibility.** Social proof (peer/stakeholder endorsement, on the record) beats self-grading. Delete "operates above the bar."                                             | "Who else says this, on the record? Let them say it, not you."                  |
 | 10  | **No placeholders survive.** Every "[fill in]" becomes a concrete, scoped fact — a number and a name — before submission, or the section is cut.                                    | "This is blank. Fill it with a number and a name, or delete it."                |
 | 11  | **Ship for review early; tools serve content.** Get senior eyes before "done"; AI is co-pilot, not author; plain format, content carries.                                           | "Who has reviewed this, and when did they first see it?"                        |
+| 12  | **Depth over effort (role yardstick).** Contribution is judged by the depth of judgement the role demands, not hours logged or tasks closed. A senior claim proven only by volume is a junior claim.  | "What did this demand that the level below couldn't? Show the judgement, not the effort." |
+| 13  | **Problem over solution (the hindsight trap).** The credit lives in *framing* the hard problem; once solved it looks obvious and the reader under-prices it. Surface the constraint that made it hard before you show the fix. | "Why was this hard *before* you solved it? Name the constraint, or it reads as trivial." |
+| 14  | **Differential, not the category.** Commodity-looking work (a migration, an upgrade, a refactor) earns its place only when you show what made *this* instance unusual versus the textbook case. Same category ≠ same difficulty. | "Everyone does X. Apple to apple, what was the extra constraint here that the standard playbook doesn't cover?" |
+
+---
+
+## Worked Case Studies
+
+Three recurring failure shapes and how the interrogation moves them from weak to defensible. Generic on purpose — pattern-match the shape, not the specifics. Use them as templates for both the challenge you fire and the distilled result you're steering toward.
+
+### Case A — The commodity migration that wasn't
+
+- **Before:** *"Led migration of service X to framework Y — 40 MRs merged."*
+- **Interrogation:** Everyone migrates; the category is worth ~zero (heuristic 7). And MR count is output, not outcome (3). *"What made this migration different from the textbook one? What constraint did the standard playbook not cover?"* (14)
+- **What surfaces:** it had to run with zero downtime under a constraint the standard case never faces — an unusual data shape, a dual-write window, an irreversible cutover.
+- **Distilled:** *"Migrated X with zero downtime under [the unusual constraint the playbook doesn't handle], removing [the specific pain]."*
+- **Lesson:** the differential (14) and the pain removed (3) carry the bullet — never the category or the MR count.
+
+### Case B — The bullet-point pile
+
+- **Before:** twelve bullets, each a task closed, all equal weight.
+- **Interrogation:** *"If you could keep only three, which? What's the one strategy these are evidence of?"* (1, 7). A flat list has no thesis; the reader can't tell the tier-1 work from the filler.
+- **What surfaces:** two or three of the twelve are strategic; the rest are commodity execution that should be demoted or cut.
+- **Distilled:** one identity line asserting *who this is* (8), then the three strongest proofs, each a claim → one proof (2); commodity work demoted to a single "also shipped…" line or dropped.
+- **Lesson:** start lean and enrich, never start rich and condense. Signal over volume (1), curate and sequence (7), identity not inventory (8).
+
+### Case C — Effort mistaken for seniority
+
+- **Before:** *"Highest MR count on the team; closed 60 tickets this half."*
+- **Interrogation:** *"Whose count is that, and what did it demand that the level below couldn't?"* (12). Raw volume is a *junior* signal — it proves activity, not judgement, and at senior level activity is assumed.
+- **What surfaces:** buried inside the volume is one hard call — framing an ambiguous problem, breaking a large effort into the right increments, or sequencing work by dependency (which piece to start, which to stop) rather than by ease.
+- **Distilled:** lead with the judgement call and the problem it solved (13); the volume becomes at most supporting texture, not the headline.
+- **Lesson:** depth over effort (12); the framing of the problem is the contribution (13), not the count of things done.
 
 ---
 
@@ -194,6 +227,8 @@ Walk the doc's **load-bearing claims in impact order**. For each:
 4. Adapt on their answer: a weak defense means the claim is cut or downgraded, not waved through.
 
 Keep the loop tight — batch **2–4 challenges, then wait**. Track what survives across rounds. The point is to make them prove it, not to lecture.
+
+When a claim matches one of the [Worked Case Studies](#worked-case-studies) shapes — a commodity-looking migration, a flat bullet-pile, or volume dressed up as seniority — use that case's interrogation line and steer toward its distilled form.
 
 ### Step 3 — Read fight vs. flee
 
