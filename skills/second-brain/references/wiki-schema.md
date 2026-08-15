@@ -1,21 +1,22 @@
 # Wiki Schema
 
-Canonical rules for LLM-maintained knowledge base wikis. This is the single source of truth — agent config templates pull from this document.
+Shared schema for all knowledge base vaults.
 
 ## Architecture
 
 Three directories, three roles:
 
 - **raw/** — immutable source documents. The LLM reads from here but NEVER modifies these files.
-- **wiki/** — the LLM's workspace. Create, update, and maintain all files here.
-- **output/** — reports, query results, and generated artifacts go here.
+- **wiki/** — LLM workspace. Create, update, and maintain wiki pages here.
+- **output/** — reports, query results, and generated artifacts.
 
-### Raw subdirectories
+### Raw Subdirectories
 
-- `raw/assets/` — images, audio or any resources that doesn't processing but can be used inside Markdown document using syntax `![[resource/path]]`
-- `raw/clippings/` — web articles captured with Obsidian Web Clipper or copied manually
-- `raw/docs/` — PDFs, papers, received files, reference documents
-- `raw/notes/` — handwritten notes, briefs, random ideas
+- `raw/assets/` — images, audio, resources for markdown embedding (`![[resource/path]]`)
+- `raw/clippings/` — web articles from Obsidian Web Clipper
+- `raw/docs/` — PDFs, papers, reference documents
+- `raw/notes/` — handwritten notes, briefs, ideas
+- `raw/transcripts/` — video/audio transcripts, podcast notes, recorded conversations
 
 ### Wiki subdirectories
 

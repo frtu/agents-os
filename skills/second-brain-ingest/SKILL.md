@@ -33,6 +33,57 @@ Determine which files need ingestion:
 
 Use the schema for *how* to decompose, the architecture for *where* to place pages, and the CLAUDE.md for *what* is relevant.
 
+## Efficiency: Inventory First, Then Scale the Read
+
+Three moves — learned from large ranking-source ingests — make a run dramatically faster and cut duplicate pages. Do them before decomposing.
+
+### A. Build the existing-concept inventory ONCE, up front
+
+Before reading sources, snapshot what already exists so every later decision is create-vs-**update** with full context:
+
+```bash
+ls wiki/concepts/patterns/**/*.md wiki/concepts/technologies/**/*.md 2>/dev/null
+grep -nE "^- \[\[" wiki/portal.md   # existing pages + one-line summaries
+```
+
+Keep this list. It is (1) the dedup filter for step 3, and (2) the "already covered — do not re-report" brief you hand to sub-agents. Most duplicate pages come from skipping this.
+
+### B. Fan out sub-agents for large or multiple sources (when available)
+
+A source over ~1,500 lines / ~50KB (or several sources at once) should **not** be read into the main context. Launch one `general-purpose` sub-agent per source, in parallel, to **read and extract only** — the main agent stays the sole writer (keeps cross-linking and naming consistent).
+
+Brief each agent with: the extraction goal · **the existing-concept inventory from A** (so it flags only genuinely new units) · a request for a **bounded report (<~800 words) with short traceable quotes**. Then trust-but-verify the report against the raw source for anything you'll assert as fact.
+
+This protects context, parallelizes the slow reads, and is the intended reading of any "fan out sub agents" instruction.
+
+**Two sub-agent roles — keep them distinct:**
+
+1. **Read-only inventory/extraction agents** — read a source (or a target vault's existing pages) and report back. They never write. Use them to parallelize slow reads and to snapshot a vault you're about to enrich.
+2. **A dedicated writer agent for an *independent* vault.** When an ingest spans two vaults (see section D), the writer for the **primary** vault is always the **main agent** (it owns cross-linking + naming). A **second, self-contained** vault (e.g. `security`) may be handed to one background writer sub-agent with a complete brief, because its pages don't cross-link back into the primary vault's fresh pages. Verify that writer's output afterward (read the files it claims to have changed).
+
+Never fan out multiple writers into the **same** vault in parallel — concurrent writers produce inconsistent slugs and duplicate pages.
+
+### C. Honor a scoped ingest
+
+If the user scopes the request to a subset of PTCA (e.g. "**generic concepts only**", "just the patterns", "capabilities not projects"), create only those layers and skip the rest — state the scope back so it's explicit. Don't force a full PTCA decomposition onto a deliberately narrow ask.
+
+### D. Split capability knowledge from infrastructure specifics (multi-vault)
+
+A single source often mixes two kinds of content that belong in **different vaults**:
+
+| Content kind                                                                                                       | Goes to                                     | Page shape                       |
+| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- | -------------------------------- |
+| **Conceptual / behavioral** — what a capability does, its patterns, processes, steps, failure modes, roles         | the **capability vault** (e.g. `product-a`) | normal PTCA pages                |
+| **Environment-specific** — URLs, region lists, cluster specs, image versions, API endpoints, repo names, git paths | the **infra vault** (`infra`)               | `infra-{product}-{component}.md` |
+
+The rule of thumb: **anything that changes when you redeploy or move regions** (a URL, a version pin, a region code, an endpoint) is infra and belongs in `infra`. Anything that stays true regardless of environment (a pattern, a data flow, a role) is capability knowledge and stays in the capability vault.
+- Keep the capability vault **environment-free**. Do not paste URLs, versions, or region tables into `product-a` pages — let the infra page reference back instead.
+- Enrich (append to) an existing `infra-{product}-{component}.md` rather than creating a duplicate; refresh its `Last Updated`.
+- If the user names the target vaults explicitly ("do NOT ingest URLs into `product-a`, append them to `infra`"), honor that split exactly and state it back.
+- Use the **read-only inventory + independent-vault writer** sub-agent pattern from section B for the infra vault.
+
+**Cross-vault link convention:** reference a page in another vault with the full-path form `[[Vault/xxx/wiki/resources/tools/xxx|Xxx]]`. A cross-vault link that dangles (target not yet created in the other vault) is acceptable — do not let the `MISSING` check in step 6 block on cross-vault targets; only enforce resolution for **same-vault** links.
+
 ## Step 0: Identify the Target System
 
 Before reading any source, determine the **target system** the vault represents:
@@ -52,6 +103,12 @@ For each source file, follow this workflow:
 ### 1. Read the source completely
 
 Read the entire file. If the file contains image references, note them — read the images separately if they contain important information.
+
+**Verify content matches the filename.** Files are often mis-named or mis-filed (e.g. a "Orchestration-Plan" file that is actually an API-review meeting transcript). If the actual content is off-topic relative to the ingest goal or the folder it sits in, surface it to the user and exclude it rather than forcing its content into unrelated pages. Ingest by *what the file says*, not what it is named.
+
+**Reuse an existing source page.** Before creating a `source-{slug}.md`, grep `wiki/sources/` — a supplemental or re-ingest of an already-summarized source should **update** the existing source page (add new `Source links` targets, refresh `Last Updated`), not create a duplicate.
+
+**Detect a duplicate source before decomposing.** Beyond filename, check whether the *content* is one you have already ingested (the same recording re-exported, the same doc re-shared under a new name). If it is identical or near-identical, do **not** re-assert its claims into pages — add a short "duplicate of [[source-…]]" note to the existing source page and ingest only the genuinely new delta, if any. (Example: the canary-deployment Zoom recording ingested twice — the second was captured as a duplicate note, not duplicated claims.)
 
 ### 1b. Resolve entity names before writing any link
 
@@ -103,6 +160,25 @@ For each atomic unit:
 - If yes → update; if no → create
 - **One concept = one page**. If two siblings appear in the source (e.g., RBAC and ABAC), they each get their own page
 
+**Recognize end-to-end flows → Process + Steps.** PTCA captures the *nouns*; a source that describes an **end-to-end flow** (a lifecycle, a pipeline, "how data gets from A to B", a build-and-deploy sequence) also has *verbs* that belong in the people layer:
+- The whole flow → one `people/processes/{name}.md` page (overview table of the ordered stages, plus any cross-cutting split such as Control Plane vs Data Plane, a change-detection/trigger table, and a Roles table).
+- Each stage → one `people/steps/step-{process}-{n}-{name}.md` page, chained with **prev/next** links, each linking up to the parent process and out to the concepts (patterns/technologies/components) it exercises.
+
+Do this in addition to the PTCA nouns, not instead of them — the Data Movement source produced both a `data-processing` process with 6 steps **and** component/dependency/tool pages.
+
+**Fan out one source by concern.** A single product/design doc usually mixes three concerns that belong on three different page types — do not dump them all onto one page:
+- **Product / vision / problem-space / objectives** → the `product/` feature page. Keep this page product-only (no architecture, no tech stack, no workflow).
+- **Architecture / topology / technology stack / dev environment / integration position** → a consolidated `resources/components/` page for the target system's module.
+- **Workflow / lifecycle / operations** → the `people/processes/` page and its `people/steps/` pages.
+
+The product page was split exactly this way: product info → `pillar-1` feature, architecture/tech-stack/dev-env → `pillar-1-components`, developer workflow/lifecycle/operations → `pillar-1-process` process + steps.
+
+**Custom vs standard artifacts.** Only give an artifact its own `resources/artifacts/` page when it is **custom to the target system**. An artifact that is a **standard deliverable of an external technology** (e.g. Kafkaß's `partition`, `consumer-group`, ...) is referenced/attributed to that technology — not duplicated as its own page. When a custom artifact is composed of several concrete files, that is **one artifact page** whose Structure table lists each file, its role, and the step that produces it (e.g. `dsl.md` = `DslDefinition` class + `application.<DslName>.yaml`).
+
+**Generic pattern vs concrete artifact.** A reusable, system-agnostic model goes to `concepts/patterns/` (e.g. `event-driven-architecture`); the concrete platform instance that implements it goes to `resources/artifacts/` (e.g. `orchestration-flow`). The artifact links to the pattern as "implements"; the pattern links to the artifact as "implemented by".
+
+**Steps declare Input → Output.** Every `people/steps/` page uses explicit `## Input`, `## Action`, `## Output` sections. Chain the steps so each step's Output feeds the next step's Input, and the composed outputs build the artifact the process produces (steps 1–3 of `data-processing` compose the `dag` artifact; 4–6 build, run, observe it).
+
 **Apply the generic + specific co-location rule**: when a source describes a generic concept AND one concrete implementation example, put both on the same page. Lead with the generic, follow with an "Implementation: {X}" section. Promote the specific to its own page only when it grows beyond a section or is referenced from many places.
 
 **Case study to imitate**: the Access Control Systems / OPA source produced:
@@ -131,9 +207,20 @@ For each atomic unit identified in step 3:
 
 **If no wiki page exists:**
 - Create a new page in the most specific appropriate subdirectory
+- **Check for a folder `README.md` describing theme subfolders.** Some directories (e.g. `wiki/resources/artifacts/README.md`) split their contents into theme subfolders and carry a routing table. Before writing, read that README and place the page in the matching theme subfolder — never drop it at the folder root when a theme fits. If no theme fits, follow the README's fallback instruction (typically: propose a new theme folder rather than defaulting to root).
 - Use the atomic page structure from `docs/wiki-schema.md` (Pattern / Technology / Component / Artifact templates)
 - Include YAML frontmatter with tags, source links, created and updated dates
 - Write a focused, atomic page — one concept only
+
+**If the source describes an undecided decision** (options weighed, nothing chosen — e.g. "we could either… or…", "still investigating", a phased/deferred build-out), capture it as a **DRAFT option page**, not as a settled design. Set `Status: DRAFT — still investigating` in frontmatter, give it an **options table** (option · mechanism · pros · cons · referenced concepts) and an **Open Sub-Decisions** list, and link out to the atomic concept pages instead of restating them. See Decomposition Rule 6 + the DRAFT template in `docs/wiki-schema.md`. Never write a DRAFT decision as if one option won.
+
+**If the source describes a decision that WAS made** (options weighed, one chosen — a build-vs-borrow call, a picked engine/language), capture it as an **ADR-style synthesis page** in `wiki/synthesis/`: decision · context · chosen option · rejected alternatives · consequences. ADR = decided (reasoning preserved); DRAFT = still open. Examples: `dsl-build-vs-borrow`, the workflow definition investigation.
+
+**Tag content maturity to avoid overstating commitment.** When a source describes proposed-but-not-committed work or phased scope, tag it (MVP / v1.5 / v2 / proposed) rather than writing it as shipped. Scaffolding that is aspirational must read as aspirational.
+
+**Flag uncertain content as Caveats.** Reconstructed field/config names, metrics that disagree across sources, single-customer or single-source generalizations, and unverified numbers get a `> **Caveat:**` note (or a Caveats section) stating what is uncertain and why — never silently promoted to fact. (Example: reconstructed ranking config field names were flagged as such.)
+
+**Don't duplicate a section that already exists.** If an existing page already covers a sub-topic well (e.g. security methodology living in `policy-enforcement.md`), reference that page/section rather than creating an overlapping page. Integrate and evolve; don't append a parallel section.
 
 **Categorization reminder**: Use the decision flowchart in `docs/wiki-architecture.md` (or vault-specific):
 
@@ -162,6 +249,14 @@ For each atomic unit identified in step 3:
 
 For career ladder, competency, and process sources, prefer `/people-ingest` for specialized formats.
 
+**Categorization tie-breakers (the chronic miscategorization).** The artifact ↔ component ↔ pattern ↔ feature boundary is where pages get mis-filed and later relocated. Before filing, apply this test:
+- **Runs or gets imported** (SDK, service, engine, UI module) → **component** (`resources/components/`). An SDK is a component even though it ships as a library.
+- **Abstract, reusable model** independent of any vault (topology, algorithm, design pattern) → **pattern** (`concepts/patterns/`).
+- **Concrete file produced/consumed** at build/runtime (config, policy, generated doc) → **artifact** (`resources/artifacts/`).
+- **User-facing capability or value proposition** → **feature** (`product/.../features/`), **regardless of lifecycle** — a legacy/deprecated capability is still a feature, not a component.
+
+When torn between artifact and pattern, keep both and link them (concrete instance in artifacts references the abstract model in patterns).
+
 ### 6. Add cross-links (PTCA cross-linking)
 
 Each atomic page links across all four layers it touches:
@@ -172,6 +267,16 @@ Each atomic page links across all four layers it touches:
 - **Artifact** page links to: components that produce/consume it, patterns it expresses, technology that defines its format
 
 Use `[[wikilink]]` for every reference. Inside tables, escape with `[[link\|Display]]`.
+
+**Verify every new link resolves.** Broken wikilinks are the most common post-ingest defect and are cheap to catch. Batch-check that each target file exists before finishing:
+
+```bash
+for l in <slug-1> <slug-2> ...; do find wiki -name "$l.md" | grep -q . || echo "MISSING: $l"; done
+```
+
+Fix any `MISSING` (wrong slug, or a page you meant to create but didn't) before step 7.
+
+**Cross-vault links are exempt.** The check above is for **same-vault** links only. A full-path link into another vault (`[[Vault/xxx/wiki/resources/components/yyy|…]]`) may legitimately dangle — do not treat it as `MISSING`, and do not create a placeholder in this vault to satisfy it.
 
 ### 7. Update wiki/portal.md
 
@@ -288,7 +393,7 @@ Do not commit unless the user explicitly asks.
 - A single source typically touches **5-15 wiki pages** along the PTCA layers. This is normal.
 - When new information contradicts existing wiki content, **update the wiki page and note the contradiction** with both sources cited.
 - **Prefer updating existing pages** over creating new ones. Only create a new page when the topic is a distinct atomic unit.
-- **Always use the most specific subfolder** when creating pages.
+- **Always use the most specific subfolder** when creating pages. If the destination folder has a `README.md` with a theme-routing table (e.g. `wiki/resources/artifacts/README.md`), read it and file the page in the matching theme subfolder.
 - Use `[[wikilinks]]` for all internal references. Never use raw file paths.
 - **Inside tables**, escape `|` in wikilinks: `[[page-name\|Display Text]]` to avoid collision with table column separators.
 - **Component pages must follow the Component Page Structure** in `second-brain` skills `references/wiki-schema.md` exactly.
