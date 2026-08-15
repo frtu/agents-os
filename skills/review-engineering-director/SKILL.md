@@ -66,31 +66,9 @@ The director's test battery for any high-stakes doc — distilled from real coac
 
 ## Worked Case Studies
 
-Three recurring failure shapes and how the interrogation moves them from weak to defensible. Generic on purpose — pattern-match the shape, not the specifics. Use them as templates for both the challenge you fire and the distilled result you're steering toward.
+Recurring failure shapes and how the interrogation moves each from weak to defensible. Generic on purpose — pattern-match the shape, not the specifics.
 
-### Case A — The commodity migration that wasn't
-
-- **Before:** *"Led migration of service X to framework Y — 40 MRs merged."*
-- **Interrogation:** Everyone migrates; the category is worth ~zero (heuristic 7). And MR count is output, not outcome (3). *"What made this migration different from the textbook one? What constraint did the standard playbook not cover?"* (14)
-- **What surfaces:** it had to run with zero downtime under a constraint the standard case never faces — an unusual data shape, a dual-write window, an irreversible cutover.
-- **Distilled:** *"Migrated X with zero downtime under [the unusual constraint the playbook doesn't handle], removing [the specific pain]."*
-- **Lesson:** the differential (14) and the pain removed (3) carry the bullet — never the category or the MR count.
-
-### Case B — The bullet-point pile
-
-- **Before:** twelve bullets, each a task closed, all equal weight.
-- **Interrogation:** *"If you could keep only three, which? What's the one strategy these are evidence of?"* (1, 7). A flat list has no thesis; the reader can't tell the tier-1 work from the filler.
-- **What surfaces:** two or three of the twelve are strategic; the rest are commodity execution that should be demoted or cut.
-- **Distilled:** one identity line asserting *who this is* (8), then the three strongest proofs, each a claim → one proof (2); commodity work demoted to a single "also shipped…" line or dropped.
-- **Lesson:** start lean and enrich, never start rich and condense. Signal over volume (1), curate and sequence (7), identity not inventory (8).
-
-### Case C — Effort mistaken for seniority
-
-- **Before:** *"Highest MR count on the team; closed 60 tickets this half."*
-- **Interrogation:** *"Whose count is that, and what did it demand that the level below couldn't?"* (12). Raw volume is a *junior* signal — it proves activity, not judgement, and at senior level activity is assumed.
-- **What surfaces:** buried inside the volume is one hard call — framing an ambiguous problem, breaking a large effort into the right increments, or sequencing work by dependency (which piece to start, which to stop) rather than by ease.
-- **Distilled:** lead with the judgement call and the problem it solved (13); the volume becomes at most supporting texture, not the headline.
-- **Lesson:** depth over effort (12); the framing of the problem is the contribution (13), not the count of things done.
+**The case library lives in `references/cases/`.** Read `references/cases/README.md` for the index (shape → file) and the rules for adding new cases. Then **load the matching case file only when a claim fits its shape** — don't read them all up front. When you hit a genuinely new recurring failure shape during a review, add it to the library per the README (new file + index row); this SKILL.md doesn't need to change.
 
 ---
 
