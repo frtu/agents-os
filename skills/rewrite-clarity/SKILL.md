@@ -85,15 +85,20 @@ After applying, report what was changed in one line per theme (e.g. "Verbose phr
 
 ### 6. Offer Assisted Fixes, Grouped by User Effort
 
-For **assisted** fix-mode themes, present the remaining work as options ordered by how much effort each requires from the user — lowest effort first — so they can pick what they have time for. Use the AskUserQuestion tool with options such as:
+For **assisted** fix-mode themes, present the remaining work as options ordered by how much effort each requires from the user — lowest effort first — so they can pick what they have time for. Use the AskUserQuestion tool with options (if available) such as:
 
 - **Quick wins** — assisted fixes where the needed input is small or you can infer a strong candidate for the user to confirm
 - **Needs data** — weasel words / vague adjectives requiring the user to supply actual metrics
 - **Needs rewrite** — long sentences requiring the user to split or restructure
 - **Skip** — leave assisted findings as-is
 
-For whichever the user picks, walk through those findings, collect the required input, and apply. Never invent data.
+For whichever the user picks :
 
+1. **Show diff preview** — Preview all suggested changes by effort bucket
+2. **Interactive mode** — walk through those findings, collect the required input & propose fixes one by one with input
+3. **Apply or Export issues** — If satisfy user can apply OR save all remaining TODO list in same directory (if the user doesn't have time)
+
+Never invent data.
 ## Rules
 
 1. **Never invent data** — Ask the user for actual figures when replacing vague terms (assisted themes)
