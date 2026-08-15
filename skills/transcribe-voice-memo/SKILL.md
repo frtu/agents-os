@@ -66,6 +66,7 @@ Output format: `title;path` (CSV), one per line, newest first.
 **Otherwise**, ask for the language:
 - **English** (default)
 - **French**
+- **Custom** (allow user to type)
 
 ## Step 3: Transcribe
 
@@ -77,13 +78,18 @@ bash scripts/transcribe.sh "<recording_path>" "<language>" "<output_path>" [devi
 
 Arguments:
 - `recording_path`: Full path to the .m4a file (from step 1 selection)
-- `language`: "English" or "French"
-- `output_path`: Target file path, e.g., `raw/transcripts/2026-07-12 Meeting Notes.md`
+- `language`: "English", "French" or allow user to type
+- `output_path`: **Absolute** path for the output markdown file (must be in user's vault, not skill folder)
 - `device`: (optional) "auto" (default), "mps", or "cpu"
 
-The output path should be constructed from `{target_path}` variable:
-- Replace `{YYYY-MM-DD}` with today's date
-- Replace `{recording-name}` with the recording title (sanitized for filename)
+The output path should be constructed as an **absolute path** in the user's current working directory (the vault where the skill was invoked), NOT in the skill folder:
+1. Start with the current working directory (e.g., `/Users/xxx`)
+2. Append `{target_path}` template: `raw/transcripts/{YYYY-MM-DD} {recording-name}.md`
+3. Replace `{YYYY-MM-DD}` with today's date
+4. Replace `{recording-name}` with the recording title (sanitized for filename)
+
+Example: If invoked from `/Users/xxx`, output to:
+`/Users/xxx/raw/transcripts/2026-08-04 Meeting Notes.md`
 
 ### MPS Risk Evaluation
 
