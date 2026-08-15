@@ -1,0 +1,83 @@
+---
+id: 202608132112-05
+title: Zettelkasten Knowledge Management
+spec: 05-zettelkasten
+layer: moc
+status: draft
+lifecycle: draft
+Category: spec
+Tags: [zettelkasten, atomicity, connections, status-lifecycle, staleness]
+traceability:
+  readme: ["§11 Zettelkasten Model", "§19 Knowledge Engine"]
+  references: ["_references_/10-internal-storage/wiki-schema.md#zettelkasten-management", "_references_/0-context/Introduction to the Zettelkasten Method • Zettelkasten Method.md"]
+related:
+  - "[[02-domain-model]]"
+  - "[[04-knowledge-ingestion]]"
+  - "[[07-specification-model]]"
+  - "[[17-observability]]"
+Created: 2026-08-13
+Last Updated: 2026-08-13
+---
+
+# Zettelkasten Knowledge Management
+
+The `wiki/` layer follows Zettelkasten principles so knowledge compounds over time. The Knowledge Engine ([[12-assistant]]) enforces these rules.
+
+## 1. Identity
+Every wiki page has a **stable unique identifier**, preferably time-based `202608120746` (YYYYMMDDHHMM), stored in frontmatter (not necessarily the filename). Filenames may change; the ID must not. IDs enable stable references as titles evolve.
+
+## 2. Atomicity
+Each page represents **one meaningful knowledge building block**. Avoid "everything about X" pages; split broad topics. Atomicity is a guiding principle — structure notes / MOCs intentionally aggregate.
+
+## 3. Connections
+Value comes from **relationships**. Every new page links to ≥1 existing page and states *why* the connection exists.
+- Bad: `See also: [[Kafka]]`
+- Good: `Kafka provides exactly-once delivery guarantees needed for [[idempotency]]`
+
+## 4. Status Lifecycle (concept maturity)
+
+```text
+draft → used → reliable
+```
+
+| Status | Criteria | Meaning |
+|--------|----------|---------|
+| `draft` | new or substantially changed | insufficient validation |
+| `used` | referenced in ≥3 outputs | practically useful |
+| `reliable` | used >8 times without major correction | validated knowledge |
+
+Status is **evidence-based**, driven by `referenced-to`.
+
+## 5. referenced-to
+Track where concepts are actually used (distinct from conceptual `[[links]]`):
+
+```yaml
+referenced-to:
+  - "[[spec-product-requirements]]"
+  - "[[spec-workflow-model]]"
+```
+
+- `[[Concept]]` = these are related.
+- `referenced-to` = this concept contributed to producing this artifact.
+
+## 6. Structure Notes (MOCs)
+Organize other pages: `wiki/portal.md` (master entry), `wiki/product/specs/*.md` (03+ spec MOCs), category hubs. Support hierarchical (nested), sequential (a→b→c argument chains), and cross-category (semilattice) structures.
+
+## 7. Contradiction Handling
+1. Note the contradiction explicitly. 2. Cite both sources. 3. If resolution is clear → update the page. 4. If unclear → create a `wiki/synthesis/` page analyzing the conflict. 5. Consider risk-based branching for significant contradictions ([[10-risk-engine]]).
+
+## 8. Staleness Detection (lint inputs)
+Flag: `reliable` pages that required major corrections; `draft` pages used many times; sources superseded by newer info; orphan pages (no inbound links); important topics lacking a page. See [[17-observability]] / lint.
+
+## 9. Knowledge Hygiene
+- **Provenance**: every concept traces back through `wiki/sources/ → raw/`.
+- **Deduplication**: search for existing coverage before creating a page.
+- **Refactoring**: split pages that outgrow atomicity.
+- **Deprecation**: mark obsolete pages rather than deleting (maintain history).
+
+## 10. Acceptance Criteria
+- AC1: Every wiki page has a stable `id` and valid frontmatter.
+- AC2: No new page is created without at least one justified inbound/outbound link.
+- AC3: Concept `status` transitions are computed from `referenced-to` counts.
+- AC4: Duplicate-topic pages are detected and merged during lint.
+- AC5: Contradictions are always recorded with both sources cited.
