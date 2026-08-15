@@ -41,19 +41,19 @@ If unclear which, ask one clarifying question, then proceed. Both review modes d
 
 The director's test battery for any high-stakes doc — distilled from real coaching on executive proposals and senior-promotion packets. These are *judgement*, not grammar: they decide what a claim is worth, not how a sentence reads (that is `rewrite-clarity`'s job). Each carries the question you fire at the doc or its author.
 
-| # | Principle | The challenge to fire |
-|---|-----------|----------------------|
-| 1 | **Signal over volume.** One claim per unit, strongest first; cut anything not *interesting*. Start lean and enrich, never start rich and condense. | "Does this sentence change the reader's decision? If not, why is it here?" |
-| 2 | **Claim → one proof.** State the claim, prove it with a single vivid example, move on. Over-justification and reflexive before/after comparisons read as insecurity. | "What's the single best example? Cut the other three and let them ask." |
-| 3 | **Metrics map to pain or outcome.** Raw counts (MRs, DAGs, LOC, headcount) mislead; use pain removed, business outcome, or growth trajectory. Separate your work from the team's. | "What pain or dollar does this number represent? And whose count is it really?" |
-| 4 | **Defensible numbers only.** Every figure must survive a skeptical panel. If causation isn't provable, state the outcome, not the cause. Verify before you submit. | "Who checks this number, and does it still hold when they do?" |
-| 5 | **Active ownership.** Passive voice hides contribution; name what you designed, decided, and owned — with an impact line on each. | "Whose work is this — yours or the team's? Say it in active voice." |
-| 6 | **Name for the reader, not the builder.** Internal jargon and empty modifiers ("company-wide") cost comprehension; name things by what they do. | "Will the audience know this term? Replace it, or define it in five words." |
-| 7 | **Curate and sequence.** A diverse, strongest-first set beats an exhaustive list. Demote commodity work — everyone migrates; the business impact is ~zero. | "If you could keep only three, which? Cut the rest." |
-| 8 | **Identity, not inventory.** The summary asserts *who this is* (the SME for the hardest X), not a list of outputs. Write it last, once the body settles. | "In one line — who is this person/team? Not what they shipped, who they are." |
-| 9 | **Borrow credibility.** Social proof (peer/stakeholder endorsement, on the record) beats self-grading. Delete "operates above the bar." | "Who else says this, on the record? Let them say it, not you." |
-| 10 | **No placeholders survive.** Every "[fill in]" becomes a concrete, scoped fact — a number and a name — before submission, or the section is cut. | "This is blank. Fill it with a number and a name, or delete it." |
-| 11 | **Ship for review early; tools serve content.** Get senior eyes before "done"; AI is co-pilot, not author; plain format, content carries. | "Who has reviewed this, and when did they first see it?" |
+| #   | Principle                                                                                                                                                                           | The challenge to fire                                                           |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| 1   | **Signal over volume.** One claim per unit, strongest first; cut anything not *interesting*. Start lean and enrich, never start rich and condense.                                  | "Does this sentence change the reader's decision? If not, why is it here?"      |
+| 2   | **Claim → one proof.** State the claim, prove it with a single vivid example, move on. Over-justification and reflexive before/after comparisons read as insecurity.                | "What's the single best example? Cut the other three and let them ask."         |
+| 3   | **Metrics map to pain or outcome.** Raw counts (alerts, pipelines, MRs, LOC) mislead; use pain removed, business outcome, or growth trajectory. Separate your work from the team's. | "What pain or dollar does this number represent? And whose count is it really?" |
+| 4   | **Defensible numbers only.** Every figure must survive a skeptical panel. If causation isn't provable, state the outcome, not the cause. Verify before you submit.                  | "Who checks this number, and does it still hold when they do?"                  |
+| 5   | **Active ownership.** Passive voice hides contribution; name what you designed, decided, and owned — with an impact line on each.                                                   | "Whose work is this — yours or the team's? Say it in active voice."             |
+| 6   | **Name for the reader, not the builder.** Internal jargon and empty modifiers ("company-wide") cost comprehension; name things by what they do.                                     | "Will the audience know this term? Replace it, or define it in five words."     |
+| 7   | **Curate and sequence.** A diverse, strongest-first set beats an exhaustive list. Demote commodity work — everyone migrates; the business impact is ~zero.                          | "If you could keep only three, which? Cut the rest."                            |
+| 8   | **Identity, not inventory.** The summary asserts *who this is* (the SME for the hardest X), not a list of outputs. Write it last, once the body settles.                            | "In one line — who is this person/team? Not what they shipped, who they are."   |
+| 9   | **Borrow credibility.** Social proof (peer/stakeholder endorsement, on the record) beats self-grading. Delete "operates above the bar."                                             | "Who else says this, on the record? Let them say it, not you."                  |
+| 10  | **No placeholders survive.** Every "[fill in]" becomes a concrete, scoped fact — a number and a name — before submission, or the section is cut.                                    | "This is blank. Fill it with a number and a name, or delete it."                |
+| 11  | **Ship for review early; tools serve content.** Get senior eyes before "done"; AI is co-pilot, not author; plain format, content carries.                                           | "Who has reviewed this, and when did they first see it?"                        |
 
 ---
 
@@ -99,7 +99,7 @@ After drafting, cut. Every sentence must survive the test: *does this help the e
 
 ### Produce rules
 
-- **Never fabricate metrics or facts.** Use only what the source material or user provides; mark gaps `[confirm]`.
+- **Never fabricate metrics or facts.** Use only what the source material or user provides; mark gaps `[need input]`.
 - **One story, one ask.** If the doc has two asks, it needs to be two docs.
 - **BLUF or it fails.** If the bottom line isn't in the first paragraph, restructure.
 - **Translate, don't dump.** Technical depth belongs only where it moves a business lever.
@@ -186,6 +186,7 @@ Keep the loop tight — batch **2–4 challenges, then wait**. Track what surviv
 
 Name what to drop and what to reorder. Make the author justify keeping anything commodity, unproven, or off-narrative (heuristics 1, 2, 7). "Everybody does migration" is a cut, not a bullet.
 
+*(when feedback to the user don't say `heuristics 3` but also give a 1 sentence summary)*
 ### Step 4 — Verdict
 
 ```markdown
