@@ -2,6 +2,28 @@
 
 Guidance for Claude Code working in this repo. Read this first, then the spec kit.
 
+## Workflow — spec-first (mandatory)
+
+**Every request that modifies the application MUST start in `specs/` before any code
+changes.** Specs are the source of truth (Constitution P11); code is downstream. The order
+is non-negotiable:
+
+1. **Spec first.** Add or update the relevant file(s) under `specs/` — the primary MOC
+   (`specs/00`–`specs/21`) and/or the feature folder (`specs/NNN-*/spec.md`, and its
+   `plan.md`/`tasks.md` when scope warrants). Capture the new/changed behaviour as numbered,
+   testable **FR-N** requirements, **User Scenarios**, and **Acceptance Criteria**. If it
+   touches a constitutional principle, amend `memory/constitution.md` (with a version bump)
+   first.
+2. **Then code.** Implement to satisfy the spec, citing the spec doc + requirement id in
+   code comments (e.g. `spec 004 FR-25`).
+3. **Then tests.** Add/adjust tests that map back to the new ACs/FRs.
+4. **Keep them in sync.** Spec, code, and tests must agree at the end of the change; if
+   implementation forces a design change, update the spec rather than letting it drift.
+
+This applies to features, behavioural fixes, and API/endpoint changes alike. Pure
+non-behavioural chores (formatting, comment typos, dependency bumps) may skip step 1. When
+in doubt, write the spec.
+
 ## What this project is
 
 A local, filesystem-only knowledge & specification assistant. All durable state is
