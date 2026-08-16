@@ -31,7 +31,7 @@ Verification is anchored to the **Core Invariants** ([[01-principles]] §2) and 
 | Provenance retained | chain `vault/raw→sources→vault/wiki` reconstructable | [[02-domain-model]], [[17-observability]] |
 | Stable concept IDs | IDs persist across rename | [[05-zettelkasten]] |
 | Atomicity | oversized pages flagged by lint | [[05-zettelkasten]] |
-| `[[wikilinks]]` for relations | no raw file paths in page bodies | [[03-vault]] |
+| `[[wikilinks]]` for relations | no raw file paths in page bodies | [[03-workspace]] |
 | `referenced-to` tracked | usage counts drive `status` | [[05-zettelkasten]] |
 | Auto ingestion | new `vault/raw/` file triggers pipeline | [[04-knowledge-ingestion]] |
 | Conversations persisted | sessions written; dreaming digests produced | [[06-conversations]] |

@@ -12,7 +12,7 @@
 ## Constitution Check
 
 - [x] **P1 Vault is source of truth** — conversations persist to `sessions/`; answers come
-  from workspace content; no separate chat datastore. ([[03-vault]], [[06-conversations]])
+  from workspace content; no separate chat datastore. ([[03-workspace]], [[06-conversations]])
 - [x] **P2 `vault/raw/` immutable** — the agent's write tools are routed through the existing
   `vault.guard_write_path`; `vault/raw/` is read-only. ([[18-security]])
 - [x] **P3 Pipeline direction** — chat writes only to `sessions/`; promotion to `vault/wiki/`
@@ -34,7 +34,7 @@
 - [x] **P12 Risk-governed mutations** — consequential classification reuses the capability
   layer's risk/plan path; no silent mutation from chat. ([[10-risk-engine]])
 - [x] **P13 Multi-workspace** — the conversation resolves a workspace via the existing resolver;
-  default when omitted. ([[03-vault]])
+  default when omitted. ([[03-workspace]])
 
 ## Technical Context
 
@@ -150,7 +150,7 @@ POST /api/chat (+ /stream)  ─┐
   ```
   Turns are append-only. The `pending-plan` frontmatter block is the one mutable field
   (set when a plan is proposed, cleared on approval/execution); turn history is never
-  edited. Aligns with `sessions/` role in [[03-vault]] §4 and [[06-conversations]].
+  edited. Aligns with `sessions/` role in [[03-workspace]] §4 and [[06-conversations]].
 
 ## Interfaces / Contracts
 

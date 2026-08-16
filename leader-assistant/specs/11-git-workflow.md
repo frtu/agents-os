@@ -11,7 +11,7 @@ traceability:
   readme: ["§6 Git as the Knowledge and Specification Ledger", "§23 Git Workflow"]
   references: ["_references_/10-internal-storage/wiki-schema.md#git-as-memory"]
 related:
-  - "[[03-vault]]"
+  - "[[03-workspace]]"
   - "[[10-risk-engine]]"
   - "[[08-specification-lifecycle]]"
   - "[[17-observability]]"

@@ -12,7 +12,7 @@ This single feature folder is the buildable layer over the whole local spec set.
 
 ## Constitution Check
 
-- [x] **P1 Vault is source of truth** — all durable state is Markdown in the vault; no DB. ([[03-vault]])
+- [x] **P1 Vault is source of truth** — all durable state is Markdown in the vault; no DB. ([[03-workspace]])
 - [x] **P2 `vault/raw/` immutable** — vault access layer rejects writes under `vault/raw/`. ([[18-security]])
 - [x] **P3 Pipeline direction** — orchestrators enforce `vault/raw → sessions → dreaming → vault/wiki/sources → vault/wiki/category`; `vault/wiki + templates → vault/output`. ([[04-knowledge-ingestion]], [[06-conversations]])
 - [x] **P4 Zettelkasten discipline** — schema helpers enforce id/atomicity/link-context per `wiki-schema.md`. ([[05-zettelkasten]])
@@ -24,7 +24,7 @@ This single feature folder is the buildable layer over the whole local spec set.
 - [x] **P10 Portability** — Markdown + YAML + git only; `[[wikilinks]]`; no vector store as canonical. ([[19-non-functional]])
 - [x] **P11 Continuous specification generation** — spec engine reacts to knowledge changes; approved-spec protection. ([[07-specification-model]], [[08-specification-lifecycle]])
 - [x] **P12 Risk-governed mutations** — rules-as-data risk engine; risky → `feature/{name}`; no silent merge. ([[10-risk-engine]])
-- [x] **P13 Multi-workspace** — workspace resolver honors `Workspaces/<name>/` + env overrides + default selector. ([[03-vault]])
+- [x] **P13 Multi-workspace** — workspace resolver honors `Workspaces/<name>/` + env overrides + default selector. ([[03-workspace]])
 
 ## Technical Context (decided)
 
@@ -66,7 +66,7 @@ Engines and their responsibilities are specified in [[12-assistant]]. The capabi
 
 ## Data & File Contracts
 
-Workspace layout, categories, portal/log formats: [[03-vault]], [[02-domain-model]] (authoritative). Concept frontmatter extends the schema with lifecycle fields:
+Workspace layout, categories, portal/log formats: [[03-workspace]], [[02-domain-model]] (authoritative). Concept frontmatter extends the schema with lifecycle fields:
 
 ```yaml
 status: draft            # draft | used | reliable

@@ -6,7 +6,7 @@ It follows the **GitHub Spec-Kit standard** (ratified constitution → spec → 
 
 > **Two spec kits, do not confuse them:**
 > - **This kit (`specs/`)** — how to *build* the assistant. Static input to development.
-> - **The runtime kit (`wiki/product/specs/`)** — produced and maintained *by* the finished assistant from its Knowledge Vault. Not created here.
+> - **The runtime kit (`vault/wiki/product/specs/`)** — produced and maintained *by* the finished assistant from its Knowledge Vault. Not created here.
 
 ## Repository structure (Spec-Kit standard)
 

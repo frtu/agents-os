@@ -11,7 +11,7 @@ traceability:
   readme: ["§27 Portal and Log", "§12 Knowledge Operations"]
   references: ["_references_/10-internal-storage/wiki-schema.md#index-format", "_references_/10-internal-storage/wiki-schema.md#log-format", "_references_/0-context/llm-wiki.md"]
 related:
-  - "[[03-vault]]"
+  - "[[03-workspace]]"
   - "[[05-zettelkasten]]"
   - "[[11-git-workflow]]"
   - "[[16-workflows]]"

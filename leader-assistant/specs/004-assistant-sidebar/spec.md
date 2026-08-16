@@ -9,7 +9,7 @@
 > workspace selection, a `vault/wiki/` file browser, local file/folder upload into the
 > workspace's vault, and a list of prior conversations — all as surfaces over the REST API.
 > **Extends** 003 (does not replace its chat surface). Primary spec references: [[13-api]],
-> [[14-chat]], [[03-vault]], [[04-knowledge-ingestion]], [[06-conversations]],
+> [[14-chat]], [[03-workspace]], [[04-knowledge-ingestion]], [[06-conversations]],
 > [[17-observability]], [[09-planning]].
 
 ## Summary
@@ -57,8 +57,10 @@ also offers).
 
 ## User Scenarios
 
-- **Scenario 1 — Collapse the sidebar:** As a user, I collapse the left menu to focus on the
-  conversation, and expand it again when I need workspace context, so the chat can use full width.
+- **Scenario 1 — Collapse the sidebar and its panels:** As a user, I collapse the whole left
+  menu to focus on the conversation, and expand it again when I need workspace context. I can also
+  collapse each panel (**Vault**, **Wiki**, **Sessions**) on its own to hide the parts I'm not
+  using without affecting the others.
 - **Scenario 2 — Find a workspace by typing:** As a user, I start typing in the workspace box
   (which shows `workspace name` as gray placeholder when empty); matching existing workspaces
   appear as suggestions below the field, and picking one makes it the active workspace (P13).
@@ -74,8 +76,12 @@ also offers).
   `vault/raw/` and ingested. A **progress bar replaces the upload section** while this runs, then
   the panel returns and the `vault/wiki/` tree reflects any new pages produced by ingestion.
 - **Scenario 7 — Resume a conversation:** As a user, I open the **Sessions** panel at the
-  bottom of the sidebar, see my prior conversations for the active workspace, and select one to
+  bottom of the sidebar, see my prior conversations for the active workspace listed
+  most-recent-first under relative-date headers (Today, Yesterday, This Week, …), and select one to
   continue it in the chat (the chat resumes by `conversation_id`, [[06-conversations]]).
+- **Scenario 7b — Start a new conversation:** As a user, I click **New conversation** at the top
+  of the Sessions panel to begin a fresh chat thread, leaving my earlier conversations intact in
+  the list below.
 - **Scenario 8 — Empty states:** As a first-time user, an empty workspace shows an empty
   `vault/wiki/` tree and an empty Sessions list with clear "nothing yet" messaging rather than
   errors.
@@ -217,7 +223,9 @@ Numbered, testable, unambiguous.
 ## Acceptance Criteria
 
 - [ ] **AC-1:** The web UI shows a **collapsible left sidebar** that can be hidden and
-  restored without breaking chat. (FR-1, FR-2)
+  restored without breaking chat, composed of **three independently collapsible panels** —
+  **Vault**, **Wiki** (which nests the `vault/wiki/` browser and the upload section), and
+  **Sessions** — each collapsible on its own. (FR-1, FR-2)
 - [ ] **AC-2:** The workspace box shows the gray **`workspace name`** placeholder when empty;
   typing shows **matching existing workspaces** below it, and selecting one switches the active
   workspace. (FR-3, FR-4, FR-7)
@@ -232,8 +240,11 @@ Numbered, testable, unambiguous.
   gains the originals and `vault/wiki/` reflects produced pages. (FR-11, FR-12, FR-16)
 - [ ] **AC-6:** During upload+ingest a **progress bar replaces the upload section**, then the
   section returns and the `vault/wiki/` browser refreshes. (FR-13)
-- [ ] **AC-7:** The **Sessions** panel lists prior conversations for the active workspace, and
-  selecting one **resumes** that conversation in the chat. (FR-17, FR-19, FR-20)
+- [ ] **AC-7:** The **Sessions** panel has a **New conversation** control at the top, then lists
+  all prior conversations for the active workspace **most-recent-first, grouped under relative-date
+  headers** (Today / Yesterday / This Week / This Month / Older, empty groups omitted); selecting
+  one **resumes** that conversation in the chat and New conversation starts a fresh thread.
+  (FR-17, FR-19, FR-20, FR-24, FR-25)
 - [ ] **AC-8:** Changing the active workspace **re-scopes** the `vault/wiki/` browser and
   Sessions panel. (FR-21)
 - [ ] **AC-9:** The sidebar makes **only HTTP calls to `/api/*`**; it imports no

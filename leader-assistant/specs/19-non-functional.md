@@ -12,7 +12,7 @@ traceability:
   references: ["_references_/0-context/llm-wiki.md", "_references_/10-internal-storage/wiki-schema.md#tools"]
 related:
   - "[[01-principles]]"
-  - "[[03-vault]]"
+  - "[[03-workspace]]"
   - "[[17-observability]]"
   - "[[20-testing]]"
 Created: 2026-08-13

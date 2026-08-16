@@ -11,7 +11,7 @@ traceability:
   readme: ["§8 Automatic Ingestion", "§12 Knowledge Operations", "§13.1 Knowledge Ingestion Pipeline", "§20 Ingestion Engine"]
   references: ["_references_/10-internal-storage/wiki-schema.md#operations"]
 related:
-  - "[[03-vault]]"
+  - "[[03-workspace]]"
   - "[[05-zettelkasten]]"
   - "[[10-risk-engine]]"
   - "[[11-git-workflow]]"

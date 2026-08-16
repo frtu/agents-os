@@ -11,7 +11,7 @@ traceability:
   readme: ["§9 Conversation Capture", "§12 Knowledge Operations"]
   references: ["_references_/10-internal-storage/wiki-schema.md#sessions-directory", "_references_/10-internal-storage/wiki-schema.md#dreaming-daily-session-compaction"]
 related:
-  - "[[03-vault]]"
+  - "[[03-workspace]]"
   - "[[04-knowledge-ingestion]]"
   - "[[05-zettelkasten]]"
   - "[[16-workflows]]"

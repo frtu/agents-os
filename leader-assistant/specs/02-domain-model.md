@@ -12,7 +12,7 @@ traceability:
   references: ["_references_/10-internal-storage/wiki-architecture.md", "_references_/10-internal-storage/wiki-schema.md"]
 related:
   - "[[00-product-vision]]"
-  - "[[03-vault]]"
+  - "[[03-workspace]]"
   - "[[05-zettelkasten]]"
   - "[[07-specification-model]]"
 Created: 2026-08-13
@@ -25,7 +25,7 @@ The core entities the assistant reasons about. Filenames use kebab-case; titles 
 
 ## 1. Storage-Layer Entities
 
-All storage paths below are relative to a selected workspace `Workspaces/<name>/` (multiple workspaces supported — see [[03-vault]]). Durable knowledge lives under the workspace's `vault/` subfolder; `sessions/` sits at the workspace level.
+All storage paths below are relative to a selected workspace `Workspaces/<name>/` (multiple workspaces supported — see [[03-workspace]]). Durable knowledge lives under the workspace's `vault/` subfolder; `sessions/` sits at the workspace level.
 
 | Entity | Location | Mutability | Description |
 |--------|----------|------------|-------------|
@@ -42,7 +42,7 @@ All storage paths below are relative to a selected workspace `Workspaces/<name>/
 
 ## 2. Knowledge Categories (Wiki)
 
-The wiki organizes durable knowledge into six categories (see [[03-vault]] and wiki-architecture):
+The wiki organizes durable knowledge into six categories (see [[03-workspace]] and wiki-architecture):
 
 1. **Concepts** — `patterns/`, `technologies/` (reusable knowledge).
 2. **Product** — `entities/`, `features/`, `persona/` (what we build; flat organization).
@@ -62,7 +62,7 @@ The wiki organizes durable knowledge into six categories (see [[03-vault]] and w
 | **Plan** | request, retrieved knowledge, gaps, steps, alternatives | Produced before consequential execution. See [[09-planning]]. |
 | **Template** | `output-type`, structure | Externalized, human-owned output structure at repo-root `templates/`; reuse-before-create. See [[21-outputs]]. |
 | **Output Artifact** | `vault/output/...`, cites concepts | Produced PO/PM artifact (secondary capability); records usage back to concepts. See [[21-outputs]]. |
-| **Workspace** | `Workspaces/<name>/`, selector/default | The top-level container (`skills/`, `sessions/`, `vault/`); its knowledge store is the `vault/` subfolder. Multiple are supported. See [[03-vault]]. |
+| **Workspace** | `Workspaces/<name>/`, selector/default | The top-level container (`skills/`, `sessions/`, `vault/`); its knowledge store is the `vault/` subfolder. Multiple are supported. See [[03-workspace]]. |
 
 ## 4. Frontmatter Schema (every wiki page)
 

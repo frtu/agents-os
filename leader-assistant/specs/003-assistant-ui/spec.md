@@ -9,7 +9,7 @@
 > capability layer of [`001-leader-assistant`](../001-leader-assistant/tasks.md). This
 > feature **revisits and supersedes** the GUI Non-Goal declared in feature 002 §Non-Goals.
 > Primary spec references: [[13-api]], [[14-chat]], [[12-assistant]], [[00-product-vision]],
-> [[09-planning]], [[03-vault]].
+> [[09-planning]], [[03-workspace]].
 
 ## Summary
 

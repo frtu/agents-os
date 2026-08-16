@@ -57,7 +57,7 @@ Both expose the same underlying capabilities. See [[13-api]] and [[14-chat]] for
        raw sources              project specs          user demand
 ```
 
-- The **Knowledge Vault** is an internal product capability, continuously built and maintained by the assistant. It is **not** the user's external PM system (Jira, Linear, Azure DevOps) and not a user-facing document-management system. See [[03-vault]].
+- The **Knowledge Vault** is an internal product capability, continuously built and maintained by the assistant. It is **not** the user's external PM system (Jira, Linear, Azure DevOps) and not a user-facing document-management system. See [[03-workspace]].
 - An **external PM system** is accessed only when explicitly requested by the user (e.g. "Create a new story for XXX"). See [[15-integrations]].
 
 ## 5. Primary Output

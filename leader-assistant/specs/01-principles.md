@@ -12,7 +12,7 @@ traceability:
   references: ["_references_/0-context/llm-wiki.md", "_references_/10-internal-storage/wiki-schema.md"]
 related:
   - "[[00-product-vision]]"
-  - "[[03-vault]]"
+  - "[[03-workspace]]"
   - "[[05-zettelkasten]]"
   - "[[10-risk-engine]]"
 Created: 2026-08-13
@@ -31,7 +31,7 @@ These principles are binding constraints on every implementation decision. Where
 The assistant must not behave as a conventional RAG system that reconstructs knowledge from raw documents on every query. It incrementally maintains a persistent wiki: existing concepts are updated, new concepts created, relationships added, contradictions identified, obsolete knowledge challenged, and useful knowledge made increasingly reusable. See [[05-zettelkasten]].
 
 ### P2 — Raw information is preserved
-Raw inputs are never rewritten as part of knowledge processing. The raw layer is the provenance-preserving source of truth. Immutable raw sources are separated from the generated wiki. See [[03-vault]].
+Raw inputs are never rewritten as part of knowledge processing. The raw layer is the provenance-preserving source of truth. Immutable raw sources are separated from the generated wiki. See [[03-workspace]].
 
 ### P3 — The Vault is an internal product capability
 The Vault is owned and maintained by the assistant application. It is **not** Jira, Linear, Azure DevOps, a generic PM database, or a user-facing document-management system. It exists to make the assistant progressively better at reasoning and specification generation.

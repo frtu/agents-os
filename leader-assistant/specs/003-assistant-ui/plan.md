@@ -13,7 +13,7 @@
 
 - [x] **P1 Vault is source of truth** — the UI holds only transient view state
   (`conversation_id`, active workspace); the durable conversation lives in `sessions/` on the
-  workspace. ([[03-vault]], [[06-conversations]])
+  workspace. ([[03-workspace]], [[06-conversations]])
 - [x] **P2 `vault/raw/` immutable** — the UI issues no writes except through API calls that
   already route through `vault.guard_write_path`. ([[18-security]])
 - [x] **P3 Pipeline direction** — unaffected; the UI triggers nothing that writes to `vault/wiki/`
@@ -35,7 +35,7 @@
 - [x] **P12 Risk-governed mutations** — consequential classification stays server-side in the
   capability layer; the UI just surfaces the resulting plan. ([[10-risk-engine]])
 - [x] **P13 Multi-workspace** — a workspace picker selects the active workspace; default when none chosen.
-  ([[03-vault]])
+  ([[03-workspace]])
 
 ## Technical Context
 

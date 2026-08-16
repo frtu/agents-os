@@ -12,12 +12,12 @@
 ## Setup
 
 - [ ] T001 Python 3.11+ project scaffold; pin `claude-agent-sdk`, `fastapi`, `gradio`, `uvicorn`. ([[19-non-functional]])
-- [ ] T002 Config module: `LEADER_WORKSPACE_ROOT` / `LEADER_WORKSPACE_PATH` / `LEADER_DEFAULT_WORKSPACE`. (P13, [[03-vault]])
+- [ ] T002 Config module: `LEADER_WORKSPACE_ROOT` / `LEADER_WORKSPACE_PATH` / `LEADER_DEFAULT_WORKSPACE`. (P13, [[03-workspace]])
 - [ ] T003 [P] Wire `memory/constitution.md` + numbered specs into the agent system-prompt assembly.
 
 ## Core — Workspace & git (foundation)
 
-- [ ] T010 `vault` resolver: `Workspaces/<name>/` layout scaffolding (`skills/`, `sessions/`, `vault/raw/{clippings,docs,notes,transcripts,assets}`, `vault/wiki/…`, `vault/output/`); default + selector resolution. (P1, P13; [[03-vault]])
+- [ ] T010 `vault` resolver: `Workspaces/<name>/` layout scaffolding (`skills/`, `sessions/`, `vault/raw/{clippings,docs,notes,transcripts,assets}`, `vault/wiki/…`, `vault/output/`); default + selector resolution. (P1, P13; [[03-workspace]])
 - [ ] T011 `vault/raw/` write-guard: reject any write path under `vault/raw/`. (P2; invariant "raw never rewritten"; [[18-security]])
 - [ ] T012 Git/vault manager: typed commit messages (ingest|update|lint|synthesis|dreaming|spec|output), append-only `log.md`, portal writer. (P6; invariants "mutations→commits", "log append-only"; [[11-git-workflow]], [[17-observability]])
 - [ ] T013 [P] Schema helpers: read/write/validate frontmatter, stable time-based `id`, slugify, `[[wikilink]]` + table-pipe escaping. (P4; [[02-domain-model]])
@@ -26,7 +26,7 @@
 
 - [ ] T020 Ingestion orchestrator: `vault/raw` → source-summary (`vault/wiki/sources/{provenance}/`) → concept create/update → portal/log; invoke risk + git. (P3; [[04-knowledge-ingestion]])
 - [ ] T021 Source classifier: `vault/raw/` subfolder primary signal + content sniff; log the decision. ([[04-knowledge-ingestion]])
-- [ ] T022 Dreaming operation: `sessions/` → `wiki/sources/_daily_/YYYY-MM-DD.md` (decisions, knowledge candidates). (P3; [[06-conversations]])
+- [ ] T022 Dreaming operation: `sessions/` → `vault/wiki/sources/_daily_/YYYY-MM-DD.md` (decisions, knowledge candidates). (P3; [[06-conversations]])
 - [ ] T023 Zettelkasten manager: atomicity + justified link-context enforcement; dedup pre-check. (P4; invariants "atomicity", "wikilinks"; [[05-zettelkasten]])
 
 ## Core — Lifecycle (maturity: reference + counter)

@@ -46,7 +46,7 @@ The catalog is extensible; new types add a template (Constitution P7).
 2. If none fits, **propose** a new template; save to `templates/` only on user approval; then produce.
 3. State the template used (or "new proposed") in the artifact/report.
 
-Templates live outside the workspace so humans review and evolve them ([[03-vault]] §Templates, [`templates/README`](../templates/README.md)). "Closest match" scoring is open — [[001-leader-assistant/plan-tbd|plan-tbd]] TBD-4.
+Templates live outside the workspace so humans review and evolve them ([[03-workspace]] §Templates, [`templates/README`](../templates/README.md)). "Closest match" scoring is open — [[001-leader-assistant/plan-tbd|plan-tbd]] TBD-4.
 
 ## 4. Grounding, Traceability & Promotion (Constitution P5/P6)
 
