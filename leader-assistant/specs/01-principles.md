@@ -23,7 +23,7 @@ Last Updated: 2026-08-13
 
 These principles are binding constraints on every implementation decision. Where a design choice conflicts with a principle, the principle wins.
 
-> **Governance note.** [`memory/constitution.md`](../memory/constitution.md) is the ratified, versioned governance layer derived from these principles (plus continuous spec-gen, risk-governed mutations, and multi-vault). Every `plan.md` must pass a Constitution Check. When the constitution and a spec disagree, the constitution wins; conflicts with the remote source are recorded in `*-contradiction.md` and indexed in [[clarification]].
+> **Governance note.** [`memory/constitution.md`](../memory/constitution.md) is the ratified, versioned governance layer derived from these principles (plus continuous spec-gen, risk-governed mutations, and multi-workspace). Every `plan.md` must pass a Constitution Check. When the constitution and a spec disagree, the constitution wins; conflicts with the remote source are recorded in `*-contradiction.md` and indexed in [[clarification]].
 
 ## 1. Product Principles
 
@@ -52,12 +52,12 @@ The implementation MUST preserve these invariants. They are the acceptance backb
 6. Concept usage is tracked separately via `referenced-to`.
 
 ### Automation
-7. New files under `raw/{any-path}/` automatically trigger ingestion.
+7. New files under `vault/raw/{any-path}/` automatically trigger ingestion.
 8. Conversations are automatically persisted (sessions → dreaming → sources). See [[06-conversations]].
 9. Knowledge mutations produce Git commits.
 10. Risky mutations use feature branches. See [[10-risk-engine]].
-11. `wiki/portal.md` is updated on every ingest.
-12. `wiki/log.md` is append-only; existing entries are never edited.
+11. `vault/wiki/portal.md` is updated on every ingest.
+12. `vault/wiki/log.md` is append-only; existing entries are never edited.
 
 ### Specifications
 13. Specifications are composed of linked documents.
@@ -88,4 +88,4 @@ The first version will NOT:
 
 ## 4. Precedence Rule
 
-When the README conflicts with the canonical references (`_references_/10-internal-storage/*`), the references take precedence (README §32). This spec kit records such conflicts explicitly where they occur (e.g. spec-kit path: `wiki/product/specs/` per wiki-schema, not `wiki/specs/`).
+When the README conflicts with the canonical references (`_references_/10-internal-storage/*`), the references take precedence (README §32). This spec kit records such conflicts explicitly where they occur (e.g. spec-kit path: `vault/wiki/product/specs/` per wiki-schema, not `vault/wiki/specs/`).

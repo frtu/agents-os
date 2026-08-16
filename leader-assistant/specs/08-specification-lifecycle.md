@@ -68,4 +68,4 @@ Because generation is continuous ([[07-specification-model]]), drafts change fre
 - AC2: Transitioning `draft→review→approved` is an explicit user action.
 - AC3: Editing an `approved` spec never overwrites it silently — a new revision (draft) is opened, gated by `MODIFY_APPROVED_SPEC`.
 - AC4: Semantic state and Git state are independently queryable and reconcilable.
-- AC5: Every lifecycle transition is recorded in `wiki/log.md` and Git.
+- AC5: Every lifecycle transition is recorded in `vault/wiki/log.md` and Git.

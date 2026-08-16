@@ -25,7 +25,7 @@ Security here is primarily about **data integrity, provenance, and controlled au
 
 ## 1. Raw Immutability
 
-Files under `raw/` are never modified or deleted by the assistant (wiki-schema Rule 1). This preserves provenance and the source of truth. Enforcement: writes to `raw/` are rejected; verified by tests ([[20-testing]]).
+Files under `vault/raw/` are never modified or deleted by the assistant (wiki-schema Rule 1). This preserves provenance and the source of truth. Enforcement: writes to `vault/raw/` are rejected; verified by tests ([[20-testing]]).
 
 ## 2. Human Control of Consequential Work
 
@@ -39,7 +39,7 @@ Potentially destructive or high-impact mutations are caught by the risk engine (
 
 ## 4. Provenance Integrity
 
-Every processed source retains provenance; the chain `raw → sources → wiki` must be intact and auditable ([[17-observability]]). Low-provenance changes are flagged (`LOW_PROVENANCE_CONFIDENCE`).
+Every processed source retains provenance; the chain `vault/raw → sources → vault/wiki` must be intact and auditable ([[17-observability]]). Low-provenance changes are flagged (`LOW_PROVENANCE_CONFIDENCE`).
 
 ## 5. Secrets & Sensitive Content
 
@@ -49,11 +49,11 @@ Every processed source retains provenance; the chain `raw → sources → wiki` 
 
 ## 6. Auditability
 
-Every mutation is a Git commit with an operation-typed message ([[11-git-workflow]]); `wiki/log.md` is append-only. Together they form a tamper-evident record.
+Every mutation is a Git commit with an operation-typed message ([[11-git-workflow]]); `vault/wiki/log.md` is append-only. Together they form a tamper-evident record.
 
 ## 7. Acceptance Criteria
 
-- AC1: No code path writes to `raw/`.
+- AC1: No code path writes to `vault/raw/`.
 - AC2: Destructive/consequential actions require explicit approval.
 - AC3: External actions never fire autonomously.
 - AC4: Secrets in raw material are never propagated into wiki pages or commits.

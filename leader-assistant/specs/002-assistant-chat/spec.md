@@ -13,7 +13,7 @@
 
 A conversational interface to the assistant **acting as the project's AI Product
 Owner**. A user (developer, stakeholder) can chat with it to ask about the project,
-retrieve cited knowledge from the vault, request and review plans for consequential
+retrieve cited knowledge from the workspace, request and review plans for consequential
 work, and co-author specifications — all through natural language. The chat is a
 *presentation* of the same capability layer the REST API exposes (Constitution P9); it
 adds no capability the API lacks. Every exchange is captured to `sessions/` so it can
@@ -22,7 +22,7 @@ later feed knowledge maturation via dreaming.
 ## Goals
 
 - Let a human hold a multi-turn conversation with the assistant about this project.
-- Have the assistant answer from the vault with **citations**, never from thin air.
+- Have the assistant answer from the workspace with **citations**, never from thin air.
 - Present the assistant with a consistent **Product Owner** identity and behavior derived
   from the constitution and the numbered specs.
 - Route consequential requests through **plan-first** review before any mutation (P8).
@@ -45,7 +45,7 @@ later feed knowledge maturation via dreaming.
 ## User Scenarios
 
 - **Scenario 1 — Ask about the project:** As a developer, when I ask "what does the risk
-  engine decide?", the assistant searches the selected vault and answers with citations
+  engine decide?", the assistant searches the selected workspace and answers with citations
   to the pages it used, so that I can trust and verify the answer.
 - **Scenario 2 — Continue a thread:** As a user, when I send a follow-up referencing my
   previous question, the assistant remembers the conversation (via a returned
@@ -59,17 +59,17 @@ later feed knowledge maturation via dreaming.
 - **Scenario 5 — Captured for learning:** As the project owner, after a chat where I
   correct the assistant, that correction is recorded in `sessions/`, so that a later
   dreaming pass can promote it into durable knowledge (P-conversations AC4).
-- **Scenario 6 — Choose a vault:** As a user working across projects, when I name a vault
-  in my request, the conversation operates on that vault; otherwise it uses the default
-  (P13).
+- **Scenario 6 — Choose a workspace:** As a user working across projects, when I name a
+  workspace in my request, the conversation operates on that workspace; otherwise it uses
+  the default (P13).
 
 ## Functional Requirements
 
 Numbered, testable, unambiguous.
 
 - **FR-1:** The system MUST accept a chat message plus an optional conversation id and an
-  optional vault selector, and return the assistant's reply.
-- **FR-2:** The assistant MUST answer knowledge questions by retrieving vault content
+  optional workspace selector, and return the assistant's reply.
+- **FR-2:** The assistant MUST answer knowledge questions by retrieving workspace content
   through the **`query` capability** (not by reading files directly), and MUST include the
   citations `query` returns whenever it makes a factual claim about the project. *(Resolves
   Q3: the agent browses data by calling `query`.)*
@@ -78,30 +78,30 @@ Numbered, testable, unambiguous.
 - **FR-4:** The system MUST support incremental (streamed) delivery of the reply, in
   addition to a single full-reply response.
 - **FR-5:** For **consequential** requests (those the risk model would flag, destructive
-  changes, external actions, or any vault mutation), the assistant MUST present a plan for
+  changes, external actions, or any workspace mutation), the assistant MUST present a plan for
   review and MUST NOT execute the change within the same turn. Execution MUST wait for the
   user's **explicit approval** in a subsequent turn; there is **no auto-approval** path.
   *(Resolves Q2: all approvals are asked back to the user.)* (P8, [[09-planning]])
 - **FR-6:** For **routine** requests (question answering, retrieval, drafting a
   suggestion), the assistant MAY respond directly without a plan (P8 autonomy boundary).
 - **FR-7:** Every chat turn (user message and assistant reply) MUST be persisted to the
-  selected vault's `sessions/` automatically ([[06-conversations]] AC1).
+  selected workspace's `sessions/` automatically ([[06-conversations]] AC1).
 - **FR-8:** The assistant MUST present a consistent **Product Owner** persona: its
   behavior is governed by the constitution and the numbered specs, and it speaks about the
   project as its owner (prioritizing specifications, knowledge compounding, and
   human-in-the-loop governance).
 - **FR-9:** Every ability offered in chat MUST be invocable through the REST API and vice
-  versa (P9). Chat MUST NOT reach the vault except through the shared capability layer. The
-  assistant operates by **calling capabilities as tools** (`query`, `plan`, `create_vault`,
+  versa (P9). Chat MUST NOT reach the workspace except through the shared capability layer. The
+  assistant operates by **calling capabilities as tools** (`query`, `plan`, `create_workspace`,
   `spec_read`, …) — the same capabilities the REST API exposes. *(Resolves Q1/Q3: chat
   calls the API as tools.)*
-- **FR-10:** If no vault selector is supplied, the conversation MUST operate on the
-  configured default vault (P13). The assistant MAY create a vault **only when the user
-  explicitly requests it**, by calling the vault-creation capability as a tool (which, being
-  a mutation, follows the approval flow in FR-5). It MUST NOT silently create a vault when
-  resolving an omitted or misspelled selector; such a missing named vault MUST be reported
+- **FR-10:** If no workspace selector is supplied, the conversation MUST operate on the
+  configured default workspace (P13). The assistant MAY create a workspace **only when the user
+  explicitly requests it**, by calling the workspace-creation capability as a tool (which, being
+  a mutation, follows the approval flow in FR-5). It MUST NOT silently create a workspace when
+  resolving an omitted or misspelled selector; such a missing named workspace MUST be reported
   clearly. *(Resolves Q1.)*
-- **FR-11:** The assistant MUST NOT write to `raw/` and MUST NOT edit existing `log.md`
+- **FR-11:** The assistant MUST NOT write to `vault/raw/` and MUST NOT edit existing `log.md`
   entries as a side effect of any chat turn (P2, P6).
 - **FR-12:** When the assistant makes assumptions to avoid unnecessary clarifying
   questions, it MUST state those assumptions in its reply ([[09-planning]] AC3).
@@ -119,20 +119,20 @@ Numbered, testable, unambiguous.
 - **Turn** — one user message and the assistant's reply.
 - **Product Owner persona** — the assistant's identity and operating rules, sourced from
   the constitution + numbered specs.
-- **Citation** — a reference from an answer to the vault page(s) that support it.
+- **Citation** — a reference from an answer to the workspace page(s) that support it.
 - **Plan** — the reviewable proposal returned for consequential requests (already modeled
   by the capability layer).
 - **Session record** — the `sessions/` file capturing the conversation for later dreaming.
-- **Vault selector** — names which vault the conversation operates on (default when
+- **Workspace selector** — names which workspace the conversation operates on (default when
   omitted).
 
 ## Constraints & Assumptions
 
-- **Constitution:** P1 (vault is truth), P2 (`raw/` immutable), P6 (traceability /
+- **Constitution:** P1 (vault is truth), P2 (`vault/raw/` immutable), P6 (traceability /
   append-only log), P8 (human-in-the-loop), P9 (interface parity), P10 (portability),
-  P13 (multi-vault) all apply.
+  P13 (multi-workspace) all apply.
 - Builds on the existing `app/` capability layer (`query`, `plan`, `ingest`, `spec_read`,
-  vault resolution) — this feature adds a conversational orchestration capability, not a
+  workspace resolution) — this feature adds a conversational orchestration capability, not a
   parallel data path.
 - **Assumption:** conversations are single-operator and local; no auth is required. If
   this becomes multi-user, session isolation and identity must be revisited.
@@ -145,31 +145,31 @@ Numbered, testable, unambiguous.
   question yields an answer with at least one citation when supporting pages exist. (FR-1, FR-2)
 - [ ] **AC-2:** Sending a follow-up with the returned conversation id produces a
   context-aware reply. (FR-3)
-- [ ] **AC-3:** A consequential request returns a plan and makes **no** vault mutation in
+- [ ] **AC-3:** A consequential request returns a plan and makes **no** workspace mutation in
   that turn; the mutation happens only after explicit approval. (FR-5, P8)
 - [ ] **AC-4:** A routine question answers directly without forcing a plan step. (FR-6)
-- [ ] **AC-5:** After any chat turn, a corresponding record exists under the vault's
+- [ ] **AC-5:** After any chat turn, a corresponding record exists under the workspace's
   `sessions/`. (FR-7, [[06-conversations]] AC1)
 - [ ] **AC-6:** Streaming and full-reply modes both return the same final content. (FR-4)
 - [ ] **AC-7:** For every chat ability there is an equivalent API capability, verified by
   a parity check. (FR-9, P9; mirrors [[20-testing]] parity invariant)
-- [ ] **AC-8:** No chat turn writes under `raw/` or edits an existing `log.md` line. (FR-11, P2/P6)
-- [ ] **AC-9:** With no vault selector, the default vault is used; a named missing vault is
-  reported, not silently created; an explicit "create vault X" request creates it via the
+- [ ] **AC-8:** No chat turn writes under `vault/raw/` or edits an existing `log.md` line. (FR-11, P2/P6)
+- [ ] **AC-9:** With no workspace selector, the default workspace is used; a named missing workspace is
+  reported, not silently created; an explicit "create workspace X" request creates it via the
   capability. (FR-10, P13)
 - [ ] **AC-10:** A conversation resumed by id **after a service restart** continues in
   context, and a plan left pending before the restart can still be approved. (FR-13, P1)
 
 ## Resolved Decisions
 
-- **D1 (was Q1) — Vault creation:** chat MAY create a vault, but only on explicit user
-  request, by calling the vault-creation capability as a tool; never as a silent side
+- **D1 (was Q1) — Workspace creation:** chat MAY create a workspace, but only on explicit user
+  request, by calling the workspace-creation capability as a tool; never as a silent side
   effect of selector resolution. (FR-10)
 - **D2 (was Q2) — Approval:** all consequential actions require the user's explicit approval
   in a follow-up turn; there is no auto-approval flag. The pending plan is stored with the
   conversation so approval can arrive in a later turn (even after restart). (FR-5, FR-13)
 - **D3 (was Q3) — Tools:** the agent browses knowledge by calling the `query` capability
-  (which returns citations); it does not read vault files directly. Capabilities are the
+  (which returns citations); it does not read workspace files directly. Capabilities are the
   agent's tools. (FR-2, FR-9)
 
 ## Open Questions

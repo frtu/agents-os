@@ -26,14 +26,14 @@ Last Updated: 2026-08-16
 
 ## 1. Purpose
 
-Let the assistant produce concrete PO/PM artifacts on request — grounded in `wiki/` knowledge, reusing externalized templates, and feeding usage back into concept maturity. This is the "knowledge application" half of the product, subordinate to continuous specification generation.
+Let the assistant produce concrete PO/PM artifacts on request — grounded in `vault/wiki/` knowledge, reusing externalized templates, and feeding usage back into concept maturity. This is the "knowledge application" half of the product, subordinate to continuous specification generation.
 
 ## 2. Output Types (initial catalog)
 
 | Output | Template | Notes |
 |--------|----------|-------|
 | Meeting summary | `templates/meeting-summary.md` | decisions, action items, owners |
-| Document review & comment | `templates/document-review.md` | gaps, risks, contradictions vs `wiki/` |
+| Document review & comment | `templates/document-review.md` | gaps, risks, contradictions vs `vault/wiki/` |
 | Engineering ticket | `templates/engineering-ticket.md` | **Why / Who / What / Acceptance criteria** |
 | Product strategy brief | `templates/product-strategy.md` | options + recommendation |
 | Project summary / status | `templates/project-summary.md` | RAID, milestones, decisions |
@@ -46,19 +46,19 @@ The catalog is extensible; new types add a template (Constitution P7).
 2. If none fits, **propose** a new template; save to `templates/` only on user approval; then produce.
 3. State the template used (or "new proposed") in the artifact/report.
 
-Templates live outside the vault so humans review and evolve them ([[03-vault]] §Templates, [`templates/README`](../templates/README.md)). "Closest match" scoring is open — [[001-leader-assistant/plan-tbd|plan-tbd]] TBD-4.
+Templates live outside the workspace so humans review and evolve them ([[03-vault]] §Templates, [`templates/README`](../templates/README.md)). "Closest match" scoring is open — [[001-leader-assistant/plan-tbd|plan-tbd]] TBD-4.
 
 ## 4. Grounding, Traceability & Promotion (Constitution P5/P6)
 
-- Every artifact is written to `output/` as Markdown with frontmatter.
-- Every artifact **cites** the `wiki/` concepts it used via `[[wikilinks]]`.
+- Every artifact is written to `vault/output/` as Markdown with frontmatter.
+- Every artifact **cites** the `vault/wiki/` concepts it used via `[[wikilinks]]`.
 - For each cited concept, the `lifecycle` engine appends the artifact to `referenced-to` (the **reference**) and increments `usage-count` (the **counter**), then recomputes `status`. See [[05-zettelkasten]].
 - If producing an artifact reveals a wrong concept and it is substantively revised, that is a **big correction** (records `last-correction`, demotes `reliable → used`).
-- A production entry is appended to `wiki/log.md` (`## [YYYY-MM-DD] output | <Title>`), never editing prior entries.
+- A production entry is appended to `vault/wiki/log.md` (`## [YYYY-MM-DD] output | <Title>`), never editing prior entries.
 
 ## 5. Knowledge Grounding Rule
 
-Outputs are grounded in `wiki/`. If required knowledge is absent, the assistant **reports the gap** (and may suggest ingestion) rather than fabricating.
+Outputs are grounded in `vault/wiki/`. If required knowledge is absent, the assistant **reports the gap** (and may suggest ingestion) rather than fabricating.
 
 ## 6. Relationship to Specifications & Integrations
 
@@ -69,7 +69,7 @@ Outputs are grounded in `wiki/`. If required knowledge is absent, the assistant 
 ## 7. Acceptance Criteria
 
 - AC1: A request with a matching template reuses it and records the choice; no match triggers a gated new-template proposal.
-- AC2: Each catalog output type produces a well-formed artifact in `output/`.
+- AC2: Each catalog output type produces a well-formed artifact in `vault/output/`.
 - AC3: A produced ticket contains Why / Who / What / Acceptance criteria at minimum.
 - AC4: Every artifact cites its concepts; each cited concept gains a `referenced-to` back-link + incremented `usage-count`.
 - AC5: A threshold-crossing concept is promoted; a big correction during production demotes it.

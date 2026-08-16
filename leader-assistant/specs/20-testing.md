@@ -27,13 +27,13 @@ Verification is anchored to the **Core Invariants** ([[01-principles]] §2) and 
 
 | Invariant | Test focus | Spec |
 |-----------|-----------|------|
-| Raw never rewritten | writes to `raw/` are rejected | [[18-security]] |
-| Provenance retained | chain `raw→sources→wiki` reconstructable | [[02-domain-model]], [[17-observability]] |
+| Raw never rewritten | writes to `vault/raw/` are rejected | [[18-security]] |
+| Provenance retained | chain `vault/raw→sources→vault/wiki` reconstructable | [[02-domain-model]], [[17-observability]] |
 | Stable concept IDs | IDs persist across rename | [[05-zettelkasten]] |
 | Atomicity | oversized pages flagged by lint | [[05-zettelkasten]] |
 | `[[wikilinks]]` for relations | no raw file paths in page bodies | [[03-vault]] |
 | `referenced-to` tracked | usage counts drive `status` | [[05-zettelkasten]] |
-| Auto ingestion | new `raw/` file triggers pipeline | [[04-knowledge-ingestion]] |
+| Auto ingestion | new `vault/raw/` file triggers pipeline | [[04-knowledge-ingestion]] |
 | Conversations persisted | sessions written; dreaming digests produced | [[06-conversations]] |
 | Mutations → commits | every mutation commits | [[11-git-workflow]] |
 | Risky → feature branch | risky mutation branches; no auto-merge | [[10-risk-engine]] |

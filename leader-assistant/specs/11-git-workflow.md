@@ -21,7 +21,7 @@ Last Updated: 2026-08-13
 
 # Git Workflow
 
-The Vault is a Git repository; Git is the authoritative change history and the technical mechanism behind every mutation.
+The Workspace is a Git repository; Git is the authoritative change history and the technical mechanism behind every mutation.
 
 ## 1. Normal (safe) Change
 
@@ -49,7 +49,7 @@ Include:
 - **Affected pages**.
 - **Source reference** if applicable.
 
-Example: `ingest: add [[kafka]] + update [[idempotency]] (source: raw/docs/kafka-guide.pdf)`.
+Example: `ingest: add [[kafka]] + update [[idempotency]] (source: vault/raw/docs/kafka-guide.pdf)`.
 
 ## 5. Branch Naming
 
@@ -65,5 +65,5 @@ Git lifecycle backs but does not equal the specification lifecycle ([[08-specifi
 - AC1: Every knowledge/spec mutation results in a commit with the convention above.
 - AC2: Safe changes commit to `main`; risky changes go to `feature/{feature-name}`.
 - AC3: Risky branches merge only after the approval policy is satisfied.
-- AC4: `wiki/log.md` entries correlate with commits for auditability.
-- AC5: The Vault remains software-independent (plain Markdown + Git).
+- AC4: `vault/wiki/log.md` entries correlate with commits for auditability.
+- AC5: The Workspace remains software-independent (plain Markdown + Git).

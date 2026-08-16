@@ -30,7 +30,7 @@ Conversation threads are stored under `sessions/` (e.g. `sessions/2026-08-12-pro
 ## 2. Two-Stage Knowledge Promotion
 
 ```text
-raw/{provenance}/              (immutable source)
+vault/raw/{provenance}/              (immutable source)
      │
      ▼
 Conversation
@@ -40,24 +40,24 @@ sessions/                      (operational capture)
      │
      ▼  DREAMING (daily)
      │
-wiki/sources/_daily_/          (daily digest, references sessions)
+vault/wiki/sources/_daily_/          (daily digest, references sessions)
      │
      ▼  INGEST
      │
-wiki/sources/{provenance}/{source}.md   (source summary — preserves provenance)
+vault/wiki/sources/{provenance}/{source}.md   (source summary — preserves provenance)
      │
      ▼
-wiki/{categories}              (standalone knowledge — no session refs)
+vault/wiki/{categories}              (standalone knowledge — no session refs)
 ```
 
-**Key rule**: session references exist *only* in daily digests; source summaries preserve provenance by mirroring `raw/`; category pages reference source summaries. Durable knowledge stays clean while the full provenance chain is preserved.
+**Key rule**: session references exist *only* in daily digests; source summaries preserve provenance by mirroring `vault/raw/`; category pages reference source summaries. Durable knowledge stays clean while the full provenance chain is preserved.
 
 ## 3. Dreaming Operation (daily / on demand)
 
 1. Scan all sessions from the current day.
 2. Extract: human decisions (upvotes, downvotes, corrections, confirmations); knowledge complements (new info, refinements, edge cases); important context (reasoning, constraints).
-3. Write `wiki/sources/_daily_/YYYY-MM-DD.md` with frontmatter (`Category: daily-digest`, `Date`, `Sessions: [[...]]`) and sections: **Key Decisions**, **Knowledge Candidates** (each with Type = correction|complement|new-concept, Target = existing/new page, Content = distilled knowledge).
-4. Append `## [YYYY-MM-DD] dreaming | Daily digest` to `wiki/log.md`.
+3. Write `vault/wiki/sources/_daily_/YYYY-MM-DD.md` with frontmatter (`Category: daily-digest`, `Date`, `Sessions: [[...]]`) and sections: **Key Decisions**, **Knowledge Candidates** (each with Type = correction|complement|new-concept, Target = existing/new page, Content = distilled knowledge).
+4. Append `## [YYYY-MM-DD] dreaming | Daily digest` to `vault/wiki/log.md`.
 
 The daily digest is the **input to standard ingestion** ([[04-knowledge-ingestion]]).
 

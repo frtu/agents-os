@@ -27,8 +27,8 @@ The Workflow/Execution Engine ([[12-assistant]]) orchestrates the four knowledge
 
 | Operation | Purpose | Trigger |
 |-----------|---------|---------|
-| **Dreaming** | Compact daily sessions into `wiki/sources/_daily_/` digests | end of day / on demand |
-| **Ingest** | Process raw sources into wiki knowledge | new file in `raw/` |
+| **Dreaming** | Compact daily sessions into `vault/wiki/sources/_daily_/` digests | end of day / on demand |
+| **Ingest** | Process raw sources into wiki knowledge | new file in `vault/raw/` |
 | **Query** | Answer questions from the wiki with citations | user question |
 | **Lint** | Health-check the wiki (contradictions, orphans, staleness) | periodic / on demand |
 
@@ -36,10 +36,10 @@ Dreaming → [[06-conversations]]. Ingest → [[04-knowledge-ingestion]]. Lint �
 
 ## 2. Query Operation (wiki-schema §Query)
 
-1. Read `wiki/portal.md` to find relevant pages.
+1. Read `vault/wiki/portal.md` to find relevant pages.
 2. Read the relevant wiki pages.
 3. Synthesize an answer with `[[wikilink]]` citations.
-4. If a valuable artifact results (comparison/analysis/new connection), offer to save it to `wiki/synthesis/`.
+4. If a valuable artifact results (comparison/analysis/new connection), offer to save it to `vault/wiki/synthesis/`.
 5. If saved, update portal and log.
 
 ## 3. Specification-Generation Pipeline
@@ -60,7 +60,7 @@ Continuous generation means specs evolve as the knowledge base evolves ([[07-spe
 
 ## 5. Orchestration Rules
 
-- Every operation appends a `wiki/log.md` entry and produces Git commits where it mutates state.
+- Every operation appends a `vault/wiki/log.md` entry and produces Git commits where it mutates state.
 - Operations invoke the risk engine before landing mutations on `main`.
 - Autonomous operations (ingest/dreaming/lint) run without a plan; consequential work routes through [[09-planning]].
 

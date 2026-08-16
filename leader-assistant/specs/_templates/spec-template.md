@@ -32,7 +32,7 @@ Numbered, testable, unambiguous. Mark unknowns with `[NEEDS CLARIFICATION: …]`
 
 ## Key Entities & Concepts
 
-Domain nouns this feature introduces or touches (vaults, concepts, outputs, templates, status, …). Describe them, not their storage.
+Domain nouns this feature introduces or touches (workspaces, concepts, outputs, templates, status, …). Describe them, not their storage.
 
 ## Constraints & Assumptions
 

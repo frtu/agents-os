@@ -23,7 +23,7 @@ Last Updated: 2026-08-13
 
 The wiki is observable through two special files plus lint and Git. These provide navigation, an audit timeline, and health signals without external infrastructure.
 
-## 1. Portal (`wiki/portal.md`)
+## 1. Portal (`vault/wiki/portal.md`)
 
 Master catalog of every wiki page. Content-oriented. Updated on **every ingest**.
 
@@ -31,13 +31,13 @@ Master catalog of every wiki page. Content-oriented. Updated on **every ingest**
 - Grouped by category headers: Product · People · Concepts · Resources · Projects · Synthesis · Sources.
 - Read first when answering a query ([[16-workflows]]).
 
-## 2. Log (`wiki/log.md`)
+## 2. Log (`vault/wiki/log.md`)
 
 Chronological, **append-only** operational record. Never edit existing entries.
 
 - Entry format: `## [YYYY-MM-DD] operation | Title` + brief description.
 - Operations: `ingest`, `query`, `lint`, `synthesis`, `dreaming`, `spec`.
-- Parseable with unix tools: `grep "^## \[" wiki/log.md | tail -5`.
+- Parseable with unix tools: `grep "^## \[" vault/wiki/log.md | tail -5`.
 
 ## 3. Lint (health check)
 

@@ -21,7 +21,7 @@ Last Updated: 2026-08-13
 
 # Product Vision
 
-> This spec kit specifies **how to build** the AI Product Owner / Project Specification Assistant described in the project README. It is distinct from the *runtime* spec kit that the finished assistant itself maintains under `wiki/product/specs/`.
+> This spec kit specifies **how to build** the AI Product Owner / Project Specification Assistant described in the project README. It is distinct from the *runtime* spec kit that the finished assistant itself maintains under `vault/wiki/product/specs/`.
 
 ## 1. Purpose
 
@@ -62,7 +62,7 @@ Both expose the same underlying capabilities. See [[13-api]] and [[14-chat]] for
 
 ## 5. Primary Output
 
-The primary output is **project specifications** — a *collection of linked specification documents*, not one monolithic document. At runtime the assistant maintains these under `wiki/product/specs/`. See [[07-specification-model]] for the model the assistant produces.
+The primary output is **project specifications** — a *collection of linked specification documents*, not one monolithic document. At runtime the assistant maintains these under `vault/wiki/product/specs/`. See [[07-specification-model]] for the model the assistant produces.
 
 The assistant continuously generates and refines specifications from: accumulated knowledge, conversations, source documents, user requirements, project context, previous specifications, and user feedback.
 
@@ -80,7 +80,7 @@ The ultimate objective is a **knowledge-compounding specification assistant**: t
 
 ## 7. Success Criteria
 
-1. Adding a source to `raw/` compounds the Vault (updates/creates concepts, links, contradictions) rather than being re-derived per query.
+1. Adding a source to `vault/raw/` compounds the Vault (updates/creates concepts, links, contradictions) rather than being re-derived per query.
 2. Specifications evolve continuously from knowledge changes without an explicit "generate the specification" command.
 3. Every specification and knowledge mutation is captured in Git with preserved provenance.
 4. Chat and API produce identical capabilities; neither bypasses the planning/risk/knowledge model.

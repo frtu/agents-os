@@ -12,20 +12,20 @@
 ## Setup
 
 - [ ] T001 Python 3.11+ project scaffold; pin `claude-agent-sdk`, `fastapi`, `gradio`, `uvicorn`. ([[19-non-functional]])
-- [ ] T002 Config module: `LEADER_VAULT_ROOT` / `LEADER_VAULT_PATH` / `LEADER_DEFAULT_VAULT`. (P13, [[03-vault]])
+- [ ] T002 Config module: `LEADER_WORKSPACE_ROOT` / `LEADER_WORKSPACE_PATH` / `LEADER_DEFAULT_WORKSPACE`. (P13, [[03-vault]])
 - [ ] T003 [P] Wire `memory/constitution.md` + numbered specs into the agent system-prompt assembly.
 
-## Core — Vault & git (foundation)
+## Core — Workspace & git (foundation)
 
-- [ ] T010 `vault` resolver: `Vaults/<name>/` layout scaffolding (`raw/{clippings,docs,notes,transcripts,assets}`, `wiki/…`, `sessions/`, `output/`); default + selector resolution. (P1, P13; [[03-vault]])
-- [ ] T011 `raw/` write-guard: reject any write path under `raw/`. (P2; invariant "raw never rewritten"; [[18-security]])
+- [ ] T010 `vault` resolver: `Workspaces/<name>/` layout scaffolding (`skills/`, `sessions/`, `vault/raw/{clippings,docs,notes,transcripts,assets}`, `vault/wiki/…`, `vault/output/`); default + selector resolution. (P1, P13; [[03-vault]])
+- [ ] T011 `vault/raw/` write-guard: reject any write path under `vault/raw/`. (P2; invariant "raw never rewritten"; [[18-security]])
 - [ ] T012 Git/vault manager: typed commit messages (ingest|update|lint|synthesis|dreaming|spec|output), append-only `log.md`, portal writer. (P6; invariants "mutations→commits", "log append-only"; [[11-git-workflow]], [[17-observability]])
 - [ ] T013 [P] Schema helpers: read/write/validate frontmatter, stable time-based `id`, slugify, `[[wikilink]]` + table-pipe escaping. (P4; [[02-domain-model]])
 
 ## Core — Knowledge pipeline
 
-- [ ] T020 Ingestion orchestrator: raw → source-summary (`wiki/sources/{provenance}/`) → concept create/update → portal/log; invoke risk + git. (P3; [[04-knowledge-ingestion]])
-- [ ] T021 Source classifier: `raw/` subfolder primary signal + content sniff; log the decision. ([[04-knowledge-ingestion]])
+- [ ] T020 Ingestion orchestrator: `vault/raw` → source-summary (`vault/wiki/sources/{provenance}/`) → concept create/update → portal/log; invoke risk + git. (P3; [[04-knowledge-ingestion]])
+- [ ] T021 Source classifier: `vault/raw/` subfolder primary signal + content sniff; log the decision. ([[04-knowledge-ingestion]])
 - [ ] T022 Dreaming operation: `sessions/` → `wiki/sources/_daily_/YYYY-MM-DD.md` (decisions, knowledge candidates). (P3; [[06-conversations]])
 - [ ] T023 Zettelkasten manager: atomicity + justified link-context enforcement; dedup pre-check. (P4; invariants "atomicity", "wikilinks"; [[05-zettelkasten]])
 
@@ -47,15 +47,15 @@
 
 ## Core — Outputs (secondary) & templates
 
-- [ ] T060 Output engine: reuse-before-create against root `templates/`; propose new template on no-match; write `output/` with citations. (P7; [[21-outputs]])
+- [ ] T060 Output engine: reuse-before-create against root `templates/`; propose new template on no-match; write `vault/output/` with citations. (P7; [[21-outputs]])
 - [ ] T061 On production, call `lifecycle.record_usage` for each cited concept; append `output` log entry. (P6; [[21-outputs]])
 
 ## Interfaces (capability parity)
 
-- [ ] T070 Surface-agnostic `capabilities` module: `list_vaults`, `create_vault`, `ingest`, `dream`, `query`, `plan`, `execute`, `produce`, `ask`, `lint`, `spec_read`, `spec_transition`. (P9; [[12-assistant]])
-- [ ] T071 `ask()` over `claude-agent-sdk` with vault-scoped tools + resumable session + streaming. ([[14-chat]])
+- [ ] T070 Surface-agnostic `capabilities` module: `list_workspaces`, `create_workspace`, `ingest`, `dream`, `query`, `plan`, `execute`, `produce`, `ask`, `lint`, `spec_read`, `spec_transition`. (P9; [[12-assistant]])
+- [ ] T071 `ask()` over `claude-agent-sdk` with workspace-scoped tools + resumable session + streaming. ([[14-chat]])
 - [ ] T072 REST surface (FastAPI) over `capabilities`; SSE for streaming. Paths per TBD-10. (P9; [[13-api]])
-- [ ] T073 Chat surface (Gradio on same app): vault picker, streaming, inline HITL confirmation. (P8/P9; [[14-chat]])
+- [ ] T073 Chat surface (Gradio on same app): workspace picker, streaming, inline HITL confirmation. (P8/P9; [[14-chat]])
 - [ ] T074 HITL bridge across transports (propose/confirm or `auto_approve`) — per TBD-2. (P8)
 
 ## Observability
@@ -69,7 +69,7 @@
 - [ ] T091 Integration: ingest pipeline; dreaming→ingest; continuous spec generation. ([[20-testing]])
 - [ ] T092 Governance: risky→feature branch; approved-spec→revision. ([[20-testing]])
 - [ ] T093 Parity: enumerate capabilities, assert Chat and API produce identical effects. (P9; [[20-testing]])
-- [ ] T094 Provenance/security: `raw/` never written; provenance chain reconstructable; secrets excluded. ([[18-security]])
+- [ ] T094 Provenance/security: `vault/raw/` never written; provenance chain reconstructable; secrets excluded. ([[18-security]])
 - [ ] T095 Full invariant matrix in CI; block merges on failure. ([[20-testing]])
 
 ## Dependencies

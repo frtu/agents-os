@@ -42,7 +42,7 @@ Derived from the README and the canonical references. When README and references
 | 00 | [product-vision](00-product-vision.md) | vision, output, long-term loop | §1, §3, §30 |
 | 01 | [principles](01-principles.md) | principles, core invariants, non-goals | §2, §28, §29 |
 | 02 | [domain-model](02-domain-model.md) | entities, categories, frontmatter | §10, §28 |
-| 03 | [vault](03-vault.md) | raw/wiki/sessions/output, Git ledger | §6, §10, §27 |
+| 03 | [workspace](03-vault.md) | skills/sessions/vault (raw/wiki/output), Git ledger | §6, §10, §27 |
 | 04 | [knowledge-ingestion](04-knowledge-ingestion.md) | event-driven ingest pipeline | §8, §12, §13.1, §20 |
 | 05 | [zettelkasten](05-zettelkasten.md) | identity, atomicity, status, staleness | §11, §19 |
 | 06 | [conversations](06-conversations.md) | sessions, dreaming, promotion | §9, §12 |

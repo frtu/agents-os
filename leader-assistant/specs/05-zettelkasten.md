@@ -21,7 +21,7 @@ Last Updated: 2026-08-13
 
 # Zettelkasten Knowledge Management
 
-The `wiki/` layer follows Zettelkasten principles so knowledge compounds over time. The Knowledge Engine ([[12-assistant]]) enforces these rules.
+The `vault/wiki/` layer follows Zettelkasten principles so knowledge compounds over time. The Knowledge Engine ([[12-assistant]]) enforces these rules.
 
 ## 1. Identity
 Every wiki page has a **stable unique identifier**, preferably time-based `202608120746` (YYYYMMDDHHMM), stored in frontmatter (not necessarily the filename). Filenames may change; the ID must not. IDs enable stable references as titles evolve.
@@ -74,16 +74,16 @@ last-correction: 2026-08-10   # empty until the first big correction
 - `referenced-to` + `usage-count` = this concept contributed to producing these artifacts (drives maturity).
 
 ## 6. Structure Notes (MOCs)
-Organize other pages: `wiki/portal.md` (master entry), `wiki/product/specs/*.md` (03+ spec MOCs), category hubs. Support hierarchical (nested), sequential (a→b→c argument chains), and cross-category (semilattice) structures.
+Organize other pages: `vault/wiki/portal.md` (master entry), `vault/wiki/product/specs/*.md` (03+ spec MOCs), category hubs. Support hierarchical (nested), sequential (a→b→c argument chains), and cross-category (semilattice) structures.
 
 ## 7. Contradiction Handling
-1. Note the contradiction explicitly. 2. Cite both sources. 3. If resolution is clear → update the page. 4. If unclear → create a `wiki/synthesis/` page analyzing the conflict. 5. Consider risk-based branching for significant contradictions ([[10-risk-engine]]).
+1. Note the contradiction explicitly. 2. Cite both sources. 3. If resolution is clear → update the page. 4. If unclear → create a `vault/wiki/synthesis/` page analyzing the conflict. 5. Consider risk-based branching for significant contradictions ([[10-risk-engine]]).
 
 ## 8. Staleness Detection (lint inputs)
 Flag: `reliable` pages that required major corrections; `draft` pages used many times; sources superseded by newer info; orphan pages (no inbound links); important topics lacking a page. See [[17-observability]] / lint.
 
 ## 9. Knowledge Hygiene
-- **Provenance**: every concept traces back through `wiki/sources/ → raw/`.
+- **Provenance**: every concept traces back through `vault/wiki/sources/ → vault/raw/`.
 - **Deduplication**: search for existing coverage before creating a page.
 - **Refactoring**: split pages that outgrow atomicity.
 - **Deprecation**: mark obsolete pages rather than deleting (maintain history).

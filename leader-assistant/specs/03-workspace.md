@@ -1,0 +1,182 @@
+---
+id: 202608132112-03
+title: Workspace
+spec: 03-vault
+layer: moc
+status: draft
+lifecycle: draft
+Category: spec
+Tags: [workspace, vault, storage, git, directory-structure, provenance]
+traceability:
+  readme: ["§6 Git as the Knowledge and Specification Ledger", "§10 Knowledge Layers", "§27 Portal and Log"]
+  references: ["_references_/10-internal-storage/wiki-schema.md#architecture", "_references_/10-internal-storage/wiki-architecture.md"]
+related:
+  - "[[02-domain-model]]"
+  - "[[04-knowledge-ingestion]]"
+  - "[[05-zettelkasten]]"
+  - "[[11-git-workflow]]"
+Created: 2026-08-13
+Last Updated: 2026-08-16
+---
+
+# Workspace
+
+A **Workspace** is the top-level container the assistant operates on. Each workspace is a
+**Git repository** and holds three children: `skills/` (installed skills), `sessions/`
+(short-term conversations), and `vault/` (the ingestion root — the durable knowledge store).
+The **vault** is where all durable knowledge lives; every meaningful mutation is a Git commit.
+This spec defines the physical layout; [[04-knowledge-ingestion]], [[05-zettelkasten]], and
+[[06-conversations]] define how the vault is populated.
+
+> **Terminology.** "Workspace" is the container and unit of multiplicity. "Vault" is the
+> `vault/` subfolder inside a workspace — the ingestion root / knowledge store. The word
+> "vault" throughout the spec kit refers to that subfolder, never the container.
+
+> **Code divergence (target vs. current).** These docs describe the **target** model. The
+> current app code and tests still use the previous names: a flat `Vaults/<name>/` container
+> (no `vault/` nesting, no `skills/`), env vars `LEADER_VAULT_ROOT` / `LEADER_VAULT_PATH` /
+> `LEADER_DEFAULT_VAULT`, default name `default`, the `vault` API field, and `/api/vaults`
+> endpoints. Treat the spec as the migration target, not a description of what is implemented.
+
+> Layout differences vs. the remote source (top-level `source/`, per-workspace templates) are
+> recorded in [[03-vault-contradiction]]. Local is authoritative.
+
+## 0. Multi-Workspace (Constitution P13)
+
+The assistant supports **multiple workspaces** under a configurable root:
+
+- Default root `Workspaces/`; each workspace at `Workspaces/<workspace-name>/`.
+- A `_default_` workspace is created by default when no selector is supplied.
+- Overridable via environment: `LEADER_WORKSPACE_ROOT` (root dir), `LEADER_WORKSPACE_PATH`
+  (explicit single-workspace path), `LEADER_DEFAULT_WORKSPACE` (default selector, default value
+  `_default_`).
+- Every capability resolves a target workspace from an explicit selector, or the configured
+  default when omitted ([[13-api]], [[14-chat]]).
+- All durable state for a workspace stays inside that workspace. **Output templates are the
+  exception** — they live in an externalized repo-root `templates/` shared across workspaces (§6b).
+
+## 1. Top-Level Layout
+
+```text
+Workspaces/<workspace-name>/
+├── skills/         # installed skills — each a file/folder or a reference-link to another folder
+├── sessions/       # operational conversations (short-term memory)
+└── vault/          # ingestion root — the durable knowledge store
+    ├── raw/        # human-owned sources (never modified by the pipeline)
+    ├── wiki/       # LLM workspace — all durable knowledge
+    └── output/     # generated artifacts (reports, query results)
+
+templates/          # repo-root, externalized, shared output templates (NOT inside a workspace)
+```
+
+## 2. `skills/` — Installed Skills
+
+Each workspace has a `skills/` folder holding its **installed skills**. Skills are
+workspace-scoped, so different workspaces can install different skill sets. Each entry is either:
+
+- **Self-contained** — a skill file or folder that lives directly under `skills/`; or
+- **A reference-link** — a pointer to a skill folder maintained elsewhere (a shared skill
+  library), realized as a symlink or a small pointer file.
+
+> **TBD (out of MVP):** the skill manifest format, the resolution/loading order across
+> self-contained vs. reference-link entries, and how the assistant enumerates installed skills.
+> Tracked in [[001-leader-assistant/plan-tbd|plan-tbd]].
+
+## 3. `vault/` — Ingestion Root (Knowledge Store)
+
+The vault is the durable knowledge store and holds three subfolders: `raw/` (immutable,
+human-owned sources), `wiki/` (synthesized durable knowledge), and `output/` (generated
+artifacts). The provenance chain flows `vault/raw/ → sessions/ → vault/wiki/`.
+
+### 3.1 `vault/raw/` — Human-Owned Sources
+
+Properties: provenance-preserving, source of truth, ingestion-triggering, never treated as
+synthesized knowledge. **Humans own `vault/raw/`**: they may add, modify, or delete these files,
+and the app provides tools (e.g. upload) to help them do so (Constitution P2, feature
+[[004-assistant-sidebar]]). The **ingestion pipeline / LLM reads but never modifies** these
+files — all automated processing produces new files downstream.
+
+Canonical subdirectories:
+
+- `vault/raw/assets/` — images/audio referenced with `![[resource/path]]`.
+- `vault/raw/clippings/` — web articles (Obsidian Web Clipper or manual).
+- `vault/raw/docs/` — PDFs, papers, received reference files.
+- `vault/raw/notes/` — handwritten notes, briefs, ideas.
+- `vault/raw/transcripts/` — meeting/voice/interview transcripts.
+
+Arbitrary subdirectories are allowed; all are ingestion candidates. The `{provenance}` subpath
+under `vault/raw/` is preserved through the whole chain.
+
+### 3.2 `vault/wiki/` — Durable Knowledge Workspace
+
+Six categories (see [[02-domain-model]] §2). Directory map:
+
+```text
+vault/wiki/
+├── sources/
+│   ├── _daily_/                 # daily digests (dreaming output)
+│   └── {provenance}/            # source summaries mirroring vault/raw/
+├── concepts/{patterns,technologies}/
+├── product/{persona,entities,features}/
+├── product/specs/               # the assistant's RUNTIME spec kit (00-02 core, 03+ MOCs)
+├── people/{processes,steps,roles,competencies,members}/
+├── resources/{artifacts,components,dependencies,tools}/
+├── projects/{initiative}|{product}/{project}/
+├── synthesis/
+├── portal.md                    # master catalog (updated every ingest)
+└── log.md                       # append-only operational record
+```
+
+> **Path note (README §32 precedence):** the assistant's runtime spec kit lives at
+> `vault/wiki/product/specs/` per wiki-schema, even though README §31 writes it as `wiki/specs/`.
+> This build spec kit (the one you are reading) lives at the repo-level `specs/` and is separate.
+
+Rule: always write into the **most specific** subfolder that fits; fall back to the parent only
+when none matches.
+
+### 3.3 `vault/output/` — Generated Artifacts
+
+Reports, query results, exported deliverables. May feed back into knowledge via
+[[15-integrations]] §Output→Knowledge. Produced by reusing templates from the root `templates/`
+folder (§6b, [[21-outputs]]).
+
+## 4. `sessions/` — Short-Term Memory
+
+Ephemeral operational conversation logs at the **workspace level** (a sibling of `vault/`, not
+inside it). Not part of the wiki. Feed the dreaming pipeline. See [[06-conversations]].
+
+## 5. Special Files
+
+- `vault/wiki/portal.md` — one line per page (`- [[page|Page]] — summary`, <120 chars), grouped
+  by category. Updated on every ingest. See [[17-observability]].
+- `vault/wiki/log.md` — append-only entries `## [YYYY-MM-DD] operation | Title`. Never edit
+  existing entries.
+
+## 6. Git as Ledger
+
+The workspace is a Git repository; every mutation is committed: raw ingestion metadata, source
+creation/updates, concept create/modify/delete, specification changes, conversation capture,
+generated artifacts. Git provides history, diffs, branches, rollback, review, merge. See
+[[11-git-workflow]].
+
+## 6b. `templates/` — Externalized Output Templates (repo root)
+
+Reusable **output** structures (meeting summary, doc review, engineering ticket, strategy,
+project summary) live in a **repo-root `templates/` folder outside any workspace**, so humans can
+review and evolve them independently (Constitution P7). The assistant reads them first
+(reuse-before-create) and proposes new templates only on no-match. See
+[`templates/README`](../templates/README.md) and [[21-outputs]]. Whether a new workspace inherits
+copies is open — [[001-leader-assistant/plan-tbd|plan-tbd]] TBD-5.
+
+## 7. Acceptance Criteria
+
+- AC1: The three workspace children (`skills/`, `sessions/`, `vault/`) exist with the roles above;
+  the vault holds `raw/`, `wiki/`, `output/`; the repo-root `templates/` folder exists outside any
+  workspace.
+- AC2: No process ever writes to files under `vault/raw/` (the pipeline/LLM never mutates it).
+- AC6: A workspace is resolvable by selector or default (`_default_`);
+  `LEADER_WORKSPACE_ROOT`/`LEADER_WORKSPACE_PATH`/`LEADER_DEFAULT_WORKSPACE` are honored (P13).
+- AC3: `vault/wiki/portal.md` reflects every wiki page after an ingest.
+- AC4: `vault/wiki/log.md` is strictly append-only (enforced/verified).
+- AC5: The provenance chain in [[02-domain-model]] §5 is reconstructable for any wiki concept.
+- AC7: A workspace exposes an installable `skills/` folder; entries may be files or reference-links.

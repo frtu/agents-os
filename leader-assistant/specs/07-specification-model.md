@@ -21,24 +21,24 @@ Last Updated: 2026-08-13
 
 # Specification Model
 
-Specifications are the assistant's primary output: a **collection of linked documents**, not a monolith. At runtime the assistant maintains them under `wiki/product/specs/`. This spec defines their structure, generation, and graph.
+Specifications are the assistant's primary output: a **collection of linked documents**, not a monolith. At runtime the assistant maintains them under `vault/wiki/product/specs/`. This spec defines their structure, generation, and graph.
 
 ## 1. Two Layers
 
 **Core specification documents (00-02)** — foundational, change infrequently:
 
 ```text
-wiki/product/specs/
+vault/wiki/product/specs/
 ├── 00-product-vision.md   (or 01-product.md)
 ├── 01-principles.md
 └── 02-domain-model.md
 ```
 
 **Maps of Content (MOCs) — 03+** — Obsidian structure notes that evolve continuously as the wiki grows. They are living navigation documents, not static specs, linking to:
-- atomic concepts in `wiki/concepts/`
-- product features in `wiki/product/`
-- processes/workflows in `wiki/people/`
-- components/artifacts in `wiki/resources/`
+- atomic concepts in `vault/wiki/concepts/`
+- product features in `vault/wiki/product/`
+- processes/workflows in `vault/wiki/people/`
+- components/artifacts in `vault/wiki/resources/`
 
 Example runtime MOC set (README §3): `03-requirements`, `04-user-stories`, `05-workflows`, `06-api`, `07-ui`, `08-non-functional`, `09-acceptance`. The exact set evolves with the project.
 

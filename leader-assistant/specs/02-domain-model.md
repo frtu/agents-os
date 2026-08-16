@@ -25,19 +25,20 @@ The core entities the assistant reasons about. Filenames use kebab-case; titles 
 
 ## 1. Storage-Layer Entities
 
-All storage paths below are relative to a selected vault root `Vaults/<name>/` (multiple vaults supported — see [[03-vault]]).
+All storage paths below are relative to a selected workspace `Workspaces/<name>/` (multiple workspaces supported — see [[03-vault]]). Durable knowledge lives under the workspace's `vault/` subfolder; `sessions/` sits at the workspace level.
 
 | Entity | Location | Mutability | Description |
 |--------|----------|------------|-------------|
-| **Raw Document** | `raw/{provenance}/{file}` | immutable | Original captured input (clipping, doc, note, transcript, asset). Never modified. |
-| **Session** | `sessions/YYYY-MM-DD-*.md` | ephemeral | Operational conversation log (short-term memory). Not part of the wiki. |
-| **Daily Digest** | `wiki/sources/_daily_/YYYY-MM-DD.md` | append-per-day | Compacted session insights produced by dreaming. |
-| **Source Summary** | `wiki/sources/{provenance}/{source}.md` | maintained | One factual summary page per ingested source, mirroring `raw/` for provenance. |
-| **Wiki Page** | `wiki/{category}/...` | maintained | Standalone durable knowledge (concept/product/people/resource/project/synthesis). |
-| **Specification** | `wiki/product/specs/NN-*.md` | maintained | Linked spec document; core (00-02) or MOC (03+). |
-| **Portal** | `wiki/portal.md` | maintained | Master catalog of every wiki page. Updated on every ingest. |
-| **Log** | `wiki/log.md` | append-only | Chronological operational record. |
-| **Output Artifact** | `output/...` | generated | Reports, query results, generated deliverables. |
+| **Raw Document** | `vault/raw/{provenance}/{file}` | immutable | Original captured input (clipping, doc, note, transcript, asset). Never modified. |
+| **Session** | `sessions/YYYY-MM-DD-*.md` | ephemeral | Operational conversation log (short-term memory), at the workspace level. Not part of the wiki. |
+| **Daily Digest** | `vault/wiki/sources/_daily_/YYYY-MM-DD.md` | append-per-day | Compacted session insights produced by dreaming. |
+| **Source Summary** | `vault/wiki/sources/{provenance}/{source}.md` | maintained | One factual summary page per ingested source, mirroring `vault/raw/` for provenance. |
+| **Wiki Page** | `vault/wiki/{category}/...` | maintained | Standalone durable knowledge (concept/product/people/resource/project/synthesis). |
+| **Specification** | `vault/wiki/product/specs/NN-*.md` | maintained | Linked spec document; core (00-02) or MOC (03+). |
+| **Portal** | `vault/wiki/portal.md` | maintained | Master catalog of every wiki page. Updated on every ingest. |
+| **Log** | `vault/wiki/log.md` | append-only | Chronological operational record. |
+| **Output Artifact** | `vault/output/...` | generated | Reports, query results, generated deliverables. |
+| **Installed Skill** | `skills/...` | installed | A skill available to the workspace; a file/folder or a reference-link to another folder. |
 
 ## 2. Knowledge Categories (Wiki)
 
@@ -60,8 +61,8 @@ The wiki organizes durable knowledge into six categories (see [[03-vault]] and w
 | **Commit / Branch** | Git objects | Technical ledger backing every mutation. See [[11-git-workflow]]. |
 | **Plan** | request, retrieved knowledge, gaps, steps, alternatives | Produced before consequential execution. See [[09-planning]]. |
 | **Template** | `output-type`, structure | Externalized, human-owned output structure at repo-root `templates/`; reuse-before-create. See [[21-outputs]]. |
-| **Output Artifact** | `output/...`, cites concepts | Produced PO/PM artifact (secondary capability); records usage back to concepts. See [[21-outputs]]. |
-| **Vault** | `Vaults/<name>/`, selector/default | A knowledge vault; multiple are supported. See [[03-vault]]. |
+| **Output Artifact** | `vault/output/...`, cites concepts | Produced PO/PM artifact (secondary capability); records usage back to concepts. See [[21-outputs]]. |
+| **Workspace** | `Workspaces/<name>/`, selector/default | The top-level container (`skills/`, `sessions/`, `vault/`); its knowledge store is the `vault/` subfolder. Multiple are supported. See [[03-vault]]. |
 
 ## 4. Frontmatter Schema (every wiki page)
 
@@ -86,7 +87,7 @@ See [[05-zettelkasten]] §4–5 for the lifecycle math over `usage-count` / `ref
 
 ## 5. Key Relationships
 
-- **Provenance chain** (invariant): `raw/{provenance}/ → sessions/ → wiki/sources/_daily_/ → wiki/sources/{provenance}/{source}.md → wiki/{category}/`.
+- **Provenance chain** (invariant): `vault/raw/{provenance}/ → sessions/ → vault/wiki/sources/_daily_/ → vault/wiki/sources/{provenance}/{source}.md → vault/wiki/{category}/`.
 - **Standalone-knowledge rule**: final wiki category pages reference source summaries, never sessions or daily digests directly.
 - **Category articulation**: concepts→dependencies→tools abstraction ladder; process→steps→artifacts; features→components→artifacts (see wiki-architecture for full articulation).
 - **Specification graph**: specs link to each other and to wiki concepts via `referenced-to`. See [[07-specification-model]].

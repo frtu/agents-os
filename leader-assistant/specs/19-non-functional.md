@@ -23,7 +23,7 @@ Last Updated: 2026-08-13
 
 ## 1. Portability & Independence
 
-- The Vault is **plain Markdown + Git**; it must remain readable and usable without any proprietary software (wiki-schema §Git as Memory).
+- The Workspace is **plain Markdown + Git**; it must remain readable and usable without any proprietary software (wiki-schema §Git as Memory).
 - Markdown/Obsidian is the canonical human-readable representation; vector embeddings are **not** the canonical knowledge model ([[01-principles]] Non-Goals).
 - The knowledge base must not depend on a proprietary database.
 
@@ -55,7 +55,7 @@ Will NOT: replace an external PM platform; be a general Jira/Linear alternative;
 
 ## 7. Acceptance Criteria
 
-- AC1: The Vault is fully usable with only a text editor + Git.
+- AC1: The Workspace is fully usable with only a text editor + Git.
 - AC2: Introducing search tooling requires no change to the Markdown/Git storage model.
 - AC3: Adding a risk rule requires no engine redesign.
 - AC4: No capability requires a proprietary database or embedding store to function.
