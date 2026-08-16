@@ -76,11 +76,32 @@ workspace-scoped, so different workspaces can install different skill sets. Each
 
 - **Self-contained** — a skill file or folder that lives directly under `skills/`; or
 - **A reference-link** — a pointer to a skill folder maintained elsewhere (a shared skill
-  library), realized as a symlink or a small pointer file.
+  library), realized as a **symlink** `skills/<name>` → the library's `<name>/` folder.
 
-> **TBD (out of MVP):** the skill manifest format, the resolution/loading order across
-> self-contained vs. reference-link entries, and how the assistant enumerates installed skills.
-> Tracked in [[001-leader-assistant/plan-tbd|plan-tbd]].
+### 2.1 Reference-link import & discovery (feature [[005-skill-import]])
+
+Feature 005 decides the previously-TBD import/loading mechanism:
+
+- **Shared library.** Available skills live in a **shared skill library** — a local folder
+  resolved from `LEADER_SKILLS_SOURCE` (default: the repo-sibling `skills/`). Each skill is a
+  `<name>/SKILL.md` folder.
+- **Import = reference-link (plan-first).** Installing a skill from chat is **consequential**:
+  it returns a plan and, on approval (P8), creates a symlink `skills/<name>` → `<library>/<name>`
+  and commits it to the workspace git repo. Imports are **idempotent** (a dangling link is
+  re-pointed, not duplicated). Names are validated against path traversal and must resolve to an
+  existing `<library>/<name>/SKILL.md`.
+- **Discovery mirror.** Because the chat agent runtime discovers skills from
+  `.claude/skills/<name>/SKILL.md`, the canonical `skills/<name>` link is mirrored by a second
+  symlink `.claude/skills/<name>` → the same library folder. Both are created together from one
+  source, satisfying the spec layout and the runtime discovery path.
+- **Enumeration.** The assistant enumerates **installed** skills from the entries under
+  `skills/`, and **available** skills by scanning the library for `<name>/SKILL.md` (each with a
+  `description` parsed from the SKILL.md frontmatter and an `installed` flag).
+- **Execution.** Once installed, the agent **dynamically discovers and runs** skills on later
+  turns (no restart), with a workspace-scoped tool set. This deliberately expands the agent's
+  tools beyond citations-only browse (feature 002 D3); `vault/raw/` immutability (P2) is then
+  enforced for the agent by a raw-guard hook, with the per-workspace git repo as backstop (see
+  [[005-skill-import]] D3).
 
 ## 3. `vault/` — Ingestion Root (Knowledge Store)
 
@@ -180,3 +201,6 @@ copies is open — [[001-leader-assistant/plan-tbd|plan-tbd]] TBD-5.
 - AC4: `vault/wiki/log.md` is strictly append-only (enforced/verified).
 - AC5: The provenance chain in [[02-domain-model]] §5 is reconstructable for any wiki concept.
 - AC7: A workspace exposes an installable `skills/` folder; entries may be files or reference-links.
+- AC8: Importing a skill (feature [[005-skill-import]]) creates a symlink `skills/<name>` and a
+  discovery mirror `.claude/skills/<name>`, both resolving to `<library>/<name>`, and is
+  committed to git; the agent then loads and runs it on a later turn without a restart.

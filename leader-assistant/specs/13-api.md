@@ -46,6 +46,9 @@ The API SHALL expose, at minimum, capabilities for:
 - **Specification**: read specs; request a spec draft/update; transition lifecycle (review/approve).
 - **Planning**: submit a work request → receive a plan; critique/approve a plan.
 - **Operations**: run dreaming / lint on demand; read log.
+- **Skills**: list available skills in the shared library; list a workspace's installed skills;
+  import (reference-link) a skill into a workspace — see [[005-skill-import]]. Chat import is
+  plan-first (P8); the REST import performs the install directly for machine callers.
 - **Integration**: request an external PM action (user-initiated) — see [[15-integrations]].
 
 Exact endpoint shapes are defined at implementation time; the constraint is capability parity, not a specific transport.
@@ -61,3 +64,6 @@ Requests that are consequential still flow through [[09-planning]] and [[10-risk
 - AC3: API-initiated mutations pass through the risk engine and produce Git commits.
 - AC4: External PM actions via API occur only when explicitly requested.
 - AC5: The API cannot reach storage except through the shared capability layer.
+- AC6: Skill capabilities have both surfaces — catalog, installed-list, and import are each a
+  `/api/*` endpoint and reachable from chat (chat import stays plan-first) — see
+  [[005-skill-import]] FR-11.
