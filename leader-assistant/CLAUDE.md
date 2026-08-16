@@ -131,7 +131,10 @@ endpoint still works offline. All non-chat capabilities run without any credenti
 
 ## Conventions & invariants (don't break these)
 
-- **Never write under `raw/`** — it's immutable (P2). Go through `vault.guard_write_path`.
+- **Internal writers never touch `raw/`** — the ingestion pipeline/assistant MUST NOT write
+  under `raw/` (P2 v1.1.0); go through `vault.guard_write_path`, which rejects raw/ writes.
+  `raw/` is *human-owned*: humans may add/modify/delete raw sources, and the app does so on
+  their behalf only via the sanctioned upload channel (`capabilities.deposit_raw`, feature 004).
 - **`log.md` is append-only** — use `vault.append_log`, never edit existing lines.
 - **Only the capability layer reaches the vault** — keep `api.py` thin.
 - **Consequential requests return a plan, not silent execution** (spec 13-api AC2). See

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from . import capabilities, models
@@ -79,6 +79,44 @@ def lint(vault: str | None = None) -> models.LintReport:
 def spec_read(path: str, vault: str | None = None) -> dict[str, str]:
     try:
         return {"path": path, "content": capabilities.spec_read(path, vault)}
+    except VaultError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/api/wiki-tree", response_model=models.WikiTree, tags=["knowledge"], summary="Browse the vault's wiki/ tree")
+def wiki_tree(vault: str | None = None) -> models.WikiTree:
+    """Navigation-only tree of the vault's `wiki/`, for the sidebar browser (spec 004 FR-8/FR-15)."""
+    return capabilities.wiki_tree(vault)
+
+
+@app.post("/api/upload", response_model=models.UploadReport, tags=["knowledge"], summary="Upload files into raw/ and ingest")
+async def upload(
+    vault: str | None = Form(None),
+    provenance: str = Form("notes"),
+    files: list[UploadFile] = File(...),
+) -> models.UploadReport:
+    """Deposit uploaded originals into `raw/<provenance>/` then ingest them (spec 004 FR-12/FR-16).
+
+    `raw/` is human-owned (Constitution P2 v1.1.0); this is the sanctioned human upload channel.
+    """
+    payload = [(f.filename or "upload", await f.read()) for f in files]
+    try:
+        return capabilities.upload_and_ingest(vault, payload, provenance)
+    except VaultError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/sessions", response_model=models.ConversationList, tags=["chat"], summary="List prior conversations")
+def sessions(vault: str | None = None) -> models.ConversationList:
+    """Prior conversations for the Sessions panel (spec 004 FR-17/FR-19)."""
+    return capabilities.list_conversations(vault)
+
+
+@app.get("/api/sessions/{conversation_id}", response_model=models.ConversationDetail, tags=["chat"], summary="Read one conversation's turns")
+def session_detail(conversation_id: str, vault: str | None = None) -> models.ConversationDetail:
+    """Full turns of one conversation, to repopulate the chat on resume (spec 004 FR-20)."""
+    try:
+        return capabilities.get_conversation(vault, conversation_id)
     except VaultError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

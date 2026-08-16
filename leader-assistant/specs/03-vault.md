@@ -38,7 +38,7 @@ The assistant supports **multiple vaults** under a configurable root:
 
 ```text
 Vaults/<vault-name>/
-├── raw/         # immutable sources (never modified)
+├── raw/         # human-owned sources (never modified by the pipeline)
 ├── wiki/        # LLM workspace — all durable knowledge
 ├── sessions/    # operational conversations (short-term)
 └── output/      # generated artifacts (reports, query results)
@@ -46,9 +46,9 @@ Vaults/<vault-name>/
 templates/       # repo-root, externalized, shared output templates (NOT inside a vault)
 ```
 
-## 2. `raw/` — Immutable Sources
+## 2. `raw/` — Human-Owned Sources
 
-Properties: provenance-preserving, immutable source of truth, ingestion-triggering, never treated as synthesized knowledge. The LLM reads but **never modifies** these files.
+Properties: provenance-preserving, source of truth, ingestion-triggering, never treated as synthesized knowledge. **Humans own `raw/`**: they may add, modify, or delete these files, and the app provides tools (e.g. upload) to help them do so (Constitution P2, feature [[004-assistant-sidebar]]). The **ingestion pipeline / LLM reads but never modifies** these files — all automated processing produces new files downstream.
 
 Canonical subdirectories:
 

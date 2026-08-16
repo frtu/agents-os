@@ -4,7 +4,9 @@ The non-negotiable principles for the **AI Product Owner / Project Specification
 
 > **Derivation.** This constitution is derived from the remote Leader Assistant constitution (10 principles) and customized to this repository's local spec kit (`specs/00`–`specs/20`). Where the local spec set and the remote source disagree, the local intent is authoritative and the conflict is recorded in a `specs/NN-*-contradiction.md` file; unresolved decisions are indexed in [`specs/clarification.md`](../specs/clarification.md).
 
-Version: 1.0.0 · Ratified: 2026-08-16 · Last amended: 2026-08-16
+Version: 1.1.0 · Ratified: 2026-08-16 · Last amended: 2026-08-16
+
+> **Amendment 1.1.0 (2026-08-16).** Principle 2 clarified: `raw/` is *human-owned* — the app may help a human add/modify/delete raw sources — while the **internal ingestion pipeline** remains forbidden from mutating `raw/`. Motivated by feature [`004-assistant-sidebar`](../specs/004-assistant-sidebar/spec.md) (local file upload into `raw/`).
 
 ---
 
@@ -17,9 +19,9 @@ All durable knowledge lives in a **Vault** as plain-text Markdown, not in applic
 
 Source specs: [[03-vault]], [[19-non-functional]].
 
-## Principle 2 — `raw/` is immutable
+## Principle 2 — `raw/` is human-owned; the pipeline never mutates it
 
-Ingested sources in `raw/` are the source of truth for provenance. The assistant reads from `raw/` but MUST NEVER modify, rewrite, or delete files there. All processing produces *new* files downstream. The `{provenance}` subpath under `raw/` is preserved through the whole knowledge chain.
+Sources in `raw/` are the source of truth for provenance and the entry point of the knowledge pipeline. **Humans may add, modify, or delete files in `raw/`**, and the app SHOULD provide tools (upload, edit, delete) to help them manage these sources. In contrast, the **internal ingestion process and the assistant/agent MUST NEVER modify, rewrite, or delete files in `raw/`**: automated processing only *reads* `raw/` and writes *new* files downstream (`wiki/sources/`, then `wiki/`). The `{provenance}` subpath under `raw/` is preserved through the whole knowledge chain.
 
 Source specs: [[03-vault]], [[18-security]].
 

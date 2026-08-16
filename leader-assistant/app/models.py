@@ -134,3 +134,71 @@ class ChatDelta(BaseModel):
     citations: list[Citation] = Field(default_factory=list)
     pending_plan: Plan | None = None
     executed: bool = False
+
+
+# --- sidebar: wiki tree / upload / sessions (feature 004-assistant-sidebar) --
+
+
+class WikiNode(BaseModel):
+    """One entry in the vault's `wiki/` tree (FR-8/FR-15). Navigation-only."""
+
+    name: str = Field(..., description="Base name of the file or folder")
+    path: str = Field(..., description="Path relative to wiki/ (posix)")
+    type: str = Field(..., description="'dir' | 'file'")
+    children: list["WikiNode"] = Field(default_factory=list, description="Child nodes for a dir")
+
+
+class WikiTree(BaseModel):
+    """The active vault's `wiki/` subtree, scoped strictly to wiki/ (FR-10)."""
+
+    vault: str
+    root: str = Field("wiki", description="Root the paths are relative to")
+    nodes: list[WikiNode] = Field(default_factory=list)
+
+
+class UploadedFile(BaseModel):
+    """Result of depositing one uploaded file into raw/ then ingesting it (FR-12)."""
+
+    filename: str
+    raw_path: str = Field(..., description="Path of the stored original, relative to the vault")
+    source_page: str | None = Field(None, description="wiki/sources page produced by ingest, if any")
+    ingested: bool = Field(False, description="Whether the file's text was ingested into wiki/")
+    error: str | None = Field(None, description="Populated when the file was stored but not ingested")
+
+
+class UploadReport(BaseModel):
+    """Outcome of an upload batch (FR-12/FR-13/FR-16)."""
+
+    vault: str
+    files: list[UploadedFile] = Field(default_factory=list)
+    count: int = Field(0, description="Number of files processed")
+    committed: bool = Field(False, description="Whether the deposit was recorded as a git commit")
+
+
+class ConversationMessage(BaseModel):
+    role: str = Field(..., description="'user' | 'assistant'")
+    text: str
+    timestamp: str = ""
+
+
+class ConversationSummary(BaseModel):
+    """A prior conversation for the Sessions panel (FR-17/FR-19)."""
+
+    conversation_id: str
+    created: str
+    title: str = Field(..., description="Derived label (first user message, truncated)")
+    turn_count: int = Field(0, description="Number of user turns")
+
+
+class ConversationList(BaseModel):
+    vault: str
+    conversations: list[ConversationSummary] = Field(default_factory=list)
+
+
+class ConversationDetail(BaseModel):
+    """Full turns of one conversation, to repopulate the chat on resume (FR-20)."""
+
+    vault: str
+    conversation_id: str
+    created: str
+    messages: list[ConversationMessage] = Field(default_factory=list)

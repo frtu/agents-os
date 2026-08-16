@@ -242,6 +242,141 @@ def spec_read(rel_path: str, selector: str | None = None) -> str:
     return target.read_text(encoding="utf-8", errors="ignore")
 
 
+# --- sidebar capabilities (feature 004-assistant-sidebar) ------------------
+
+
+def wiki_tree(selector: str | None = None) -> models.WikiTree:
+    """Return the vault's `wiki/` subtree for the navigation-only browser (FR-8/FR-15).
+
+    Scoped strictly to `wiki/`; hidden entries are omitted. Nothing under `raw/`,
+    `sessions/`, `output/`, or `.git/` is ever revealed (FR-10).
+    """
+    name, v = _resolve_scaffolded(selector)
+    wiki = v / "wiki"
+
+    def build(d: Path) -> list[models.WikiNode]:
+        nodes: list[models.WikiNode] = []
+        for child in sorted(d.iterdir(), key=lambda p: (p.is_file(), p.name.lower())):
+            if child.name.startswith("."):
+                continue
+            rel = child.relative_to(wiki).as_posix()
+            if child.is_dir():
+                nodes.append(
+                    models.WikiNode(name=child.name, path=rel, type="dir", children=build(child))
+                )
+            else:
+                nodes.append(models.WikiNode(name=child.name, path=rel, type="file"))
+        return nodes
+
+    return models.WikiTree(vault=name, root="wiki", nodes=build(wiki) if wiki.is_dir() else [])
+
+
+def _safe_name(filename: str | None) -> str:
+    """Strip any directory components from an uploaded filename (path-traversal guard)."""
+    return Path(filename or "upload").name or "upload"
+
+
+def deposit_raw(v: Path, provenance: str, filename: str, data: bytes) -> Path:
+    """Write a human-uploaded original into `raw/<provenance>/` (Constitution P2 v1.1.0).
+
+    This is the **sanctioned human channel** into `raw/`: it deliberately does NOT go
+    through `guard_write_path` (which forbids the *ingestion pipeline* from touching raw/).
+    It still validates that the resolved destination stays inside `raw/`.
+    """
+    raw_dir = v / "raw" / provenance
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    dest = raw_dir / filename
+    raw_root = (v / "raw").resolve()
+    if raw_root not in dest.resolve().parents:
+        raise VaultError("upload path escapes raw/")
+    dest.write_bytes(data)
+    return dest
+
+
+def upload_and_ingest(
+    selector: str | None,
+    files: list[tuple[str, bytes]],
+    provenance: str = "notes",
+) -> models.UploadReport:
+    """Deposit uploaded originals into `raw/` then ingest text ones (FR-12/FR-16).
+
+    Text-decodable files are ingested via the existing `ingest` pipeline (producing a
+    `wiki/sources` summary + portal/log update). Binary files are stored under `raw/`
+    only, with a note. Never mutates existing raw content (create/overwrite by name is a
+    human action; ingestion still never touches raw/).
+    """
+    name, v = _resolve_scaffolded(selector)
+    prov = _slug(provenance)
+    results: list[models.UploadedFile] = []
+    for filename, data in files:
+        safe = _safe_name(filename)
+        raw_path = deposit_raw(v, prov, safe, data)
+        rel_raw = raw_path.relative_to(v).as_posix()
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            results.append(
+                models.UploadedFile(
+                    filename=safe, raw_path=rel_raw, source_page=None, ingested=False,
+                    error="binary file stored in raw/, not ingested",
+                )
+            )
+            continue
+        report = ingest(
+            models.IngestRequest(vault=name, title=Path(safe).stem, content=text, provenance=prov)
+        )
+        results.append(
+            models.UploadedFile(
+                filename=safe, raw_path=rel_raw, source_page=report.source_page, ingested=True,
+            )
+        )
+    committed = _git_commit(v, f"upload: {len(files)} file(s) into raw/{prov}")
+    return models.UploadReport(vault=name, files=results, count=len(results), committed=committed)
+
+
+def list_conversations(selector: str | None = None) -> models.ConversationList:
+    """List prior conversations for the Sessions panel, newest first (FR-17/FR-19)."""
+    from . import conversation as convo
+
+    name, v = _resolve_scaffolded(selector)
+    sessions = v / "sessions"
+    summaries: list[models.ConversationSummary] = []
+    if sessions.is_dir():
+        files = sorted(sessions.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
+        for p in files:
+            conv = convo.load(v, p.stem)
+            if conv is None:
+                continue
+            first_user = next((t.text for t in conv.turns if t.role == "user"), "").strip()
+            title = first_user.splitlines()[0][:60] if first_user else "New conversation"
+            summaries.append(
+                models.ConversationSummary(
+                    conversation_id=conv.conversation_id,
+                    created=conv.created,
+                    title=title,
+                    turn_count=sum(1 for t in conv.turns if t.role == "user"),
+                )
+            )
+    return models.ConversationList(vault=name, conversations=summaries)
+
+
+def get_conversation(selector: str | None, conversation_id: str) -> models.ConversationDetail:
+    """Return one conversation's full turns so the UI can repopulate the chat (FR-20)."""
+    from . import conversation as convo
+
+    name, v = _resolve_scaffolded(selector)
+    conv = convo.load(v, conversation_id)
+    if conv is None:
+        raise VaultError(f"no such conversation: {conversation_id}")
+    messages = [
+        models.ConversationMessage(role=t.role, text=t.text, timestamp=t.timestamp)
+        for t in conv.turns
+    ]
+    return models.ConversationDetail(
+        vault=name, conversation_id=conv.conversation_id, created=conv.created, messages=messages
+    )
+
+
 # --- chat orchestration (feature 002; the parity boundary for chat) --------
 
 
