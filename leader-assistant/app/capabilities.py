@@ -11,6 +11,7 @@ import re
 import subprocess
 from datetime import date
 from pathlib import Path
+from typing import AsyncIterator
 
 from . import models, vault
 from .vault import VaultError
@@ -18,7 +19,13 @@ from .vault import VaultError
 # --- helpers ---------------------------------------------------------------
 
 _CONSEQUENTIAL = re.compile(
-    r"\b(delete|remove|drop|overwrite|rewrite|merge|deploy|push|migrate|rename)\b",
+    r"\b(delete|remove|drop|overwrite|rewrite|merge|deploy|push|migrate|rename|create)\b",
+    re.IGNORECASE,
+)
+
+# Explicit "create a vault named X" intent (FR-10, D1).
+_CREATE_VAULT = re.compile(
+    r"\bcreate\b.*?\bvault\b\s+(?:named\s+|called\s+)?[\"']?([A-Za-z0-9_-]+)",
     re.IGNORECASE,
 )
 
@@ -233,3 +240,152 @@ def spec_read(rel_path: str, selector: str | None = None) -> str:
     if not target.is_file():
         raise VaultError(f"no such page: {rel_path}")
     return target.read_text(encoding="utf-8", errors="ignore")
+
+
+# --- chat orchestration (feature 002; the parity boundary for chat) --------
+
+
+def _resolve_for_chat(selector: str | None) -> tuple[str, Path]:
+    """Resolve a vault for a conversation (FR-10, D1).
+
+    Default vault is scaffolded on demand; a *named* selector that does not
+    exist is reported, never silently created. Vault creation happens only via
+    the explicit `create_vault` capability through the approval flow.
+    """
+    v = vault.resolve_vault(selector)
+    if selector is None:
+        if not vault.is_scaffolded(v):
+            vault.scaffold_vault(v)
+        return v.name, v
+    if not vault.is_scaffolded(v):
+        raise VaultError(f"vault '{selector}' does not exist; create it explicitly first")
+    return v.name, v
+
+
+def _plan_for(request: str, selector: str | None) -> models.Plan:
+    return plan(models.PlanRequest(vault=selector, request=request))
+
+
+def _consequential_reply(p: models.Plan) -> str:
+    steps = "\n".join(f"{s.order}. {s.action} — {s.rationale}" for s in p.steps)
+    return (
+        f"This request is consequential (risk={p.risk}), so I won't act on it yet. "
+        "Here is the plan I propose — reply approving it to proceed:\n\n"
+        f"{steps}\n\n"
+        "No changes have been made this turn (human-in-the-loop, P8)."
+    )
+
+
+def _execute_pending(name: str, selector: str | None, pending: dict) -> tuple[str, bool]:
+    """Execute an approved pending plan via the capability layer (FR-5, D2).
+
+    MVP supports explicit vault creation deterministically; other action types
+    are reported as not-yet-automatable and the plan is kept pending.
+    """
+    request = pending.get("request", "")
+    m = _CREATE_VAULT.search(request)
+    if m:
+        vault_name = m.group(1)
+        info = create_vault(vault_name)
+        return (f"Approved. Created vault '{info.name}' at {info.path}.", True)
+    return (
+        "Approved, but this action type isn't automatable yet in this build; "
+        "the plan remains pending for a future capability.",
+        False,
+    )
+
+
+def _fallback_answer(selector: str | None, message: str) -> tuple[str, list[models.Citation]]:
+    """Deterministic, cited answer when the agent runtime is unavailable (FR-2)."""
+    ans = query(models.QueryRequest(vault=selector, question=message))
+    return ans.answer, ans.citations
+
+
+async def ask_stream(
+    vault: str | None = None,  # noqa: A002 — matches request field name (shadows module locally)
+    message: str = "",
+    conversation_id: str | None = None,
+    approve: bool = False,
+) -> AsyncIterator[models.ChatDelta]:
+    """Stream a chat turn (FR-1..FR-6, FR-13). Yields accumulating ChatDelta.
+
+    The final delta carries done=true plus any pending_plan / executed flag.
+    """
+    from . import agent, conversation, persona
+
+    selector = vault
+    name, vpath = _resolve_for_chat(selector)
+    conv = conversation.load_or_create(vpath, conversation_id)
+    cid = conv.conversation_id
+
+    def delta(reply: str, *, done: bool, citations=None, pending=None, executed=False) -> models.ChatDelta:
+        return models.ChatDelta(
+            vault=name, conversation_id=cid, reply=reply, done=done,
+            citations=citations or [], pending_plan=pending, executed=executed,
+        )
+
+    # --- approval turn (D2) ---
+    if approve:
+        if conv.pending_plan:
+            reply, executed = _execute_pending(name, selector, conv.pending_plan)
+            pending_model = models.Plan(**conv.pending_plan["plan"]) if not executed else None
+            if executed:
+                conversation.clear_pending_plan(conv)
+            conversation.append_turn(conv, message or "(approve)", reply)
+            yield delta(reply, done=True, pending=pending_model, executed=executed)
+        else:
+            reply = "There is no pending plan to approve in this conversation."
+            conversation.append_turn(conv, message or "(approve)", reply)
+            yield delta(reply, done=True)
+        return
+
+    # --- consequential request → plan-first, no mutation this turn (FR-5) ---
+    if _CONSEQUENTIAL.search(message):
+        p = _plan_for(message, selector)
+        conversation.set_pending_plan(conv, message, p.model_dump())
+        reply = _consequential_reply(p)
+        conversation.append_turn(conv, message, reply)
+        yield delta(reply, done=True, pending=p)
+        return
+
+    # --- routine request → agent answer via capabilities-as-tools (FR-2/6) ---
+    system_prompt = persona.build_system_prompt()
+    citations: list[models.Citation] = []
+    final_reply, final_sid, agent_ok = "", conv.sdk_session_id, True
+    try:
+        async for reply, sid in agent.run_stream(
+            system_prompt, message, selector, conv.sdk_session_id, citations
+        ):
+            final_reply, final_sid = reply, sid
+            yield delta(reply, done=False)
+    except agent.AgentUnavailable:
+        agent_ok = False
+
+    if agent_ok:
+        conversation.set_sdk_session_id(conv, final_sid)
+    else:
+        final_reply, citations = _fallback_answer(selector, message)
+
+    conversation.append_turn(conv, message, final_reply)
+    yield delta(final_reply, done=True, citations=citations)
+
+
+async def ask(
+    vault: str | None = None,  # noqa: A002
+    message: str = "",
+    conversation_id: str | None = None,
+    approve: bool = False,
+) -> models.ChatAnswer:
+    """Non-streaming chat turn — drives ask_stream to completion (FR-1)."""
+    last: models.ChatDelta | None = None
+    async for d in ask_stream(vault, message, conversation_id, approve):
+        last = d
+    assert last is not None
+    return models.ChatAnswer(
+        vault=last.vault,
+        conversation_id=last.conversation_id,
+        reply=last.reply,
+        citations=last.citations,
+        pending_plan=last.pending_plan,
+        executed=last.executed,
+    )

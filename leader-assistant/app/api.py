@@ -7,8 +7,10 @@ capability parity with any chat surface (Constitution P9, spec 13-api).
 
 from __future__ import annotations
 
+import json
+
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 
 from . import capabilities, models
 from .vault import VaultError
@@ -80,3 +82,34 @@ def spec_read(path: str, vault: str | None = None) -> dict[str, str]:
         return {"path": path, "content": capabilities.spec_read(path, vault)}
     except VaultError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/api/chat", response_model=models.ChatAnswer, tags=["chat"], summary="Chat with the Product Owner")
+async def chat(req: models.ChatRequest) -> models.ChatAnswer:
+    """Hold a durable, resumable conversation with the assistant (spec 14-chat).
+
+    Same capability layer as REST (P9): consequential requests return a
+    `pending_plan` for approval and mutate nothing this turn (FR-5).
+    """
+    try:
+        return await capabilities.ask(
+            req.vault, req.message, req.conversation_id, req.approve
+        )
+    except VaultError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/chat/stream", tags=["chat"], summary="Chat (streamed, SSE)")
+async def chat_stream(req: models.ChatRequest) -> StreamingResponse:
+    """Server-Sent Events stream of the reply; the final event has `done: true` (FR-4)."""
+
+    async def events():
+        try:
+            async for delta in capabilities.ask_stream(
+                req.vault, req.message, req.conversation_id, req.approve
+            ):
+                yield f"data: {delta.model_dump_json()}\n\n"
+        except VaultError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(events(), media_type="text/event-stream")

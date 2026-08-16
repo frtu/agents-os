@@ -93,3 +93,44 @@ class LintReport(BaseModel):
     vault: str
     findings: list[LintFinding] = Field(default_factory=list)
     ok: bool
+
+
+# --- chat (feature 002-assistant-chat) -------------------------------------
+
+
+class ChatRequest(BaseModel):
+    """A single chat turn (spec 002 plan Data Contracts)."""
+
+    message: str = Field(..., description="User message for this turn", examples=["What does the risk engine decide?"])
+    vault: str | None = Field(None, description="Vault selector; omitted = default (P13)")
+    conversation_id: str | None = Field(
+        None, description="Resume a prior conversation; omitted = start a new one (FR-3)"
+    )
+    approve: bool = Field(
+        False, description="Approve the conversation's pending plan and execute it (FR-5, D2)"
+    )
+
+
+class ChatAnswer(BaseModel):
+    """Full (non-streamed) reply for a chat turn (FR-1)."""
+
+    vault: str
+    conversation_id: str = Field(..., description="Durable id; resend to continue the thread (FR-3, FR-13)")
+    reply: str
+    citations: list[Citation] = Field(default_factory=list, description="Vault pages supporting the reply (FR-2)")
+    pending_plan: Plan | None = Field(
+        None, description="Populated when the request is consequential and awaits approval (FR-5)"
+    )
+    executed: bool = Field(False, description="True when this turn approved and executed a stored plan (FR-5)")
+
+
+class ChatDelta(BaseModel):
+    """One streamed chunk; the final delta carries done=true (FR-4)."""
+
+    vault: str
+    conversation_id: str
+    reply: str = Field(..., description="Accumulated reply so far")
+    done: bool = Field(False, description="True on the final event")
+    citations: list[Citation] = Field(default_factory=list)
+    pending_plan: Plan | None = None
+    executed: bool = False
