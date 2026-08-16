@@ -1,8 +1,11 @@
 """REST surface over the capability layer (FastAPI).
 
-FastAPI auto-generates the OpenAPI schema and serves the interactive
-Swagger UI at /docs and ReDoc at /redoc. This surface must stay in
-capability parity with any chat surface (Constitution P9, spec 13-api).
+FastAPI auto-generates the OpenAPI schema and serves the interactive Swagger UI.
+Per spec 003-assistant-ui (D4/FR-2) the human web UI owns the root path `/`, so
+Swagger is relocated to **/api/** (`docs_url="/api"`); the OpenAPI schema stays at
+`/openapi.json` and ReDoc at `/redoc`. The Gradio UI is mounted at `/` at the end
+of this module. This surface must stay in capability parity with any chat surface
+(Constitution P9, spec 13-api).
 """
 
 from __future__ import annotations
@@ -10,7 +13,7 @@ from __future__ import annotations
 import json
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 
 from . import capabilities, models
 from .vault import VaultError
@@ -22,15 +25,11 @@ app = FastAPI(
         "Machine-facing surface over the shared capability layer.\n\n"
         "Every capability is a plain function in `app.capabilities`; "
         "consequential requests return a **plan** for approval rather than executing "
-        "silently (spec 13-api AC2). Interactive docs: **/docs**."
+        "silently (spec 13-api AC2). Interactive docs: **/api/**; the web UI is at **/**."
     ),
     contact={"name": "Leader Assistant", "url": "https://example.local"},
+    docs_url="/api",  # Swagger UI at /api/ — the web UI owns / (spec 003 D4/FR-2)
 )
-
-
-@app.get("/", include_in_schema=False)
-def root() -> RedirectResponse:
-    return RedirectResponse(url="/docs")
 
 
 @app.get("/health", tags=["ops"], summary="Liveness probe")
@@ -113,3 +112,14 @@ async def chat_stream(req: models.ChatRequest) -> StreamingResponse:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(events(), media_type="text/event-stream")
+
+
+# --- human web UI (spec 003-assistant-ui) ----------------------------------
+# Mount the Gradio startup surface at `/`. Registered last so the explicit REST
+# routes above (and Swagger at /api/) take precedence; Gradio serves its own
+# assets under /gradio_api/, so it does not shadow /api/<resource> (FR-1, FR-2).
+import gradio as gr  # noqa: E402  (heavy import; kept local to app startup)
+
+from .ui import build_demo  # noqa: E402
+
+app = gr.mount_gradio_app(app, build_demo(), path="/")

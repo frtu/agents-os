@@ -71,17 +71,17 @@
 
 ## Validation (map to AC & invariants)
 
-- [ ] T050 AC-1: chat returns a coherent reply; knowledge question yields ≥1 citation when
+- [x] T050 AC-1: chat returns a coherent reply; knowledge question yields ≥1 citation when
   supporting pages exist. (FR-1, FR-2)
-- [ ] T051 AC-2: follow-up with returned `conversation_id` is context-aware. (FR-3)
-- [ ] T052 AC-3: consequential request returns a `pending_plan` and makes **no** mutation that turn. (FR-5)
-- [ ] T053 AC-4: routine question answers directly without a forced plan. (FR-6)
-- [ ] T054 AC-5: a `sessions/` conversation record exists after any turn. (FR-7)
-- [ ] T055 AC-6: streamed and full-reply modes converge to identical final content. (FR-4)
-- [ ] T056 AC-7: parity test enumerating capabilities across REST and chat. (FR-9; P9; [[20-testing]])
-- [ ] T057 AC-8: no turn writes under `raw/` or edits an existing `log.md` line. (FR-11; P2/P6)
-- [ ] T058 AC-9: default vault when omitted; missing named vault reported; explicit request creates it. (FR-10)
-- [ ] T059 AC-10: a conversation resumed **after a restart** continues in context and a
+- [x] T051 AC-2: follow-up with returned `conversation_id` is context-aware. (FR-3)
+- [x] T052 AC-3: consequential request returns a `pending_plan` and makes **no** mutation that turn. (FR-5)
+- [x] T053 AC-4: routine question answers directly without a forced plan. (FR-6)
+- [x] T054 AC-5: a `sessions/` conversation record exists after any turn. (FR-7)
+- [x] T055 AC-6: streamed and full-reply modes converge to identical final content. (FR-4)
+- [x] T056 AC-7: parity test enumerating capabilities across REST and chat. (FR-9; P9; [[20-testing]])
+- [x] T057 AC-8: no turn writes under `raw/` or edits an existing `log.md` line. (FR-11; P2/P6)
+- [x] T058 AC-9: default vault when omitted; missing named vault reported; explicit request creates it. (FR-10)
+- [x] T059 AC-10: a conversation resumed **after a restart** continues in context and a
   pre-restart pending plan can still be approved and executed. (FR-13; D2)
 
 ## Dependencies

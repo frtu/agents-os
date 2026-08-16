@@ -48,12 +48,43 @@ REST (FastAPI, app/api.py) ─┐
   `_git_commit` refuses to commit if `git rev-parse --show-toplevel` != the vault path
   — this prevents accidentally committing to a parent checkout.
 
+## API surface (endpoints)
+
+Base URL `http://localhost:8000`. Every route is a thin call over `capabilities`;
+consequential requests return a **plan** for approval rather than mutating (P8 / 13-api
+AC2). The human web UI (Gradio, spec 003) owns `/`, so Swagger is relocated to **`/api`**
+(`docs_url="/api"`) · ReDoc **`/redoc`** · OpenAPI **`/openapi.json`**.
+
+| Method | Path | Body / params | Returns |
+|--------|------|---------------|---------|
+| `GET`  | `/` | — | Gradio web UI (spec 003) |
+| `GET`  | `/api` | — | Swagger UI |
+| `GET`  | `/health` | — | `{"status":"ok"}` |
+| `GET`  | `/api/vaults` | — | `VaultList` (vaults, root, default) |
+| `POST` | `/api/vaults` | `{name}` | `VaultInfo` |
+| `GET`  | `/api/vaults/{selector}` | path selector | `VaultInfo` |
+| `POST` | `/api/ingest` | `{vault?,title,content,provenance}` | `IngestReport` |
+| `POST` | `/api/query` | `{vault?,question}` | `Answer` (reply + citations) |
+| `POST` | `/api/plan` | `{vault?,request}` | `Plan` (risk, steps, requires_approval) |
+| `GET`  | `/api/lint` | `?vault=` | `LintReport` |
+| `GET`  | `/api/spec` | `?path=&vault=` | `{path, content}` |
+| `POST` | `/api/chat` | `ChatRequest` | `ChatAnswer` |
+| `POST` | `/api/chat/stream` | `ChatRequest` | SSE stream of `ChatDelta` |
+
+`ChatRequest`: `{message, vault?, conversation_id?, approve=false}`.
+`ChatAnswer`: `{vault, conversation_id, reply, citations[], pending_plan?, executed}`.
+`ChatDelta` (SSE, one `data:` line each; final has `done=true`): same fields as
+`ChatAnswer` plus `done`. Resend `conversation_id` to continue a thread; set
+`approve=true` to execute a stored `pending_plan`. Shapes live in `app/models.py` and
+render interactively at `/api` (Swagger).
+
 ## Project structure
 
 ```text
 app/
 ├── __main__.py     # uvicorn launcher; prints the Swagger URL banner on startup
-├── api.py          # FastAPI REST surface (Swagger auto-served at /docs)
+├── api.py          # FastAPI REST surface (Swagger at /api); mounts the Gradio UI at /
+├── ui.py           # Gradio web UI (spec 003); calls /api/* over HTTP only (P9)
 ├── capabilities.py # surface-agnostic capability layer — the parity boundary (P9)
 ├── models.py       # pydantic request/response contracts (the Swagger schemas)
 ├── vault.py        # resolver, scaffolder, raw/ guard, log, per-vault git
@@ -66,10 +97,11 @@ memory/             # constitution + agent memory
 ## Commands
 
 ```bash
-uv sync                       # install deps
-uv run leader-assistant       # start server; banner prints Swagger URL
-uv run python -m app          # same, module form
-uv run pytest                 # run tests (testpaths=["tests"]) — suite is TBD (see tasks T090+)
+uv sync                          # install deps
+uv run leader-assistant          # start server; banner prints Swagger URL
+uv run python -m app             # same, module form
+uv run --extra dev pytest        # run the API test suite (pytest is in the `dev` extra)
+LEADER_LIVE_AGENT=1 uv run --extra dev pytest   # also run the opt-in live-agent test
 ```
 
 Quick smoke test while the server runs (default port 8000):
@@ -92,9 +124,10 @@ curl -s -X POST localhost:8000/api/query  -H 'content-type: application/json' \
 | `LEADER_DEFAULT_VAULT` | default vault selector | `default` |
 | `LEADER_HOST` / `LEADER_PORT` | server bind | `127.0.0.1` / `8000` |
 
-Vaults are git-ignored (`Vaults/`, `.tmp-vaults/`). No `ANTHROPIC_API_KEY` is needed
-for the current MVP — the agent-SDK `ask()` path (spec 14-chat, task T071) is not yet
-wired.
+Vaults are git-ignored (`Vaults/`, `.tmp-vaults/`). The chat surface (`ask()`) uses the
+`claude-agent-sdk` runtime, which needs the `claude` CLI / credentials to be reachable;
+when it is not, `ask()` falls back to a deterministic cited answer via `query` so the
+endpoint still works offline. All non-chat capabilities run without any credentials.
 
 ## Conventions & invariants (don't break these)
 
@@ -105,13 +138,26 @@ wired.
   `capabilities.plan`; `_CONSEQUENTIAL` classifies risky verbs.
 - **Portal is updated on every ingest** (`_update_portal`).
 - **No DB / vector store** as canonical storage (P1/P10). Markdown + YAML + git only.
-- Keep new capabilities mirrored 1:1 across REST and chat when chat lands (P9 parity;
-  parity test is task T093).
+- Keep new capabilities mirrored 1:1 across REST and chat (P9 parity; parity test is
+  task T093 / feature 002 AC-7).
+- **Chat is a surface over `capabilities.ask()`** — the agent's tools ARE the capability
+  functions (`query`/`spec_read`/`plan`); it has no raw filesystem browse or write tool
+  (feature 002 D3). Conversations persist one-file-per-thread under `sessions/` and resume
+  by id after a restart (`app/conversation.py`).
 
 ## Current status
 
 Implemented (MVP subset of `tasks.md`): vault resolve/scaffold + `raw/` guard, per-vault
 git, ingest → source summary + portal + log, cited `query`, plan-first `plan`, `lint`,
-`spec_read`, and the FastAPI surface with Swagger. Not yet: dreaming, risk-branching,
-continuous spec generation, output/template reuse, chat surface, agent `ask()`, and the
-test matrix (T090–T095).
+`spec_read`, and the FastAPI surface with Swagger. **Feature 002 chat**: `ask()` /
+`ask_stream()` over the agent runtime, durable/resumable `sessions/` conversation store,
+plan-first consequential gating with approve-to-execute, `POST /api/chat` +
+`POST /api/chat/stream` (SSE), Product Owner persona (`app/persona.py`).
+
+**Tests**: `tests/` drives the FastAPI app over HTTP (`TestClient`), one test per user
+story — `test_rest_api.py` (feature 001) and `test_chat_api.py` (feature 002 AC-1..AC-10).
+Runs offline & deterministic (the `offline_agent` fixture forces chat's no-LLM fallback);
+each test uses a throwaway vault under a tmp dir. Run with `uv run --extra dev pytest`;
+add `LEADER_LIVE_AGENT=1` to also exercise the opt-in live-agent test.
+
+Not yet: dreaming, risk-branching, continuous spec generation, and output/template reuse.

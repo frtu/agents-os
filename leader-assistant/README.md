@@ -1134,3 +1134,106 @@ These references are the source of truth for:
 - Domain categorization rules
 
 When this README conflicts with the reference documents, the references take precedence.
+
+---
+
+# 33. Implemented API Reference & Testing
+
+Sections 1–32 describe the product. This section documents the **implemented** surface
+as it ships today. It is the concrete counterpart to §17 (API and Chat Parity): every
+route below is a thin call over the shared capability layer, so chat and REST expose the
+same capabilities. See `getting-started.md` for a runnable tour.
+
+## 33.1 Running the service
+
+```bash
+uv sync                    # install deps
+uv run leader-assistant    # start on http://localhost:8000 (banner prints URLs)
+LEADER_PORT=8080 uv run leader-assistant   # change the port
+```
+
+Configuration via environment variables:
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `LEADER_VAULT_ROOT` | folder holding `Vaults/<name>/` | `./Vaults` |
+| `LEADER_VAULT_PATH` | explicit single-vault path (wins over root) | — |
+| `LEADER_DEFAULT_VAULT` | vault used when none is named | `default` |
+| `LEADER_HOST` / `LEADER_PORT` | server bind address / port | `127.0.0.1` / `8000` |
+
+## 33.2 Endpoints
+
+Base URL `http://localhost:8000`. Consequential requests return a **plan** for approval
+rather than mutating silently (§2.4, spec 13-api AC2).
+
+| Method | Path | Body / params | Returns |
+|--------|------|---------------|---------|
+| `GET`  | `/` | — | Gradio web UI (spec 003) |
+| `GET`  | `/api` | — | Swagger UI |
+| `GET`  | `/health` | — | `{"status":"ok"}` |
+| `GET`  | `/api/vaults` | — | vaults + resolved root and default |
+| `POST` | `/api/vaults` | `{"name":"demo"}` | vault info (`scaffolded`) |
+| `GET`  | `/api/vaults/{selector}` | path selector | vault info (path, page count) |
+| `POST` | `/api/ingest` | `{vault?, title, content, provenance}` | ingest report (source page, portal updated) |
+| `POST` | `/api/query` | `{vault?, question}` | answer + citations |
+| `POST` | `/api/plan` | `{vault?, request}` | plan (risk, steps, requires_approval) |
+| `GET`  | `/api/lint` | `?vault=<name>` | hygiene findings |
+| `GET`  | `/api/spec` | `?path=<rel>&vault=<name>` | `{path, content}` (raw Markdown) |
+| `POST` | `/api/chat` | `ChatRequest` | `ChatAnswer` (full reply) |
+| `POST` | `/api/chat/stream` | `ChatRequest` | Server-Sent Events of `ChatDelta` |
+
+The human web UI (Gradio, spec 003) owns `/`, so Swagger is relocated to `/api`.
+Interactive docs: **Swagger UI** `/api` · **ReDoc** `/redoc` · **OpenAPI JSON**
+`/openapi.json`. Full request/response schemas render at `/api`.
+
+## 33.3 Chat request/response shapes
+
+`ChatRequest` (both chat routes):
+
+```json
+{
+  "message": "your message",
+  "vault": "demo",              // optional; omitted = default vault
+  "conversation_id": "abc123",  // optional; omitted = start a new thread
+  "approve": false              // set true to approve the thread's pending plan
+}
+```
+
+`ChatAnswer` (`/api/chat`):
+
+```json
+{
+  "vault": "demo",
+  "conversation_id": "<id>",
+  "reply": "...",
+  "citations": [{"page": "wiki/...", "excerpt": "..."}],
+  "pending_plan": null,          // a Plan object when the request is consequential
+  "executed": false              // true only on an approved turn that ran the plan
+}
+```
+
+`ChatDelta` (`/api/chat/stream`): one `data: {json}` line per event carrying the
+accumulated `reply`; the final event has `"done": true`. Same fields as `ChatAnswer`
+plus `done`. Resend the returned `conversation_id` to continue a thread; conversations
+persist one file per thread under `<vault>/sessions/<conversation_id>.md` and resume by
+id even after a restart. A consequential request returns a `pending_plan` and mutates
+nothing; a follow-up turn with `approve: true` executes it.
+
+> The chat answer path uses the `claude-agent-sdk` runtime (needs the `claude` CLI /
+> credentials). When unavailable it falls back to a deterministic cited answer via
+> `query`, so the endpoint still works offline. All non-chat routes run with no
+> credentials.
+
+## 33.4 Testing
+
+The suite in `tests/` drives the FastAPI app over HTTP; each test maps to a user story /
+acceptance criterion — `test_rest_api.py` (§ REST capabilities) and `test_chat_api.py`
+(chat AC-1..AC-10). It runs offline and deterministic (chat is forced down its no-LLM
+fallback) against a throwaway vault under a temp dir, so it never touches real vaults or
+the repo.
+
+```bash
+uv run --extra dev pytest                       # full suite (offline)
+uv run --extra dev pytest -v                    # one line per test
+LEADER_LIVE_AGENT=1 uv run --extra dev pytest   # also run the opt-in live-agent test
+```
