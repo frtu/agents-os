@@ -451,10 +451,10 @@ Ready for {Step} interview.
 
 ### 12. Stage Changes
 
-Call `/change-management-stage` to stage all changes:
+Call `/change-management-1-stage` to stage all changes:
 
 ```
-/change-management-stage
+/change-management-1-stage
   trigger: {user's original instruction}
   operation: pre-interview
   subject: {Candidate Name}

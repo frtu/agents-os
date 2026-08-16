@@ -161,10 +161,10 @@ Next: Share with hiring manager
 
 ### 9. Stage Changes
 
-Call `/change-management-stage` to stage all changes and create the change log entry:
+Call `/change-management-1-stage` to stage all changes and create the change log entry:
 
 ```
-/change-management-stage
+/change-management-1-stage
   trigger: {user's original instruction}
   operation: post-interview
   subject: {Candidate Name}
