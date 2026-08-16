@@ -23,6 +23,24 @@ def isolated_workspace_root(tmp_path, monkeypatch):
     return root
 
 
+@pytest.fixture(autouse=True)
+def skills_library(tmp_path, monkeypatch):
+    """Point LEADER_SKILLS_SOURCE at a throwaway library of fake skills (feature 005).
+
+    Keeps the skill catalog/import tests independent of the real shared library.
+    """
+    lib = tmp_path / "skills"
+    for name, desc in (("weekly-digest", "Summarise the week"), ("triage", "Triage incoming items")):
+        d = lib / name
+        d.mkdir(parents=True)
+        (d / "SKILL.md").write_text(
+            f"---\nname: {name}\ndescription: {desc}\n---\n\n# {name}\n\nDo the thing.\n",
+            encoding="utf-8",
+        )
+    monkeypatch.setenv("LEADER_SKILLS_SOURCE", str(lib))
+    return lib
+
+
 @pytest.fixture
 def client() -> TestClient:
     from app.api import app

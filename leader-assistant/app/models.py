@@ -202,3 +202,43 @@ class ConversationDetail(BaseModel):
     conversation_id: str
     created: str
     messages: list[ConversationMessage] = Field(default_factory=list)
+
+
+# --- skills: catalog / installed / import (feature 005-skill-import) ---------
+
+
+class SkillSummary(BaseModel):
+    """One skill in the shared library catalog (spec 005 FR-2)."""
+
+    name: str
+    description: str = Field("", description="Short description parsed from SKILL.md frontmatter")
+    installed: bool = Field(False, description="Whether it is reference-linked into the target workspace")
+
+
+class SkillCatalog(BaseModel):
+    """Available skills discovered under the shared library (spec 005 FR-2)."""
+
+    source_root: str = Field(..., description="Resolved shared skill library root")
+    skills: list[SkillSummary] = Field(default_factory=list)
+
+
+class InstalledSkills(BaseModel):
+    """A workspace's installed skill names (spec 005 FR-3)."""
+
+    workspace: str
+    skills: list[str] = Field(default_factory=list)
+
+
+class ImportSkillRequest(BaseModel):
+    """Reference-link a shared skill into a workspace (spec 005 FR-5)."""
+
+    workspace: str | None = Field(None, description="Workspace selector; omitted = default")
+    name: str = Field(..., description="Skill name in the shared library", examples=["weekly-digest"])
+
+
+class ImportSkillReport(BaseModel):
+    workspace: str
+    name: str
+    link_path: str = Field(..., description="Path of the created skills/<name> link, relative to the workspace")
+    committed: bool = Field(..., description="Whether the install was recorded as a git commit")
+    message: str

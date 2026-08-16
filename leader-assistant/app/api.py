@@ -152,6 +152,31 @@ async def chat_stream(req: models.ChatRequest) -> StreamingResponse:
     return StreamingResponse(events(), media_type="text/event-stream")
 
 
+# --- skills (feature 005-skill-import; parity, P9) --------------------------
+
+
+@app.get("/api/skills", response_model=models.SkillCatalog, tags=["skills"], summary="List available skills in the shared library")
+def skills_catalog(workspace: str | None = None) -> models.SkillCatalog:
+    """Catalog the shared skill library, marking which are installed in the workspace (spec 005 FR-2)."""
+    return capabilities.list_available_skills(workspace)
+
+
+@app.get("/api/skills/installed", response_model=models.InstalledSkills, tags=["skills"], summary="List a workspace's installed skills")
+def skills_installed(workspace: str | None = None) -> models.InstalledSkills:
+    """Installed skill names for a workspace (spec 005 FR-3)."""
+    return capabilities.list_installed_skills(workspace)
+
+
+@app.post("/api/skills/import", response_model=models.ImportSkillReport, tags=["skills"], summary="Reference-link a skill into a workspace")
+def skills_import(req: models.ImportSkillRequest) -> models.ImportSkillReport:
+    """Import a shared skill as a reference-link (spec 005 FR-5). Chat import stays plan-first;
+    this REST route installs directly for machine callers."""
+    try:
+        return capabilities.import_skill(req.workspace, req.name)
+    except WorkspaceError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # --- human web UI (spec 003-assistant-ui) ----------------------------------
 # Mount the Gradio startup surface at `/`. Registered last so the explicit REST
 # routes above (and Swagger at /api/) take precedence; Gradio serves its own

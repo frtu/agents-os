@@ -73,6 +73,9 @@ def scaffold_workspace(workspace: Path) -> Path:
     (vault / "output").mkdir(parents=True, exist_ok=True)
     (workspace / "sessions").mkdir(parents=True, exist_ok=True)
     (workspace / "skills").mkdir(parents=True, exist_ok=True)
+    # SDK skill-discovery mirror (spec 005 FR-5, D5): the agent runtime scans
+    # .claude/skills/<name>/SKILL.md, so imports drop a second link here.
+    (workspace / ".claude" / "skills").mkdir(parents=True, exist_ok=True)
 
     portal = vault / "wiki" / "portal.md"
     if not portal.exists():
@@ -105,6 +108,34 @@ def _init_workspace_repo(workspace: Path) -> None:
         )
     except FileNotFoundError:
         pass
+
+
+def install_skill_link(workspace: Path, name: str, source: Path) -> Path:
+    """Reference-link a shared skill into the workspace (spec 005 FR-5).
+
+    Creates two symlinks to ``source``: the canonical ``skills/<name>`` (spec layout)
+    and the SDK discovery mirror ``.claude/skills/<name>``. Idempotent — a dangling or
+    stale link is replaced. Returns the canonical link path.
+    """
+    canonical = workspace / "skills" / name
+    mirror = workspace / ".claude" / "skills" / name
+    target = source.resolve()
+    for link in (canonical, mirror):
+        link.parent.mkdir(parents=True, exist_ok=True)
+        if link.is_symlink() or link.exists():
+            if link.is_symlink() and link.resolve() == target:
+                continue
+            link.unlink()
+        link.symlink_to(target, target_is_directory=True)
+    return canonical
+
+
+def list_installed_skill_names(workspace: Path) -> list[str]:
+    """Installed skill names — entries under <workspace>/skills/ (spec 005 FR-3)."""
+    skills = workspace / "skills"
+    if not skills.is_dir():
+        return []
+    return sorted(p.name for p in skills.iterdir() if not p.name.startswith("."))
 
 
 def guard_write_path(workspace: Path, target: Path) -> None:

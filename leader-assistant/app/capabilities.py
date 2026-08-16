@@ -29,6 +29,21 @@ _CREATE_WORKSPACE = re.compile(
     re.IGNORECASE,
 )
 
+# Explicit "install/import/add the <name> skill" intent (spec 005 FR-4). Requires the
+# word "skill" and captures the name whether it comes before or after that word.
+_IMPORT_SKILL = re.compile(
+    r"\b(?:install|import|add)\b\s+(?:the\s+)?"
+    r"(?:[\"']?(?P<before>[A-Za-z0-9_-]+)[\"']?\s+skill|skill\s+[\"']?(?P<after>[A-Za-z0-9_-]+)[\"']?)",
+    re.IGNORECASE,
+)
+
+
+def _import_skill_name(text: str) -> str | None:
+    m = _IMPORT_SKILL.search(text)
+    if not m:
+        return None
+    return m.group("before") or m.group("after")
+
 
 def _slug(text: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
@@ -242,6 +257,84 @@ def spec_read(rel_path: str, selector: str | None = None) -> str:
     return target.read_text(encoding="utf-8", errors="ignore")
 
 
+# --- skill capabilities (feature 005-skill-import) -------------------------
+
+
+def _parse_skill_frontmatter(skill_md: Path) -> dict[str, str]:
+    """Read simple `key: value` pairs from a SKILL.md YAML frontmatter block.
+
+    Deliberately dependency-free: the SDK's SKILL.md frontmatter we consume here is a
+    flat block of scalar keys (`name`, `description`), so a minimal parser suffices.
+    """
+    try:
+        text = skill_md.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return {}
+    if not text.startswith("---"):
+        return {}
+    end = text.find("\n---", 3)
+    block = text[3:end] if end != -1 else ""
+    out: dict[str, str] = {}
+    for line in block.splitlines():
+        if ":" in line and not line.lstrip().startswith("#"):
+            key, _, value = line.partition(":")
+            out[key.strip()] = value.strip().strip("\"'")
+    return out
+
+
+def list_available_skills(selector: str | None = None) -> models.SkillCatalog:
+    """Catalog the shared skill library, marking which are installed (spec 005 FR-2)."""
+    from . import config
+
+    root = config.skills_library_root()
+    workspace = vault.resolve_workspace(selector)
+    installed = set(vault.list_installed_skill_names(workspace)) if vault.is_scaffolded(workspace) else set()
+    skills: list[models.SkillSummary] = []
+    if root.is_dir():
+        for entry in sorted(root.iterdir(), key=lambda p: p.name.lower()):
+            skill_md = entry / "SKILL.md"
+            if not (entry.is_dir() and skill_md.is_file()):
+                continue
+            meta = _parse_skill_frontmatter(skill_md)
+            skills.append(
+                models.SkillSummary(
+                    name=entry.name,
+                    description=meta.get("description", ""),
+                    installed=entry.name in installed,
+                )
+            )
+    return models.SkillCatalog(source_root=str(root), skills=skills)
+
+
+def list_installed_skills(selector: str | None = None) -> models.InstalledSkills:
+    """List a workspace's installed skill names (spec 005 FR-3)."""
+    name, workspace = _resolve_scaffolded(selector)
+    return models.InstalledSkills(workspace=name, skills=vault.list_installed_skill_names(workspace))
+
+
+def import_skill(selector: str | None, name: str) -> models.ImportSkillReport:
+    """Reference-link a shared skill into the workspace, then commit (spec 005 FR-5/6/7)."""
+    from . import config
+
+    safe = _safe_name(name)
+    if safe != name or not re.fullmatch(r"[A-Za-z0-9_-]+", safe):
+        raise WorkspaceError(f"invalid skill name: {name!r}")
+    source = config.skills_library_root() / safe
+    if not (source / "SKILL.md").is_file():
+        raise WorkspaceError(f"no such skill in library: {safe}")
+
+    ws_name, workspace = _resolve_scaffolded(selector)
+    link = vault.install_skill_link(workspace, safe, source)
+    committed = _git_commit(workspace, f"chore(skills): import {safe}")
+    return models.ImportSkillReport(
+        workspace=ws_name,
+        name=safe,
+        link_path=link.relative_to(workspace).as_posix(),
+        committed=committed,
+        message=f"Imported skill '{safe}' as a reference-link into {ws_name}.",
+    )
+
+
 # --- sidebar capabilities (feature 004-assistant-sidebar) ------------------
 
 
@@ -423,6 +516,10 @@ def _execute_pending(name: str, selector: str | None, pending: dict) -> tuple[st
         workspace_name = m.group(1)
         info = create_workspace(workspace_name)
         return (f"Approved. Created workspace '{info.name}' at {info.path}.", True)
+    skill = _import_skill_name(request)
+    if skill:
+        report = import_skill(selector, skill)
+        return (f"Approved. {report.message}", True)
     return (
         "Approved, but this action type isn't automatable yet in this build; "
         "the plan remains pending for a future capability.",
@@ -474,6 +571,16 @@ async def ask_stream(
             yield delta(reply, done=True)
         return
 
+    # --- import-skill request → plan-first, no install this turn (spec 005 FR-4) ---
+    if _import_skill_name(message):
+        p = _plan_for(message, selector)
+        p.requires_approval = True  # importing a skill is always consequential
+        conversation.set_pending_plan(conv, message, p.model_dump())
+        reply = _consequential_reply(p)
+        conversation.append_turn(conv, message, reply)
+        yield delta(reply, done=True, pending=p)
+        return
+
     # --- consequential request → plan-first, no mutation this turn (FR-5) ---
     if _CONSEQUENTIAL.search(message):
         p = _plan_for(message, selector)
@@ -489,7 +596,7 @@ async def ask_stream(
     final_reply, final_sid, agent_ok = "", conv.sdk_session_id, True
     try:
         async for reply, sid in agent.run_stream(
-            system_prompt, message, selector, conv.sdk_session_id, citations
+            system_prompt, message, selector, wpath, conv.sdk_session_id, citations
         ):
             final_reply, final_sid = reply, sid
             yield delta(reply, done=False)
