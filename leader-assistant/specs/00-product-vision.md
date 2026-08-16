@@ -66,6 +66,8 @@ The primary output is **project specifications** — a *collection of linked spe
 
 The assistant continuously generates and refines specifications from: accumulated knowledge, conversations, source documents, user requirements, project context, previous specifications, and user feedback.
 
+**Secondary output** (on request): broader PO/PM artifacts — meeting summaries, document reviews, engineering tickets, strategy and status docs — produced by reusing externalized templates. This is a subordinate capability; see [[21-outputs]]. The scope choice (narrow "specification assistant" vs. broad PO/PM) is recorded in [[00-product-vision-contradiction]].
+
 ## 6. Long-Term Product Loop
 
 ```text
@@ -86,7 +88,7 @@ The ultimate objective is a **knowledge-compounding specification assistant**: t
 
 ## 8. Scope of This Spec Kit
 
-The 21 documents of this kit specify the domain model, the Vault, the knowledge pipeline, the specification model and lifecycle, planning, risk governance, Git workflow, the internal architecture, both interfaces, integrations, and the cross-cutting concerns (observability, security, non-functional, testing). See [[README]] for reading order.
+The numbered documents (00–20, plus the [[21-outputs]] extension) specify the domain model, the Vault, the knowledge pipeline, the specification model and lifecycle, planning, risk governance, Git workflow, the internal architecture, both interfaces, integrations, and the cross-cutting concerns (observability, security, non-functional, testing). Governance is ratified in [`memory/constitution.md`](../memory/constitution.md); the buildable layer lives in [[001-leader-assistant/plan|001-leader-assistant]]. See [[README]] for reading order and conventions.
 
 ## 9. Non-Goals
 

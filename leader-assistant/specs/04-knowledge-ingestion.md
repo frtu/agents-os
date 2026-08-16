@@ -23,6 +23,8 @@ Last Updated: 2026-08-13
 
 Ingestion is **event-driven**: any new document stored anywhere under `raw/` automatically starts ingestion. The user should never need to say "process this file."
 
+> This spec describes the **local** two-stage pipeline (`raw → sessions → dreaming → wiki/sources → wiki/category`). The remote source uses a flatter `raw → source → wiki` model; the divergence is recorded in [[04-knowledge-ingestion-contradiction]]. Local is authoritative. Concept creation/update here writes the lifecycle counter/reference fields (`usage-count`, `referenced-to`, `last-correction`) per [[05-zettelkasten]].
+
 ## 1. Trigger
 
 ```text

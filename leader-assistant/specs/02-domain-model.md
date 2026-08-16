@@ -25,6 +25,8 @@ The core entities the assistant reasons about. Filenames use kebab-case; titles 
 
 ## 1. Storage-Layer Entities
 
+All storage paths below are relative to a selected vault root `Vaults/<name>/` (multiple vaults supported — see [[03-vault]]).
+
 | Entity | Location | Mutability | Description |
 |--------|----------|------------|-------------|
 | **Raw Document** | `raw/{provenance}/{file}` | immutable | Original captured input (clipping, doc, note, transcript, asset). Never modified. |
@@ -52,11 +54,14 @@ The wiki organizes durable knowledge into six categories (see [[03-vault]] and w
 
 | Entity | Fields | Description |
 |--------|--------|-------------|
-| **Concept Status** | `draft → used → reliable` | Evidence-based maturity; driven by `referenced-to` count. See [[05-zettelkasten]]. |
+| **Concept Status** | `draft → used → reliable` | Evidence-based maturity; driven by `usage-count`/`referenced-to`, demoted by a big correction. See [[05-zettelkasten]]. |
 | **Specification Lifecycle** | `draft → review → approved` (+ future: superseded/deprecated/rejected) | Semantic state of a spec. See [[08-specification-lifecycle]]. |
 | **RiskRule** | `id, description, scope, condition, severity, action` | Extensible rule evaluated on every proposed mutation. See [[10-risk-engine]]. |
 | **Commit / Branch** | Git objects | Technical ledger backing every mutation. See [[11-git-workflow]]. |
 | **Plan** | request, retrieved knowledge, gaps, steps, alternatives | Produced before consequential execution. See [[09-planning]]. |
+| **Template** | `output-type`, structure | Externalized, human-owned output structure at repo-root `templates/`; reuse-before-create. See [[21-outputs]]. |
+| **Output Artifact** | `output/...`, cites concepts | Produced PO/PM artifact (secondary capability); records usage back to concepts. See [[21-outputs]]. |
+| **Vault** | `Vaults/<name>/`, selector/default | A knowledge vault; multiple are supported. See [[03-vault]]. |
 
 ## 4. Frontmatter Schema (every wiki page)
 
@@ -70,10 +75,14 @@ Created: YYYY-MM-DD
 Last Updated: YYYY-MM-DD
 id: 202608120746          # stable time-based ID (YYYYMMDDHHMM)
 status: draft             # concept maturity (concept pages)
-referenced-to:            # outputs this concept contributed to
+usage-count: 0            # counter — artifacts that have cited this concept
+referenced-to:            # reference — outputs/specs this concept contributed to
   - "[[spec-...]]"
+last-correction:          # YYYY-MM-DD; empty until first big correction
 ---
 ```
+
+See [[05-zettelkasten]] §4–5 for the lifecycle math over `usage-count` / `referenced-to` / `last-correction`.
 
 ## 5. Key Relationships
 

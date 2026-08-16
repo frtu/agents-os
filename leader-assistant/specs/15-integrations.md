@@ -44,6 +44,8 @@ The Integration Manager ([[12-assistant]]) owns these boundaries.
 - No autonomous execution of arbitrary external actions without user intent ([[01-principles]] Non-Goals).
 - No continuous whole-Vault synchronization with any PM tool.
 
+> Producing the artifacts themselves (meeting summaries, tickets, strategy, etc.) — reusing the externalized root `templates/` — is the secondary output capability specified in [[21-outputs]]. This doc covers pushing them to external systems and feeding results back.
+
 ## 3. Output → Knowledge Feedback (README §26)
 
 Generated artifacts can become inputs to the knowledge system:

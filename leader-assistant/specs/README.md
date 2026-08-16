@@ -1,10 +1,27 @@
 # Spec Kit — Build Specification for the Project Specification Assistant
 
-This directory is a **build spec kit**: a connected set of specification documents an AI (or human) can consume to **build the assistant** described in the project [`REAME.md`](../REAME.md).
+This directory is a **build spec kit**: a connected set of specification documents an AI (or human) can consume to **build the assistant** described in the project [`REAME.md`](../REAME.md). 
+
+It follows the **GitHub Spec-Kit standard** (ratified constitution → spec → plan → tasks), with the 21 numbered docs as the primary spec.
 
 > **Two spec kits, do not confuse them:**
 > - **This kit (`specs/`)** — how to *build* the assistant. Static input to development.
 > - **The runtime kit (`wiki/product/specs/`)** — produced and maintained *by* the finished assistant from its Knowledge Vault. Not created here.
+
+## Repository structure (Spec-Kit standard)
+
+```text
+templates/                        # externalized, human-owned OUTPUT templates (reuse-before-create)
+memory/constitution.md            # ratified, versioned governance (13 principles) — the compliance gate
+specs/
+├── 00–20 *.md                    # PRIMARY spec (the 21 numbered docs) — authoritative
+├── 21-outputs.md                 # extension: secondary PO/PM output capability
+├── _templates/                   # adopted spec-kit meta-templates (spec/plan/tasks)
+└── 001-leader-assistant/         # buildable layer
+    ├── plan.md                   # decided tech stack + architecture; Constitution Check
+    ├── plan-tbd.md               # open implementation choices (not decided)
+    └── tasks.md                  # ordered build steps tied to the local spec
+```
 
 ## Sources of Truth
 
@@ -43,15 +60,19 @@ Derived from the README and the canonical references. When README and references
 | 18 | [security](18-security.md) | immutability, human control, secrets | §2.2, §2.4, §7, §16, §29 |
 | 19 | [non-functional](19-non-functional.md) | portability, scalability, non-goals | §28, §29, §10 |
 | 20 | [testing](20-testing.md) | invariant test matrix, acceptance | §28, §13, §12 |
+| 21 | [outputs](21-outputs.md) | *extension:* secondary PO/PM outputs, template reuse | §3, §16, §26 |
 
 ## Reading Order
 
+0. **Ratified governance first**: [`memory/constitution.md`](../memory/constitution.md) — the 13 principles every plan is checked against.
 1. **Understand the product**: 00 → 01 → 02.
 2. **Build the knowledge platform**: 03 → 04 → 05 → 06.
 3. **Build specification generation**: 07 → 08 → 09.
 4. **Add governance**: 10 → 11.
 5. **Build interfaces & architecture**: 12 → 13 → 14 → 15.
 6. **Cross-cutting**: 16 → 17 → 18 → 19 → 20.
+7. **Secondary capability**: 21 (outputs) + root [`templates/`](../templates/).
+8. **Build it**: [`001-leader-assistant/plan.md`](001-leader-assistant/plan.md) → [`plan-tbd.md`](001-leader-assistant/plan-tbd.md) → [`tasks.md`](001-leader-assistant/tasks.md), tracking open items in [`clarification.md`](clarification.md).
 
 ## Conventions
 

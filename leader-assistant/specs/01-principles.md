@@ -23,6 +23,8 @@ Last Updated: 2026-08-13
 
 These principles are binding constraints on every implementation decision. Where a design choice conflicts with a principle, the principle wins.
 
+> **Governance note.** [`memory/constitution.md`](../memory/constitution.md) is the ratified, versioned governance layer derived from these principles (plus continuous spec-gen, risk-governed mutations, and multi-vault). Every `plan.md` must pass a Constitution Check. When the constitution and a spec disagree, the constitution wins; conflicts with the remote source are recorded in `*-contradiction.md` and indexed in [[clarification]].
+
 ## 1. Product Principles
 
 ### P1 — Knowledge compounds

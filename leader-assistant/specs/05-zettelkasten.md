@@ -38,27 +38,40 @@ Value comes from **relationships**. Every new page links to ≥1 existing page a
 
 ```text
 draft → used → reliable
+        ▲         │
+        └── big correction (demote)
 ```
 
 | Status | Criteria | Meaning |
 |--------|----------|---------|
 | `draft` | new or substantially changed | insufficient validation |
-| `used` | referenced in ≥3 outputs | practically useful |
-| `reliable` | used >8 times without major correction | validated knowledge |
+| `used` | `usage-count ≥ 3` (referenced by ≥3 outputs) | practically useful |
+| `reliable` | `clean_uses > 8` (used >8 times without a big correction) | validated knowledge |
 
-Status is **evidence-based**, driven by `referenced-to`.
+Status is **evidence-based**, computed from two frontmatter fields — never asserted by hand:
 
-## 5. referenced-to
+- **counter** — `usage-count`: total artifacts that have cited this concept.
+- **reference** — `referenced-to`: the list of `[[links]]` to those artifacts.
+- **`last-correction`** — the date of the most recent big correction (empty until the first one).
+
+**Lifecycle math (authoritative):** `clean_uses` = uses counted since `last-correction` (or since creation if none). `status = reliable` if `clean_uses > 8`; else `used` if `usage-count ≥ 3`; else `draft`.
+
+**Big correction & demotion:** a *big correction* is a substantive change to the concept's body (not a typo/format fix). It sets `last-correction = today`, which restarts the clean-use streak and **demotes `reliable → used`** until evidence re-accumulates. Only the lifecycle engine ([[12-assistant]]) writes these fields.
+
+## 5. referenced-to (reference) + usage-count (counter)
 Track where concepts are actually used (distinct from conceptual `[[links]]`):
 
 ```yaml
-referenced-to:
+status: reliable
+usage-count: 9            # counter — bumped once per citing artifact
+referenced-to:            # reference — one [[link]] per citing artifact
   - "[[spec-product-requirements]]"
   - "[[spec-workflow-model]]"
+last-correction: 2026-08-10   # empty until the first big correction
 ```
 
 - `[[Concept]]` = these are related.
-- `referenced-to` = this concept contributed to producing this artifact.
+- `referenced-to` + `usage-count` = this concept contributed to producing these artifacts (drives maturity).
 
 ## 6. Structure Notes (MOCs)
 Organize other pages: `wiki/portal.md` (master entry), `wiki/product/specs/*.md` (03+ spec MOCs), category hubs. Support hierarchical (nested), sequential (a→b→c argument chains), and cross-category (semilattice) structures.
@@ -78,6 +91,6 @@ Flag: `reliable` pages that required major corrections; `draft` pages used many 
 ## 10. Acceptance Criteria
 - AC1: Every wiki page has a stable `id` and valid frontmatter.
 - AC2: No new page is created without at least one justified inbound/outbound link.
-- AC3: Concept `status` transitions are computed from `referenced-to` counts.
+- AC3: Concept `status` transitions are computed from `usage-count` / `referenced-to`, and a big correction sets `last-correction` and demotes `reliable → used`.
 - AC4: Duplicate-topic pages are detected and merged during lint.
 - AC5: Contradictions are always recorded with both sources cited.
