@@ -31,8 +31,8 @@ def test_swagger_relocated_to_api(client):
 
 def test_api_endpoints_still_resolve(client):
     # AC-2: ... and the /api/<resource> endpoints are not shadowed by the docs route.
-    assert client.get("/api/vaults").status_code == 200
-    created = client.post("/api/vaults", json={"name": "demo"})
+    assert client.get("/api/workspaces").status_code == 200
+    created = client.post("/api/workspaces", json={"name": "demo"})
     assert created.status_code == 200
     # chat endpoint exists (unprocessable without a body proves it is routed, not 404)
     assert client.post("/api/chat", json={}).status_code == 422
@@ -54,5 +54,5 @@ def test_ui_module_imports_no_backend_layer():
 def test_ui_client_targets_api_paths():
     # FR-3/FR-4/FR-6: the UI's HTTP calls go to /api/* paths.
     src = UI_PATH.read_text()
-    assert "/api/vaults" in src
+    assert "/api/workspaces" in src
     assert "/api/chat/stream" in src

@@ -1,6 +1,6 @@
 """Gradio web UI — the human startup surface (features 003 + 004).
 
-The UI is a *pure presentation layer*: it reaches the vault only by calling the
+The UI is a *pure presentation layer*: it reaches the workspace only by calling the
 backend REST API over HTTP (same origin), never `app.capabilities` / `app.vault`
 directly (spec 003 FR-3/AC-8, spec 004 FR-18, Constitution P9). It is mounted on
 the FastAPI app at `/` (see `app/api.py`); Swagger lives at `/api/`.
@@ -8,16 +8,16 @@ the FastAPI app at `/` (see `app/api.py`); Swagger lives at `/api/`.
 Feature 004 adds a **collapsible left sidebar** (`gr.Sidebar`) of three **independently
 collapsible** panels (`gr.Accordion`), top-to-bottom (spec 004 FR-2):
 
-- **Vault** — a **typeahead** (placeholder `vault name`, live suggestions, icon-only
+- **Workspace** — a **typeahead** (placeholder `workspace name`, live suggestions, icon-only
   refresh/create buttons with hover labels).
-- **Wiki** — a navigation-only **`wiki/` browser** and, below it, an **upload** section
+- **Wiki** — a navigation-only **`vault/wiki/` browser** and, below it, an **upload** section
   (files / drag-and-drop) whose progress bar replaces it while files are deposited into
-  `raw/` and ingested.
+  `vault/raw/` and ingested.
 - **Sessions** — a **New conversation** button at the top, then all prior conversations
   listed reverse-chronologically and grouped under relative-date headers (Today, Yesterday,
   This Week, This Month, Older), each resumable by id (FR-24/FR-25).
 
-Every panel is backed by a REST endpoint (`/api/vaults`, `/api/wiki-tree`, `/api/upload`,
+Every panel is backed by a REST endpoint (`/api/workspaces`, `/api/wiki-tree`, `/api/upload`,
 `/api/sessions[/{id}]`) — no capability the API lacks.
 
 Chat streams from `POST /api/chat/stream` (SSE) with a full-reply fallback to
@@ -37,8 +37,8 @@ import httpx
 
 THINKING = '<span class="thinking">…thinking…</span>'
 GREETING = (
-    "Hi — I'm your project's Product Owner assistant. Pick a vault, then ask me "
-    "anything about the project. I answer from the vault with citations."
+    "Hi — I'm your project's Product Owner assistant. Pick a workspace, then ask me "
+    "anything about the project. I answer from the workspace with citations."
 )
 APPROVE_MSG = "Approve the pending plan and execute it."
 RAW_SUBDIRS = ["notes", "clippings", "docs", "transcripts", "assets"]
@@ -82,42 +82,42 @@ def _api_base() -> str:
 # --- REST API client helpers (UI -> /api/* over HTTP only) -----------------
 
 
-def _list_vaults() -> dict:
-    r = httpx.get(f"{_api_base()}/api/vaults", timeout=10.0)
+def _list_workspaces() -> dict:
+    r = httpx.get(f"{_api_base()}/api/workspaces", timeout=10.0)
     r.raise_for_status()
     return r.json()
 
 
-def _create_vault(name: str) -> dict:
-    r = httpx.post(f"{_api_base()}/api/vaults", json={"name": name}, timeout=30.0)
+def _create_workspace(name: str) -> dict:
+    r = httpx.post(f"{_api_base()}/api/workspaces", json={"name": name}, timeout=30.0)
     r.raise_for_status()
     return r.json()
 
 
-def _get_wiki_tree(vault: str) -> dict:
-    r = httpx.get(f"{_api_base()}/api/wiki-tree", params={"vault": vault}, timeout=15.0)
+def _get_wiki_tree(workspace: str) -> dict:
+    r = httpx.get(f"{_api_base()}/api/wiki-tree", params={"workspace": workspace}, timeout=15.0)
     r.raise_for_status()
     return r.json()
 
 
-def _get_sessions(vault: str) -> dict:
-    r = httpx.get(f"{_api_base()}/api/sessions", params={"vault": vault}, timeout=15.0)
+def _get_sessions(workspace: str) -> dict:
+    r = httpx.get(f"{_api_base()}/api/sessions", params={"workspace": workspace}, timeout=15.0)
     r.raise_for_status()
     return r.json()
 
 
-def _get_session_detail(vault: str, conversation_id: str) -> dict:
+def _get_session_detail(workspace: str, conversation_id: str) -> dict:
     r = httpx.get(
-        f"{_api_base()}/api/sessions/{conversation_id}", params={"vault": vault}, timeout=15.0
+        f"{_api_base()}/api/sessions/{conversation_id}", params={"workspace": workspace}, timeout=15.0
     )
     r.raise_for_status()
     return r.json()
 
 
-def _post_upload(vault: str, provenance: str, filename: str, data: bytes) -> dict:
+def _post_upload(workspace: str, provenance: str, filename: str, data: bytes) -> dict:
     r = httpx.post(
         f"{_api_base()}/api/upload",
-        data={"vault": vault, "provenance": provenance},
+        data={"workspace": workspace, "provenance": provenance},
         files={"files": (filename, data)},
         timeout=120.0,
     )
@@ -125,7 +125,7 @@ def _post_upload(vault: str, provenance: str, filename: str, data: bytes) -> dic
     return r.json()
 
 
-async def _stream_chat(vault, message, conversation_id, approve):
+async def _stream_chat(workspace, message, conversation_id, approve):
     """Yield decoded ChatDelta dicts from the SSE chat stream.
 
     Emits a single ``{"error": ...}`` dict on a non-2xx response so callers can
@@ -133,7 +133,7 @@ async def _stream_chat(vault, message, conversation_id, approve):
     """
     payload = {
         "message": message,
-        "vault": vault or None,
+        "workspace": workspace or None,
         "conversation_id": conversation_id,
         "approve": approve,
     }
@@ -184,11 +184,11 @@ def _render_nodes(nodes: list[dict]) -> str:
     return "".join(parts)
 
 
-def _wiki_html(vault: str | None) -> str:
-    if not vault:
-        return "<em>No vault selected.</em>"
+def _wiki_html(workspace: str | None) -> str:
+    if not workspace:
+        return "<em>No workspace selected.</em>"
     try:
-        tree = _get_wiki_tree(vault)
+        tree = _get_wiki_tree(workspace)
     except Exception as e:  # surface, never fail silently (FR-23)
         return f"<em>Could not load wiki tree: {html.escape(str(e))}</em>"
     body = _render_nodes(tree.get("nodes", [])) or "<em>wiki/ is empty.</em>"
@@ -217,17 +217,17 @@ def _bucket_for(created: str, today: date) -> str:
 
 
 def _grouped_sessions(
-    vault: str | None, today: date | None = None
+    workspace: str | None, today: date | None = None
 ) -> list[tuple[str, list[tuple[str, str]]]]:
     """Conversations bucketed newest-first by relative date, empty buckets dropped.
 
     Returns ``[(bucket_header, [(label, conversation_id), ...]), ...]`` in
     ``_SESSION_BUCKETS`` order; the API already returns conversations newest-first.
     """
-    if not vault:
+    if not workspace:
         return []
     try:
-        convos = _get_sessions(vault).get("conversations", [])
+        convos = _get_sessions(workspace).get("conversations", [])
     except Exception:
         return []
     today = today or date.today()
@@ -259,7 +259,7 @@ def _add_approve_msg(history):
     return (history or []) + [{"role": "user", "content": APPROVE_MSG}]
 
 
-async def _run_turn(history, conversation_id, vault, approve):
+async def _run_turn(history, conversation_id, workspace, approve):
     """Stream one assistant turn, updating the last message as text arrives."""
     user_msg = _text(history[-1]["content"]) if history else ""
     history = history + [{"role": "assistant", "content": THINKING}]
@@ -268,7 +268,7 @@ async def _run_turn(history, conversation_id, vault, approve):
     reply, cid = "", conversation_id
     citations, pending = [], None
     try:
-        async for data in _stream_chat(vault, user_msg, conversation_id, approve):
+        async for data in _stream_chat(workspace, user_msg, conversation_id, approve):
             if "error" in data:
                 history[-1]["content"] = f"⚠️ {data['error']}"
                 yield history, cid, gr.update(visible=False)
@@ -288,13 +288,13 @@ async def _run_turn(history, conversation_id, vault, approve):
     yield history, cid, gr.update(visible=bool(pending))
 
 
-async def _respond(history, conversation_id, vault):
-    async for out in _run_turn(history, conversation_id, vault, approve=False):
+async def _respond(history, conversation_id, workspace):
+    async for out in _run_turn(history, conversation_id, workspace, approve=False):
         yield out
 
 
-async def _approve(history, conversation_id, vault):
-    async for out in _run_turn(history, conversation_id, vault, approve=True):
+async def _approve(history, conversation_id, workspace):
+    async for out in _run_turn(history, conversation_id, workspace, approve=True):
         yield out
 
 
@@ -304,14 +304,14 @@ async def _approve(history, conversation_id, vault):
 def _initial():
     """Populate the sidebar on page load (server is up by then)."""
     try:
-        info = _list_vaults()
+        info = _list_workspaces()
     except Exception as e:
         return (
             "", None, gr.update(choices=[], visible=False),
             f"<em>API not reachable: {html.escape(str(e))}</em>",
             f"API error: {e}",
         )
-    vaults = info.get("vaults", [])
+    vaults = info.get("workspaces", [])
     default = info.get("default", "default")
     active = default if default in vaults else (vaults[0] if vaults else None)
     status = f"Active vault: **{active}**" if active else "No vaults yet — type a name and click ＋."
@@ -326,14 +326,14 @@ def _suggest(typed):
     """Show existing-vault suggestions below the box as the user types (FR-4)."""
     typed = (typed or "").strip().lower()
     try:
-        vaults = _list_vaults().get("vaults", [])
+        vaults = _list_workspaces().get("workspaces", [])
     except Exception:
         vaults = []
     matches = [v for v in vaults if typed in v.lower()] if typed else vaults
     return gr.update(choices=matches, value=None, visible=bool(matches))
 
 
-def _pick_vault(selected):
+def _pick_workspace(selected):
     """Selecting a suggestion switches the active vault and re-scopes panels (FR-4/FR-21)."""
     if not selected:
         return (gr.update(), gr.update(), gr.update(visible=False), gr.update(), gr.update())
@@ -346,7 +346,7 @@ def _pick_vault(selected):
 def _refresh(active):
     """Refresh icon button: reload vault list + re-scope panels (FR-5)."""
     try:
-        vaults = _list_vaults().get("vaults", [])
+        vaults = _list_workspaces().get("workspaces", [])
     except Exception as e:
         return gr.update(), gr.update(), f"Could not list vaults: {e}"
     return (
@@ -363,7 +363,7 @@ def _create_vault_action(name, active):
         return (gr.update(), active, gr.update(visible=False), gr.update(),
                 "Enter a vault name to create.")
     try:
-        _create_vault(name)
+        _create_workspace(name)
     except Exception as e:
         return (name, active, gr.update(visible=False), gr.update(),
                 f"Could not create vault: {e}")
@@ -503,7 +503,7 @@ def build_demo() -> gr.Blocks:
         demo.load(None, None, None, js=_TOOLTIP_JS)
 
         vault_box.input(_suggest, [vault_box], [vault_suggest])
-        vault_suggest.select(_pick_vault, [vault_suggest], sidebar_out)
+        vault_suggest.select(_pick_workspace, [vault_suggest], sidebar_out)
         refresh_btn.click(_refresh, [active_vault], [vault_suggest, wiki_view, vault_status])
         create_btn.click(_create_vault_action, [vault_box, active_vault], sidebar_out)
 

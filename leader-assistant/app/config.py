@@ -1,9 +1,9 @@
-"""Configuration + vault resolution (spec 03-vault §0, Constitution P13).
+"""Configuration + workspace resolution (spec 03-workspace §0, Constitution P13).
 
 Environment overrides:
-- LEADER_VAULT_PATH    explicit single-vault path (wins over root/selector)
-- LEADER_VAULT_ROOT    root directory holding Vaults/<name>/ (default: ./Vaults)
-- LEADER_DEFAULT_VAULT default vault selector when none is supplied
+- LEADER_WORKSPACE_PATH    explicit single-workspace path (wins over root/selector)
+- LEADER_WORKSPACE_ROOT    root directory holding Workspaces/<name>/ (default: ./Workspaces)
+- LEADER_DEFAULT_WORKSPACE default workspace selector when none is supplied
 """
 
 from __future__ import annotations
@@ -11,19 +11,19 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-DEFAULT_ROOT = "Vaults"
-DEFAULT_VAULT_NAME = "default"
+DEFAULT_ROOT = "Workspaces"
+DEFAULT_WORKSPACE_NAME = "_default_"
 
 
-def vault_root() -> Path:
-    override = os.getenv("LEADER_VAULT_ROOT")
+def workspace_root() -> Path:
+    override = os.getenv("LEADER_WORKSPACE_ROOT")
     return Path(override).expanduser() if override else Path.cwd() / DEFAULT_ROOT
 
 
-def explicit_vault_path() -> Path | None:
-    override = os.getenv("LEADER_VAULT_PATH")
+def explicit_workspace_path() -> Path | None:
+    override = os.getenv("LEADER_WORKSPACE_PATH")
     return Path(override).expanduser() if override else None
 
 
-def default_vault_name() -> str:
-    return os.getenv("LEADER_DEFAULT_VAULT", DEFAULT_VAULT_NAME)
+def default_workspace_name() -> str:
+    return os.getenv("LEADER_DEFAULT_WORKSPACE", DEFAULT_WORKSPACE_NAME)

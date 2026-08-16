@@ -16,7 +16,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from . import capabilities, models
-from .vault import VaultError
+from .vault import WorkspaceError
 
 app = FastAPI(
     title="Leader Assistant API",
@@ -37,30 +37,30 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/api/vaults", response_model=models.VaultList, tags=["vault"], summary="List vaults")
-def list_vaults() -> models.VaultList:
-    return capabilities.list_vaults()
+@app.get("/api/workspaces", response_model=models.WorkspaceList, tags=["workspace"], summary="List workspaces")
+def list_workspaces() -> models.WorkspaceList:
+    return capabilities.list_workspaces()
 
 
-@app.post("/api/vaults", response_model=models.VaultInfo, tags=["vault"], summary="Create/scaffold a vault")
-def create_vault(req: models.CreateVaultRequest) -> models.VaultInfo:
-    return capabilities.create_vault(req.name)
+@app.post("/api/workspaces", response_model=models.WorkspaceInfo, tags=["workspace"], summary="Create/scaffold a workspace")
+def create_workspace(req: models.CreateWorkspaceRequest) -> models.WorkspaceInfo:
+    return capabilities.create_workspace(req.name)
 
 
-@app.get("/api/vaults/{selector}", response_model=models.VaultInfo, tags=["vault"], summary="Inspect a vault")
-def vault_info(selector: str) -> models.VaultInfo:
-    return capabilities.get_vault_info(selector)
+@app.get("/api/workspaces/{selector}", response_model=models.WorkspaceInfo, tags=["workspace"], summary="Inspect a workspace")
+def workspace_info(selector: str) -> models.WorkspaceInfo:
+    return capabilities.get_workspace_info(selector)
 
 
 @app.post("/api/ingest", response_model=models.IngestReport, tags=["knowledge"], summary="Ingest a source")
 def ingest(req: models.IngestRequest) -> models.IngestReport:
     try:
         return capabilities.ingest(req)
-    except VaultError as e:
+    except WorkspaceError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.post("/api/query", response_model=models.Answer, tags=["knowledge"], summary="Query the vault (cited)")
+@app.post("/api/query", response_model=models.Answer, tags=["knowledge"], summary="Query the workspace (cited)")
 def query(req: models.QueryRequest) -> models.Answer:
     return capabilities.query(req)
 
@@ -70,54 +70,54 @@ def plan(req: models.PlanRequest) -> models.Plan:
     return capabilities.plan(req)
 
 
-@app.get("/api/lint", response_model=models.LintReport, tags=["ops"], summary="Lint a vault")
-def lint(vault: str | None = None) -> models.LintReport:
-    return capabilities.lint(vault)
+@app.get("/api/lint", response_model=models.LintReport, tags=["ops"], summary="Lint a workspace")
+def lint(workspace: str | None = None) -> models.LintReport:
+    return capabilities.lint(workspace)
 
 
 @app.get("/api/spec", tags=["knowledge"], summary="Read a page's raw Markdown")
-def spec_read(path: str, vault: str | None = None) -> dict[str, str]:
+def spec_read(path: str, workspace: str | None = None) -> dict[str, str]:
     try:
-        return {"path": path, "content": capabilities.spec_read(path, vault)}
-    except VaultError as e:
+        return {"path": path, "content": capabilities.spec_read(path, workspace)}
+    except WorkspaceError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@app.get("/api/wiki-tree", response_model=models.WikiTree, tags=["knowledge"], summary="Browse the vault's wiki/ tree")
-def wiki_tree(vault: str | None = None) -> models.WikiTree:
-    """Navigation-only tree of the vault's `wiki/`, for the sidebar browser (spec 004 FR-8/FR-15)."""
-    return capabilities.wiki_tree(vault)
+@app.get("/api/wiki-tree", response_model=models.WikiTree, tags=["knowledge"], summary="Browse the workspace's vault/wiki/ tree")
+def wiki_tree(workspace: str | None = None) -> models.WikiTree:
+    """Navigation-only tree of the workspace's `vault/wiki/`, for the sidebar browser (spec 004 FR-8/FR-15)."""
+    return capabilities.wiki_tree(workspace)
 
 
-@app.post("/api/upload", response_model=models.UploadReport, tags=["knowledge"], summary="Upload files into raw/ and ingest")
+@app.post("/api/upload", response_model=models.UploadReport, tags=["knowledge"], summary="Upload files into vault/raw/ and ingest")
 async def upload(
-    vault: str | None = Form(None),
+    workspace: str | None = Form(None),
     provenance: str = Form("notes"),
     files: list[UploadFile] = File(...),
 ) -> models.UploadReport:
-    """Deposit uploaded originals into `raw/<provenance>/` then ingest them (spec 004 FR-12/FR-16).
+    """Deposit uploaded originals into `vault/raw/<provenance>/` then ingest them (spec 004 FR-12/FR-16).
 
-    `raw/` is human-owned (Constitution P2 v1.1.0); this is the sanctioned human upload channel.
+    `vault/raw/` is human-owned (Constitution P2 v1.1.0); this is the sanctioned human upload channel.
     """
     payload = [(f.filename or "upload", await f.read()) for f in files]
     try:
-        return capabilities.upload_and_ingest(vault, payload, provenance)
-    except VaultError as e:
+        return capabilities.upload_and_ingest(workspace, payload, provenance)
+    except WorkspaceError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/api/sessions", response_model=models.ConversationList, tags=["chat"], summary="List prior conversations")
-def sessions(vault: str | None = None) -> models.ConversationList:
+def sessions(workspace: str | None = None) -> models.ConversationList:
     """Prior conversations for the Sessions panel (spec 004 FR-17/FR-19)."""
-    return capabilities.list_conversations(vault)
+    return capabilities.list_conversations(workspace)
 
 
 @app.get("/api/sessions/{conversation_id}", response_model=models.ConversationDetail, tags=["chat"], summary="Read one conversation's turns")
-def session_detail(conversation_id: str, vault: str | None = None) -> models.ConversationDetail:
+def session_detail(conversation_id: str, workspace: str | None = None) -> models.ConversationDetail:
     """Full turns of one conversation, to repopulate the chat on resume (spec 004 FR-20)."""
     try:
-        return capabilities.get_conversation(vault, conversation_id)
-    except VaultError as e:
+        return capabilities.get_conversation(workspace, conversation_id)
+    except WorkspaceError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
@@ -130,9 +130,9 @@ async def chat(req: models.ChatRequest) -> models.ChatAnswer:
     """
     try:
         return await capabilities.ask(
-            req.vault, req.message, req.conversation_id, req.approve
+            req.workspace, req.message, req.conversation_id, req.approve
         )
-    except VaultError as e:
+    except WorkspaceError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -143,10 +143,10 @@ async def chat_stream(req: models.ChatRequest) -> StreamingResponse:
     async def events():
         try:
             async for delta in capabilities.ask_stream(
-                req.vault, req.message, req.conversation_id, req.approve
+                req.workspace, req.message, req.conversation_id, req.approve
             ):
                 yield f"data: {delta.model_dump_json()}\n\n"
-        except VaultError as e:
+        except WorkspaceError as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(events(), media_type="text/event-stream")

@@ -1,77 +1,78 @@
 """Tests for the sidebar's backing REST endpoints (feature 004-assistant-sidebar).
 
 Drives the FastAPI app over HTTP (``TestClient``), one test per user story, offline
-and deterministic on a throwaway vault (see ``conftest.py``). Covers the three new
-capabilities the sidebar surfaces — browse ``wiki/``, upload into ``raw/`` + ingest,
-and list/resume conversations — plus the amended P2 invariant that uploads (a *human*
-action) reach ``raw/`` while the ingestion pipeline still never mutates it.
+and deterministic on a throwaway workspace (see ``conftest.py``). Covers the three
+new capabilities the sidebar surfaces — browse ``vault/wiki/``, upload into
+``vault/raw/`` + ingest, and list/resume conversations — plus the amended P2
+invariant that uploads (a *human* action) reach ``vault/raw/`` while the ingestion
+pipeline still never mutates it.
 """
 
 from __future__ import annotations
 
 
-def _make_vault(client, name="demo"):
-    assert client.post("/api/vaults", json={"name": name}).status_code == 200
+def _make_workspace(client, name="demo"):
+    assert client.post("/api/workspaces", json={"name": name}).status_code == 200
     return name
 
 
 def test_wiki_tree_scoped_to_wiki(client):
-    # FR-8/FR-10/FR-15: the browser returns the wiki/ subtree only, never raw/ etc.
-    v = _make_vault(client)
-    r = client.get("/api/wiki-tree", params={"vault": v})
+    # FR-8/FR-10/FR-15: the browser returns the vault/wiki/ subtree only, never raw/ etc.
+    v = _make_workspace(client)
+    r = client.get("/api/wiki-tree", params={"workspace": v})
     assert r.status_code == 200
     body = r.json()
-    assert body["vault"] == v and body["root"] == "wiki"
+    assert body["workspace"] == v and body["root"] == "vault/wiki"
     top = {n["name"] for n in body["nodes"]}
     assert "sources" in top and "concepts" in top  # scaffolded wiki dirs
     assert "raw" not in top and "sessions" not in top and "output" not in top
 
 
 def test_upload_deposits_raw_and_ingests(client, tmp_path):
-    # FR-12/FR-16 + P2 v1.1.0: a text upload lands in raw/ (human-owned) AND is ingested.
-    v = _make_vault(client)
+    # FR-12/FR-16 + P2 v1.1.0: a text upload lands in vault/raw/ (human-owned) AND is ingested.
+    v = _make_workspace(client)
     r = client.post(
         "/api/upload",
-        data={"vault": v, "provenance": "notes"},
+        data={"workspace": v, "provenance": "notes"},
         files=[("files", ("meeting.md", b"# Sync\nWe decided to ship.", "text/markdown"))],
     )
     assert r.status_code == 200
     report = r.json()
     assert report["count"] == 1 and report["files"][0]["ingested"] is True
-    assert report["files"][0]["raw_path"] == "raw/notes/meeting.md"
-    assert report["files"][0]["source_page"].startswith("wiki/sources/notes/")
+    assert report["files"][0]["raw_path"] == "vault/raw/notes/meeting.md"
+    assert report["files"][0]["source_page"].startswith("vault/wiki/sources/notes/")
     # The ingested content is now queryable, proving the pipeline ran end-to-end.
-    q = client.post("/api/query", json={"vault": v, "question": "ship"})
+    q = client.post("/api/query", json={"workspace": v, "question": "ship"})
     assert q.status_code == 200 and q.json()["citations"]
-    # And it shows up in the wiki/ browser under sources/.
-    tree = client.get("/api/wiki-tree", params={"vault": v}).json()
+    # And it shows up in the vault/wiki/ browser under sources/.
+    tree = client.get("/api/wiki-tree", params={"workspace": v}).json()
     sources = next(n for n in tree["nodes"] if n["name"] == "sources")
     assert any(c["name"] == "notes" for c in sources["children"])
 
 
 def test_upload_binary_stored_not_ingested(client):
-    # FR-14: a non-text file is stored under raw/ but reported as not ingested (no crash).
-    v = _make_vault(client)
+    # FR-14: a non-text file is stored under vault/raw/ but reported as not ingested (no crash).
+    v = _make_workspace(client)
     r = client.post(
         "/api/upload",
-        data={"vault": v, "provenance": "assets"},
+        data={"workspace": v, "provenance": "assets"},
         files=[("files", ("logo.bin", bytes([0, 1, 2, 255]), "application/octet-stream"))],
     )
     assert r.status_code == 200
     f = r.json()["files"][0]
-    assert f["ingested"] is False and f["error"] and f["raw_path"] == "raw/assets/logo.bin"
+    assert f["ingested"] is False and f["error"] and f["raw_path"] == "vault/raw/assets/logo.bin"
 
 
 def test_upload_filename_traversal_is_neutralised(client):
-    # Security: a malicious filename cannot escape raw/ (path-traversal guard).
-    v = _make_vault(client)
+    # Security: a malicious filename cannot escape vault/raw/ (path-traversal guard).
+    v = _make_workspace(client)
     r = client.post(
         "/api/upload",
-        data={"vault": v, "provenance": "notes"},
+        data={"workspace": v, "provenance": "notes"},
         files=[("files", ("../../evil.md", b"nope", "text/markdown"))],
     )
     assert r.status_code == 200
-    assert r.json()["files"][0]["raw_path"] == "raw/notes/evil.md"
+    assert r.json()["files"][0]["raw_path"] == "vault/raw/notes/evil.md"
 
 
 def test_sessions_list_and_resume(client, offline_agent):
@@ -80,14 +81,14 @@ def test_sessions_list_and_resume(client, offline_agent):
     # date — the two inputs the sidebar's date-bucketed Sessions panel groups on.
     from datetime import date
 
-    v = _make_vault(client)
-    first = client.post("/api/chat", json={"vault": v, "message": "what did we decide?"})
-    second = client.post("/api/chat", json={"vault": v, "message": "and the deadline?"})
+    v = _make_workspace(client)
+    first = client.post("/api/chat", json={"workspace": v, "message": "what did we decide?"})
+    second = client.post("/api/chat", json={"workspace": v, "message": "and the deadline?"})
     assert first.status_code == 200 and second.status_code == 200
     cid1, cid2 = first.json()["conversation_id"], second.json()["conversation_id"]
     assert cid1 != cid2
 
-    listed = client.get("/api/sessions", params={"vault": v})
+    listed = client.get("/api/sessions", params={"workspace": v})
     assert listed.status_code == 200
     convos = listed.json()["conversations"]
     ids = [c["conversation_id"] for c in convos]
@@ -97,7 +98,7 @@ def test_sessions_list_and_resume(client, offline_agent):
         date.fromisoformat(c["created"])
         assert c["title"]
 
-    detail = client.get(f"/api/sessions/{cid1}", params={"vault": v})
+    detail = client.get(f"/api/sessions/{cid1}", params={"workspace": v})
     assert detail.status_code == 200
     roles = [m["role"] for m in detail.json()["messages"]]
     assert "user" in roles and "assistant" in roles
@@ -136,5 +137,5 @@ def test_session_date_bucketing(monkeypatch):
 
 
 def test_session_detail_missing_is_404(client):
-    v = _make_vault(client)
-    assert client.get("/api/sessions/nope", params={"vault": v}).status_code == 404
+    v = _make_workspace(client)
+    assert client.get("/api/sessions/nope", params={"workspace": v}).status_code == 404

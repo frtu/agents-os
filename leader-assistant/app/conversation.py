@@ -1,6 +1,6 @@
 """Durable conversation store (spec 002 T015/T016; FR-3, FR-7, FR-13).
 
-One Markdown file per conversation at ``<vault>/sessions/<conversation_id>.md``.
+One Markdown file per conversation at ``<workspace>/sessions/<conversation_id>.md``.
 The file *is* the source of truth (Constitution P1): a conversation is resumable
 by id even after a service restart, since context is reconstructed from disk, not
 memory.
@@ -49,7 +49,7 @@ class Turn:
 class Conversation:
     conversation_id: str
     path: Path
-    vault: Path
+    workspace: Path
     created: str
     sdk_session_id: str | None = None
     pending_plan: dict | None = None  # {"request": str, "plan": {...models.Plan...}}
@@ -60,8 +60,8 @@ def new_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
-def path_for(vault: Path, conversation_id: str) -> Path:
-    return vault / "sessions" / f"{conversation_id}.md"
+def path_for(workspace: Path, conversation_id: str) -> Path:
+    return workspace / "sessions" / f"{conversation_id}.md"
 
 
 # --- (de)serialisation -----------------------------------------------------
@@ -123,8 +123,8 @@ def _parse_turns(body: str) -> list[Turn]:
 # --- store API -------------------------------------------------------------
 
 
-def load(vault: Path, conversation_id: str) -> Conversation | None:
-    p = path_for(vault, conversation_id)
+def load(workspace: Path, conversation_id: str) -> Conversation | None:
+    p = path_for(workspace, conversation_id)
     if not p.is_file():
         return None
     front, body = _parse(p.read_text(encoding="utf-8"))
@@ -132,7 +132,7 @@ def load(vault: Path, conversation_id: str) -> Conversation | None:
     return Conversation(
         conversation_id=front.get("conversation-id", conversation_id),
         path=p,
-        vault=vault,
+        workspace=workspace,
         created=front.get("created", date.today().isoformat()),
         sdk_session_id=front.get("sdk-session-id") or None,
         pending_plan=json.loads(pending) if pending else None,
@@ -140,27 +140,27 @@ def load(vault: Path, conversation_id: str) -> Conversation | None:
     )
 
 
-def load_or_create(vault: Path, conversation_id: str | None) -> Conversation:
+def load_or_create(workspace: Path, conversation_id: str | None) -> Conversation:
     if conversation_id:
-        existing = load(vault, conversation_id)
+        existing = load(workspace, conversation_id)
         if existing is not None:
             return existing
     cid = conversation_id or new_id()
     conv = Conversation(
         conversation_id=cid,
-        path=path_for(vault, cid),
-        vault=vault,
+        path=path_for(workspace, cid),
+        workspace=workspace,
         created=date.today().isoformat(),
     )
     conv.path.parent.mkdir(parents=True, exist_ok=True)
-    vault_mod.guard_write_path(vault, conv.path)
+    vault_mod.guard_write_path(workspace, conv.path)
     conv.path.write_text(_render_frontmatter(conv), encoding="utf-8")
     return conv
 
 
 def append_turn(conv: Conversation, user_message: str, assistant_reply: str) -> None:
     """Append one user+assistant turn — never rewrites prior lines (FR-7)."""
-    vault_mod.guard_write_path(conv.vault, conv.path)
+    vault_mod.guard_write_path(conv.workspace, conv.path)
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     block = (
         f"\n## [{stamp}] user\n{user_message.strip()}\n"
@@ -174,7 +174,7 @@ def append_turn(conv: Conversation, user_message: str, assistant_reply: str) -> 
 
 def _rewrite_frontmatter(conv: Conversation) -> None:
     """Replace only the frontmatter block; leave turn body bytes untouched."""
-    vault_mod.guard_write_path(conv.vault, conv.path)
+    vault_mod.guard_write_path(conv.workspace, conv.path)
     _, body = _parse(conv.path.read_text(encoding="utf-8")) if conv.path.exists() else ({}, "")
     conv.path.write_text(_render_frontmatter(conv) + body, encoding="utf-8")
 

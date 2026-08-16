@@ -9,17 +9,17 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
-class VaultList(BaseModel):
-    root: str = Field(..., description="Resolved vault root directory")
-    vaults: list[str] = Field(default_factory=list, description="Scaffolded vault names")
-    default: str = Field(..., description="Default vault selector")
+class WorkspaceList(BaseModel):
+    root: str = Field(..., description="Resolved workspace root directory")
+    workspaces: list[str] = Field(default_factory=list, description="Scaffolded workspace names")
+    default: str = Field(..., description="Default workspace selector")
 
 
-class CreateVaultRequest(BaseModel):
-    name: str = Field(..., description="Vault name to create under the root", examples=["default"])
+class CreateWorkspaceRequest(BaseModel):
+    name: str = Field(..., description="Workspace name to create under the root", examples=["_default_"])
 
 
-class VaultInfo(BaseModel):
+class WorkspaceInfo(BaseModel):
     name: str
     path: str
     scaffolded: bool
@@ -27,7 +27,7 @@ class VaultInfo(BaseModel):
 
 
 class IngestRequest(BaseModel):
-    vault: str | None = Field(None, description="Vault selector; omitted = default")
+    workspace: str | None = Field(None, description="Workspace selector; omitted = default")
     title: str = Field(..., description="Human title of the source", examples=["Team sync notes"])
     content: str = Field(..., description="Raw Markdown/text content to ingest")
     provenance: str = Field(
@@ -38,7 +38,7 @@ class IngestRequest(BaseModel):
 
 
 class IngestReport(BaseModel):
-    vault: str
+    workspace: str
     source_page: str = Field(..., description="Path of the created wiki/sources summary")
     portal_updated: bool
     committed: bool = Field(..., description="Whether a git commit was recorded")
@@ -46,7 +46,7 @@ class IngestReport(BaseModel):
 
 
 class QueryRequest(BaseModel):
-    vault: str | None = Field(None, description="Vault selector; omitted = default")
+    workspace: str | None = Field(None, description="Workspace selector; omitted = default")
     question: str = Field(..., description="Natural-language question", examples=["What decisions were made?"])
 
 
@@ -56,14 +56,14 @@ class Citation(BaseModel):
 
 
 class Answer(BaseModel):
-    vault: str
+    workspace: str
     question: str
     answer: str
     citations: list[Citation] = Field(default_factory=list)
 
 
 class PlanRequest(BaseModel):
-    vault: str | None = None
+    workspace: str | None = None
     request: str = Field(..., description="Work request to plan", examples=["Refactor onboarding docs"])
 
 
@@ -74,7 +74,7 @@ class PlanStep(BaseModel):
 
 
 class Plan(BaseModel):
-    vault: str
+    workspace: str
     request: str
     steps: list[PlanStep]
     risk: str = Field(..., description="Risk outcome: safe | risky | reject")
@@ -90,7 +90,7 @@ class LintFinding(BaseModel):
 
 
 class LintReport(BaseModel):
-    vault: str
+    workspace: str
     findings: list[LintFinding] = Field(default_factory=list)
     ok: bool
 
@@ -102,7 +102,7 @@ class ChatRequest(BaseModel):
     """A single chat turn (spec 002 plan Data Contracts)."""
 
     message: str = Field(..., description="User message for this turn", examples=["What does the risk engine decide?"])
-    vault: str | None = Field(None, description="Vault selector; omitted = default (P13)")
+    workspace: str | None = Field(None, description="Vault selector; omitted = default (P13)")
     conversation_id: str | None = Field(
         None, description="Resume a prior conversation; omitted = start a new one (FR-3)"
     )
@@ -114,10 +114,10 @@ class ChatRequest(BaseModel):
 class ChatAnswer(BaseModel):
     """Full (non-streamed) reply for a chat turn (FR-1)."""
 
-    vault: str
+    workspace: str
     conversation_id: str = Field(..., description="Durable id; resend to continue the thread (FR-3, FR-13)")
     reply: str
-    citations: list[Citation] = Field(default_factory=list, description="Vault pages supporting the reply (FR-2)")
+    citations: list[Citation] = Field(default_factory=list, description="Workspace pages supporting the reply (FR-2)")
     pending_plan: Plan | None = Field(
         None, description="Populated when the request is consequential and awaits approval (FR-5)"
     )
@@ -127,7 +127,7 @@ class ChatAnswer(BaseModel):
 class ChatDelta(BaseModel):
     """One streamed chunk; the final delta carries done=true (FR-4)."""
 
-    vault: str
+    workspace: str
     conversation_id: str
     reply: str = Field(..., description="Accumulated reply so far")
     done: bool = Field(False, description="True on the final event")
@@ -140,7 +140,7 @@ class ChatDelta(BaseModel):
 
 
 class WikiNode(BaseModel):
-    """One entry in the vault's `wiki/` tree (FR-8/FR-15). Navigation-only."""
+    """One entry in the workspace's `vault/wiki/` tree (FR-8/FR-15). Navigation-only."""
 
     name: str = Field(..., description="Base name of the file or folder")
     path: str = Field(..., description="Path relative to wiki/ (posix)")
@@ -149,27 +149,27 @@ class WikiNode(BaseModel):
 
 
 class WikiTree(BaseModel):
-    """The active vault's `wiki/` subtree, scoped strictly to wiki/ (FR-10)."""
+    """The active workspace's `vault/wiki/` subtree, scoped strictly to vault/wiki/ (FR-10)."""
 
-    vault: str
-    root: str = Field("wiki", description="Root the paths are relative to")
+    workspace: str
+    root: str = Field("vault/wiki", description="Root the paths are relative to")
     nodes: list[WikiNode] = Field(default_factory=list)
 
 
 class UploadedFile(BaseModel):
-    """Result of depositing one uploaded file into raw/ then ingesting it (FR-12)."""
+    """Result of depositing one uploaded file into vault/raw/ then ingesting it (FR-12)."""
 
     filename: str
-    raw_path: str = Field(..., description="Path of the stored original, relative to the vault")
-    source_page: str | None = Field(None, description="wiki/sources page produced by ingest, if any")
-    ingested: bool = Field(False, description="Whether the file's text was ingested into wiki/")
+    raw_path: str = Field(..., description="Path of the stored original, relative to the workspace")
+    source_page: str | None = Field(None, description="vault/wiki/sources page produced by ingest, if any")
+    ingested: bool = Field(False, description="Whether the file's text was ingested into vault/wiki/")
     error: str | None = Field(None, description="Populated when the file was stored but not ingested")
 
 
 class UploadReport(BaseModel):
     """Outcome of an upload batch (FR-12/FR-13/FR-16)."""
 
-    vault: str
+    workspace: str
     files: list[UploadedFile] = Field(default_factory=list)
     count: int = Field(0, description="Number of files processed")
     committed: bool = Field(False, description="Whether the deposit was recorded as a git commit")
@@ -191,14 +191,14 @@ class ConversationSummary(BaseModel):
 
 
 class ConversationList(BaseModel):
-    vault: str
+    workspace: str
     conversations: list[ConversationSummary] = Field(default_factory=list)
 
 
 class ConversationDetail(BaseModel):
     """Full turns of one conversation, to repopulate the chat on resume (FR-20)."""
 
-    vault: str
+    workspace: str
     conversation_id: str
     created: str
     messages: list[ConversationMessage] = Field(default_factory=list)

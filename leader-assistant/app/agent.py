@@ -28,32 +28,32 @@ def _tool_names() -> list[str]:
     return [f"mcp__{_SERVER}__{t}" for t in ("query", "spec_read", "plan")]
 
 
-def _build_server(vault_selector: str | None, citations: list[models.Citation]):
+def _build_server(workspace_selector: str | None, citations: list[models.Citation]):
     """Build an in-process MCP server whose tools are the capability functions."""
     from claude_agent_sdk import create_sdk_mcp_server, tool
 
     from . import capabilities
 
-    @tool("query", "Search the vault and return an answer with citations. The ONLY way to browse project knowledge.", {"question": str})
+    @tool("query", "Search the workspace and return an answer with citations. The ONLY way to browse project knowledge.", {"question": str})
     async def query_tool(args: dict) -> dict:
-        ans = capabilities.query(models.QueryRequest(vault=vault_selector, question=args["question"]))
+        ans = capabilities.query(models.QueryRequest(workspace=workspace_selector, question=args["question"]))
         citations.extend(ans.citations)  # surfaced to the caller for the reply
         lines = [ans.answer, ""]
         for c in ans.citations:
             lines.append(f"- {c.page}: {c.excerpt}")
         return {"content": [{"type": "text", "text": "\n".join(lines)}]}
 
-    @tool("spec_read", "Read the raw Markdown of a known vault page by its relative path.", {"path": str})
+    @tool("spec_read", "Read the raw Markdown of a known workspace page by its relative path.", {"path": str})
     async def spec_read_tool(args: dict) -> dict:
         try:
-            text = capabilities.spec_read(args["path"], vault_selector)
+            text = capabilities.spec_read(args["path"], workspace_selector)
         except Exception as e:  # noqa: BLE001 — surface as tool text, not a crash
             return {"content": [{"type": "text", "text": f"error: {e}"}]}
         return {"content": [{"type": "text", "text": text[:4000]}]}
 
     @tool("plan", "Produce a step-by-step plan for a work request; consequential work is flagged for approval.", {"request": str})
     async def plan_tool(args: dict) -> dict:
-        p = capabilities.plan(models.PlanRequest(vault=vault_selector, request=args["request"]))
+        p = capabilities.plan(models.PlanRequest(workspace=workspace_selector, request=args["request"]))
         steps = "\n".join(f"{s.order}. {s.action} — {s.rationale}" for s in p.steps)
         text = f"risk={p.risk} requires_approval={p.requires_approval}\n{steps}"
         return {"content": [{"type": "text", "text": text}]}
@@ -64,7 +64,7 @@ def _build_server(vault_selector: str | None, citations: list[models.Citation]):
 async def run_stream(
     system_prompt: str,
     message: str,
-    vault_selector: str | None,
+    workspace_selector: str | None,
     resume_sid: str | None,
     citations: list[models.Citation],
 ) -> AsyncIterator[tuple[str, str | None]]:
@@ -85,7 +85,7 @@ async def run_stream(
     except ImportError as e:  # pragma: no cover
         raise AgentUnavailable(str(e)) from e
 
-    server = _build_server(vault_selector, citations)
+    server = _build_server(workspace_selector, citations)
     opts = ClaudeAgentOptions(
         system_prompt=system_prompt,
         model="sonnet",

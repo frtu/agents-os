@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import AsyncIterator
 
 from . import models, vault
-from .vault import VaultError
+from .vault import WorkspaceError
 
 # --- helpers ---------------------------------------------------------------
 
@@ -23,9 +23,9 @@ _CONSEQUENTIAL = re.compile(
     re.IGNORECASE,
 )
 
-# Explicit "create a vault named X" intent (FR-10, D1).
-_CREATE_VAULT = re.compile(
-    r"\bcreate\b.*?\bvault\b\s+(?:named\s+|called\s+)?[\"']?([A-Za-z0-9_-]+)",
+# Explicit "create a workspace named X" intent (FR-10, D1).
+_CREATE_WORKSPACE = re.compile(
+    r"\bcreate\b.*?\bworkspace\b\s+(?:named\s+|called\s+)?[\"']?([A-Za-z0-9_-]+)",
     re.IGNORECASE,
 )
 
@@ -35,31 +35,31 @@ def _slug(text: str) -> str:
     return s or "untitled"
 
 
-def _wiki_pages(v: Path) -> list[Path]:
-    wiki = v / "wiki"
+def _wiki_pages(workspace: Path) -> list[Path]:
+    wiki = workspace / "vault" / "wiki"
     if not wiki.is_dir():
         return []
     return [p for p in wiki.rglob("*.md") if p.name not in ("portal.md", "log.md")]
 
 
-def _git_commit(v: Path, message: str) -> bool:
-    """Commit vault changes into the vault's OWN repo; never an enclosing one.
+def _git_commit(workspace: Path, message: str) -> bool:
+    """Commit workspace changes into the workspace's OWN repo; never an enclosing one.
 
-    Refuses to run if `git -C <vault>` resolves to a repo whose top-level is
-    not the vault itself (e.g. a parent project checkout).
+    Refuses to run if `git -C <workspace>` resolves to a repo whose top-level is
+    not the workspace itself (e.g. a parent project checkout).
     """
     try:
         top = subprocess.run(
-            ["git", "-C", str(v), "rev-parse", "--show-toplevel"],
+            ["git", "-C", str(workspace), "rev-parse", "--show-toplevel"],
             capture_output=True, text=True,
         )
         if top.returncode != 0:
             return False
-        if Path(top.stdout.strip()).resolve() != v.resolve():
+        if Path(top.stdout.strip()).resolve() != workspace.resolve():
             return False  # would commit into an enclosing repo — refuse
-        subprocess.run(["git", "-C", str(v), "add", "-A"], capture_output=True, text=True)
+        subprocess.run(["git", "-C", str(workspace), "add", "-A"], capture_output=True, text=True)
         done = subprocess.run(
-            ["git", "-C", str(v), "commit", "-m", message],
+            ["git", "-C", str(workspace), "commit", "-m", message],
             capture_output=True, text=True,
         )
         return done.returncode == 0
@@ -68,53 +68,53 @@ def _git_commit(v: Path, message: str) -> bool:
 
 
 def _resolve_scaffolded(selector: str | None) -> tuple[str, Path]:
-    v = vault.resolve_vault(selector)
-    if not vault.is_scaffolded(v):
-        vault.scaffold_vault(v)
-    return v.name, v
+    workspace = vault.resolve_workspace(selector)
+    if not vault.is_scaffolded(workspace):
+        vault.scaffold_workspace(workspace)
+    return workspace.name, workspace
 
 
 # --- capabilities ----------------------------------------------------------
 
-def list_vaults() -> models.VaultList:
+def list_workspaces() -> models.WorkspaceList:
     from . import config
-    return models.VaultList(
-        root=str(config.vault_root()),
-        vaults=vault.list_vault_names(),
-        default=config.default_vault_name(),
+    return models.WorkspaceList(
+        root=str(config.workspace_root()),
+        workspaces=vault.list_workspace_names(),
+        default=config.default_workspace_name(),
     )
 
 
-def create_vault(name: str) -> models.VaultInfo:
+def create_workspace(name: str) -> models.WorkspaceInfo:
     from . import config
-    v = config.vault_root() / name
-    vault.scaffold_vault(v)
-    _git_commit(v, f"chore(vault): scaffold {name}")
-    return get_vault_info(name)
+    workspace = config.workspace_root() / name
+    vault.scaffold_workspace(workspace)
+    _git_commit(workspace, f"chore(workspace): scaffold {name}")
+    return get_workspace_info(name)
 
 
-def get_vault_info(selector: str | None = None) -> models.VaultInfo:
-    v = vault.resolve_vault(selector)
-    return models.VaultInfo(
-        name=v.name,
-        path=str(v),
-        scaffolded=vault.is_scaffolded(v),
-        pages=len(_wiki_pages(v)),
+def get_workspace_info(selector: str | None = None) -> models.WorkspaceInfo:
+    workspace = vault.resolve_workspace(selector)
+    return models.WorkspaceInfo(
+        name=workspace.name,
+        path=str(workspace),
+        scaffolded=vault.is_scaffolded(workspace),
+        pages=len(_wiki_pages(workspace)),
     )
 
 
 def ingest(req: models.IngestRequest) -> models.IngestReport:
-    """Create a wiki/sources summary page, update portal, append log, commit.
+    """Create a vault/wiki/sources summary page, update portal, append log, commit.
 
-    Note: raw content is summarised into wiki/sources/; raw/ itself is never
-    written by the assistant (spec 03-vault AC2).
+    Note: raw content is summarised into vault/wiki/sources/; vault/raw/ itself is never
+    written by the assistant (spec 03-workspace AC2).
     """
-    name, v = _resolve_scaffolded(req.vault)
+    name, workspace = _resolve_scaffolded(req.workspace)
     provenance = _slug(req.provenance)
-    dest_dir = v / "wiki" / "sources" / provenance
+    dest_dir = workspace / "vault" / "wiki" / "sources" / provenance
     dest_dir.mkdir(parents=True, exist_ok=True)
     page = dest_dir / f"{date.today().isoformat()}-{_slug(req.title)}.md"
-    vault.guard_write_path(v, page)
+    vault.guard_write_path(workspace, page)
 
     summary = req.content.strip().splitlines()
     preview = " ".join(summary[:5])[:400]
@@ -134,13 +134,13 @@ def ingest(req: models.IngestRequest) -> models.IngestReport:
         encoding="utf-8",
     )
 
-    rel = page.relative_to(v).as_posix()
-    _update_portal(v, rel, req.title, preview)
-    vault.append_log(v, "ingest", req.title)
-    committed = _git_commit(v, f"ingest: {req.title}")
+    rel = page.relative_to(workspace).as_posix()
+    _update_portal(workspace, rel, req.title, preview)
+    vault.append_log(workspace, "ingest", req.title)
+    committed = _git_commit(workspace, f"ingest: {req.title}")
 
     return models.IngestReport(
-        vault=name,
+        workspace=name,
         source_page=rel,
         portal_updated=True,
         committed=committed,
@@ -148,9 +148,9 @@ def ingest(req: models.IngestRequest) -> models.IngestReport:
     )
 
 
-def _update_portal(v: Path, rel: str, title: str, preview: str) -> None:
-    portal = v / "wiki" / "portal.md"
-    vault.guard_write_path(v, portal)
+def _update_portal(workspace: Path, rel: str, title: str, preview: str) -> None:
+    portal = workspace / "vault" / "wiki" / "portal.md"
+    vault.guard_write_path(workspace, portal)
     stem = Path(rel).stem
     line = f"- [[{rel}|{title}]] — {preview[:100]}\n"
     existing = portal.read_text(encoding="utf-8") if portal.exists() else "# Portal\n\n"
@@ -160,17 +160,17 @@ def _update_portal(v: Path, rel: str, title: str, preview: str) -> None:
 
 def query(req: models.QueryRequest) -> models.Answer:
     """Naive cited search over wiki pages (portal index model, no vector DB)."""
-    name, v = _resolve_scaffolded(req.vault)
+    name, workspace = _resolve_scaffolded(req.workspace)
     terms = [t for t in re.split(r"\W+", req.question.lower()) if len(t) > 2]
     citations: list[models.Citation] = []
-    for page in _wiki_pages(v):
+    for page in _wiki_pages(workspace):
         text = page.read_text(encoding="utf-8", errors="ignore")
         low = text.lower()
         score = sum(low.count(t) for t in terms)
         if score:
             excerpt = _first_match(text, terms)
             citations.append(
-                models.Citation(page=page.relative_to(v).as_posix(), excerpt=excerpt)
+                models.Citation(page=page.relative_to(workspace).as_posix(), excerpt=excerpt)
             )
     citations.sort(key=lambda c: -len(c.excerpt))
     citations = citations[:5]
@@ -180,8 +180,8 @@ def query(req: models.QueryRequest) -> models.Answer:
             "See citations for supporting excerpts."
         )
     else:
-        answer = "No matching knowledge found in this vault yet. Ingest sources first."
-    return models.Answer(vault=name, question=req.question, answer=answer, citations=citations)
+        answer = "No matching knowledge found in this workspace yet. Ingest sources first."
+    return models.Answer(workspace=name, question=req.question, answer=answer, citations=citations)
 
 
 def _first_match(text: str, terms: list[str]) -> str:
@@ -194,17 +194,17 @@ def _first_match(text: str, terms: list[str]) -> str:
 
 def plan(req: models.PlanRequest) -> models.Plan:
     """Plan-first for consequential work (Constitution P8, spec 13-api AC2)."""
-    name, _ = _resolve_scaffolded(req.vault)
+    name, _ = _resolve_scaffolded(req.workspace)
     consequential = bool(_CONSEQUENTIAL.search(req.request))
     risk = "risky" if consequential else "safe"
     steps = [
         models.PlanStep(order=1, action="Clarify scope and affected pages", rationale="Avoid ambiguity before mutation"),
-        models.PlanStep(order=2, action="Draft changes in the vault workspace", rationale="Keep raw/ immutable"),
+        models.PlanStep(order=2, action="Draft changes in the workspace's vault", rationale="Keep vault/raw/ immutable"),
         models.PlanStep(order=3, action="Evaluate risk and choose branch policy", rationale="Risky work → feature branch"),
         models.PlanStep(order=4, action="Commit with a typed message", rationale="Every mutation is a git commit"),
     ]
     return models.Plan(
-        vault=name,
+        workspace=name,
         request=req.request,
         steps=steps,
         risk=risk,
@@ -214,31 +214,31 @@ def plan(req: models.PlanRequest) -> models.Plan:
 
 def lint(selector: str | None = None) -> models.LintReport:
     """Basic hygiene checks: orphan pages and empty pages."""
-    name, v = _resolve_scaffolded(selector)
-    pages = _wiki_pages(v)
+    name, workspace = _resolve_scaffolded(selector)
+    pages = _wiki_pages(workspace)
     linked: set[str] = set()
     for page in pages:
         for m in re.finditer(r"\[\[([^\]|#]+)", page.read_text(encoding="utf-8", errors="ignore")):
             linked.add(Path(m.group(1)).stem)
     findings: list[models.LintFinding] = []
     for page in pages:
-        rel = page.relative_to(v).as_posix()
+        rel = page.relative_to(workspace).as_posix()
         body = page.read_text(encoding="utf-8", errors="ignore")
         if page.stem not in linked and "sources/" not in rel:
             findings.append(models.LintFinding(kind="orphan", page=rel, detail="No inbound [[wikilinks]]"))
         if len(body.strip().splitlines()) < 4:
             findings.append(models.LintFinding(kind="stale", page=rel, detail="Page has little content"))
-    return models.LintReport(vault=name, findings=findings, ok=not findings)
+    return models.LintReport(workspace=name, findings=findings, ok=not findings)
 
 
 def spec_read(rel_path: str, selector: str | None = None) -> str:
-    """Read a page's raw Markdown from the vault."""
-    _, v = _resolve_scaffolded(selector)
-    target = (v / rel_path).resolve()
-    if v.resolve() not in target.parents:
-        raise VaultError("path escapes vault")
+    """Read a page's raw Markdown from the workspace."""
+    _, workspace = _resolve_scaffolded(selector)
+    target = (workspace / rel_path).resolve()
+    if workspace.resolve() not in target.parents:
+        raise WorkspaceError("path escapes workspace")
     if not target.is_file():
-        raise VaultError(f"no such page: {rel_path}")
+        raise WorkspaceError(f"no such page: {rel_path}")
     return target.read_text(encoding="utf-8", errors="ignore")
 
 
@@ -246,13 +246,13 @@ def spec_read(rel_path: str, selector: str | None = None) -> str:
 
 
 def wiki_tree(selector: str | None = None) -> models.WikiTree:
-    """Return the vault's `wiki/` subtree for the navigation-only browser (FR-8/FR-15).
+    """Return the workspace's `vault/wiki/` subtree for the navigation-only browser (FR-8/FR-15).
 
-    Scoped strictly to `wiki/`; hidden entries are omitted. Nothing under `raw/`,
-    `sessions/`, `output/`, or `.git/` is ever revealed (FR-10).
+    Scoped strictly to `vault/wiki/`; hidden entries are omitted. Nothing under `vault/raw/`,
+    `sessions/`, `vault/output/`, or `.git/` is ever revealed (FR-10).
     """
-    name, v = _resolve_scaffolded(selector)
-    wiki = v / "wiki"
+    name, workspace = _resolve_scaffolded(selector)
+    wiki = workspace / "vault" / "wiki"
 
     def build(d: Path) -> list[models.WikiNode]:
         nodes: list[models.WikiNode] = []
@@ -268,7 +268,7 @@ def wiki_tree(selector: str | None = None) -> models.WikiTree:
                 nodes.append(models.WikiNode(name=child.name, path=rel, type="file"))
         return nodes
 
-    return models.WikiTree(vault=name, root="wiki", nodes=build(wiki) if wiki.is_dir() else [])
+    return models.WikiTree(workspace=name, root="vault/wiki", nodes=build(wiki) if wiki.is_dir() else [])
 
 
 def _safe_name(filename: str | None) -> str:
@@ -276,19 +276,19 @@ def _safe_name(filename: str | None) -> str:
     return Path(filename or "upload").name or "upload"
 
 
-def deposit_raw(v: Path, provenance: str, filename: str, data: bytes) -> Path:
-    """Write a human-uploaded original into `raw/<provenance>/` (Constitution P2 v1.1.0).
+def deposit_raw(workspace: Path, provenance: str, filename: str, data: bytes) -> Path:
+    """Write a human-uploaded original into `vault/raw/<provenance>/` (Constitution P2 v1.1.0).
 
-    This is the **sanctioned human channel** into `raw/`: it deliberately does NOT go
-    through `guard_write_path` (which forbids the *ingestion pipeline* from touching raw/).
-    It still validates that the resolved destination stays inside `raw/`.
+    This is the **sanctioned human channel** into `vault/raw/`: it deliberately does NOT go
+    through `guard_write_path` (which forbids the *ingestion pipeline* from touching vault/raw/).
+    It still validates that the resolved destination stays inside `vault/raw/`.
     """
-    raw_dir = v / "raw" / provenance
+    raw_dir = workspace / "vault" / "raw" / provenance
     raw_dir.mkdir(parents=True, exist_ok=True)
     dest = raw_dir / filename
-    raw_root = (v / "raw").resolve()
+    raw_root = (workspace / "vault" / "raw").resolve()
     if raw_root not in dest.resolve().parents:
-        raise VaultError("upload path escapes raw/")
+        raise WorkspaceError("upload path escapes vault/raw/")
     dest.write_bytes(data)
     return dest
 
@@ -298,53 +298,53 @@ def upload_and_ingest(
     files: list[tuple[str, bytes]],
     provenance: str = "notes",
 ) -> models.UploadReport:
-    """Deposit uploaded originals into `raw/` then ingest text ones (FR-12/FR-16).
+    """Deposit uploaded originals into `vault/raw/` then ingest text ones (FR-12/FR-16).
 
     Text-decodable files are ingested via the existing `ingest` pipeline (producing a
-    `wiki/sources` summary + portal/log update). Binary files are stored under `raw/`
+    `vault/wiki/sources` summary + portal/log update). Binary files are stored under `vault/raw/`
     only, with a note. Never mutates existing raw content (create/overwrite by name is a
-    human action; ingestion still never touches raw/).
+    human action; ingestion still never touches vault/raw/).
     """
-    name, v = _resolve_scaffolded(selector)
+    name, workspace = _resolve_scaffolded(selector)
     prov = _slug(provenance)
     results: list[models.UploadedFile] = []
     for filename, data in files:
         safe = _safe_name(filename)
-        raw_path = deposit_raw(v, prov, safe, data)
-        rel_raw = raw_path.relative_to(v).as_posix()
+        raw_path = deposit_raw(workspace, prov, safe, data)
+        rel_raw = raw_path.relative_to(workspace).as_posix()
         try:
             text = data.decode("utf-8")
         except UnicodeDecodeError:
             results.append(
                 models.UploadedFile(
                     filename=safe, raw_path=rel_raw, source_page=None, ingested=False,
-                    error="binary file stored in raw/, not ingested",
+                    error="binary file stored in vault/raw/, not ingested",
                 )
             )
             continue
         report = ingest(
-            models.IngestRequest(vault=name, title=Path(safe).stem, content=text, provenance=prov)
+            models.IngestRequest(workspace=name, title=Path(safe).stem, content=text, provenance=prov)
         )
         results.append(
             models.UploadedFile(
                 filename=safe, raw_path=rel_raw, source_page=report.source_page, ingested=True,
             )
         )
-    committed = _git_commit(v, f"upload: {len(files)} file(s) into raw/{prov}")
-    return models.UploadReport(vault=name, files=results, count=len(results), committed=committed)
+    committed = _git_commit(workspace, f"upload: {len(files)} file(s) into vault/raw/{prov}")
+    return models.UploadReport(workspace=name, files=results, count=len(results), committed=committed)
 
 
 def list_conversations(selector: str | None = None) -> models.ConversationList:
     """List prior conversations for the Sessions panel, newest first (FR-17/FR-19)."""
     from . import conversation as convo
 
-    name, v = _resolve_scaffolded(selector)
-    sessions = v / "sessions"
+    name, workspace = _resolve_scaffolded(selector)
+    sessions = workspace / "sessions"
     summaries: list[models.ConversationSummary] = []
     if sessions.is_dir():
         files = sorted(sessions.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
         for p in files:
-            conv = convo.load(v, p.stem)
+            conv = convo.load(workspace, p.stem)
             if conv is None:
                 continue
             first_user = next((t.text for t in conv.turns if t.role == "user"), "").strip()
@@ -357,23 +357,23 @@ def list_conversations(selector: str | None = None) -> models.ConversationList:
                     turn_count=sum(1 for t in conv.turns if t.role == "user"),
                 )
             )
-    return models.ConversationList(vault=name, conversations=summaries)
+    return models.ConversationList(workspace=name, conversations=summaries)
 
 
 def get_conversation(selector: str | None, conversation_id: str) -> models.ConversationDetail:
     """Return one conversation's full turns so the UI can repopulate the chat (FR-20)."""
     from . import conversation as convo
 
-    name, v = _resolve_scaffolded(selector)
-    conv = convo.load(v, conversation_id)
+    name, workspace = _resolve_scaffolded(selector)
+    conv = convo.load(workspace, conversation_id)
     if conv is None:
-        raise VaultError(f"no such conversation: {conversation_id}")
+        raise WorkspaceError(f"no such conversation: {conversation_id}")
     messages = [
         models.ConversationMessage(role=t.role, text=t.text, timestamp=t.timestamp)
         for t in conv.turns
     ]
     return models.ConversationDetail(
-        vault=name, conversation_id=conv.conversation_id, created=conv.created, messages=messages
+        workspace=name, conversation_id=conv.conversation_id, created=conv.created, messages=messages
     )
 
 
@@ -381,24 +381,24 @@ def get_conversation(selector: str | None, conversation_id: str) -> models.Conve
 
 
 def _resolve_for_chat(selector: str | None) -> tuple[str, Path]:
-    """Resolve a vault for a conversation (FR-10, D1).
+    """Resolve a workspace for a conversation (FR-10, D1).
 
-    Default vault is scaffolded on demand; a *named* selector that does not
-    exist is reported, never silently created. Vault creation happens only via
-    the explicit `create_vault` capability through the approval flow.
+    Default workspace is scaffolded on demand; a *named* selector that does not
+    exist is reported, never silently created. Workspace creation happens only via
+    the explicit `create_workspace` capability through the approval flow.
     """
-    v = vault.resolve_vault(selector)
+    workspace = vault.resolve_workspace(selector)
     if selector is None:
-        if not vault.is_scaffolded(v):
-            vault.scaffold_vault(v)
-        return v.name, v
-    if not vault.is_scaffolded(v):
-        raise VaultError(f"vault '{selector}' does not exist; create it explicitly first")
-    return v.name, v
+        if not vault.is_scaffolded(workspace):
+            vault.scaffold_workspace(workspace)
+        return workspace.name, workspace
+    if not vault.is_scaffolded(workspace):
+        raise WorkspaceError(f"workspace '{selector}' does not exist; create it explicitly first")
+    return workspace.name, workspace
 
 
 def _plan_for(request: str, selector: str | None) -> models.Plan:
-    return plan(models.PlanRequest(vault=selector, request=request))
+    return plan(models.PlanRequest(workspace=selector, request=request))
 
 
 def _consequential_reply(p: models.Plan) -> str:
@@ -414,15 +414,15 @@ def _consequential_reply(p: models.Plan) -> str:
 def _execute_pending(name: str, selector: str | None, pending: dict) -> tuple[str, bool]:
     """Execute an approved pending plan via the capability layer (FR-5, D2).
 
-    MVP supports explicit vault creation deterministically; other action types
+    MVP supports explicit workspace creation deterministically; other action types
     are reported as not-yet-automatable and the plan is kept pending.
     """
     request = pending.get("request", "")
-    m = _CREATE_VAULT.search(request)
+    m = _CREATE_WORKSPACE.search(request)
     if m:
-        vault_name = m.group(1)
-        info = create_vault(vault_name)
-        return (f"Approved. Created vault '{info.name}' at {info.path}.", True)
+        workspace_name = m.group(1)
+        info = create_workspace(workspace_name)
+        return (f"Approved. Created workspace '{info.name}' at {info.path}.", True)
     return (
         "Approved, but this action type isn't automatable yet in this build; "
         "the plan remains pending for a future capability.",
@@ -432,12 +432,12 @@ def _execute_pending(name: str, selector: str | None, pending: dict) -> tuple[st
 
 def _fallback_answer(selector: str | None, message: str) -> tuple[str, list[models.Citation]]:
     """Deterministic, cited answer when the agent runtime is unavailable (FR-2)."""
-    ans = query(models.QueryRequest(vault=selector, question=message))
+    ans = query(models.QueryRequest(workspace=selector, question=message))
     return ans.answer, ans.citations
 
 
 async def ask_stream(
-    vault: str | None = None,  # noqa: A002 — matches request field name (shadows module locally)
+    workspace: str | None = None,  # noqa: A002 — matches request field name (shadows module locally)
     message: str = "",
     conversation_id: str | None = None,
     approve: bool = False,
@@ -448,14 +448,14 @@ async def ask_stream(
     """
     from . import agent, conversation, persona
 
-    selector = vault
-    name, vpath = _resolve_for_chat(selector)
-    conv = conversation.load_or_create(vpath, conversation_id)
+    selector = workspace
+    name, wpath = _resolve_for_chat(selector)
+    conv = conversation.load_or_create(wpath, conversation_id)
     cid = conv.conversation_id
 
     def delta(reply: str, *, done: bool, citations=None, pending=None, executed=False) -> models.ChatDelta:
         return models.ChatDelta(
-            vault=name, conversation_id=cid, reply=reply, done=done,
+            workspace=name, conversation_id=cid, reply=reply, done=done,
             citations=citations or [], pending_plan=pending, executed=executed,
         )
 
@@ -506,18 +506,18 @@ async def ask_stream(
 
 
 async def ask(
-    vault: str | None = None,  # noqa: A002
+    workspace: str | None = None,  # noqa: A002
     message: str = "",
     conversation_id: str | None = None,
     approve: bool = False,
 ) -> models.ChatAnswer:
     """Non-streaming chat turn — drives ask_stream to completion (FR-1)."""
     last: models.ChatDelta | None = None
-    async for d in ask_stream(vault, message, conversation_id, approve):
+    async for d in ask_stream(workspace, message, conversation_id, approve):
         last = d
     assert last is not None
     return models.ChatAnswer(
-        vault=last.vault,
+        workspace=last.workspace,
         conversation_id=last.conversation_id,
         reply=last.reply,
         citations=last.citations,
