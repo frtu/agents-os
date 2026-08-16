@@ -451,10 +451,10 @@ Ready for {Step} interview.
 
 ### 12. Stage Changes
 
-Call `/capture-changes-git` to stage all changes:
+Call `/change-management-stage` to stage all changes:
 
 ```
-/capture-changes-git
+/change-management-stage
   trigger: {user's original instruction}
   operation: pre-interview
   subject: {Candidate Name}

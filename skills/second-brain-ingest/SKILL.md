@@ -327,10 +327,10 @@ Tell the user what was done:
 
 ### 10. Stage changes (do not commit unless asked)
 
-Call `/capture-changes-git` to stage all changes and create the change log entry:
+Call `/change-management-stage` to stage all changes and create the change log entry:
 
 ```
-/capture-changes-git
+/change-management-stage
   trigger: {user's original instruction that started this ingest}
   operation: ingest
   subject: {source-name}

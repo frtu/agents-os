@@ -1,5 +1,5 @@
 ---
-name: capture-changes-git
+name: change-management-stage
 description: >
   Stage git changes and create structured change log entry. Captures input sources,
   produced outputs, and context. Use as post-process after ingest or interview skills,
@@ -160,7 +160,7 @@ The change context block in `wiki/log.md` can be used as the commit message body
 At step 10, instead of inline git operations, call:
 
 ```
-/capture-changes-git
+/change-management-stage
   trigger: {user's original instruction}
   operation: ingest
   subject: {source-name}
@@ -174,7 +174,7 @@ At step 10, instead of inline git operations, call:
 At the end of the workflow:
 
 ```
-/capture-changes-git
+/change-management-stage
   trigger: {user's original instruction}
   operation: pre-interview
   subject: {Candidate Name}
@@ -188,7 +188,7 @@ At the end of the workflow:
 At the end of the workflow:
 
 ```
-/capture-changes-git
+/change-management-stage
   trigger: {user's original instruction}
   operation: post-interview
   subject: {Candidate Name}
