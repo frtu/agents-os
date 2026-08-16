@@ -1,0 +1,198 @@
+"""API tests for the Product Owner Chat surface (feature 002 user stories).
+
+Each test maps to an acceptance criterion in
+``specs/002-assistant-chat/spec.md``. Routine-answer tests use the
+``offline_agent`` fixture to force the deterministic (no-LLM) path so the suite
+is reproducible in CI; the live agent runtime is covered by a separate,
+opt-in test at the bottom.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+
+import pytest
+
+
+def sse_events(text: str) -> list[dict]:
+    """Parse an SSE body into the list of JSON payloads it carried."""
+    return [json.loads(line[6:]) for line in text.splitlines() if line.startswith("data: ")]
+
+
+def _ingest(client, vault, title, content, provenance="notes"):
+    client.post("/api/vaults", json={"name": vault})
+    return client.post(
+        "/api/ingest",
+        json={"vault": vault, "title": title, "provenance": provenance, "content": content},
+    )
+
+
+def test_ac1_chat_reply_with_citation(client, offline_agent):
+    # AC-1: a knowledge question yields a coherent reply with >=1 citation.
+    _ingest(client, "demo", "Risk engine", "The risk engine decides if work is safe, risky, or rejected.")
+    r = client.post("/api/chat", json={"vault": "demo", "message": "what does the risk engine decide?"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["reply"]
+    assert body["conversation_id"]
+    assert len(body["citations"]) >= 1
+
+
+def test_ac2_followup_resumes_conversation(client, offline_agent, isolated_vault_root):
+    # AC-2 / FR-3: resending the returned conversation_id continues one thread.
+    first = client.post("/api/chat", json={"message": "first question"}).json()
+    cid = first["conversation_id"]
+    second = client.post("/api/chat", json={"message": "second question", "conversation_id": cid})
+    assert second.status_code == 200
+    assert second.json()["conversation_id"] == cid
+
+    # The single session file accumulated both turns (durable, append-only).
+    from app import conversation, vault
+
+    conv = conversation.load(vault.resolve_vault(None), cid)
+    assert conv is not None
+    roles = [t.role for t in conv.turns]
+    assert roles.count("user") == 2
+    assert roles.count("assistant") == 2
+
+
+def test_ac3_consequential_returns_pending_plan_no_mutation(client, offline_agent, isolated_vault_root):
+    # AC-3 / FR-5: consequential request returns a plan and mutates nothing.
+    r = client.post("/api/chat", json={"message": "delete the onboarding spec"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["pending_plan"] is not None
+    assert body["pending_plan"]["requires_approval"] is True
+    assert body["executed"] is False
+
+    # No wiki page was created by this turn.
+    wiki = isolated_vault_root / "default" / "wiki"
+    pages = [p for p in wiki.rglob("*.md") if p.name not in ("portal.md", "log.md")]
+    assert pages == []
+
+
+def test_ac4_routine_answers_without_plan(client, offline_agent):
+    # AC-4 / FR-6: a routine question is answered directly, no forced plan.
+    r = client.post("/api/chat", json={"message": "what is this project about?"})
+    assert r.status_code == 200
+    assert r.json()["pending_plan"] is None
+
+
+def test_ac5_session_record_exists(client, offline_agent, isolated_vault_root):
+    # AC-5 / FR-7: a sessions/ record exists after any turn.
+    cid = client.post("/api/chat", json={"message": "hello"}).json()["conversation_id"]
+    session_file = isolated_vault_root / "default" / "sessions" / f"{cid}.md"
+    assert session_file.is_file()
+    assert "## [" in session_file.read_text(encoding="utf-8")
+
+
+def test_ac6_stream_and_full_converge(client, offline_agent):
+    # AC-6 / FR-4: streamed and full-reply modes converge to identical content.
+    # A consequential turn is fully deterministic (no LLM), so both surfaces match.
+    payload = {"message": "delete the temporary notes"}
+    full = client.post("/api/chat", json=payload).json()
+
+    streamed = client.post("/api/chat/stream", json=payload)
+    assert streamed.status_code == 200
+    events = sse_events(streamed.text)
+    assert len(events) >= 1
+    assert events[-1]["done"] is True
+    assert events[-1]["reply"] == full["reply"]
+    assert events[-1]["pending_plan"] is not None
+
+
+def test_ac8_no_raw_writes_or_log_edits(client, offline_agent, isolated_vault_root):
+    # AC-8 / FR-11: a chat turn never writes raw/ nor edits log.md.
+    client.post("/api/vaults", json={"name": "demo"})
+    log_path = isolated_vault_root / "demo" / "wiki" / "log.md"
+    log_before = log_path.read_text(encoding="utf-8")
+
+    client.post("/api/chat", json={"vault": "demo", "message": "tell me about the project"})
+
+    raw_files = [p for p in (isolated_vault_root / "demo" / "raw").rglob("*") if p.is_file()]
+    assert raw_files == []
+    assert log_path.read_text(encoding="utf-8") == log_before
+
+
+def test_ac9_default_vault_used_when_omitted(client, offline_agent, isolated_vault_root):
+    # AC-9 / FR-10: no selector -> the default vault is used and scaffolded.
+    r = client.post("/api/chat", json={"message": "hi"})
+    assert r.status_code == 200
+    assert r.json()["vault"] == "default"
+    assert (isolated_vault_root / "default" / "wiki").is_dir()
+
+
+def test_ac9_missing_named_vault_is_reported_not_created(client, offline_agent, isolated_vault_root):
+    # AC-9 / FR-10: a named vault that does not exist is reported, never created.
+    r = client.post("/api/chat", json={"vault": "ghost", "message": "hi"})
+    assert r.status_code == 400
+    assert not (isolated_vault_root / "ghost").exists()
+
+
+def test_ac9_explicit_create_vault_via_approval(client, offline_agent, isolated_vault_root):
+    # AC-9 / D1: "create vault X" is consequential; approval creates it.
+    first = client.post("/api/chat", json={"message": "create a vault named proj1"}).json()
+    assert first["pending_plan"] is not None
+    assert first["executed"] is False
+    assert not (isolated_vault_root / "proj1").exists()
+
+    cid = first["conversation_id"]
+    approved = client.post(
+        "/api/chat", json={"message": "approve", "conversation_id": cid, "approve": True}
+    ).json()
+    assert approved["executed"] is True
+    assert (isolated_vault_root / "proj1" / "wiki").is_dir()
+
+
+def test_ac10_resume_after_restart_then_approve(client, offline_agent, isolated_vault_root):
+    # AC-10 / FR-13: a pending plan survives a restart and is still approvable.
+    from fastapi.testclient import TestClient
+
+    from app import conversation, vault
+    from app.api import app
+
+    first = client.post("/api/chat", json={"message": "create a vault named survivor"}).json()
+    cid = first["conversation_id"]
+
+    # The pending plan is durable on disk, independent of any in-memory state.
+    conv = conversation.load(vault.resolve_vault(None), cid)
+    assert conv is not None and conv.pending_plan is not None
+
+    # Simulate a service restart with a brand-new client over the same disk.
+    fresh = TestClient(app)
+    approved = fresh.post(
+        "/api/chat", json={"message": "approve", "conversation_id": cid, "approve": True}
+    ).json()
+    assert approved["executed"] is True
+    assert (isolated_vault_root / "survivor" / "wiki").is_dir()
+
+
+def test_ac7_capability_parity_between_rest_and_chat(client):
+    # AC-7 / P9: every capability the agent can invoke is also a REST route.
+    from app.api import app
+
+    paths = {getattr(r, "path", None) for r in app.routes}
+    # Agent tools (query, spec_read, plan) + chat-driven create_vault.
+    assert "/api/query" in paths  # query tool
+    assert "/api/spec" in paths  # spec_read tool
+    assert "/api/plan" in paths  # plan tool
+    assert "/api/vaults" in paths  # create_vault (approval flow)
+    # And the chat surface itself is present in both modes.
+    assert "/api/chat" in paths
+    assert "/api/chat/stream" in paths
+
+
+@pytest.mark.skipif(
+    not os.getenv("LEADER_LIVE_AGENT"),
+    reason="requires the claude CLI / credentials; set LEADER_LIVE_AGENT=1 to run",
+)
+def test_live_agent_cited_answer(client):
+    # Exercises the real agent tool adapter end-to-end (opt-in).
+    _ingest(client, "demo", "Risk engine", "The risk engine decides if work is safe, risky, or rejected.")
+    r = client.post(
+        "/api/chat",
+        json={"vault": "demo", "message": "According to the vault, what does the risk engine decide? Cite the page."},
+    )
+    assert r.status_code == 200
+    assert r.json()["citations"]
