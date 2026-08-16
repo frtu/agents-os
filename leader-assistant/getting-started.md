@@ -1,230 +1,127 @@
 # Getting Started
 
-Leader Assistant is an IM-style assistant that retrieves knowledge from project
-documentation and answers questions using Claude. It serves both a **Gradio web
-UI** and a **REST API** on the same port.
+Leader Assistant is a **local** knowledge & specification service. It stores everything
+as Markdown in a git-versioned *vault* (no database) and exposes a REST API with an
+interactive **Swagger UI**. This guide gets it running on your machine.
 
 ## 1. Prerequisites
 
 - Python **3.13+**
 - [uv](https://docs.astral.sh/uv/) for dependency management
-- An Anthropic API key
+
+No API key is required to run the current version — it is filesystem-only.
 
 ## 2. Install
 
 ```bash
-# From the leader-assistant/ directory
+# from the app/ directory
 uv sync
 ```
 
-## 3. Configure
-
-Set your Claude API key:
+## 3. Run
 
 ```bash
-export ANTHROPIC_API_KEY=your_key_here
+uv run app
 ```
 
-## 4. Run
+On startup it prints a banner with the URLs, e.g.:
+
+```text
+  Leader Assistant — local service
+  --------------------------------
+  API base   : http://localhost:8000
+  Swagger UI : http://localhost:8000/docs
+  ReDoc      : http://localhost:8000/redoc
+  OpenAPI    : http://localhost:8000/openapi.json
+  Health     : http://localhost:8000/health
+```
+
+Open **http://localhost:8000/docs** — the Swagger UI lets you try every endpoint from
+the browser. Visiting `/` redirects there. Press `Ctrl+C` to stop.
+
+### Change host / port
 
 ```bash
-# Start the server (UI + REST API)
-uv run python app.py
-
-# With debug logging (SDK events, requests, responses)
-uv run python app.py --debug
-
-# On a custom host/port
-uv run python app.py --host 127.0.0.1 --port 8080
+LEADER_PORT=8080 uv run app
 ```
 
-Once running:
+## 4. Where your data lives
 
-- **Web UI:** http://localhost:7860/
-- **REST API:** http://localhost:7860/api/...
-- **Interactive API docs (Swagger):** http://localhost:7860/docs
+Everything is stored under a **vault** directory. By default vaults live in `./Vaults/`
+and are git-ignored. Each vault is its own git repository, so every change is committed
+to its own history — never to this project's repo.
 
-### Command-line options
+Override the location with environment variables:
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--debug` | Enable debug logging | off |
-| `--host HOST` | Server host | `0.0.0.0` |
-| `--port PORT` | Server port | `7860` |
-
-## 5. Install skills (optional)
-
-Skills extend what the agent can do. They are loaded into the agent's context,
-so any installed skill is available to both the UI and the REST API.
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `LEADER_VAULT_ROOT` | folder that holds `Vaults/<name>/` | `./Vaults` |
+| `LEADER_VAULT_PATH` | point at one specific vault directory | — |
+| `LEADER_DEFAULT_VAULT` | which vault is used when you don't name one | `default` |
 
 ```bash
-# List skills available from the shared ../skills library
-python3 skill_manager.py list
-
-# Install one (symlink by default)
-python3 skill_manager.py install <skill-name>
-
-# See what's installed
-python3 skill_manager.py installed
+LEADER_VAULT_ROOT=~/my-vaults uv run app
 ```
 
-## REST API
+A vault is scaffolded automatically the first time you use it:
 
-The Gradio UI is mounted onto a FastAPI app, so the UI and REST API share one
-server. Use the REST API to trigger the agent (and its installed skills)
-programmatically.
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET`  | `/api/health` | Health check. Returns `{"status": "ok"}`. |
-| `GET`  | `/api/skills` | List available and installed skills. |
-| `POST` | `/api/agent` | Trigger the agent, return the full reply as JSON. |
-| `POST` | `/api/agent/stream` | Trigger the agent, stream the reply via Server-Sent Events. |
-
-### Request body
-
-`/api/agent` and `/api/agent/stream` accept the same JSON body:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `message` | string | yes | The prompt/question for the agent. |
-| `session_id` | string | no | A session ID returned by a previous call, to continue the conversation. |
-
-```json
-{ "message": "your question", "session_id": "optional-session-to-resume" }
+```text
+<vault>/
+├── raw/        # your original sources (never modified by the app)
+├── wiki/       # generated knowledge (source summaries, concepts, portal.md, log.md)
+├── sessions/   # short-term conversation logs
+└── output/     # generated artifacts
 ```
 
-### Responses
+## 5. A 60-second tour (curl)
 
-- `/api/agent` returns JSON: `{ "reply": "...", "session_id": "..." }`
-- `/api/agent/stream` returns a `text/event-stream` of SSE messages. Each event
-  carries the accumulated reply so far; the final event includes `"done": true`:
-
-  ```text
-  data: {"reply": "No", "session_id": "abc-123"}
-
-  data: {"reply": "No skills installed.", "session_id": "abc-123"}
-
-  data: {"reply": "No skills installed.", "session_id": "abc-123", "done": true}
-  ```
-
-## Examples
-
-### Health check
+Assuming the server is on port 8000:
 
 ```bash
-curl http://localhost:7860/api/health
-# {"status":"ok"}
+# health
+curl -s localhost:8000/health
+
+# create a vault
+curl -s -X POST localhost:8000/api/vaults \
+  -H 'content-type: application/json' -d '{"name":"demo"}'
+
+# ingest a source (summarised into wiki/sources/, committed to the vault's git)
+curl -s -X POST localhost:8000/api/ingest \
+  -H 'content-type: application/json' \
+  -d '{"vault":"demo","title":"Team sync","provenance":"transcripts",
+       "content":"We decided to ship the API on Friday."}'
+
+# ask a question — answers come back with citations to vault pages
+curl -s -X POST localhost:8000/api/query \
+  -H 'content-type: application/json' \
+  -d '{"vault":"demo","question":"What did we decide to ship?"}'
 ```
 
-### List skills
+## 6. What the API can do
 
-```bash
-curl http://localhost:7860/api/skills
-# {"available":[{"name":"...","description":"..."}],"installed":["..."]}
-```
+| Method | Path | What it does |
+|--------|------|--------------|
+| `GET`  | `/health` | Liveness check. |
+| `GET`  | `/api/vaults` | List vaults + the resolved root and default. |
+| `POST` | `/api/vaults` | Create/scaffold a vault. |
+| `GET`  | `/api/vaults/{selector}` | Inspect a vault (path, page count). |
+| `POST` | `/api/ingest` | Add a source; writes a summary, updates the portal, commits. |
+| `POST` | `/api/query` | Search the vault; returns an answer with citations. |
+| `POST` | `/api/plan` | Get a step-by-step plan; risky work is flagged for approval. |
+| `GET`  | `/api/lint` | Report hygiene issues (orphan / thin pages). |
+| `GET`  | `/api/spec` | Read a vault page's raw Markdown. |
 
-### Trigger the agent (JSON reply)
+Full request/response shapes are documented interactively at **/docs**.
 
-```bash
-curl -X POST http://localhost:7860/api/agent \
-  -H 'Content-Type: application/json' \
-  -d '{"message": "What skills are installed?"}'
-# {"reply":"...","session_id":"8cb5ce7f-..."}
-```
+## 7. Troubleshooting
 
-### Continue a conversation
+- **Port already in use** — start with a different `LEADER_PORT`.
+- **Can't find your files** — check which vault root is active via `GET /api/vaults`
+  (it echoes the resolved `root` and `default`).
+- **Command not found: uv** — install uv: see https://docs.astral.sh/uv/.
 
-Pass the `session_id` returned by the previous call:
+## Learn more
 
-```bash
-curl -X POST http://localhost:7860/api/agent \
-  -H 'Content-Type: application/json' \
-  -d '{"message": "And which ones are available?", "session_id": "8cb5ce7f-..."}'
-```
-
-### Stream the reply (SSE)
-
-```bash
-curl -N -X POST http://localhost:7860/api/agent/stream \
-  -H 'Content-Type: application/json' \
-  -d '{"message": "Summarize the project docs"}'
-```
-
-The `-N` flag disables curl buffering so events appear as they arrive.
-
-### Python client
-
-```python
-import requests
-
-# Full reply
-r = requests.post(
-    "http://localhost:7860/api/agent",
-    json={"message": "What skills are installed?"},
-)
-data = r.json()
-print(data["reply"])
-session_id = data["session_id"]
-
-# Continue the conversation
-r = requests.post(
-    "http://localhost:7860/api/agent",
-    json={"message": "And which are available?", "session_id": session_id},
-)
-print(r.json()["reply"])
-```
-
-### Python streaming client (SSE)
-
-```python
-import json
-import requests
-
-with requests.post(
-    "http://localhost:7860/api/agent/stream",
-    json={"message": "Summarize the project docs"},
-    stream=True,
-) as r:
-    for line in r.iter_lines():
-        if line and line.startswith(b"data: "):
-            event = json.loads(line[len(b"data: "):])
-            print(event["reply"], end="\r")  # accumulated reply
-            if event.get("done"):
-                break
-```
-
-### JavaScript / fetch (SSE)
-
-```javascript
-const res = await fetch("http://localhost:7860/api/agent/stream", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ message: "Summarize the project docs" }),
-});
-
-const reader = res.body.getReader();
-const decoder = new TextDecoder();
-let buffer = "";
-
-while (true) {
-  const { value, done } = await reader.read();
-  if (done) break;
-  buffer += decoder.decode(value, { stream: true });
-  for (const chunk of buffer.split("\n\n")) {
-    if (chunk.startsWith("data: ")) {
-      const event = JSON.parse(chunk.slice(6));
-      console.log(event.reply); // accumulated reply so far
-    }
-  }
-  buffer = buffer.endsWith("\n\n") ? "" : buffer;
-}
-```
-
-## Troubleshooting
-
-- **`ANTHROPIC_API_KEY` not set** — the agent calls will fail; export the key
-  before starting the server.
-- **Port already in use** — start with a different `--port`.
-- **Want to see what the agent is doing** — run with `--debug` to log SDK
-  events, tool calls, requests, and responses.
+- `CLAUDE.md` — developer guide (architecture, conventions, commands).
+- `specs/` — the full specification this service is built from (start at
+  `specs/README.md`).

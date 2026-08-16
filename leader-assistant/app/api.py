@@ -1,0 +1,82 @@
+"""REST surface over the capability layer (FastAPI).
+
+FastAPI auto-generates the OpenAPI schema and serves the interactive
+Swagger UI at /docs and ReDoc at /redoc. This surface must stay in
+capability parity with any chat surface (Constitution P9, spec 13-api).
+"""
+
+from __future__ import annotations
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
+
+from . import capabilities, models
+from .vault import VaultError
+
+app = FastAPI(
+    title="Leader Assistant API",
+    version="0.1.0",
+    description=(
+        "Machine-facing surface over the shared capability layer.\n\n"
+        "Every capability is a plain function in `app.capabilities`; "
+        "consequential requests return a **plan** for approval rather than executing "
+        "silently (spec 13-api AC2). Interactive docs: **/docs**."
+    ),
+    contact={"name": "Leader Assistant", "url": "https://example.local"},
+)
+
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    return RedirectResponse(url="/docs")
+
+
+@app.get("/health", tags=["ops"], summary="Liveness probe")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/api/vaults", response_model=models.VaultList, tags=["vault"], summary="List vaults")
+def list_vaults() -> models.VaultList:
+    return capabilities.list_vaults()
+
+
+@app.post("/api/vaults", response_model=models.VaultInfo, tags=["vault"], summary="Create/scaffold a vault")
+def create_vault(req: models.CreateVaultRequest) -> models.VaultInfo:
+    return capabilities.create_vault(req.name)
+
+
+@app.get("/api/vaults/{selector}", response_model=models.VaultInfo, tags=["vault"], summary="Inspect a vault")
+def vault_info(selector: str) -> models.VaultInfo:
+    return capabilities.get_vault_info(selector)
+
+
+@app.post("/api/ingest", response_model=models.IngestReport, tags=["knowledge"], summary="Ingest a source")
+def ingest(req: models.IngestRequest) -> models.IngestReport:
+    try:
+        return capabilities.ingest(req)
+    except VaultError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/query", response_model=models.Answer, tags=["knowledge"], summary="Query the vault (cited)")
+def query(req: models.QueryRequest) -> models.Answer:
+    return capabilities.query(req)
+
+
+@app.post("/api/plan", response_model=models.Plan, tags=["governance"], summary="Plan consequential work")
+def plan(req: models.PlanRequest) -> models.Plan:
+    return capabilities.plan(req)
+
+
+@app.get("/api/lint", response_model=models.LintReport, tags=["ops"], summary="Lint a vault")
+def lint(vault: str | None = None) -> models.LintReport:
+    return capabilities.lint(vault)
+
+
+@app.get("/api/spec", tags=["knowledge"], summary="Read a page's raw Markdown")
+def spec_read(path: str, vault: str | None = None) -> dict[str, str]:
+    try:
+        return {"path": path, "content": capabilities.spec_read(path, vault)}
+    except VaultError as e:
+        raise HTTPException(status_code=404, detail=str(e))

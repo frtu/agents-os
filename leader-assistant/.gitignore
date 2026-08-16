@@ -17,5 +17,9 @@ dist/
 # Agent runtime memory (per-learner)
 data/
 
+# Knowledge vaults (each is its own git repo)
+Vaults/
+.tmp-vaults/
+
 # macOS
 .DS_Store
