@@ -180,6 +180,108 @@ def test_session_detail_missing_is_404(client):
     assert client.get("/api/sessions/nope", params={"workspace": v}).status_code == 404
 
 
+def test_sessions_render_as_clickable_text_not_buttons(monkeypatch):
+    # FR-19/FR-25: each conversation renders as clickable text (a .session div with data-cid),
+    # prefixed with a 💬 discussion icon — NOT a per-conversation <button> — grouped under
+    # collapsible <details open> relative-date sections. Exercises the pure UI renderer on a
+    # frozen "today" so the Today/Older headers are deterministic (no server / clock needed).
+    from datetime import date
+
+    from app import ui
+
+    sample = [
+        {"conversation_id": "c-today", "created": date.today().isoformat(),
+         "title": "Ship it", "turn_count": 2},
+        {"conversation_id": "c-old", "created": "2020-01-01",
+         "title": "Retro", "turn_count": 1},
+    ]
+    monkeypatch.setattr(ui, "_get_sessions", lambda _v: {"conversations": sample})
+    out = ui._sessions_html("demo")
+
+    # Collapsible date sections, expanded by default, in canonical order (Today before Older).
+    assert "<details open><summary>Today</summary>" in out
+    assert "<details open><summary>Older</summary>" in out
+    assert out.index("Today") < out.index("Older")
+
+    # Each conversation is a clickable-text row carrying its id, with a 💬 icon and label — and
+    # the whole rendered block contains NO <button> (selection, not an action; the New-conversation
+    # button and hidden trigger are separate Gradio components, not part of this HTML).
+    assert '<div class=\'session\' data-cid="c-today"' in out
+    assert '<div class=\'session\' data-cid="c-old"' in out
+    assert "<span class='ico'>💬</span>" in out
+    assert "<span class='label'>Ship it · 2 turn(s)</span>" in out
+    assert "<button" not in out and "</button>" not in out
+
+    # The full label is exposed as a native title tooltip on the row.
+    assert 'title="Ship it · 2 turn(s)"' in out
+
+
+def test_sessions_render_escapes_untrusted_text(monkeypatch):
+    # Security: a conversation title is HTML-escaped so it cannot inject markup into the panel.
+    from datetime import date
+
+    from app import ui
+
+    sample = [{"conversation_id": "c1", "created": date.today().isoformat(),
+               "title": "<img src=x onerror=alert(1)>", "turn_count": 1}]
+    monkeypatch.setattr(ui, "_get_sessions", lambda _v: {"conversations": sample})
+    out = ui._sessions_html("demo")
+    assert "<img src=x" not in out
+    assert "&lt;img src=x onerror=alert(1)&gt;" in out
+
+
+def test_sessions_empty_state(monkeypatch):
+    # FR-23: an empty Sessions list shows a "nothing yet" message rather than failing.
+    from app import ui
+
+    monkeypatch.setattr(ui, "_get_sessions", lambda _v: {"conversations": []})
+    assert "No conversations yet." in ui._sessions_html("demo")
+    # No active workspace short-circuits to the same empty state.
+    assert "No conversations yet." in ui._sessions_html(None)
+
+
+def test_session_click_bridge_is_wired():
+    # FR-19/FR-20: clicking session text (not a button) resumes the conversation. A delegated
+    # listener stashes the clicked id in window.__lastCid and clicks the hidden #session-go
+    # trigger, whose js shim injects that id as _open_session's argument. Assert the bridge parts.
+    from app import ui
+
+    # Delegated listener targets the rendered rows, records the id, and fires the hidden trigger.
+    assert ".session-tree [data-cid]" in ui._SESSION_JS
+    assert "window.__lastCid = t.getAttribute('data-cid')" in ui._SESSION_JS
+    assert "document.getElementById('session-go')" in ui._SESSION_JS
+    # The js shim replaces the placeholder arg with the clicked id, passing the vault through.
+    assert ui._SESSION_PICK_JS == "(pick, vault) => [window.__lastCid || '', vault]"
+    # The bridge components stay in the DOM (CSS-hidden), because Gradio drops visible=False ones.
+    assert ".session-bridge { display: none !important; }" in ui._CSS
+    # And the sessions panel is styled as a text tree with a 💬-icon column.
+    assert ".session-tree" in ui._CSS and ".session-tree .session .ico" in ui._CSS
+
+
+def test_open_session_resumes_and_strips_nonce(monkeypatch):
+    # FR-20: _open_session loads a thread's messages and returns the conversation id to continue
+    # it. The bridge may append a `|<nonce>` suffix (repeat-click de-duplication); it is stripped.
+    from app import ui
+
+    monkeypatch.setattr(
+        ui, "_get_session_detail",
+        lambda _v, _c: {"messages": [{"role": "user", "text": "hi"},
+                                     {"role": "assistant", "text": "yo"}]},
+    )
+    msgs, cid = ui._open_session("abc123", "demo")
+    assert cid == "abc123"
+    assert [m["role"] for m in msgs] == ["user", "assistant"]
+    assert [m["content"] for m in msgs] == ["hi", "yo"]
+
+    # A `<cid>|<nonce>` value is normalised back to the bare id.
+    _, cid2 = ui._open_session("abc123|1700000000000", "demo")
+    assert cid2 == "abc123"
+
+    # An empty selection is a no-op (no conversation resumed).
+    _, cid3 = ui._open_session("", "demo")
+    assert cid3 is None
+
+
 def test_wiki_tree_names_are_single_line_with_tooltip():
     # FR-9b: each folder/file renders on one line (CSS ellipsis truncation) and carries the
     # full, untruncated name in a data-tip attribute so hover reveals it (folder/file tooltip).

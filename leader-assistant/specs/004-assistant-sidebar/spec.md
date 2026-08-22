@@ -77,8 +77,9 @@ also offers).
   the panel returns and the `vault/wiki/` tree reflects any new pages produced by ingestion.
 - **Scenario 7 — Resume a conversation:** As a user, I open the **Sessions** panel at the
   bottom of the sidebar, see my prior conversations for the active workspace listed
-  most-recent-first under relative-date headers (Today, Yesterday, This Week, …), and select one to
-  continue it in the chat (the chat resumes by `conversation_id`, [[06-conversations]]).
+  most-recent-first under relative-date headers (Today, Yesterday, This Week, …) as **clickable
+  text entries**, and click one to continue it in the chat (the chat resumes by
+  `conversation_id`, [[06-conversations]]).
 - **Scenario 7b — Start a new conversation:** As a user, I click **New conversation** at the top
   of the Sessions panel to begin a fresh chat thread, leaving my earlier conversations intact in
   the list below.
@@ -178,7 +179,8 @@ Numbered, testable, unambiguous.
 - **FR-19:** At the **bottom** of the sidebar the UI MUST show a **Sessions** panel listing
   the active workspace's **prior conversations** (via FR-17), each selectable. Each
   conversation entry MUST render as **clickable text** (a selection affordance), NOT as an
-  action button — resuming a past conversation is a selection, not a command. The **New
+  action button — resuming a past conversation is a selection, not a command. Each entry MUST
+  be prefixed with a **discussion/chat icon** to signal it is a conversation. The **New
   conversation** control (FR-24) remains a button because it performs an action.
 - **FR-20:** Selecting a session MUST **resume that conversation** in the chat by its
   `conversation_id` (feature 002/003 continuity, [[06-conversations]]).
@@ -190,7 +192,8 @@ Numbered, testable, unambiguous.
   (most recent first) and **grouped under relative-date headers** — `Today`, `Yesterday`,
   `This Week`, `This Month`, `Older` — with empty groups omitted. Bucketing is derived from each
   conversation's `created` date. Each listed conversation MUST render as **clickable text**
-  (per FR-19), not as an action button.
+  (per FR-19), not as an action button. Each relative-date group MUST be an **independently
+  collapsible section** (its conversations expand/collapse) and MUST be **expanded by default**.
 
 ### Cross-cutting
 
@@ -260,9 +263,10 @@ Numbered, testable, unambiguous.
 - [ ] **AC-6:** During upload+ingest a **progress bar replaces the upload section**, then the
   section returns and the `vault/wiki/` browser refreshes. (FR-13)
 - [ ] **AC-7:** The **Sessions** panel has a **New conversation** control (a button) at the top,
-  then lists all prior conversations for the active workspace as **clickable text**,
-  **most-recent-first, grouped under relative-date headers** (Today / Yesterday / This Week /
-  This Month / Older, empty groups omitted); clicking one **resumes** that conversation in the chat
+  then lists all prior conversations for the active workspace as **clickable text prefixed with a
+  discussion icon**, **most-recent-first, grouped under relative-date headers** (Today / Yesterday /
+  This Week / This Month / Older, empty groups omitted) where **each date group is an independently
+  collapsible section** (expanded by default); clicking one **resumes** that conversation in the chat
   and New conversation starts a fresh thread. (FR-17, FR-19, FR-20, FR-24, FR-25)
 - [ ] **AC-8:** Changing the active workspace **re-scopes** the `vault/wiki/` browser and
   Sessions panel. (FR-21)

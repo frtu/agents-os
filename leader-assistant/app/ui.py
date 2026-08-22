@@ -15,7 +15,8 @@ collapsible** panels (`gr.Accordion`), top-to-bottom (spec 004 FR-2):
   `vault/raw/` and ingested.
 - **Sessions** — a **New conversation** button at the top, then all prior conversations
   listed reverse-chronologically and grouped under relative-date headers (Today, Yesterday,
-  This Week, This Month, Older), each resumable by id (FR-24/FR-25).
+  This Week, This Month, Older), each rendered as **clickable text** (selection, not an action)
+  and resumable by id (FR-19/FR-24/FR-25).
 
 Every panel is backed by a REST endpoint (`/api/workspaces`, `/api/wiki-tree`, `/api/upload`,
 `/api/sessions[/{id}]`) — no capability the API lacks.
@@ -85,6 +86,30 @@ _WIKI_TIP_JS = """
 }
 """
 
+# spec 004 FR-19: sessions render as clickable text (not Gradio buttons), so a delegated click
+# listener bridges a click on a `.session [data-cid]` entry to the resume handler. It stashes the
+# clicked id in `window.__lastCid` and clicks a hidden trigger button (#session-go); that button's
+# `.click` uses a `js` shim (_SESSION_PICK_JS) to inject `__lastCid` as the handler's argument.
+# (Mutating a hidden Textbox's value from JS does not update Gradio's Svelte store, so the value
+# never reaches the backend — a hidden button + js-injected arg is the reliable bridge.)
+_SESSION_JS = """
+() => {
+  if (window.__sessInit) return;
+  window.__sessInit = true;
+  document.addEventListener('click', (e) => {
+    const t = e.target && e.target.closest ? e.target.closest('.session-tree [data-cid]') : null;
+    if (!t) return;
+    window.__lastCid = t.getAttribute('data-cid');
+    const go = document.getElementById('session-go');
+    if (go) go.click();
+  });
+}
+"""
+
+# js shim for the hidden trigger: replace the (ignored) placeholder arg with the last-clicked id,
+# passing the active workspace through unchanged, so _open_session(conversation_id, vault) runs.
+_SESSION_PICK_JS = "(pick, vault) => [window.__lastCid || '', vault]"
+
 _CSS = """
 #refresh-vault button, #create-vault button { font-size: 1.1rem; padding: 0 6px; }
 .wiki-tree { font-size: 0.9rem; line-height: 1.5; max-height: 240px;
@@ -112,6 +137,25 @@ _CSS = """
   border: 1px solid var(--border-color-primary, #4b5563); border-radius: 4px;
   padding: 2px 8px; font-size: 0.8rem; box-shadow: 0 2px 6px rgba(0,0,0,0.35);
 }
+/* spec 004 FR-19/FR-25: a prior conversation is a selection, not an action — render each entry
+   as clickable text (with a 💬 icon), grouped under collapsible relative-date sections. */
+.session-tree { font-size: 0.9rem; line-height: 1.55; }
+.session-tree details { margin: 0 0 2px 0; }
+.session-tree summary {
+  cursor: pointer; font-weight: 600; padding: 2px 0;
+  color: var(--body-text-color-subdued); white-space: nowrap;
+}
+.session-tree .session {
+  cursor: pointer; display: flex; align-items: center; gap: 6px;
+  padding: 2px 4px 2px 1.1em; border-radius: 4px;
+  white-space: nowrap; overflow: hidden;
+}
+.session-tree .session .ico { flex: none; opacity: 0.7; }
+.session-tree .session .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-tree .session:hover { background: var(--background-fill-secondary); }
+/* The JS click bridge needs its target textbox in the DOM, so hide it with CSS rather than
+   `visible=False` (Gradio removes invisible components from the DOM entirely). */
+.session-bridge { display: none !important; }
 """
 
 
@@ -292,6 +336,28 @@ def _grouped_sessions(
     return [(b, items) for b in _SESSION_BUCKETS if (items := grouped[b])]
 
 
+def _sessions_html(workspace: str | None) -> str:
+    """Render prior conversations as collapsible date sections of clickable text (FR-19/FR-25).
+
+    Each conversation is a `.session` row (💬 icon + label) carrying its id in `data-cid`; a
+    delegated JS listener (_SESSION_JS) turns a click into the resume handler. Date groups are
+    native `<details open>` so each is independently collapsible (expanded by default).
+    """
+    groups = _grouped_sessions(workspace)
+    if not groups:
+        return "<div class='session-tree'><em>No conversations yet.</em></div>"
+    parts: list[str] = []
+    for header, items in groups:
+        rows = "".join(
+            f"<div class='session' data-cid=\"{html.escape(cid, quote=True)}\" "
+            f"title=\"{html.escape(label, quote=True)}\">"
+            f"<span class='ico'>💬</span><span class='label'>{html.escape(label)}</span></div>"
+            for label, cid in items
+        )
+        parts.append(f"<details open><summary>{html.escape(header)}</summary>{rows}</details>")
+    return f"<div class='session-tree'>{''.join(parts)}</div>"
+
+
 # --- Gradio event handlers --------------------------------------------------
 
 
@@ -464,7 +530,13 @@ def _do_upload(files, provenance, vault, progress=gr.Progress()):
 
 
 def _open_session(conversation_id, vault):
-    """Resume a prior conversation in the chat (FR-20)."""
+    """Resume a prior conversation in the chat (FR-20).
+
+    The value arrives from the JS bridge as ``<cid>|<nonce>`` (the nonce guarantees `.change`
+    fires on repeat clicks); strip it back to the bare conversation id.
+    """
+    if conversation_id and "|" in conversation_id:
+        conversation_id = conversation_id.rsplit("|", 1)[0]
     if not conversation_id:
         return gr.update(), None
     try:
@@ -523,24 +595,15 @@ def build_demo() -> gr.Blocks:
 
             with gr.Accordion("Sessions", open=True):
                 new_chat_btn = gr.Button("＋ New conversation", size="sm")
-
-                @gr.render(
-                    inputs=[active_vault],
-                    triggers=[demo.load, active_vault.change, refresh_btn.click],
+                # spec 004 FR-19/FR-25: conversations render as clickable text (💬 + label) in
+                # collapsible date sections. Clicks are bridged (JS) into session_pick, whose
+                # change fires _open_session — no per-conversation Gradio button.
+                sessions_view = gr.HTML("<em>Loading…</em>")
+                # Hidden bridge: JS clicks session_go, whose js shim injects the clicked id.
+                session_pick = gr.Textbox(
+                    elem_classes=["session-bridge"], show_label=False, container=False,
                 )
-                def render_sessions(vault):
-                    groups = _grouped_sessions(vault)
-                    if not groups:
-                        gr.Markdown("_No conversations yet._")
-                        return
-                    for header, items in groups:
-                        gr.Markdown(f"**{header}**")
-                        for label, cid in items:
-                            btn = gr.Button(label, size="sm", variant="secondary")
-                            btn.click(
-                                lambda c=cid, v=vault: _open_session(c, v),
-                                None, [chat, conversation],
-                            )
+                session_go = gr.Button(elem_id="session-go", elem_classes=["session-bridge"])
 
         # Main area: chat.
         gr.HTML('<h2 style="margin:8px 2px">Leader <b>Assistant</b></h2>')
@@ -554,13 +617,25 @@ def build_demo() -> gr.Blocks:
         # --- wiring ---
         sidebar_out = [vault_box, active_vault, vault_suggest, wiki_view, vault_status]
         demo.load(_initial, None, sidebar_out)
+        demo.load(_sessions_html, [active_vault], [sessions_view])
         demo.load(None, None, None, js=_TOOLTIP_JS)
         demo.load(None, None, None, js=_WIKI_TIP_JS)
+        demo.load(None, None, None, js=_SESSION_JS)
 
         vault_box.input(_suggest, [vault_box], [vault_suggest])
         vault_suggest.select(_pick_workspace, [vault_suggest], sidebar_out)
         refresh_btn.click(_refresh, [active_vault], [vault_suggest, wiki_view, vault_status])
         create_btn.click(_create_vault_action, [vault_box, active_vault], sidebar_out)
+
+        # Re-scope Sessions when the active workspace changes (FR-21) and on explicit refresh.
+        active_vault.change(_sessions_html, [active_vault], [sessions_view])
+        refresh_btn.click(_sessions_html, [active_vault], [sessions_view])
+        # Clicking a session row (JS) clicks session_go; the js shim injects the clicked id so
+        # _open_session resumes that conversation in the chat (FR-19/FR-20).
+        session_go.click(
+            _open_session, [session_pick, active_vault], [chat, conversation],
+            js=_SESSION_PICK_JS,
+        )
 
         upload_btn.click(
             _do_upload,
