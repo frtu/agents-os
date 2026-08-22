@@ -16,7 +16,12 @@ is non-negotiable:
    first.
 2. **Then code.** Implement to satisfy the spec, citing the spec doc + requirement id in
    code comments (e.g. `spec 004 FR-25`).
-3. **Then tests.** Add/adjust tests that map back to the new ACs/FRs.
+3. **Then tests (always).** Every new feature or behavioural change MUST land with tests in
+   the same change — a feature is not "done" until it is tested. Add/adjust tests that map
+   back to the new ACs/FRs, and **link the spec id** each test covers in a comment or the
+   test name (e.g. `# spec 004 FR-25` / `test_..._fr25`) so coverage is traceable to the
+   spec. Run `uv run --extra dev pytest` and confirm it passes before considering the task
+   complete.
 4. **Keep them in sync.** Spec, code, and tests must agree at the end of the change; if
    implementation forces a design change, update the spec rather than letting it drift.
 
