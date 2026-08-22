@@ -17,6 +17,9 @@ dist/
 # Agent runtime memory (per-learner)
 data/
 
+# Skills (each should only be symlinks)
+.claude/skills
+
 # Knowledge vaults (each is its own git repo)
 Vaults/
 .tmp-vaults/
