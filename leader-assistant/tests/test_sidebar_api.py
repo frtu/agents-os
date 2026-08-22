@@ -229,6 +229,137 @@ def test_workspace_pick_switches_active_and_ignores_none(monkeypatch):
     assert active.get("__type__") == "update"
 
 
+def test_initial_selects_default_and_hides_create(monkeypatch):
+    # FR-3/FR-5/FR-7: on load the box is pre-filled with the active workspace, the picker lists
+    # the others (hidden until focus), the `Active` indicator names it, and Create starts hidden.
+    from app import ui
+
+    monkeypatch.setattr(ui, "_wiki_html", lambda v: f"<em>{v}</em>")
+    monkeypatch.setattr(ui, "_list_workspaces", lambda: {"workspaces": ["alpha", "beta"], "default": "beta"})
+    box, active, picker, _wiki, status, create = ui._initial()
+    assert box == "beta" and active == "beta" and status == "**Active:** beta"
+    assert create["visible"] is False
+    assert picker["visible"] is False and picker["choices"] == ["alpha"]  # others, hidden
+
+    # Default not in the list → fall back to the first workspace.
+    monkeypatch.setattr(ui, "_list_workspaces", lambda: {"workspaces": ["alpha"], "default": "gone"})
+    _b, active2, _p, _w, _s, _c = ui._initial()
+    assert active2 == "alpha"
+
+    # No workspaces at all → no active, empty box, "nothing yet" indicator.
+    monkeypatch.setattr(ui, "_list_workspaces", lambda: {"workspaces": [], "default": "x"})
+    box3, active3, _p3, _w3, status3, _c3 = ui._initial()
+    assert box3 == "" and active3 is None and "No workspaces yet" in status3
+
+
+def test_initial_surfaces_api_error(monkeypatch):
+    # FR-23: if the API is unreachable at load, the sidebar shows the error rather than crashing.
+    from app import ui
+
+    def boom():
+        raise RuntimeError("connection refused")
+
+    monkeypatch.setattr(ui, "_list_workspaces", boom)
+    box, active, _picker, wiki, status, create = ui._initial()
+    assert box == "" and active is None
+    assert "API not reachable" in wiki and "API error" in status
+    assert create["visible"] is False
+
+
+def test_refresh_falls_back_when_active_removed_elsewhere(monkeypatch):
+    # FR-5: Refresh re-fetches from the backend so changes made ELSEWHERE are reflected. If the
+    # active workspace was deleted elsewhere it falls back to the first remaining one.
+    from app import ui
+
+    monkeypatch.setattr(ui, "_wiki_html", lambda v: f"<em>{v}</em>")
+
+    # beta was removed elsewhere; the list no longer contains it → fall back to alpha.
+    monkeypatch.setattr(ui, "_list_workspaces", lambda: {"workspaces": ["alpha", "gamma"]})
+    box, active, picker, _w, status, create = ui._refresh("beta")
+    assert active == "alpha" and box == "alpha" and status == "**Active:** alpha"
+    assert picker["choices"] == ["gamma"] and picker["visible"] is False
+    assert create["visible"] is False
+
+    # Active still present → preserved.
+    monkeypatch.setattr(ui, "_list_workspaces", lambda: {"workspaces": ["alpha", "beta"]})
+    _b, active2, _p, _w2, _s, _c = ui._refresh("beta")
+    assert active2 == "beta"
+
+
+def test_refresh_surfaces_api_error(monkeypatch):
+    # FR-23: a backend failure during Refresh is surfaced, not swallowed.
+    from app import ui
+
+    def boom():
+        raise RuntimeError("down")
+
+    monkeypatch.setattr(ui, "_list_workspaces", boom)
+    _b, active, _p, _w, status, create = ui._refresh("beta")
+    assert active == "beta"  # keep the current selection on error
+    assert status.startswith("Could not list workspaces")
+    assert create["visible"] is False
+
+
+def test_create_vault_action_validates_and_creates(monkeypatch):
+    # FR-6: Create makes the typed name active via POST /api/workspaces; empty/invalid names
+    # surface a validation error (not a silent no-op) and keep Create visible to retry.
+    from app import ui
+
+    monkeypatch.setattr(ui, "_wiki_html", lambda v: f"<em>{v}</em>")
+
+    # Empty name → validation error, Create stays visible.
+    _b, active, _p, _w, status, create = ui._create_vault_action("   ", "alpha")
+    assert active == "alpha" and "Enter a workspace name" in status
+    assert create["visible"] is True
+
+    # Success → the new name is created, becomes active, Create hidden.
+    created = {}
+    monkeypatch.setattr(ui, "_create_workspace", lambda n: created.setdefault("name", n))
+    box, active2, _p2, _w2, status2, create2 = ui._create_vault_action("newspace", "alpha")
+    assert created["name"] == "newspace"
+    assert box == "newspace" and active2 == "newspace" and status2 == "**Active:** newspace"
+    assert create2["visible"] is False
+
+    # Backend error → surfaced, active unchanged, Create stays visible to retry.
+    def boom(_n):
+        raise RuntimeError("name collision")
+
+    monkeypatch.setattr(ui, "_create_workspace", boom)
+    _b3, active3, _p3, _w3, status3, create3 = ui._create_vault_action("dup", "alpha")
+    assert active3 == "alpha" and "Could not create workspace" in status3
+    assert create3["visible"] is True
+
+
+def test_render_nodes_escapes_untrusted_names():
+    # Security: a wiki folder/file name is HTML-escaped in BOTH the visible label and the
+    # data-tip tooltip attribute, so a crafted name cannot inject markup into the panel.
+    from app import ui
+
+    evil = '<img src=x onerror=alert(1)>"'
+    out = ui._render_nodes([{"name": evil, "type": "dir", "children": [
+        {"name": evil, "type": "file"}]}])
+    assert "<img src=x" not in out  # raw markup never emitted
+    assert "&lt;img src=x onerror=alert(1)&gt;" in out  # escaped label
+    assert "&quot;" in out  # the quote is escaped inside data-tip
+
+
+def test_wiki_html_empty_and_error_states(monkeypatch):
+    # FR-23: the wiki browser degrades gracefully — no selection, load failure, and an empty
+    # tree each show a message instead of failing silently.
+    from app import ui
+
+    assert "No workspace selected." in ui._wiki_html(None)
+
+    def boom(_w):
+        raise RuntimeError("nope")
+
+    monkeypatch.setattr(ui, "_get_wiki_tree", boom)
+    assert "Could not load wiki tree" in ui._wiki_html("demo")
+
+    monkeypatch.setattr(ui, "_get_wiki_tree", lambda _w: {"nodes": []})
+    assert "wiki/ is empty." in ui._wiki_html("demo")
+
+
 def test_workspace_status_renamed_to_active():
     # FR-7: the indicator is labeled `Active` (not `Active vault`).
     from app import ui
@@ -238,17 +369,47 @@ def test_workspace_status_renamed_to_active():
 
 
 def test_workspace_panel_layout_labels():
-    # FR-2/FR-3/FR-5: the panel is titled "Workspaces", the box placeholder is
+    # FR-2/FR-2a/FR-3/FR-5: panel titled "Area (Workspaces)", the box placeholder is
     # "workspace name", and the Create (+) button starts hidden (name unchanged).
     from app import ui
 
     demo = ui.build_demo()
     labels = [getattr(c, "label", None) for c in demo.blocks.values()]
-    assert "Workspaces" in labels  # panel renamed from "Vault"
+    assert "Area (Workspaces)" in labels  # renamed from "Vault"/"Workspaces" (FR-2)
     placeholders = [getattr(c, "placeholder", None) for c in demo.blocks.values()]
     assert "workspace name" in placeholders
     create = next(c for c in demo.blocks.values() if getattr(c, "elem_id", None) == "create-vault")
     assert create.visible is False
+
+
+def test_sidebar_panels_default_expansion_and_titles():
+    # FR-2/FR-2a: three panels titled Area (Workspaces) / Knowledge / Sessions; the two
+    # advanced panels start collapsed, Sessions starts expanded.
+    from app import ui
+
+    demo = ui.build_demo()
+    by_id = {getattr(c, "elem_id", None): c for c in demo.blocks.values()}
+    area, knowledge, sessions = by_id["area-panel"], by_id["knowledge-panel"], by_id["sessions-panel"]
+    assert (area.label, knowledge.label, sessions.label) == (
+        "Area (Workspaces)", "Knowledge", "Sessions",
+    )
+    assert area.open is False  # advanced surface, collapsed by default
+    assert knowledge.open is False
+    assert sessions.open is True  # primary surface, expanded
+
+
+def test_panel_tooltips_wired_with_bold_markdown():
+    # FR-2b: each panel header carries its purpose tooltip; the Area tooltip keeps `**bold**`
+    # markdown and the bridge converts it to <b> at render time.
+    from app import ui
+
+    js = ui._PANEL_TIP_JS
+    assert "'area-panel': 'Manage multiple **separated** and **isolated** area and interests'" in js
+    assert "'knowledge-panel': 'Accumulated knowledge in this area'" in js
+    assert "'sessions-panel': 'All previous cases (conversations)'" in js
+    # `**x**` -> <b>x</b> conversion (escaped backslashes in the Python source string).
+    assert "\\*\\*(.+?)\\*\\*" in js and "<b>$1</b>" in js
+    assert ".panel-tip {" in ui._CSS
 
 
 def test_session_detail_missing_is_404(client):

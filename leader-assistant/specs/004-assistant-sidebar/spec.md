@@ -15,7 +15,7 @@
 ## Summary
 
 A **collapsible left-side menu** for the web UI that consolidates workspace control and
-workspace context beside the chat. From top to bottom it offers: a **Workspaces** panel (an
+workspace context beside the chat. From top to bottom it offers: an **Area (Workspaces)** panel (an
 **`Active`** indicator on top, a name box that opens a **picker of the other workspaces** when
 clicked, a **create** button that appears only when the name is changed, and a **refresh**
 button), a **read-only browser of the workspace's
@@ -62,8 +62,9 @@ also offers).
 
 - **Scenario 1 — Collapse the sidebar and its panels:** As a user, I collapse the whole left
   menu to focus on the conversation, and expand it again when I need workspace context. I can also
-  collapse each panel (**Workspaces**, **Wiki**, **Sessions**) on its own to hide the parts I'm not
-  using without affecting the others.
+  collapse each panel (**Area (Workspaces)**, **Knowledge**, **Sessions**) on its own to hide the
+  parts I'm not using without affecting the others. The **Area (Workspaces)** and **Knowledge**
+  panels start **collapsed** (they are advanced surfaces); **Sessions** starts **expanded**.
 - **Scenario 2 — Switch workspace from the picker:** As a user, I **click the workspace-name box**
   and see a **select box of all the other workspaces**; if there are none, it shows **`<none>`**.
   Typing narrows the list. Picking one makes it the active workspace (P13), and the **`Active`**
@@ -103,10 +104,19 @@ Numbered, testable, unambiguous.
 - **FR-1:** The UI MUST present a **left-side menu** that the user can **collapse and expand**;
   its collapsed/expanded state MUST not affect the chat surface's functionality (003).
 - **FR-2:** The sidebar MUST be composed, top to bottom, of **three independently collapsible
-  panels**: (a) **Workspaces** (the workspace selector), (b) **Wiki** — which contains **both** the
-  `vault/wiki/` file browser **and**, below it, the **upload** section (`Add files → raw/ +
-  ingest`), and (c) **Sessions**. Each panel MUST be collapsible/expandable on its own without
-  affecting the others.
+  panels**: (a) **Area (Workspaces)** (the workspace selector), (b) **Knowledge** — which contains
+  **both** the `vault/wiki/` file browser **and**, below it, the **upload** section (`Add files →
+  raw/ + ingest`), and (c) **Sessions**. Each panel MUST be collapsible/expandable on its own
+  without affecting the others.
+- **FR-2a (default expansion):** The **Area (Workspaces)** and **Knowledge** panels are advanced
+  surfaces and MUST start **collapsed** by default, letting the user toggle them open when needed;
+  the **Sessions** panel MUST start **expanded** by default. Panel titles MUST read exactly
+  **`Area (Workspaces)`**, **`Knowledge`**, and **`Sessions`**.
+- **FR-2b (panel tooltips):** Each panel header MUST expose a **tooltip** describing the panel's
+  purpose, shown on hover. The texts MUST be: **Area (Workspaces)** → "Manage multiple
+  **separated** and **isolated** area and interests" (the `**…**` segments rendered **bold**);
+  **Knowledge** → "Accumulated knowledge in this area"; **Sessions** → "All previous cases
+  (conversations)".
 
 ### Workspaces panel (selector + create)
 
@@ -264,8 +274,12 @@ Numbered, testable, unambiguous.
 
 - [ ] **AC-1:** The web UI shows a **collapsible left sidebar** that can be hidden and
   restored without breaking chat, composed of **three independently collapsible panels** —
-  **Workspaces**, **Wiki** (which nests the `vault/wiki/` browser and the upload section), and
-  **Sessions** — each collapsible on its own. (FR-1, FR-2)
+  **Area (Workspaces)**, **Knowledge** (which nests the `vault/wiki/` browser and the upload
+  section), and **Sessions** — each collapsible on its own. **Area (Workspaces)** and **Knowledge**
+  start collapsed; **Sessions** starts expanded. Each panel header exposes a purpose tooltip on
+  hover (Area (Workspaces): "Manage multiple **separated** and **isolated** area and interests" with
+  the `**…**` bold; Knowledge: "Accumulated knowledge in this area"; Sessions: "All previous cases
+  (conversations)"). (FR-1, FR-2, FR-2a, FR-2b)
 - [ ] **AC-2:** The Workspaces panel shows an **`Active`** indicator at the **top**; the name box
   is pre-filled with the active name (gray **`workspace name`** placeholder when empty). **Clicking
   the box** opens a **select of all other workspaces** (or **`<none>`** when there are none);
@@ -312,7 +326,8 @@ Numbered, testable, unambiguous.
 - **D2 — New endpoints in scope:** this feature **includes the backing REST endpoints**
   (wiki-tree browse, multipart upload→`vault/raw/`→ingest, sessions list) so the sidebar keeps
   parity (P9) rather than assuming pre-existing endpoints. *(User decision.)*
-- **D3 — Workspaces panel behavior:** the panel is titled **Workspaces**; an **`Active`**
+- **D3 — Workspaces panel behavior:** the panel is titled **Area (Workspaces)** and starts
+  collapsed (advanced surface, FR-2a); an **`Active`**
   indicator (renamed from `Active vault`) sits at the **top**, above the name box. **Clicking** the
   name box opens a **select of all other workspaces** (**`<none>`** when there are none) and
   choosing one switches the active workspace; typing narrows the list. A **Create** (`+`) button to

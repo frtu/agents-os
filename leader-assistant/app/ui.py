@@ -110,6 +110,47 @@ _SESSION_JS = """
 # passing the active workspace through unchanged, so _open_session(conversation_id, vault) runs.
 _SESSION_PICK_JS = "(pick, vault) => [window.__lastCid || '', vault]"
 
+# spec 004 FR-2b: per-panel header tooltips describing each panel's purpose. Native `title` renders
+# unreliably on the accordion header (as with the wiki tree), and the Area tooltip contains `**bold**`
+# markdown, so we drive a custom body-level tooltip that converts `**x**`→<b>x</b>. data-panel-tip is
+# stamped onto each accordion's header (.label-wrap) by elem_id; a delegated mouseover shows it.
+_PANEL_TIP_JS = """
+() => {
+  if (window.__panelTipInit) return;
+  window.__panelTipInit = true;
+  const tips = {
+    'area-panel': 'Manage multiple **separated** and **isolated** area and interests',
+    'knowledge-panel': 'Accumulated knowledge in this area',
+    'sessions-panel': 'All previous cases (conversations)',
+  };
+  for (const [id, t] of Object.entries(tips)) {
+    const p = document.getElementById(id);
+    if (!p) continue;
+    const h = p.querySelector('.label-wrap') || p.querySelector('button') || p;
+    if (h) h.setAttribute('data-panel-tip', t);
+  }
+  const tip = document.createElement('div');
+  tip.className = 'panel-tip';
+  document.body.appendChild(tip);
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const fmt = (s) => esc(s).replace(/\\*\\*(.+?)\\*\\*/g, '<b>$1</b>');
+  const target = (e) => e.target && e.target.closest
+    ? e.target.closest('[data-panel-tip]') : null;
+  document.addEventListener('mouseover', (e) => {
+    const t = target(e);
+    if (!t) return;
+    tip.innerHTML = fmt(t.getAttribute('data-panel-tip'));
+    const r = t.getBoundingClientRect();
+    tip.style.left = Math.round(r.left) + 'px';
+    tip.style.top = Math.round(r.bottom + 4) + 'px';
+    tip.style.display = 'block';
+  });
+  document.addEventListener('mouseout', (e) => {
+    if (target(e)) tip.style.display = 'none';
+  });
+}
+"""
+
 _CSS = """
 #refresh-vault button, #create-vault button { font-size: 1.1rem; padding: 0 6px; }
 .wiki-tree { font-size: 0.9rem; line-height: 1.5; max-height: 240px;
@@ -156,6 +197,15 @@ _CSS = """
 /* The JS click bridge needs its target textbox in the DOM, so hide it with CSS rather than
    `visible=False` (Gradio removes invisible components from the DOM entirely). */
 .session-bridge { display: none !important; }
+/* spec 004 FR-2b: body-level panel tooltip; wraps (unlike .wiki-tip) since the text is a sentence. */
+.panel-tip {
+  position: fixed; z-index: 10000; display: none; pointer-events: none;
+  max-width: 260px; white-space: normal; line-height: 1.4;
+  background: var(--background-fill-primary, #1f2937);
+  color: var(--body-text-color, #f3f4f6);
+  border: 1px solid var(--border-color-primary, #4b5563); border-radius: 4px;
+  padding: 4px 8px; font-size: 0.8rem; box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+}
 """
 
 
@@ -613,7 +663,8 @@ def build_demo() -> gr.Blocks:
         active_vault = gr.State(None)
 
         with gr.Sidebar(open=True, width=340):
-            with gr.Accordion("Workspaces", open=True):
+            # spec 004 FR-2a: advanced surface — collapsed by default; FR-2b tooltip via _PANEL_TIP_JS.
+            with gr.Accordion("Area (Workspaces)", open=False, elem_id="area-panel"):
                 # FR-7: `Active` indicator at the top, above the name box.
                 vault_status = gr.Markdown("")
                 with gr.Row():
@@ -631,7 +682,8 @@ def build_demo() -> gr.Blocks:
                     interactive=True, filterable=True,
                 )
 
-            with gr.Accordion("Wiki", open=True):
+            # spec 004 FR-2a: advanced surface — collapsed by default; FR-2b tooltip via _PANEL_TIP_JS.
+            with gr.Accordion("Knowledge", open=False, elem_id="knowledge-panel"):
                 wiki_view = gr.HTML("<em>Loading…</em>")
                 gr.Markdown("**Add files → raw/ + ingest**")
                 with gr.Group() as upload_group:
@@ -645,7 +697,8 @@ def build_demo() -> gr.Blocks:
                 upload_progress = gr.Markdown("", visible=False)
                 upload_status = gr.Markdown("")
 
-            with gr.Accordion("Sessions", open=True):
+            # spec 004 FR-2a: primary surface — expanded by default; FR-2b tooltip via _PANEL_TIP_JS.
+            with gr.Accordion("Sessions", open=True, elem_id="sessions-panel"):
                 new_chat_btn = gr.Button("＋ New conversation", size="sm")
                 # spec 004 FR-19/FR-25: conversations render as clickable text (💬 + label) in
                 # collapsible date sections. Clicks are bridged (JS) into session_pick, whose
@@ -673,6 +726,7 @@ def build_demo() -> gr.Blocks:
         demo.load(None, None, None, js=_TOOLTIP_JS)
         demo.load(None, None, None, js=_WIKI_TIP_JS)
         demo.load(None, None, None, js=_SESSION_JS)
+        demo.load(None, None, None, js=_PANEL_TIP_JS)
 
         # FR-4: clicking the box reveals the picker of the other workspaces; typing narrows it
         # and toggles the Create button (FR-5).
