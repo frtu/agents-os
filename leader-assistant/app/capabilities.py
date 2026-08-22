@@ -346,16 +346,33 @@ def wiki_tree(selector: str | None = None) -> models.WikiTree:
     """
     name, workspace = _resolve_scaffolded(selector)
     wiki = workspace / "vault" / "wiki"
+    wiki_root = wiki.resolve()
+
+    def within_wiki(p: Path) -> bool:
+        # spec 004 FR-10: a symlink must not let the browser escape vault/wiki/ (into
+        # vault/raw/, sessions/, vault/output/, or anywhere outside the workspace).
+        try:
+            real = p.resolve()
+        except OSError:
+            return False
+        return real == wiki_root or wiki_root in real.parents
 
     def build(d: Path) -> list[models.WikiNode]:
         nodes: list[models.WikiNode] = []
         for child in sorted(d.iterdir(), key=lambda p: (p.is_file(), p.name.lower())):
             if child.name.startswith("."):
                 continue
+            if child.is_symlink() and not within_wiki(child):
+                continue  # FR-10: reject symlinks resolving outside vault/wiki/
             rel = child.relative_to(wiki).as_posix()
             if child.is_dir():
+                children = build(child)
+                # spec 004 FR-10a: list only folders that contain data; a subtree with no
+                # files is pruned so empty folders never appear in the browser.
+                if not children:
+                    continue
                 nodes.append(
-                    models.WikiNode(name=child.name, path=rel, type="dir", children=build(child))
+                    models.WikiNode(name=child.name, path=rel, type="dir", children=children)
                 )
             else:
                 nodes.append(models.WikiNode(name=child.name, path=rel, type="file"))

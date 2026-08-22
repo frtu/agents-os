@@ -18,14 +18,53 @@ def _make_workspace(client, name="demo"):
 
 def test_wiki_tree_scoped_to_wiki(client):
     # FR-8/FR-10/FR-15: the browser returns the vault/wiki/ subtree only, never raw/ etc.
+    # FR-10a: a fresh workspace's scaffolded dirs are empty, so only files (portal.md,
+    # log.md) show — every empty folder is pruned.
     v = _make_workspace(client)
     r = client.get("/api/wiki-tree", params={"workspace": v})
     assert r.status_code == 200
     body = r.json()
     assert body["workspace"] == v and body["root"] == "vault/wiki"
     top = {n["name"] for n in body["nodes"]}
-    assert "sources" in top and "concepts" in top  # scaffolded wiki dirs
+    dirs = {n["name"] for n in body["nodes"] if n["type"] == "dir"}
+    assert dirs == set()  # FR-10a: empty scaffolded dirs (sources, concepts, …) are pruned
+    assert "portal.md" in top  # files with data still show
     assert "raw" not in top and "sessions" not in top and "output" not in top
+
+
+def test_wiki_tree_prunes_empty_folders(client):
+    # FR-10a: a folder appears only once it (transitively) contains a file; empty ones are hidden.
+    v = _make_workspace(client)
+    client.post(
+        "/api/upload",
+        data={"workspace": v, "provenance": "notes"},
+        files=[("files", ("note.md", b"# Note\ncontent here", "text/markdown"))],
+    )
+    body = client.get("/api/wiki-tree", params={"workspace": v}).json()
+    dirs = {n["name"] for n in body["nodes"] if n["type"] == "dir"}
+    # sources/ now holds the ingested page, so it appears; concepts/ is still empty → pruned.
+    assert "sources" in dirs and "concepts" not in dirs
+
+
+def test_wiki_tree_rejects_symlink_escape(client, isolated_workspace_root, tmp_path):
+    # FR-10: a symlink under vault/wiki/ MUST NOT expose paths outside vault/wiki/ (escaping the
+    # workspace, or reaching the forbidden vault/raw/, sessions/, vault/output/).
+    v = _make_workspace(client)
+    wiki = isolated_workspace_root / v / "vault" / "wiki"
+    secret = tmp_path / "secret"
+    secret.mkdir()
+    (secret / "password.txt").write_text("TOPSECRET")
+    (wiki / "sneaky").symlink_to(secret)  # escapes the workspace entirely
+    (wiki / "raw-link").symlink_to(isolated_workspace_root / v / "vault" / "raw")  # forbidden area
+
+    def flat(nodes):
+        for n in nodes:
+            yield n["name"]
+            yield from flat(n["children"])
+
+    names = set(flat(client.get("/api/wiki-tree", params={"workspace": v}).json()["nodes"]))
+    assert "sneaky" not in names and "password.txt" not in names
+    assert "raw-link" not in names
 
 
 def test_upload_deposits_raw_and_ingests(client, tmp_path):

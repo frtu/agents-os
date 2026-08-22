@@ -128,6 +128,9 @@ Numbered, testable, unambiguous.
 - **FR-10:** The file browser MUST scope strictly to the workspace's **`vault/wiki/`** subtree
   and MUST NOT expose `vault/raw/`, `sessions/`, `vault/output/`, `.git/`, or any path outside
   the workspace.
+- **FR-10a:** The tree MUST list **only folders that contain data**. A folder whose subtree holds
+  no files (empty, or containing only empty subfolders) MUST be omitted from the tree. Pruning is
+  applied in the read endpoint (FR-15) so both surfaces stay in parity.
 
 ### Upload → `vault/raw/` → ingest
 
@@ -233,8 +236,9 @@ Numbered, testable, unambiguous.
   box; **Refresh** reloads the workspace list and **Create new workspace** creates the typed name
   via `POST /api/workspaces`, then makes it active. (FR-5, FR-6)
 - [ ] **AC-4:** The **`vault/wiki/` browser** displays the active workspace's folders/files, is
-  **navigation only**, and never shows `vault/raw/`, `sessions/`, `vault/output/`, or paths
-  outside the workspace. (FR-8, FR-9, FR-10, FR-15)
+  **navigation only**, lists **only folders that contain data** (empty folders omitted), and never
+  shows `vault/raw/`, `sessions/`, `vault/output/`, or paths outside the workspace.
+  (FR-8, FR-9, FR-10, FR-10a, FR-15)
 - [ ] **AC-5:** Selecting files, a folder, or dragging-and-dropping and submitting **uploads
   the files into `vault/raw/` (create-only) and ingests them**; the workspace's `vault/raw/`
   gains the originals and `vault/wiki/` reflects produced pages. (FR-11, FR-12, FR-16)
