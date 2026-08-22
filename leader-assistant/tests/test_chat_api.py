@@ -168,6 +168,105 @@ def test_ac10_resume_after_restart_then_approve(client, offline_agent, isolated_
     assert (isolated_workspace_root / "survivor" / "vault" / "wiki").is_dir()
 
 
+def test_ac11_status_unknown_conversation_absent_and_not_running(client, isolated_workspace_root):
+    # AC-11 / FR-14: an unknown id is neither running nor existing, and probing creates nothing.
+    r = client.get("/api/chat/status", params={"conversation_id": "does-not-exist", "workspace": "demo"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["conversation_id"] == "does-not-exist"
+    assert body["running"] is False and body["exists"] is False
+    # The probe is read-only: it must not have written a session file for that id.
+    assert not (isolated_workspace_root / "demo" / "sessions" / "does-not-exist.md").exists()
+
+
+def test_ac11_status_after_completed_turn_not_running_but_exists(client, offline_agent, isolated_workspace_root):
+    # AC-11 / FR-14: once a turn finishes, the same conversation exists but is not running,
+    # and the status probe neither adds a turn nor mutates the record.
+    cid = client.post("/api/chat", json={"message": "hello there"}).json()["conversation_id"]
+    session_file = isolated_workspace_root / "_default_" / "sessions" / f"{cid}.md"
+    before = session_file.read_text(encoding="utf-8")
+
+    r = client.get("/api/chat/status", params={"conversation_id": cid})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["exists"] is True and body["running"] is False
+    # Read-only: the probe did not append a turn.
+    assert session_file.read_text(encoding="utf-8") == before
+
+
+def test_fr14_running_registry_counts_and_clears():
+    # FR-14: the in-flight registry is a counter (tolerates concurrent turns) that clears fully.
+    from app import capabilities as caps
+
+    cid = "reg-count-1"
+    assert caps.is_running(cid) is False
+    caps._mark_running(cid)
+    caps._mark_running(cid)  # a second concurrent turn on the same conversation
+    assert caps.is_running(cid) is True
+    caps._unmark_running(cid)
+    assert caps.is_running(cid) is True  # one turn still in flight
+    caps._unmark_running(cid)
+    assert caps.is_running(cid) is False
+    # Over-unmarking never drives the counter negative or leaves a stale entry.
+    caps._unmark_running(cid)
+    assert caps.is_running(cid) is False
+
+
+def test_fr14_ask_stream_marks_running_during_turn_and_clears(monkeypatch, isolated_workspace_root):
+    # AC-11 / FR-14: a conversation reads as running *while* its turn streams, then not-running
+    # once the generator is exhausted. Driving ask_stream directly keeps this deterministic.
+    import asyncio
+
+    from app import agent, capabilities as caps
+
+    cid = "inflight-123456"
+    observed: dict[str, bool] = {}
+
+    async def _run_stream(system_prompt, message, selector, wpath, sid, citations):
+        observed["mid"] = caps.is_running(cid)  # sampled while the turn is being processed
+        yield ("partial…", sid)
+        yield ("final reply", sid)
+
+    monkeypatch.setattr(agent, "run_stream", _run_stream)
+
+    async def _drive():
+        out = []
+        async for d in caps.ask_stream(None, "a routine question", cid, False):
+            out.append(d)
+        return out
+
+    deltas = asyncio.run(_drive())
+    assert observed["mid"] is True          # running during the turn (FR-14)
+    assert caps.is_running(cid) is False     # cleared once the turn ends
+    assert deltas[-1].done is True and deltas[-1].conversation_id == cid
+
+
+def test_fr14_running_cleared_even_when_turn_errors(monkeypatch, isolated_workspace_root):
+    # FR-14: an unexpected error mid-turn must still clear the running flag (finally), so a
+    # conversation can never be stuck "running" after a failure.
+    import asyncio
+
+    import pytest as _pytest
+
+    from app import agent, capabilities as caps
+
+    cid = "boom-654321"
+
+    async def _boom(system_prompt, message, selector, wpath, sid, citations):
+        raise RuntimeError("kaboom")
+        yield  # pragma: no cover — marks this an async generator
+
+    monkeypatch.setattr(agent, "run_stream", _boom)
+
+    async def _drive():
+        async for _ in caps.ask_stream(None, "trigger an error", cid, False):
+            pass
+
+    with _pytest.raises(RuntimeError):
+        asyncio.run(_drive())
+    assert caps.is_running(cid) is False
+
+
 def test_ac7_capability_parity_between_rest_and_chat(client):
     # AC-7 / P9: every capability the agent can invoke is also a REST route.
     from app.api import app
@@ -181,6 +280,7 @@ def test_ac7_capability_parity_between_rest_and_chat(client):
     # And the chat surface itself is present in both modes.
     assert "/api/chat" in paths
     assert "/api/chat/stream" in paths
+    assert "/api/chat/status" in paths  # FR-14 running-status probe
 
 
 @pytest.mark.skipif(

@@ -121,6 +121,16 @@ def session_detail(conversation_id: str, workspace: str | None = None) -> models
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@app.get("/api/chat/status", response_model=models.ChatStatus, tags=["chat"], summary="Is a conversation still running?")
+def chat_status(conversation_id: str, workspace: str | None = None) -> models.ChatStatus:
+    """Report whether a conversation has a turn in-flight on the server (spec 002 FR-14).
+
+    Read-only probe — it never sends a turn or mutates the record. An unknown id returns
+    `running=false, exists=false`.
+    """
+    return capabilities.conversation_status(workspace, conversation_id)
+
+
 @app.post("/api/chat", response_model=models.ChatAnswer, tags=["chat"], summary="Chat with the Product Owner")
 async def chat(req: models.ChatRequest) -> models.ChatAnswer:
     """Hold a durable, resumable conversation with the assistant (spec 14-chat).

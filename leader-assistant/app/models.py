@@ -136,6 +136,23 @@ class ChatDelta(BaseModel):
     executed: bool = False
 
 
+class ChatStatus(BaseModel):
+    """Whether a conversation has a turn being processed server-side right now (FR-14).
+
+    `running` is server-local, transient state (not part of the durable `sessions/`
+    record, P1); `exists` reflects whether a durable record is on disk for the id.
+    """
+
+    workspace: str
+    conversation_id: str
+    running: bool = Field(
+        ..., description="True while a chat turn for this conversation is in-flight on the server"
+    )
+    exists: bool = Field(
+        ..., description="True when a durable session record exists for this conversation id"
+    )
+
+
 # --- sidebar: wiki tree / upload / sessions (feature 004-assistant-sidebar) --
 
 

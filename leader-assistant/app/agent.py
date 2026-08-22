@@ -119,6 +119,10 @@ def _capability_tool_specs(
             return _ok(f"error: {e}")
         return _ok(detail.model_dump_json(indent=2))
 
+    async def conversation_status_h(args: dict) -> dict:
+        status = capabilities.conversation_status(workspace_selector, args["conversation_id"])
+        return _ok(status.model_dump_json(indent=2))
+
     async def list_available_skills_h(args: dict) -> dict:
         return _ok(capabilities.list_available_skills(workspace_selector).model_dump_json(indent=2))
 
@@ -156,6 +160,7 @@ def _capability_tool_specs(
         ToolSpec("wiki_tree", "Browse the active workspace's vault/wiki/ tree (navigation only).", {}, wiki_tree_h),
         ToolSpec("list_conversations", "List prior conversations in the active workspace.", {}, list_conversations_h),
         ToolSpec("get_conversation", "Read one conversation's full turns by its id.", {"conversation_id": str}, get_conversation_h),
+        ToolSpec("conversation_status", "Report whether a conversation has a turn in progress on the server (running) and whether it exists.", {"conversation_id": str}, conversation_status_h),
         ToolSpec("list_available_skills", "List skills available to install from the shared library, each with a description and an installed flag.", {}, list_available_skills_h),
         ToolSpec("list_installed_skills", "List skills currently installed in the active workspace.", {}, list_installed_skills_h),
         ToolSpec("ingest", "Ingest a source into the workspace: writes a vault/wiki/sources summary, updates the portal, appends the log, and commits. Never writes vault/raw/.", {"title": str, "content": str, "provenance": str}, ingest_h),

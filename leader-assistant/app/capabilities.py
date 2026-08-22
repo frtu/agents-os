@@ -489,6 +489,47 @@ def get_conversation(selector: str | None, conversation_id: str) -> models.Conve
 
 # --- chat orchestration (feature 002; the parity boundary for chat) --------
 
+# spec 002 FR-14: server-local, transient registry of conversations with an in-flight turn.
+# A counter (not a set) tolerates concurrent turns on the same id; entries are cleared in
+# ask_stream's finally, so an error or client disconnect can never leak a stuck "running"
+# state. This is deliberately NOT persisted to sessions/ (durable truth stays on disk, P1).
+_running_turns: dict[str, int] = {}
+
+
+def _mark_running(conversation_id: str) -> None:
+    _running_turns[conversation_id] = _running_turns.get(conversation_id, 0) + 1
+
+
+def _unmark_running(conversation_id: str) -> None:
+    remaining = _running_turns.get(conversation_id, 0) - 1
+    if remaining > 0:
+        _running_turns[conversation_id] = remaining
+    else:
+        _running_turns.pop(conversation_id, None)
+
+
+def is_running(conversation_id: str) -> bool:
+    """True while a chat turn for this conversation is being processed (spec 002 FR-14)."""
+    return _running_turns.get(conversation_id, 0) > 0
+
+
+def conversation_status(selector: str | None, conversation_id: str) -> models.ChatStatus:
+    """Report whether a conversation has an in-flight turn, without sending one (FR-14).
+
+    Read-only: it never appends a turn or mutates the record. `exists` reflects the durable
+    `sessions/` record; `running` reflects the transient server-local registry.
+    """
+    from . import conversation as convo
+
+    name, workspace = _resolve_scaffolded(selector)
+    exists = convo.load(workspace, conversation_id) is not None
+    return models.ChatStatus(
+        workspace=name,
+        conversation_id=conversation_id,
+        running=is_running(conversation_id),
+        exists=exists,
+    )
+
 
 def _resolve_for_chat(selector: str | None) -> tuple[str, Path]:
     """Resolve a workspace for a conversation (FR-10, D1).
@@ -556,10 +597,33 @@ async def ask_stream(
     conversation_id: str | None = None,
     approve: bool = False,
 ) -> AsyncIterator[models.ChatDelta]:
-    """Stream a chat turn (FR-1..FR-6, FR-13). Yields accumulating ChatDelta.
+    """Stream a chat turn (FR-1..FR-6, FR-13), marking it running for status probes (FR-14).
 
-    The final delta carries done=true plus any pending_plan / executed flag.
+    Resolves the conversation id first (a new conversation gets a fresh id), marks it
+    running for the duration of the turn, and clears it in ``finally`` so that a normal
+    completion, an error, or a client disconnect all leave the conversation not-running.
     """
+    from . import conversation
+
+    # Resolve/create up front so we have a stable id to track; pass it through to the impl
+    # (as a concrete id, never None) so it loads this same record instead of creating another.
+    _name, wpath = _resolve_for_chat(workspace)
+    cid = conversation.load_or_create(wpath, conversation_id).conversation_id
+    _mark_running(cid)
+    try:
+        async for delta_out in _ask_stream_impl(workspace, message, cid, approve):
+            yield delta_out
+    finally:
+        _unmark_running(cid)
+
+
+async def _ask_stream_impl(
+    workspace: str | None = None,  # noqa: A002
+    message: str = "",
+    conversation_id: str | None = None,
+    approve: bool = False,
+) -> AsyncIterator[models.ChatDelta]:
+    """Core chat-turn generator (FR-1..FR-6, FR-13); see ask_stream for running-status tracking."""
     from . import agent, conversation, persona
 
     selector = workspace

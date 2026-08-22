@@ -62,6 +62,10 @@ later feed knowledge maturation via dreaming.
 - **Scenario 6 — Choose a workspace:** As a user working across projects, when I name a
   workspace in my request, the conversation operates on that workspace; otherwise it uses
   the default (P13).
+- **Scenario 7 — Is it still working?** As a user (or the web UI on my behalf) who navigated
+  away or reconnected mid-answer, I ask the server whether a given conversation still has a
+  turn in progress, so I can show a "working…" indicator or wait before sending the next
+  message instead of guessing.
 
 ## Functional Requirements
 
@@ -110,6 +114,17 @@ Numbered, testable, unambiguous.
   be **resumable by id even after a service restart** (the `sessions/` record, not in-memory
   state, is the source of truth per P1). A pending plan awaiting approval (FR-5) MUST be
   recoverable from the conversation so the user can approve it in a later turn.
+- **FR-14 (running status):** The system MUST expose a capability that, given a conversation
+  id (and optional workspace selector), reports whether that conversation currently has a
+  **turn in progress on the server** — i.e. a chat request is actively being processed for
+  it — without sending a new message. The report MUST distinguish **running** (a turn is
+  in-flight) from **not running**, and MUST also indicate whether a **durable record exists**
+  for the id (an unknown id is not running and does not exist). "In-flight" tracking is
+  **server-local and transient** (not part of the durable `sessions/` record, P1); it MUST be
+  cleared when the turn ends — whether it completes normally, errors, or the client
+  disconnects — so a conversation can never be reported as running once no turn is processing.
+  Being a read-only status probe, this capability MUST NOT itself count as a turn, MUST NOT
+  mutate the conversation, and MUST be available on both the REST and chat-facing surfaces (P9).
 
 ## Key Entities & Concepts
 
@@ -159,6 +174,10 @@ Numbered, testable, unambiguous.
   capability. (FR-10, P13)
 - [ ] **AC-10:** A conversation resumed by id **after a service restart** continues in
   context, and a plan left pending before the restart can still be approved. (FR-13, P1)
+- [ ] **AC-11:** Querying a conversation's status while a turn is being processed reports
+  `running=true`; once the turn finishes (normally or via error/disconnect) the same query
+  reports `running=false`. An unknown conversation id reports `running=false, exists=false`,
+  and the status query neither adds a turn nor mutates the `sessions/` record. (FR-14, P1, P9)
 
 ## Resolved Decisions
 

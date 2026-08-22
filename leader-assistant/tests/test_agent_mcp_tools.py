@@ -18,7 +18,7 @@ from app import agent, capabilities, config
 EXPECTED_DEFAULT = {
     "query", "spec_read", "plan",
     "list_workspaces", "get_workspace_info", "lint", "wiki_tree",
-    "list_conversations", "get_conversation",
+    "list_conversations", "get_conversation", "conversation_status",
     "list_available_skills", "list_installed_skills",
     "ingest", "import_skill",
 }
