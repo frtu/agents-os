@@ -178,3 +178,30 @@ def test_session_date_bucketing(monkeypatch):
 def test_session_detail_missing_is_404(client):
     v = _make_workspace(client)
     assert client.get("/api/sessions/nope", params={"workspace": v}).status_code == 404
+
+
+def test_wiki_tree_names_are_single_line_with_tooltip():
+    # FR-9b: each folder/file renders on one line (CSS ellipsis truncation) and carries the
+    # full, untruncated name in a data-tip attribute so hover reveals it (folder/file tooltip).
+    from app import ui
+
+    long_dir = "a-really-long-folder-name-that-would-wrap-past-the-panel-border"
+    long_file = "an-extremely-long-file-name-that-should-truncate.md"
+    nodes = [{
+        "name": long_dir, "type": "dir",
+        "children": [{"name": long_file, "type": "file"}],
+    }]
+    out = ui._render_nodes(nodes)
+
+    # Folder tooltip: summary carries the full folder name; the label span truncates while the
+    # default <summary> keeps its disclosure triangle.
+    assert f'<summary data-tip="{long_dir}"><span class="label">' in out
+    # File tooltip: the file div carries the full file name.
+    assert f'data-tip="{long_file}"' in out and "class='file'" in out
+
+    # The CSS keeps names on one line and truncates rather than wraps, and a body-level
+    # tooltip element (.wiki-tip) escapes the panel's overflow clipping.
+    assert "text-overflow: ellipsis" in ui._CSS and "white-space: nowrap" in ui._CSS
+    assert ".wiki-tip" in ui._CSS
+    # The hover tooltip is wired from data-tip via a load-time script.
+    assert "data-tip" in ui._WIKI_TIP_JS

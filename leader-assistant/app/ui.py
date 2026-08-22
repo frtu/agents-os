@@ -57,13 +57,61 @@ _TOOLTIP_JS = """
 }
 """
 
+# spec 004 FR-9b: a custom hover tooltip for the wiki tree. Native `title` tooltips render
+# unreliably inside the Gradio HTML panel, so we drive one from the `data-tip` attribute and
+# append it to <body> (position:fixed) so it escapes the panel's overflow clipping. Delegated
+# listeners on document survive Gradio re-rendering the tree on workspace switch/refresh.
+_WIKI_TIP_JS = """
+() => {
+  if (window.__wikiTipInit) return;
+  window.__wikiTipInit = true;
+  const tip = document.createElement('div');
+  tip.className = 'wiki-tip';
+  document.body.appendChild(tip);
+  const target = (e) => e.target && e.target.closest
+    ? e.target.closest('.wiki-tree [data-tip]') : null;
+  document.addEventListener('mouseover', (e) => {
+    const t = target(e);
+    if (!t) return;
+    tip.textContent = t.getAttribute('data-tip');
+    const r = t.getBoundingClientRect();
+    tip.style.left = Math.round(r.left) + 'px';
+    tip.style.top = Math.round(r.bottom + 4) + 'px';
+    tip.style.display = 'block';
+  });
+  document.addEventListener('mouseout', (e) => {
+    if (target(e)) tip.style.display = 'none';
+  });
+}
+"""
+
 _CSS = """
 #refresh-vault button, #create-vault button { font-size: 1.1rem; padding: 0 6px; }
-.wiki-tree { font-size: 0.9rem; line-height: 1.5; max-height: 240px; overflow:auto;
+.wiki-tree { font-size: 0.9rem; line-height: 1.5; max-height: 240px;
+             overflow-y:auto; overflow-x:hidden;
              border:1px solid var(--border-color-primary); border-radius:6px; padding:6px 8px; }
 .wiki-tree details { margin-left: 0.4em; }
-.wiki-tree summary { cursor: pointer; }
-.wiki-tree .file { margin-left: 1.2em; opacity: 0.85; }
+/* spec 004 FR-9b: names stay on one line and truncate with an ellipsis instead of wrapping.
+   Keep the summary as the default list-item so the folder disclosure triangle survives;
+   truncate an inner .label span rather than the summary itself. */
+.wiki-tree summary { cursor: pointer; white-space: nowrap; overflow: hidden; }
+.wiki-tree summary .label {
+  display: inline-block; max-width: calc(100% - 1.4em); vertical-align: bottom;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wiki-tree .file {
+  margin-left: 1.2em; opacity: 0.85;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* spec 004 FR-9b: full-name hover tooltip, appended to <body> so it is never clipped. */
+.wiki-tip {
+  position: fixed; z-index: 10000; display: none; pointer-events: none;
+  max-width: 60vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: var(--background-fill-primary, #1f2937);
+  color: var(--body-text-color, #f3f4f6);
+  border: 1px solid var(--border-color-primary, #4b5563); border-radius: 4px;
+  padding: 2px 8px; font-size: 0.8rem; box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+}
 """
 
 
@@ -173,14 +221,20 @@ def _render_nodes(nodes: list[dict]) -> str:
     """Render wiki-tree nodes as collapsible HTML (navigation only, spec 004 FR-9)."""
     parts: list[str] = []
     for n in nodes:
-        name = html.escape(n.get("name", "?"))
+        raw_name = n.get("name", "?")
+        name = html.escape(raw_name)
+        # spec 004 FR-9b: data-tip carries the full name so the truncated label still
+        # reveals the whole folder/file name on hover (folder tooltip / file tooltip).
+        # A custom hover tooltip (_WIKI_TIP_JS) reads it — native title tooltips render
+        # unreliably inside the Gradio HTML panel.
+        tip = html.escape(raw_name, quote=True)
         if n.get("type") == "dir":
             parts.append(
-                f"<details><summary>📁 {name}</summary>"
+                f"<details><summary data-tip=\"{tip}\"><span class=\"label\">📁 {name}</span></summary>"
                 f"{_render_nodes(n.get('children', []))}</details>"
             )
         else:
-            parts.append(f"<div class='file'>📄 {name}</div>")
+            parts.append(f"<div class='file' data-tip=\"{tip}\">📄 {name}</div>")
     return "".join(parts)
 
 
@@ -501,6 +555,7 @@ def build_demo() -> gr.Blocks:
         sidebar_out = [vault_box, active_vault, vault_suggest, wiki_view, vault_status]
         demo.load(_initial, None, sidebar_out)
         demo.load(None, None, None, js=_TOOLTIP_JS)
+        demo.load(None, None, None, js=_WIKI_TIP_JS)
 
         vault_box.input(_suggest, [vault_box], [vault_suggest])
         vault_suggest.select(_pick_workspace, [vault_suggest], sidebar_out)

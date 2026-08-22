@@ -125,6 +125,14 @@ Numbered, testable, unambiguous.
 - **FR-9:** The file browser MUST be **navigation only**: folders expand/collapse and file
   names are shown/selectable, but this feature MUST NOT open, edit, or otherwise act on a
   file's content on click.
+- **FR-9b:** Each folder and file name MUST render on a **single line** — it MUST NOT wrap to a
+  second line when it reaches the panel border. A name too long for the available width MUST be
+  **truncated with a trailing ellipsis** rather than wrapped or overflowing. Truncation MUST NOT
+  remove the folder's expand/collapse disclosure control. Hovering a **file** MUST reveal the
+  **full file name** in a tooltip (the *file tooltip*); hovering a **folder** MUST likewise reveal
+  the **full folder name** (the *folder tooltip*). The tooltip MUST carry the untruncated name
+  regardless of whether the visible label was truncated, and MUST NOT be clipped by the panel's
+  own scroll bounds.
 - **FR-10:** The file browser MUST scope strictly to the workspace's **`vault/wiki/`** subtree
   and MUST NOT expose `vault/raw/`, `sessions/`, `vault/output/`, `.git/`, or any path outside
   the workspace.
@@ -168,7 +176,10 @@ Numbered, testable, unambiguous.
 ### Sessions panel
 
 - **FR-19:** At the **bottom** of the sidebar the UI MUST show a **Sessions** panel listing
-  the active workspace's **prior conversations** (via FR-17), each selectable.
+  the active workspace's **prior conversations** (via FR-17), each selectable. Each
+  conversation entry MUST render as **clickable text** (a selection affordance), NOT as an
+  action button — resuming a past conversation is a selection, not a command. The **New
+  conversation** control (FR-24) remains a button because it performs an action.
 - **FR-20:** Selecting a session MUST **resume that conversation** in the chat by its
   `conversation_id` (feature 002/003 continuity, [[06-conversations]]).
 - **FR-21:** Changing the active workspace MUST **re-scope** the `vault/wiki/` browser and the
@@ -178,7 +189,8 @@ Numbered, testable, unambiguous.
 - **FR-25:** Below the control, **all** prior conversations MUST be listed **reverse-chronologically**
   (most recent first) and **grouped under relative-date headers** — `Today`, `Yesterday`,
   `This Week`, `This Month`, `Older` — with empty groups omitted. Bucketing is derived from each
-  conversation's `created` date.
+  conversation's `created` date. Each listed conversation MUST render as **clickable text**
+  (per FR-19), not as an action button.
 
 ### Cross-cutting
 
@@ -239,16 +251,19 @@ Numbered, testable, unambiguous.
   **navigation only**, lists **only folders that contain data** (empty folders omitted), and never
   shows `vault/raw/`, `sessions/`, `vault/output/`, or paths outside the workspace.
   (FR-8, FR-9, FR-10, FR-10a, FR-15)
+- [ ] **AC-4a:** Every `vault/wiki/` folder and file name renders on **one line** (no wrap),
+  truncating with a trailing ellipsis when too wide; hovering a file shows its **full name** in a
+  tooltip and hovering a folder shows its **full folder name** in a tooltip. (FR-9b)
 - [ ] **AC-5:** Selecting files, a folder, or dragging-and-dropping and submitting **uploads
   the files into `vault/raw/` (create-only) and ingests them**; the workspace's `vault/raw/`
   gains the originals and `vault/wiki/` reflects produced pages. (FR-11, FR-12, FR-16)
 - [ ] **AC-6:** During upload+ingest a **progress bar replaces the upload section**, then the
   section returns and the `vault/wiki/` browser refreshes. (FR-13)
-- [ ] **AC-7:** The **Sessions** panel has a **New conversation** control at the top, then lists
-  all prior conversations for the active workspace **most-recent-first, grouped under relative-date
-  headers** (Today / Yesterday / This Week / This Month / Older, empty groups omitted); selecting
-  one **resumes** that conversation in the chat and New conversation starts a fresh thread.
-  (FR-17, FR-19, FR-20, FR-24, FR-25)
+- [ ] **AC-7:** The **Sessions** panel has a **New conversation** control (a button) at the top,
+  then lists all prior conversations for the active workspace as **clickable text**,
+  **most-recent-first, grouped under relative-date headers** (Today / Yesterday / This Week /
+  This Month / Older, empty groups omitted); clicking one **resumes** that conversation in the chat
+  and New conversation starts a fresh thread. (FR-17, FR-19, FR-20, FR-24, FR-25)
 - [ ] **AC-8:** Changing the active workspace **re-scopes** the `vault/wiki/` browser and
   Sessions panel. (FR-21)
 - [ ] **AC-9:** The sidebar makes **only HTTP calls to `/api/*`**; it imports no
