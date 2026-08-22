@@ -175,6 +175,82 @@ def test_session_date_bucketing(monkeypatch):
     assert groups[0][1][0][1] == "c-today" and groups[1][1][0][1] == "c-old"
 
 
+def test_workspace_picker_lists_others_and_none(monkeypatch):
+    # FR-4: clicking the box reveals a picker of all OTHER workspaces (active excluded);
+    # when there are no others it degrades to the non-selectable `<none>` sentinel.
+    from app import ui
+
+    monkeypatch.setattr(ui, "_list_workspaces", lambda: {"workspaces": ["alpha", "beta", "gamma"]})
+    picker = ui._on_focus("beta")
+    assert picker["visible"] is True
+    assert picker["choices"] == ["alpha", "gamma"]  # active (beta) excluded
+
+    # A lone workspace has no others → the picker shows `<none>`.
+    monkeypatch.setattr(ui, "_list_workspaces", lambda: {"workspaces": ["solo"]})
+    only = ui._on_focus("solo")
+    assert only["choices"] == ["<none>"] and only["visible"] is True
+
+
+def test_workspace_typing_narrows_and_toggles_create(monkeypatch):
+    # FR-4/FR-5: typing narrows the picker to matching OTHER workspaces, and the Create
+    # (+) button is shown ONLY when the text differs from the original (active) name.
+    from app import ui
+
+    monkeypatch.setattr(ui, "_list_workspaces", lambda: {"workspaces": ["alpha", "beta", "bravo"]})
+
+    # Typing "br" while active=alpha → narrows to bravo, Create shown (name changed).
+    picker, create = ui._suggest("br", "alpha")
+    assert picker["choices"] == ["bravo"]
+    assert create["visible"] is True
+
+    # Text equal to the active name → Create hidden (unchanged from original).
+    _, create_same = ui._suggest("alpha", "alpha")
+    assert create_same["visible"] is False
+
+    # Empty text → Create hidden, picker offers all others.
+    picker_empty, create_empty = ui._suggest("", "alpha")
+    assert create_empty["visible"] is False
+    assert picker_empty["choices"] == ["beta", "bravo"]
+
+
+def test_workspace_pick_switches_active_and_ignores_none(monkeypatch):
+    # FR-4/FR-7: choosing a real workspace switches active + updates the `Active` indicator;
+    # the `<none>` sentinel is a no-op.
+    from app import ui
+
+    monkeypatch.setattr(ui, "_wiki_html", lambda v: f"<em>{v}</em>")
+    box2, active2, _p, _w, status2, create2 = ui._pick_workspace("beta", "alpha")
+    assert box2 == "beta" and active2 == "beta"
+    assert status2 == "**Active:** beta" and create2["visible"] is False
+
+    # The sentinel returns bare no-op updates and never names a new active workspace.
+    box, active, _p2, _w2, _s2, _c2 = ui._pick_workspace("<none>", "alpha")
+    assert box.get("__type__") == "update" and "value" not in box
+    assert active.get("__type__") == "update"
+
+
+def test_workspace_status_renamed_to_active():
+    # FR-7: the indicator is labeled `Active` (not `Active vault`).
+    from app import ui
+
+    assert ui._status("demo") == "**Active:** demo"
+    assert "Active vault" not in ui._status("demo")
+
+
+def test_workspace_panel_layout_labels():
+    # FR-2/FR-3/FR-5: the panel is titled "Workspaces", the box placeholder is
+    # "workspace name", and the Create (+) button starts hidden (name unchanged).
+    from app import ui
+
+    demo = ui.build_demo()
+    labels = [getattr(c, "label", None) for c in demo.blocks.values()]
+    assert "Workspaces" in labels  # panel renamed from "Vault"
+    placeholders = [getattr(c, "placeholder", None) for c in demo.blocks.values()]
+    assert "workspace name" in placeholders
+    create = next(c for c in demo.blocks.values() if getattr(c, "elem_id", None) == "create-vault")
+    assert create.visible is False
+
+
 def test_session_detail_missing_is_404(client):
     v = _make_workspace(client)
     assert client.get("/api/sessions/nope", params={"workspace": v}).status_code == 404

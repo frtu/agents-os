@@ -2,7 +2,7 @@
 
 **Feature ID:** `004-assistant-sidebar`
 **Status:** Draft
-**Created:** 2026-08-16 · **Last Updated:** 2026-08-16
+**Created:** 2026-08-16 · **Last Updated:** 2026-08-22
 
 > Describes **what** and **why**. Adds a **collapsible left sidebar** to the human web UI
 > delivered by feature [`003-assistant-ui`](../003-assistant-ui/spec.md), giving the operator
@@ -15,8 +15,10 @@
 ## Summary
 
 A **collapsible left-side menu** for the web UI that consolidates workspace control and
-workspace context beside the chat. From top to bottom it offers: a **workspace typeahead**
-(with refresh and create-new-workspace icon buttons), a **read-only browser of the workspace's
+workspace context beside the chat. From top to bottom it offers: a **Workspaces** panel (an
+**`Active`** indicator on top, a name box that opens a **picker of the other workspaces** when
+clicked, a **create** button that appears only when the name is changed, and a **refresh**
+button), a **read-only browser of the workspace's
 `vault/wiki/` tree**, an **upload dropzone** that copies selected local files/folders into the
 workspace's `vault/raw/` and ingests them (a progress bar replaces the dropzone during the run),
 and a **Sessions panel** listing prior conversations the operator can reopen. Like 003, the
@@ -30,8 +32,9 @@ also offers).
 
 - Give the operator a single **collapsible sidebar** for workspace selection and context,
   alongside the existing chat surface (003), that can be hidden to maximize chat space.
-- Let the operator **find and switch workspaces by typing** (typeahead over existing
-  workspaces), and **create** a new workspace by name with an explicit action (P13).
+- Let the operator **find and switch workspaces from a picker** — clicking the name box opens a
+  list of the other workspaces (typing narrows it) — and **create** a new workspace by name with an
+  explicit action shown only when the name is changed (P13).
 - Show the **structure of the active workspace's `vault/wiki/`** as a browsable folder tree
   (navigation only — expand/collapse and view names; no edit).
 - Let the operator **bring local knowledge in**: select files, a folder, or drag-and-drop,
@@ -59,16 +62,20 @@ also offers).
 
 - **Scenario 1 — Collapse the sidebar and its panels:** As a user, I collapse the whole left
   menu to focus on the conversation, and expand it again when I need workspace context. I can also
-  collapse each panel (**Vault**, **Wiki**, **Sessions**) on its own to hide the parts I'm not
+  collapse each panel (**Workspaces**, **Wiki**, **Sessions**) on its own to hide the parts I'm not
   using without affecting the others.
-- **Scenario 2 — Find a workspace by typing:** As a user, I start typing in the workspace box
-  (which shows `workspace name` as gray placeholder when empty); matching existing workspaces
-  appear as suggestions below the field, and picking one makes it the active workspace (P13).
-- **Scenario 3 — Refresh the workspace list:** As a user who created a workspace elsewhere, I
-  click the **refresh** icon button (icon-only, label on hover) to reload the list of workspaces.
-- **Scenario 4 — Create a workspace:** As a user, I type a new name and click the **create new
-  workspace** icon button (icon-only, label on hover); the workspace is created and becomes
-  active, and its (empty) `vault/wiki/` tree is shown.
+- **Scenario 2 — Switch workspace from the picker:** As a user, I **click the workspace-name box**
+  and see a **select box of all the other workspaces**; if there are none, it shows **`<none>`**.
+  Typing narrows the list. Picking one makes it the active workspace (P13), and the **`Active`**
+  indicator at the top of the panel updates.
+- **Scenario 3 — Refresh from the backend:** As a user who changed workspaces elsewhere, I click
+  the **refresh** icon button at the **rightmost** of the name row (icon-only, label on hover) to
+  re-fetch the workspace list and re-render the panel and wiki browser (names, tooltips, `Active`)
+  from the backend.
+- **Scenario 4 — Create a workspace:** As a user, I **edit the name** in the box; as soon as it
+  **differs from the active name**, a **create** (`+`) icon button appears to the **right** of the
+  box (hidden until then). I click it, and the workspace is created and becomes active, and its
+  (empty) `vault/wiki/` tree is shown.
 - **Scenario 5 — Browse the wiki:** As a user, I expand folders in the `vault/wiki/` panel to see
   how the active workspace's knowledge is organized, without changing anything.
 - **Scenario 6 — Upload local knowledge:** As a user, I select files or a folder — or drag
@@ -96,28 +103,41 @@ Numbered, testable, unambiguous.
 - **FR-1:** The UI MUST present a **left-side menu** that the user can **collapse and expand**;
   its collapsed/expanded state MUST not affect the chat surface's functionality (003).
 - **FR-2:** The sidebar MUST be composed, top to bottom, of **three independently collapsible
-  panels**: (a) **Vault** (the workspace selector), (b) **Wiki** — which contains **both** the
+  panels**: (a) **Workspaces** (the workspace selector), (b) **Wiki** — which contains **both** the
   `vault/wiki/` file browser **and**, below it, the **upload** section (`Add files → raw/ +
   ingest`), and (c) **Sessions**. Each panel MUST be collapsible/expandable on its own without
   affecting the others.
 
-### Workspace selector
+### Workspaces panel (selector + create)
 
-- **FR-3:** The sidebar MUST show a **single-line text box** at the top that, when empty,
-  displays the placeholder text **`workspace name`** in a muted/gray style.
-- **FR-4:** As the user types, the UI MUST show **suggestions of existing workspaces** matching
-  the input **below** the text box (typeahead), sourced from `GET /api/workspaces`. Selecting a
-  suggestion MUST set it as the **active workspace** for the chat and the rest of the sidebar
-  (P13).
-- **FR-5:** To the **right** of the text box the UI MUST show **two icon-only buttons** that
-  reveal a **text label on hover**: **Refresh** (reload the workspace list) and **Create new
-  workspace**.
-- **FR-6:** Activating **Create new workspace** MUST create a workspace named by the current
+- **FR-3:** The **Workspaces** panel MUST show a **single-line text box** for the workspace name.
+  The box MUST be **pre-filled with the active workspace's name**; when the box is empty it MUST
+  display the placeholder text **`workspace name`** in a muted/gray style. This box is both the
+  **selection trigger** (FR-4) and the **create-name input** (FR-6); its pre-filled value is the
+  **original** value referenced by FR-5/FR-6.
+- **FR-4 (selection):** **Clicking (focusing) the text box** MUST reveal a **select box listing
+  all the other existing workspaces** — every workspace except the currently active one — sourced
+  from `GET /api/workspaces`. If there are **no other workspaces**, the select box MUST display a
+  single non-selectable entry **`<none>`**. Typing MUST **narrow** the list to matching names.
+  Choosing an entry MUST set it as the **active workspace** for the chat and the rest of the
+  sidebar (P13) and MUST update the `Active` indicator (FR-7).
+- **FR-5 (controls & layout):** On the **same row as the text box**, to its **right**, the panel
+  MUST place, left-to-right: a **Create** (`+`) icon button and, at the **rightmost** position, a
+  **Refresh** icon button. Both MUST be **icon-only with a text label on hover**. The **Create**
+  (`+`) button MUST be **shown only when the text-box value differs from the original**
+  (pre-filled active name); when the value is unchanged or empty the Create button MUST be
+  **hidden**. The **Refresh** button MUST be **always visible** and MUST re-fetch state from the
+  backend and re-render the panel and the `vault/wiki/` browser — workspace list, `Active`
+  indicator, names, and hover tooltips — so changes made **elsewhere** are reflected.
+- **FR-6 (creation):** Activating **Create** (`+`) MUST create a workspace named by the current
   text-box value via `POST /api/workspaces` **only on that explicit action**, then set it active
-  and refresh the sidebar to reflect the new (empty) workspace. Empty or invalid names MUST
-  surface a validation error, not a silent no-op.
-- **FR-7:** The UI MUST make the **currently active workspace visible**; when none is selected,
-  the sidebar and chat operate on the **default workspace** (P13).
+  and refresh the panel to reflect the new (empty) workspace and its `Active` indicator. Because
+  Create is visible only when the name was modified from the original (FR-5), it always targets a
+  **new** name. Empty or invalid names MUST surface a validation error, not a silent no-op.
+- **FR-7 (active indicator):** The panel MUST show the **currently active workspace** in an
+  **`Active`** indicator (renamed from `Active vault`) placed at the **top of the Workspaces
+  panel, above the text box**. When no workspace is selected, the sidebar and chat operate on the
+  **default workspace** (P13), which the `Active` indicator MUST name.
 
 ### `vault/wiki/` file browser
 
@@ -206,9 +226,11 @@ Numbered, testable, unambiguous.
 
 ## Key Entities & Concepts
 
-- **Sidebar** — the collapsible left menu hosting the four stacked panels.
-- **Workspace typeahead** — the top text box (placeholder `workspace name`) + suggestion list +
-  refresh/create icon buttons, backed by `GET`/`POST /api/workspaces`.
+- **Sidebar** — the collapsible left menu hosting the stacked panels.
+- **Workspaces panel** — an **`Active`** indicator on top, then a workspace-name box that opens a
+  **picker of the other workspaces** on click (**`<none>`** when there are none), a **create**
+  (`+`) button shown only when the name is changed, and an always-visible **refresh** button;
+  backed by `GET`/`POST /api/workspaces`.
 - **Active workspace** — the workspace the chat and all sidebar panels currently operate on
   (P13); UI-held view state, the durable truth being the workspace itself (P1).
 - **Wiki tree** — a read-only view of the active workspace's `vault/wiki/` folders and files
@@ -242,14 +264,18 @@ Numbered, testable, unambiguous.
 
 - [ ] **AC-1:** The web UI shows a **collapsible left sidebar** that can be hidden and
   restored without breaking chat, composed of **three independently collapsible panels** —
-  **Vault**, **Wiki** (which nests the `vault/wiki/` browser and the upload section), and
+  **Workspaces**, **Wiki** (which nests the `vault/wiki/` browser and the upload section), and
   **Sessions** — each collapsible on its own. (FR-1, FR-2)
-- [ ] **AC-2:** The workspace box shows the gray **`workspace name`** placeholder when empty;
-  typing shows **matching existing workspaces** below it, and selecting one switches the active
-  workspace. (FR-3, FR-4, FR-7)
-- [ ] **AC-3:** Two **icon-only** buttons with **hover labels** appear to the right of the
-  box; **Refresh** reloads the workspace list and **Create new workspace** creates the typed name
-  via `POST /api/workspaces`, then makes it active. (FR-5, FR-6)
+- [ ] **AC-2:** The Workspaces panel shows an **`Active`** indicator at the **top**; the name box
+  is pre-filled with the active name (gray **`workspace name`** placeholder when empty). **Clicking
+  the box** opens a **select of all other workspaces** (or **`<none>`** when there are none);
+  typing narrows it, and choosing one switches the active workspace and updates `Active`.
+  (FR-3, FR-4, FR-7)
+- [ ] **AC-3:** On the name row, **icon-only** buttons with **hover labels** sit to the right: a
+  **Create** (`+`) button **visible only when the box value differs from the active name** (hidden
+  otherwise), and, at the **rightmost**, an always-visible **Refresh** button that re-fetches from
+  the backend and re-renders the panel and wiki browser (list, `Active`, tooltips). Create makes
+  the typed name active via `POST /api/workspaces`. (FR-5, FR-6)
 - [ ] **AC-4:** The **`vault/wiki/` browser** displays the active workspace's folders/files, is
   **navigation only**, lists **only folders that contain data** (empty folders omitted), and never
   shows `vault/raw/`, `sessions/`, `vault/output/`, or paths outside the workspace.
@@ -286,9 +312,13 @@ Numbered, testable, unambiguous.
 - **D2 — New endpoints in scope:** this feature **includes the backing REST endpoints**
   (wiki-tree browse, multipart upload→`vault/raw/`→ingest, sessions list) so the sidebar keeps
   parity (P9) rather than assuming pre-existing endpoints. *(User decision.)*
-- **D3 — Workspace box behavior:** the top text box is a **typeahead over existing workspaces**;
-  selecting a suggestion switches the active workspace, and **Create new workspace** creates a
-  workspace named by the typed text. *(User decision.)*
+- **D3 — Workspaces panel behavior:** the panel is titled **Workspaces**; an **`Active`**
+  indicator (renamed from `Active vault`) sits at the **top**, above the name box. **Clicking** the
+  name box opens a **select of all other workspaces** (**`<none>`** when there are none) and
+  choosing one switches the active workspace; typing narrows the list. A **Create** (`+`) button to
+  the **right** of the box appears **only when the name is changed** from the active (original) name
+  and creates that new workspace; an always-visible **Refresh** button at the **rightmost** re-syncs
+  the panel and wiki browser from the backend. *(User decision, 2026-08-22.)*
 - **D4 — File browser behavior:** the `vault/wiki/` browser is **navigation only**; clicking a
   file does not open/edit/reference it in this feature. *(User decision.)*
 - **D5 — Upload target & P2 amendment:** uploaded files land under **`vault/raw/<provenance>/`**

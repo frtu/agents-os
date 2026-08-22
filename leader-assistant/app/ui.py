@@ -53,8 +53,8 @@ _TOOLTIP_JS = """
     el.title = t;
     el.querySelectorAll('button').forEach(b => b.title = t);
   };
-  set('refresh-vault', 'Refresh vault list');
-  set('create-vault', 'Create new vault');
+  set('refresh-vault', 'Refresh workspace list');
+  set('create-vault', 'Create new workspace');
 }
 """
 
@@ -421,6 +421,29 @@ async def _approve(history, conversation_id, workspace):
 # --- sidebar handlers (feature 004) ----------------------------------------
 
 
+# The picker (FR-4) lists the *other* workspaces; when there are none it shows a single
+# non-selectable sentinel so the empty state is visible rather than a blank box.
+_NONE_SENTINEL = "<none>"
+
+
+def _others(vaults, active):
+    """The workspaces other than the active one — the pool the picker offers (FR-4)."""
+    return [v for v in vaults if v != active]
+
+
+def _picker_update(choices, *, visible):
+    """A dropdown update that degrades an empty ``choices`` to the ``<none>`` sentinel (FR-4)."""
+    shown = choices if choices else [_NONE_SENTINEL]
+    return gr.update(choices=shown, value=None, visible=visible)
+
+
+def _status(active):
+    """The `Active` indicator text at the top of the Workspaces panel (FR-7)."""
+    if active:
+        return f"**Active:** {active}"
+    return "No workspaces yet — type a name and click ＋."
+
+
 def _initial():
     """Populate the sidebar on page load (server is up by then)."""
     try:
@@ -429,66 +452,90 @@ def _initial():
         return (
             "", None, gr.update(choices=[], visible=False),
             f"<em>API not reachable: {html.escape(str(e))}</em>",
-            f"API error: {e}",
+            f"API error: {e}", gr.update(visible=False),
         )
     vaults = info.get("workspaces", [])
     default = info.get("default", "default")
     active = default if default in vaults else (vaults[0] if vaults else None)
-    status = f"Active vault: **{active}**" if active else "No vaults yet — type a name and click ＋."
-    wiki = _wiki_html(active) if active else "<em>No vaults yet.</em>"
+    wiki = _wiki_html(active) if active else "<em>No workspaces yet.</em>"
+    # FR-3: box pre-filled with the active name (the "original"); FR-5: Create hidden until changed.
     return (
-        active or "", active, gr.update(choices=vaults, visible=False),
-        wiki, status,
+        active or "", active,
+        _picker_update(_others(vaults, active), visible=False),
+        wiki, _status(active), gr.update(visible=False),
     )
 
 
-def _suggest(typed):
-    """Show existing-vault suggestions below the box as the user types (FR-4)."""
-    typed = (typed or "").strip().lower()
+def _on_focus(active):
+    """Clicking/focusing the box reveals the picker of the *other* workspaces (FR-4)."""
     try:
         vaults = _list_workspaces().get("workspaces", [])
     except Exception:
         vaults = []
-    matches = [v for v in vaults if typed in v.lower()] if typed else vaults
-    return gr.update(choices=matches, value=None, visible=bool(matches))
+    return _picker_update(_others(vaults, active), visible=True)
 
 
-def _pick_workspace(selected):
-    """Selecting a suggestion switches the active vault and re-scopes panels (FR-4/FR-21)."""
-    if not selected:
-        return (gr.update(), gr.update(), gr.update(visible=False), gr.update(), gr.update())
+def _suggest(typed, active):
+    """Typing narrows the picker (FR-4) and toggles the Create button (FR-5).
+
+    Create is shown only when the box value differs from the original (active) name.
+    """
+    typed_s = (typed or "").strip()
+    try:
+        vaults = _list_workspaces().get("workspaces", [])
+    except Exception:
+        vaults = []
+    others = _others(vaults, active)
+    matches = [v for v in others if typed_s.lower() in v.lower()] if typed_s else others
+    # Keep the picker visible while there is anything to show — real matches, or the
+    # <none> sentinel when no other workspace exists at all.
+    has_none = not others
+    picker = _picker_update(matches, visible=bool(matches) or has_none)
+    show_create = bool(typed_s) and typed_s != (active or "")
+    return picker, gr.update(visible=show_create)
+
+
+def _pick_workspace(selected, active):
+    """Selecting a workspace switches the active one and re-scopes panels (FR-4/FR-21)."""
+    if not selected or selected == _NONE_SENTINEL:
+        return (gr.update(), gr.update(), gr.update(visible=False),
+                gr.update(), gr.update(), gr.update(visible=False))
+    # Box now equals the active name again → Create hidden (FR-5).
     return (
         selected, selected, gr.update(visible=False),
-        _wiki_html(selected), f"Active vault: **{selected}**",
+        _wiki_html(selected), _status(selected), gr.update(visible=False),
     )
 
 
 def _refresh(active):
-    """Refresh icon button: reload vault list + re-scope panels (FR-5)."""
+    """Refresh icon button: re-fetch state and re-render the panel + wiki browser (FR-5)."""
     try:
         vaults = _list_workspaces().get("workspaces", [])
     except Exception as e:
-        return gr.update(), gr.update(), f"Could not list vaults: {e}"
+        return (gr.update(), active, gr.update(visible=False), gr.update(),
+                f"Could not list workspaces: {e}", gr.update(visible=False))
+    active = active if active in vaults else (vaults[0] if vaults else None)
+    wiki = _wiki_html(active) if active else "<em>No workspaces yet.</em>"
     return (
-        gr.update(choices=vaults, visible=bool(vaults)),
-        _wiki_html(active),
-        f"Active vault: **{active}**" if active else "No vault selected.",
+        active or "", active,
+        _picker_update(_others(vaults, active), visible=False),
+        wiki, _status(active), gr.update(visible=False),
     )
 
 
 def _create_vault_action(name, active):
-    """Create-new-vault icon button: create the typed name, make it active (FR-6)."""
+    """Create-new-workspace icon button: create the typed name, make it active (FR-6)."""
     name = (name or "").strip()
     if not name:
         return (gr.update(), active, gr.update(visible=False), gr.update(),
-                "Enter a vault name to create.")
+                "Enter a workspace name to create.", gr.update(visible=True))
     try:
         _create_workspace(name)
     except Exception as e:
         return (name, active, gr.update(visible=False), gr.update(),
-                f"Could not create vault: {e}")
+                f"Could not create workspace: {e}", gr.update(visible=True))
     return (name, name, gr.update(visible=False), _wiki_html(name),
-            f"Created and selected vault **{name}**.")
+            _status(name), gr.update(visible=False))
 
 
 def _do_upload(files, provenance, vault, progress=gr.Progress()):
@@ -566,18 +613,23 @@ def build_demo() -> gr.Blocks:
         active_vault = gr.State(None)
 
         with gr.Sidebar(open=True, width=340):
-            with gr.Accordion("Vault", open=True):
+            with gr.Accordion("Workspaces", open=True):
+                # FR-7: `Active` indicator at the top, above the name box.
+                vault_status = gr.Markdown("")
                 with gr.Row():
                     vault_box = gr.Textbox(
-                        show_label=False, placeholder="vault name", scale=8, container=False,
+                        show_label=False, placeholder="workspace name", scale=8, container=False,
+                    )
+                    # FR-5: left→right after the box: Create (shown only when name changed),
+                    # then Refresh at the rightmost (always visible).
+                    create_btn = gr.Button(
+                        "＋", elem_id="create-vault", scale=1, min_width=40, visible=False,
                     )
                     refresh_btn = gr.Button("↻", elem_id="refresh-vault", scale=1, min_width=40)
-                    create_btn = gr.Button("＋", elem_id="create-vault", scale=1, min_width=40)
                 vault_suggest = gr.Dropdown(
                     choices=[], show_label=False, container=False, visible=False,
-                    interactive=True, filterable=False,
+                    interactive=True, filterable=True,
                 )
-                vault_status = gr.Markdown("")
 
             with gr.Accordion("Wiki", open=True):
                 wiki_view = gr.HTML("<em>Loading…</em>")
@@ -615,16 +667,19 @@ def build_demo() -> gr.Blocks:
         approve_btn = gr.Button("✅ Approve plan", variant="primary", visible=False)
 
         # --- wiring ---
-        sidebar_out = [vault_box, active_vault, vault_suggest, wiki_view, vault_status]
+        sidebar_out = [vault_box, active_vault, vault_suggest, wiki_view, vault_status, create_btn]
         demo.load(_initial, None, sidebar_out)
         demo.load(_sessions_html, [active_vault], [sessions_view])
         demo.load(None, None, None, js=_TOOLTIP_JS)
         demo.load(None, None, None, js=_WIKI_TIP_JS)
         demo.load(None, None, None, js=_SESSION_JS)
 
-        vault_box.input(_suggest, [vault_box], [vault_suggest])
-        vault_suggest.select(_pick_workspace, [vault_suggest], sidebar_out)
-        refresh_btn.click(_refresh, [active_vault], [vault_suggest, wiki_view, vault_status])
+        # FR-4: clicking the box reveals the picker of the other workspaces; typing narrows it
+        # and toggles the Create button (FR-5).
+        vault_box.focus(_on_focus, [active_vault], [vault_suggest])
+        vault_box.input(_suggest, [vault_box, active_vault], [vault_suggest, create_btn])
+        vault_suggest.select(_pick_workspace, [vault_suggest, active_vault], sidebar_out)
+        refresh_btn.click(_refresh, [active_vault], sidebar_out)
         create_btn.click(_create_vault_action, [vault_box, active_vault], sidebar_out)
 
         # Re-scope Sessions when the active workspace changes (FR-21) and on explicit refresh.
