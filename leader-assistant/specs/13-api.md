@@ -53,6 +53,28 @@ The API SHALL expose, at minimum, capabilities for:
 
 Exact endpoint shapes are defined at implementation time; the constraint is capability parity, not a specific transport.
 
+### 2.1 Agent MCP tool surface (parity for the chat agent) — see [[006-mcp-capability-tools]]
+
+The chat agent reaches the capability layer through in-process **MCP tools**. To keep the agent
+in genuine parity with REST, the agent's MCP server SHALL register a tool for **every**
+capability-layer function, minus a governed exclusion set:
+
+- **Structural exclusion:** the chat surface itself (`ask`/`ask_stream`) is **never** an agent
+  tool — an agent calling chat would recurse.
+- **Configurable blacklist:** an operator-maintained blacklist (`LEADER_MCP_TOOL_BLACKLIST`,
+  default `{chat, upload, create_workspace}`) withholds further tools. `upload`/`deposit_raw`
+  stays human-only so the agent cannot write `vault/raw/` (preserves P2 and the 005 raw-guard);
+  `create_workspace` is withheld so the agent stays scoped to its active workspace.
+- **Workspace sandbox:** every agent tool is **bound to the run's active workspace** — the
+  workspace argument is injected from the run context and any workspace supplied in tool
+  arguments is ignored (spec 005 FR-9).
+- **Direct execution:** the sanctioned mutating tools (`ingest`, `import_skill`) execute directly
+  when the agent calls them (autonomous-within-workspace, spec 005 D1); chat-level plan-first for
+  consequential *requests* is unchanged.
+
+The blacklist governs only the **agent** MCP surface; the REST surface is unaffected — machine
+callers keep full capability access.
+
 ## 3. Governance Through the API
 
 Requests that are consequential still flow through [[09-planning]] and [[10-risk-engine]]; the API returns plans/risk outcomes rather than silently executing.
@@ -67,3 +89,7 @@ Requests that are consequential still flow through [[09-planning]] and [[10-risk
 - AC6: Skill capabilities have both surfaces — catalog, installed-list, and import are each a
   `/api/*` endpoint and reachable from chat (chat import stays plan-first) — see
   [[005-skill-import]] FR-11.
+- AC7: The chat agent's MCP tool set mirrors the capability layer minus the exclusion set:
+  every capability is an agent tool except the structurally-excluded chat surface and the
+  configurable blacklist (default `chat, upload, create_workspace`); each agent tool is bound to
+  the active workspace; REST is unaffected by the blacklist — see [[006-mcp-capability-tools]].

@@ -1,8 +1,15 @@
-"""Agent runtime adapter (spec 002 T021/T022; D3 · spec 005 FR-8/9/10).
+"""Agent runtime adapter (spec 002 T021/T022; D3 · spec 005 FR-8/9/10 · spec 006).
 
-The assistant reaches the model through ``claude-agent-sdk``. It always has the
-in-process capability MCP tools (``query``/``spec_read``/``plan``), where ``query``
-remains the cited, parity-preserving way to browse knowledge (FR-2).
+The assistant reaches the model through ``claude-agent-sdk``. Its in-process MCP server
+**mirrors the whole capability layer** (spec 006 FR-3): every capability function is an
+agent tool, minus a governed exclusion set. The chat surface (``ask``/``ask_stream``) is
+**structurally excluded** — never registered — so the agent cannot re-enter chat and
+recurse (spec 006 D4). A **config-driven blacklist** (``config.mcp_tool_blacklist()``,
+default ``{chat, upload, create_workspace}``) withholds further tools; ``upload`` stays
+human-only so the agent cannot write ``vault/raw/`` (P2), and ``create_workspace`` keeps
+the agent scoped to its active workspace (spec 006 D2/D3). Every tool is **workspace-bound**
+— the workspace argument is injected from the run context, not from tool args (spec 006
+FR-6). ``query`` remains the cited way to browse knowledge (FR-5).
 
 **Skill execution (feature 005) deliberately expands the tool set.** To let the agent
 discover and run installed skills, it is granted real ``Skill``/``Bash``/``Read``/
@@ -19,8 +26,9 @@ Bash-write risk (spec 005 D3).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import AsyncIterator
+from typing import AsyncIterator, Awaitable, Callable
 
 from . import models, vault
 
@@ -34,8 +42,139 @@ class AgentUnavailable(RuntimeError):
     """Raised when the agent runtime cannot be reached (missing CLI/credentials)."""
 
 
-def _tool_names() -> list[str]:
-    return [f"mcp__{_SERVER}__{t}" for t in ("query", "spec_read", "plan")]
+@dataclass
+class ToolSpec:
+    """One agent MCP tool: its name/description/schema and an async handler (spec 006).
+
+    The handler closes over the run's active workspace selector, so the tool is
+    workspace-bound (FR-6) and unit-testable without the SDK.
+    """
+
+    name: str
+    description: str
+    schema: dict
+    handler: Callable[[dict], Awaitable[dict]]
+
+
+def _ok(text: str) -> dict:
+    """SDK tool-content shape for a text result."""
+    return {"content": [{"type": "text", "text": text}]}
+
+
+def _capability_tool_specs(
+    workspace_selector: str | None, citations: list[models.Citation]
+) -> list[ToolSpec]:
+    """Build an agent tool for every exposable capability (spec 006 FR-3/FR-4).
+
+    Pure and SDK-free: handlers call ``capabilities`` directly. Every handler injects
+    ``workspace_selector`` and ignores any ``workspace`` in tool args (the sandbox,
+    FR-6). The chat surface is deliberately absent (structural exclusion, D4). Mutating
+    tools (``ingest``/``import_skill``) execute directly (FR-4, spec 005 D1).
+    """
+    from . import capabilities  # lazy import to avoid an agent<->capabilities cycle
+
+    async def query_h(args: dict) -> dict:
+        ans = capabilities.query(
+            models.QueryRequest(workspace=workspace_selector, question=args["question"])
+        )
+        citations.extend(ans.citations)  # surfaced to the caller for the reply (FR-5)
+        lines = [ans.answer, ""]
+        for c in ans.citations:
+            lines.append(f"- {c.page}: {c.excerpt}")
+        return _ok("\n".join(lines))
+
+    async def spec_read_h(args: dict) -> dict:
+        try:
+            text = capabilities.spec_read(args["path"], workspace_selector)
+        except Exception as e:  # noqa: BLE001 — surface as tool text, not a crash
+            return _ok(f"error: {e}")
+        return _ok(text[:4000])
+
+    async def plan_h(args: dict) -> dict:
+        p = capabilities.plan(
+            models.PlanRequest(workspace=workspace_selector, request=args["request"])
+        )
+        steps = "\n".join(f"{s.order}. {s.action} — {s.rationale}" for s in p.steps)
+        return _ok(f"risk={p.risk} requires_approval={p.requires_approval}\n{steps}")
+
+    async def list_workspaces_h(args: dict) -> dict:
+        return _ok(capabilities.list_workspaces().model_dump_json(indent=2))
+
+    async def get_workspace_info_h(args: dict) -> dict:
+        return _ok(capabilities.get_workspace_info(workspace_selector).model_dump_json(indent=2))
+
+    async def lint_h(args: dict) -> dict:
+        return _ok(capabilities.lint(workspace_selector).model_dump_json(indent=2))
+
+    async def wiki_tree_h(args: dict) -> dict:
+        return _ok(capabilities.wiki_tree(workspace_selector).model_dump_json(indent=2))
+
+    async def list_conversations_h(args: dict) -> dict:
+        return _ok(capabilities.list_conversations(workspace_selector).model_dump_json(indent=2))
+
+    async def get_conversation_h(args: dict) -> dict:
+        try:
+            detail = capabilities.get_conversation(workspace_selector, args["conversation_id"])
+        except Exception as e:  # noqa: BLE001
+            return _ok(f"error: {e}")
+        return _ok(detail.model_dump_json(indent=2))
+
+    async def list_available_skills_h(args: dict) -> dict:
+        return _ok(capabilities.list_available_skills(workspace_selector).model_dump_json(indent=2))
+
+    async def list_installed_skills_h(args: dict) -> dict:
+        return _ok(capabilities.list_installed_skills(workspace_selector).model_dump_json(indent=2))
+
+    async def ingest_h(args: dict) -> dict:
+        try:
+            report = capabilities.ingest(
+                models.IngestRequest(
+                    workspace=workspace_selector,
+                    title=args["title"],
+                    content=args["content"],
+                    provenance=args.get("provenance") or "notes",
+                )
+            )
+        except Exception as e:  # noqa: BLE001
+            return _ok(f"error: {e}")
+        return _ok(report.model_dump_json(indent=2))
+
+    async def import_skill_h(args: dict) -> dict:
+        try:
+            report = capabilities.import_skill(workspace_selector, args["name"])
+        except Exception as e:  # noqa: BLE001
+            return _ok(f"error: {e}")
+        return _ok(report.model_dump_json(indent=2))
+
+    return [
+        ToolSpec("query", "Search the workspace and return an answer with citations. The primary way to browse project knowledge.", {"question": str}, query_h),
+        ToolSpec("spec_read", "Read the raw Markdown of a known workspace page by its relative path.", {"path": str}, spec_read_h),
+        ToolSpec("plan", "Produce a step-by-step plan for a work request; consequential work is flagged for approval.", {"request": str}, plan_h),
+        ToolSpec("list_workspaces", "List known workspaces (names, root, default).", {}, list_workspaces_h),
+        ToolSpec("get_workspace_info", "Inspect the active workspace: name, path, whether scaffolded, and page count.", {}, get_workspace_info_h),
+        ToolSpec("lint", "Run hygiene checks (orphan/short pages) on the active workspace.", {}, lint_h),
+        ToolSpec("wiki_tree", "Browse the active workspace's vault/wiki/ tree (navigation only).", {}, wiki_tree_h),
+        ToolSpec("list_conversations", "List prior conversations in the active workspace.", {}, list_conversations_h),
+        ToolSpec("get_conversation", "Read one conversation's full turns by its id.", {"conversation_id": str}, get_conversation_h),
+        ToolSpec("list_available_skills", "List skills available to install from the shared library, each with a description and an installed flag.", {}, list_available_skills_h),
+        ToolSpec("list_installed_skills", "List skills currently installed in the active workspace.", {}, list_installed_skills_h),
+        ToolSpec("ingest", "Ingest a source into the workspace: writes a vault/wiki/sources summary, updates the portal, appends the log, and commits. Never writes vault/raw/.", {"title": str, "content": str, "provenance": str}, ingest_h),
+        ToolSpec("import_skill", "Reference-link a shared-library skill into the active workspace and commit.", {"name": str}, import_skill_h),
+    ]
+
+
+def _selected_specs(
+    workspace_selector: str | None,
+    citations: list[models.Citation],
+    blacklist: set[str],
+) -> list[ToolSpec]:
+    """Capability tools minus the blacklist (spec 006 FR-2). Chat is already absent (D4)."""
+    return [s for s in _capability_tool_specs(workspace_selector, citations) if s.name not in blacklist]
+
+
+def _allowed_tool_names(specs: list[ToolSpec]) -> list[str]:
+    """Fully-qualified MCP tool names for ``allowed_tools`` (spec 006 FR-8)."""
+    return [f"mcp__{_SERVER}__{s.name}" for s in specs]
 
 
 def _raw_guard_decision(workspace_path: Path, tool_name: str, tool_input: dict) -> str | None:
@@ -86,37 +225,12 @@ def _raw_guard_hook(workspace_path: Path):
     return hook
 
 
-def _build_server(workspace_selector: str | None, citations: list[models.Citation]):
-    """Build an in-process MCP server whose tools are the capability functions."""
+def _build_server(specs: list[ToolSpec]):
+    """Build an in-process MCP server from selected capability tool specs (spec 006)."""
     from claude_agent_sdk import create_sdk_mcp_server, tool
 
-    from . import capabilities
-
-    @tool("query", "Search the workspace and return an answer with citations. The ONLY way to browse project knowledge.", {"question": str})
-    async def query_tool(args: dict) -> dict:
-        ans = capabilities.query(models.QueryRequest(workspace=workspace_selector, question=args["question"]))
-        citations.extend(ans.citations)  # surfaced to the caller for the reply
-        lines = [ans.answer, ""]
-        for c in ans.citations:
-            lines.append(f"- {c.page}: {c.excerpt}")
-        return {"content": [{"type": "text", "text": "\n".join(lines)}]}
-
-    @tool("spec_read", "Read the raw Markdown of a known workspace page by its relative path.", {"path": str})
-    async def spec_read_tool(args: dict) -> dict:
-        try:
-            text = capabilities.spec_read(args["path"], workspace_selector)
-        except Exception as e:  # noqa: BLE001 — surface as tool text, not a crash
-            return {"content": [{"type": "text", "text": f"error: {e}"}]}
-        return {"content": [{"type": "text", "text": text[:4000]}]}
-
-    @tool("plan", "Produce a step-by-step plan for a work request; consequential work is flagged for approval.", {"request": str})
-    async def plan_tool(args: dict) -> dict:
-        p = capabilities.plan(models.PlanRequest(workspace=workspace_selector, request=args["request"]))
-        steps = "\n".join(f"{s.order}. {s.action} — {s.rationale}" for s in p.steps)
-        text = f"risk={p.risk} requires_approval={p.requires_approval}\n{steps}"
-        return {"content": [{"type": "text", "text": text}]}
-
-    return create_sdk_mcp_server(_SERVER, "1.0.0", tools=[query_tool, spec_read_tool, plan_tool])
+    tools = [tool(s.name, s.description, s.schema)(s.handler) for s in specs]
+    return create_sdk_mcp_server(_SERVER, "1.0.0", tools=tools)
 
 
 async def run_stream(
@@ -148,12 +262,16 @@ async def run_stream(
 
     from . import config
 
-    server = _build_server(workspace_selector, citations)
+    # Mirror the capability layer minus the blacklist; derive the server and
+    # allowed_tools from the SAME selected set so registration and permission agree
+    # (spec 006 FR-3/FR-8). Chat is never in the set (structural exclusion, D4).
+    specs = _selected_specs(workspace_selector, citations, config.mcp_tool_blacklist())
+    server = _build_server(specs)
     opts = ClaudeAgentOptions(
         system_prompt=system_prompt,
         model="sonnet",
         mcp_servers={_SERVER: server},
-        allowed_tools=[*_NATIVE_TOOLS, *_tool_names()],
+        allowed_tools=[*_NATIVE_TOOLS, *_allowed_tool_names(specs)],
         permission_mode="bypassPermissions",
         setting_sources=["project"],  # MUST include a scope or skills are disabled (spec 005 risk 1)
         skills="all",

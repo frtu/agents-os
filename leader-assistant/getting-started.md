@@ -14,7 +14,7 @@ No API key is required to run the current version — it is filesystem-only.
 ## 2. Install
 
 ```bash
-# from the app/ directory
+# from the / directory
 uv sync
 ```
 

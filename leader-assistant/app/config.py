@@ -5,6 +5,7 @@ Environment overrides:
 - LEADER_WORKSPACE_ROOT    root directory holding Workspaces/<name>/ (default: ./Workspaces)
 - LEADER_DEFAULT_WORKSPACE default workspace selector when none is supplied
 - LEADER_SKILLS_SOURCE     shared skill library root (default: repo-sibling skills/)
+- LEADER_MCP_TOOL_BLACKLIST comma-separated agent MCP tool names to withhold
 """
 
 from __future__ import annotations
@@ -14,6 +15,10 @@ from pathlib import Path
 
 DEFAULT_ROOT = "Workspaces"
 DEFAULT_WORKSPACE_NAME = "_default_"
+
+# Agent MCP tools withheld by default (spec 006 FR-1): the chat surface (recursion),
+# the human-only raw upload channel (P2), and cross-workspace creation.
+DEFAULT_MCP_TOOL_BLACKLIST = frozenset({"chat", "upload", "create_workspace"})
 
 
 def workspace_root() -> Path:
@@ -40,3 +45,17 @@ def skills_library_root() -> Path:
     if override:
         return Path(override).expanduser()
     return Path(__file__).resolve().parent.parent.parent / "skills"
+
+
+def mcp_tool_blacklist() -> set[str]:
+    """Agent MCP tool names withheld from the agent (spec 006 FR-1).
+
+    Env `LEADER_MCP_TOOL_BLACKLIST` is a comma-separated list, tolerant of whitespace
+    and empty entries. An explicit empty value (``""``) opts everything in; when the
+    variable is unset the default ``{chat, upload, create_workspace}`` applies. Governs
+    only the agent MCP surface, never REST (spec 006 FR-7).
+    """
+    raw = os.getenv("LEADER_MCP_TOOL_BLACKLIST")
+    if raw is None:
+        return set(DEFAULT_MCP_TOOL_BLACKLIST)
+    return {name.strip() for name in raw.split(",") if name.strip()}
