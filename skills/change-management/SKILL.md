@@ -13,6 +13,7 @@ Orchestrates change management workflows by chaining sub-skills:
 
 | Phase        | Skill                       | Purpose                                    |
 | ------------ | --------------------------- | ------------------------------------------ |
+| 0 — Resume   | `change-management-0-resume` | Reconstruct context from recent git history (optional) |
 | 1 — Stage    | `change-management-1-stage` | Stage files via `git add`                  |
 | 2 — Refactor | `change-management-2-refactor` | Move/rename files via `git mv`          |
 | 9 — Log      | `change-management-9-log`   | Generate commit message and append to log  |
@@ -23,12 +24,21 @@ This router selects the appropriate phase(s) based on user intent.
 
 | User Says                                      | Route To                     |
 | ---------------------------------------------- | ---------------------------- |
+| "resume from git", "what was I doing", "pick up where we left off" | `change-management-0-resume` |
 | "stage changes", "git add", "prepare commit"   | `change-management-1-stage`  |
 | "refactor", "move files", "rename", "git mv"   | `change-management-2-refactor` |
 | "log changes", "commit message", "capture log" | `change-management-9-log`    |
 | "stage and log", "full workflow"               | Phase 1 → Phase 9            |
 
 ## Workflow Patterns
+
+### Pattern 0: Resume from git (optional opener)
+
+At the start of a session, before any change:
+
+1. Run `/change-management-0-resume` (reads the latest commit by default; pass a
+   count to read more) to reconstruct what was previously done
+2. Continue into Pattern A, B, or C as needed
 
 ### Pattern A: Stage + Log (most common)
 
