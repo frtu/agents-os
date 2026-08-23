@@ -97,6 +97,10 @@ over REST for machine callers (P9).
   input, I receive a **structured interaction request** in the response stream (kind, prompt, options,
   interaction id, timeout); I **POST a structured response** referencing that id, and the task
   resumes — the same protocol the UI uses (P9).
+- **Scenario 9 — Agent asks on its own (agent-initiated clarification):** As a user, when I send an
+  ambiguous request (e.g. "run multi-agent mode") the agent, on its own judgment, presents a
+  **clarification card** with 2–4 distinct proposals instead of a prose bullet list, and continues with
+  the option I pick. When my request is clear it just answers — no card. (FR-18)
 
 ## Functional Requirements
 
@@ -193,6 +197,16 @@ Numbered, testable, unambiguous.
   experiences one consistent approval mechanism. Backward compatibility of the existing chat
   approve-to-execute path is an implementation concern for `plan.md`; this spec requires only that the
   *behavior* (plan shown, explicit approval before execution, P8) is preserved.
+- **FR-18 (agent-initiated interactions):** During a routine chat turn the **agent itself** (the model,
+  via its tool surface) MUST be able to raise an interaction, not only the deterministic plan-first path.
+  The agent MAY raise a **clarification** (2–4 proposals, blocking) when a request is genuinely ambiguous
+  or requires the user to choose among distinct approaches, and a **notification** (non-blocking) for
+  brief status; a clarification raised this way MUST **pause** the turn and be surfaced to the frontend
+  exactly like any other blocking interaction (FR-1), obeying the one-blocking-at-a-time rule (FR-15) and
+  durability (FR-11). The agent MUST NOT self-initiate an **approval**: authorization of consequential/
+  external/destructive work stays with the deterministic plan-first path (FR-14, FR-17), so the agent
+  cannot manufacture its own consent gate. When a request is clear and actionable the agent MUST answer
+  directly and MUST NOT raise a spurious card ([[09-planning]] §3: do not ask unnecessary questions).
 
 ## Key Entities & Concepts
 
@@ -271,6 +285,10 @@ Numbered, testable, unambiguous.
 - [x] **AC-13:** A consequential request's plan-first approval ([[002-assistant-chat]] FR-5) is
   delivered as an **approval** interaction, preserving "plan shown → explicit approval → execute"
   (P8). (FR-17)
+- [x] **AC-14:** The agent can raise a **clarification** or **notification** on its own during a routine
+  turn (via a workspace/conversation-bound tool); a clarification it raises pauses the turn and is
+  surfaced as the turn's interaction, is durable (FR-11) and honors one-blocking-at-a-time (FR-15). The
+  agent cannot self-raise an **approval** — that stays with the plan-first path. (FR-18)
 
 ## Resolved Decisions
 

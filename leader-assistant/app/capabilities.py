@@ -833,10 +833,12 @@ async def _ask_stream_impl(
     # --- routine request → agent answer via capabilities-as-tools (FR-2/6) ---
     system_prompt = persona.build_system_prompt()
     citations: list[models.Citation] = []
+    raised: list[models.Interaction] = []  # cards the agent raises on its own (spec 008 FR-18)
     final_reply, final_sid, agent_ok = "", conv.sdk_session_id, True
     try:
         async for reply, sid in agent.run_stream(
-            system_prompt, message, selector, wpath, conv.sdk_session_id, citations
+            system_prompt, message, selector, wpath, conv.sdk_session_id, citations,
+            conv.conversation_id, raised,
         ):
             final_reply, final_sid = reply, sid
             yield delta(reply, done=False)
@@ -848,8 +850,10 @@ async def _ask_stream_impl(
     else:
         final_reply, citations = _fallback_answer(selector, message)
 
+    # Surface an agent-raised card: prefer a blocking clarification, else a notification (FR-18).
+    itx = next((i for i in raised if i.kind == "clarification"), None) or (raised[0] if raised else None)
     conversation.append_turn(conv, message, final_reply)
-    yield delta(final_reply, done=True, citations=citations)
+    yield delta(final_reply, done=True, citations=citations, interaction=itx)
 
 
 async def ask(

@@ -214,6 +214,12 @@ endpoint still works offline. All non-chat capabilities run without any credenti
   functions (`query`/`spec_read`/`plan`); it has no raw filesystem browse or write tool
   (feature 002 D3). Conversations persist one-file-per-thread under `sessions/` and resume
   by id after a restart (`app/conversation.py`).
+- **The agent can raise its own interaction cards** — via the `request_interaction` MCP tool
+  it may raise a **clarification** (2–4 options, pauses the turn) or **notification** card on
+  its own judgment when a request is ambiguous, instead of asking in prose (spec 008 FR-18).
+  The card rides the final `ChatDelta.interaction`. **Approval is not agent-initiable** — it
+  stays with the deterministic plan-first path (P8/P12); the agent cannot manufacture its own
+  consent gate.
 
 ## Current status
 

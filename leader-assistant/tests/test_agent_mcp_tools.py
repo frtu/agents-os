@@ -22,6 +22,7 @@ EXPECTED_DEFAULT = {
     "list_conversations", "get_conversation", "conversation_status",
     "list_available_skills", "list_installed_skills",
     "import_skill",
+    "request_interaction",  # spec 008 FR-18: agent-initiated clarification/notification
 }
 
 

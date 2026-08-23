@@ -62,7 +62,10 @@ def _ok(text: str) -> dict:
 
 
 def _capability_tool_specs(
-    workspace_selector: str | None, citations: list[models.Citation]
+    workspace_selector: str | None,
+    citations: list[models.Citation],
+    conversation_id: str | None = None,
+    interactions: list[models.Interaction] | None = None,
 ) -> list[ToolSpec]:
     """Build an agent tool for every exposable capability (spec 006 FR-3/FR-4).
 
@@ -70,7 +73,9 @@ def _capability_tool_specs(
     ``workspace_selector`` and ignores any ``workspace`` in tool args (the sandbox,
     FR-6). The chat surface is deliberately absent (structural exclusion, D4). The mutating
     tool ``import_skill`` executes directly (spec 005 D1); the narrow ``ingest`` tool was
-    removed (spec 007 FR-12) — ingest now runs as the bottom-up workflow.
+    removed (spec 007 FR-12) — ingest now runs as the bottom-up workflow. ``request_interaction``
+    lets the agent raise a clarification/notification card on its own (spec 008 FR-18), bound to
+    the run's ``conversation_id``; cards it raises are appended to ``interactions`` for the caller.
     """
     from . import capabilities  # lazy import to avoid an agent<->capabilities cycle
 
@@ -137,6 +142,32 @@ def _capability_tool_specs(
             return _ok(f"error: {e}")
         return _ok(report.model_dump_json(indent=2))
 
+    async def request_interaction_h(args: dict) -> dict:
+        # spec 008 FR-18: the agent raises its own clarification/notification card. Approval is
+        # deliberately not offered here — it stays with the plan-first path (FR-14/FR-17).
+        import json
+
+        kind = (args.get("kind") or "").strip()
+        if kind not in ("clarification", "notification"):
+            return _ok("error: kind must be 'clarification' or 'notification' (approval is plan-first only)")
+        raw = args.get("options") or ""
+        options: list = []
+        if raw.strip():
+            try:
+                parsed = json.loads(raw)
+            except (ValueError, TypeError):
+                return _ok('error: options must be a JSON array, e.g. ["Approach A","Approach B"]')
+            options = parsed if isinstance(parsed, list) else [parsed]
+        try:
+            itx = capabilities.create_interaction(
+                workspace_selector, conversation_id, kind, args.get("prompt", ""), options
+            )
+        except Exception as e:  # noqa: BLE001 — surface as tool text so the model can adjust (FR-15/FR-6)
+            return _ok(f"error: {e}")
+        if interactions is not None:
+            interactions.append(itx)
+        return _ok(f"raised {kind} interaction {itx.interaction_id} ({len(itx.options)} option(s))")
+
     return [
         ToolSpec("query", "Search the workspace and return an answer with citations. The primary way to browse project knowledge.", {"question": str}, query_h),
         ToolSpec("spec_read", "Read the raw Markdown of a known workspace page by its relative path.", {"path": str}, spec_read_h),
@@ -153,6 +184,17 @@ def _capability_tool_specs(
         # spec 007 FR-12: the narrow `ingest` MCP tool is removed. Ingest runs as the bottom-up
         # workflow (capabilities.ingest → activity_ingest), not a constrained {title,content} tool.
         ToolSpec("import_skill", "Reference-link a shared-library skill into the active workspace and commit.", {"name": str}, import_skill_h),
+        ToolSpec(
+            "request_interaction",
+            "Ask the user via a distinct interaction card instead of prose. Use kind='clarification' when "
+            "the request is genuinely ambiguous or needs a choice among 2-4 distinct approaches (pass "
+            "'options' as a JSON array of short labels; this PAUSES the turn until the user picks). Use "
+            "kind='notification' for brief non-blocking status (options='[]'). Do NOT use for approvals of "
+            "consequential/destructive work (those are handled automatically) and do NOT raise a card when "
+            "the request is already clear.",
+            {"kind": str, "prompt": str, "options": str},
+            request_interaction_h,
+        ),
     ]
 
 
@@ -160,9 +202,12 @@ def _selected_specs(
     workspace_selector: str | None,
     citations: list[models.Citation],
     blacklist: set[str],
+    conversation_id: str | None = None,
+    interactions: list[models.Interaction] | None = None,
 ) -> list[ToolSpec]:
     """Capability tools minus the blacklist (spec 006 FR-2). Chat is already absent (D4)."""
-    return [s for s in _capability_tool_specs(workspace_selector, citations) if s.name not in blacklist]
+    specs = _capability_tool_specs(workspace_selector, citations, conversation_id, interactions)
+    return [s for s in specs if s.name not in blacklist]
 
 
 def _allowed_tool_names(specs: list[ToolSpec]) -> list[str]:
@@ -233,6 +278,8 @@ async def run_stream(
     workspace_path: Path,
     resume_sid: str | None,
     citations: list[models.Citation],
+    conversation_id: str | None = None,
+    interactions: list[models.Interaction] | None = None,
 ) -> AsyncIterator[tuple[str, str | None]]:
     """Stream (accumulated_reply, sdk_session_id) as the agent produces text.
 
@@ -258,7 +305,9 @@ async def run_stream(
     # Mirror the capability layer minus the blacklist; derive the server and
     # allowed_tools from the SAME selected set so registration and permission agree
     # (spec 006 FR-3/FR-8). Chat is never in the set (structural exclusion, D4).
-    specs = _selected_specs(workspace_selector, citations, config.mcp_tool_blacklist())
+    specs = _selected_specs(
+        workspace_selector, citations, config.mcp_tool_blacklist(), conversation_id, interactions
+    )
     server = _build_server(specs)
     opts = ClaudeAgentOptions(
         system_prompt=system_prompt,

@@ -223,7 +223,7 @@ def test_fr14_ask_stream_marks_running_during_turn_and_clears(monkeypatch, isola
     cid = "inflight-123456"
     observed: dict[str, bool] = {}
 
-    async def _run_stream(system_prompt, message, selector, wpath, sid, citations):
+    async def _run_stream(system_prompt, message, selector, wpath, sid, citations, *_a, **_k):
         observed["mid"] = caps.is_running(cid)  # sampled while the turn is being processed
         yield ("partial…", sid)
         yield ("final reply", sid)
@@ -253,7 +253,7 @@ def test_fr14_running_cleared_even_when_turn_errors(monkeypatch, isolated_worksp
 
     cid = "boom-654321"
 
-    async def _boom(system_prompt, message, selector, wpath, sid, citations):
+    async def _boom(system_prompt, message, selector, wpath, sid, citations, *_a, **_k):
         raise RuntimeError("kaboom")
         yield  # pragma: no cover — marks this an async generator
 

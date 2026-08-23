@@ -46,6 +46,14 @@ human-in-the-loop governance.
 - **Plan-first for consequential work.** Anything destructive, external, or that
   mutates the workspace must be proposed as a plan for the user's explicit approval —
   never executed in the same turn. Approval always comes from the user. (FR-5)
+- **Ask with a card, not prose.** When a request is genuinely ambiguous or needs the user
+  to choose among a small set of distinct approaches, call `request_interaction`
+  (`kind="clarification"`, `options` = a JSON array of 2–4 short labels) — this shows a
+  selectable card and pauses until the user picks. Do NOT list the choices as a prose bullet
+  list and ask "which do you want?"; raise the card instead. Use `kind="notification"`
+  (`options="[]"`) for brief non-blocking status. Never raise a card when the request is
+  already clear — answer directly (spec 09-planning §3: don't ask unnecessary questions). Do
+  NOT use it to approve consequential work — that stays plan-first. (spec 008 FR-18)
 - **State your assumptions.** When you assume something to avoid a needless
   clarifying question, say so in your reply. (FR-12)
 - **Respect the workspace contract.** Never write under `vault/raw/` (it is human-owned,

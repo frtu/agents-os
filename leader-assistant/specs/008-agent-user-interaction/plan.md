@@ -53,11 +53,30 @@
   radio options + constant "chat about it" + Decline + an animated spinner/countdown. The bottom chat box
   always starts a new task. Reload recovery re-renders the card from `GET /api/chat/interaction`.
 
+## Agent-initiated interactions (FR-18)
+
+- **One narrow MCP tool — `request_interaction`.** Registered on the agent's MCP server (spec 006)
+  alongside the other capability tools, so the model can raise a card on its own judgment during a
+  routine turn (previously only the deterministic plan-first path could). It is **workspace- and
+  conversation-bound** like every other tool — the selector and `conversation_id` are injected from the
+  run context, never taken from tool args (spec 006 FR-6) — and it is **not** on the default blacklist.
+- **Clarification + notification only.** The tool accepts `kind ∈ {clarification, notification}` and
+  wraps `capabilities.create_interaction`, which validates the option bounds (clarification 2–4,
+  notification 0; FR-6) and one-blocking-at-a-time (FR-15). **`approval` is intentionally not exposed**
+  to the agent — authorization of consequential work stays with the deterministic plan-first path
+  (FR-14/FR-17), so the model cannot manufacture its own consent gate.
+- **Surfacing.** Handlers append each raised `Interaction` to a mutable list threaded through
+  `agent.run_stream` (same pattern as `citations`). After the stream the routine turn picks the first
+  blocking (clarification) card, else the first notification, and emits it on the final `ChatDelta`
+  (replacing the previous hard-coded `interaction=None`). Blocking cards are already persisted by
+  `create_interaction` (FR-11) so reload re-renders via `GET /api/chat/interaction`.
+- **Parity (P9).** The tool only adds an *initiation path*; delivery/response are still the same
+  `ChatDelta` + REST endpoints, so REST == chat is preserved.
+
 ## Deliberately not done
 
-- **No new agent MCP tools.** The interaction protocol is delivered via `ChatDelta` + the REST
-  response endpoints; adding agent-facing tools would change the default MCP surface (spec 006) without
-  need. Parity (P9) is satisfied by REST == chat delivery.
+- **No agent-initiated approval.** The agent may raise clarification/notification only; approval remains
+  produced solely by the plan-first path (FR-14/FR-17).
 - **No multi-select / free-form options, no background-job queue** — out of scope per the spec Non-Goals.
 
 ## Test mapping
