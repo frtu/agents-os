@@ -217,6 +217,32 @@ def test_settings_menu_css_unclips_inner_group():
     assert "overflow: visible;" in css  # #settings-menu must not clip the (previously) overflowing group
 
 
+# --- spec 004 full-height, bottom-anchored conversation (FR-36, AC-19) --------
+
+
+def test_chatbot_has_no_fixed_height_and_input_grows_fr36():
+    # FR-36: the transcript is not a fixed-height box (it flexes to fill), and the input can grow
+    # past one line (lines=1, max_lines>1) so it expands upward instead of a single fixed row.
+    src = UI_PATH.read_text()
+    chat_decl = src[src.index("chat = gr.Chatbot"):src.index("chat = gr.Chatbot") + 200]
+    assert "height=" not in chat_decl                       # no fixed height on the chatbot
+    box_start = src.index('placeholder="Ask about the project')
+    box_decl = src[box_start:box_start + 160]
+    assert "max_lines=" in box_decl and "lines=1" in box_decl
+
+
+def test_full_height_bottom_anchored_css_fr36():
+    # FR-36: the layout chain is capped to the viewport (100vh) as a flex column, the chatbot flexes
+    # to fill (min-height:0 so it shrinks as the input grows), and messages anchor to the bottom via
+    # an auto top-margin on the message list (collapses to 0 on overflow so scrolling still works).
+    css = ui._CSS
+    assert "height: 100vh !important;" in css
+    assert "main.contain > .column { display: flex; flex-direction: column; }" in css
+    assert "#chatbot { flex: 1 1 auto; min-height: 0; }" in css
+    assert "#chat-input-wrap { flex: 0 0 auto; }" in css
+    assert "#chatbot .message-wrap { margin-top: auto; }" in css
+
+
 # --- spec 008 interaction card as an in-chat message bubble (FR-10, AC-7) -----
 
 

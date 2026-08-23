@@ -294,20 +294,18 @@ _COPY_CONV_JS = """
 """
 
 _CSS = """
-/* spec 004 FR-36: the whole app fills the viewport so the conversation can take the leftover
-   vertical space. Make the Gradio container a full-height flex column; the chat panel flexes to
-   fill the gap between the header and the input, everything else keeps its natural height. */
-.gradio-container { height: 100vh !important; max-width: 100% !important; }
-.gradio-container > .main,
-.gradio-container > .main > .wrap,
-.gradio-container > .main > .wrap > .contain { height: 100%; }
-.gradio-container > .main > .wrap > .contain > .gap { display: flex; flex-direction: column; height: 100%; }
-/* The chatbot block flexes to fill; min-height:0 lets it shrink so its own scroll (not the page) runs. */
+/* spec 004 FR-36: the conversation fills the leftover vertical space, anchors messages to the
+   bottom, and lets the input grow upward. Cap the Gradio layout chain to the viewport height and
+   make the block column a flex column; then the chatbot flexes to fill and shrinks (min-height:0)
+   as the input grows, so the input's top edge rises instead of the page overflowing. */
+.gradio-container { height: 100vh !important; }
+.main.fillable, .wrap.sidebar-parent, main.contain, main.contain > .column { height: 100%; min-height: 0; }
+main.contain > .column { display: flex; flex-direction: column; }
 #chatbot { flex: 1 1 auto; min-height: 0; }
-#chatbot .wrap, #chatbot .bubble-wrap { height: 100%; }
-/* Anchor messages to the bottom: push the message list down with an auto top margin when it is
-   shorter than the panel, while still allowing normal scroll+overflow when it is taller (FR-36). */
-#chatbot .bubble-wrap > div:first-child,
+#chat-input-wrap { flex: 0 0 auto; }
+/* Anchor messages to the bottom of the scroll area: the auto top-margin pushes a short transcript
+   flush to the bottom, yet collapses to 0 when the transcript overflows so normal scrolling works. */
+#chatbot .bubble-wrap { display: flex; flex-direction: column; }
 #chatbot .message-wrap { margin-top: auto; }
 #refresh-vault button, #create-vault button { font-size: 1.1rem; padding: 0 6px; }
 /* spec 004 FR-33/FR-34: conversation header row — title then an icon-only copy button beside it.
