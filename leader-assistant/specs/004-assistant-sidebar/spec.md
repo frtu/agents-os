@@ -91,6 +91,11 @@ also offers).
 - **Scenario 7b — Start a new conversation:** As a user, I click **New conversation** at the top
   of the Sessions panel to begin a fresh chat thread, leaving my earlier conversations intact in
   the list below.
+- **Scenario 7c — Bookmark a workspace + sidebar state:** As a user, I open a workspace and toggle
+  the sidebar the way I like; the URL updates to `?workspace=…&sidebar=open|closed`. I bookmark it (or
+  share the link), and reopening it later restores the same workspace and sidebar state. Toggling the
+  sidebar updates the URL silently (no reload, my chat stays intact); switching workspaces reloads the
+  page onto the new deep-linked URL.
 - **Scenario 8 — Empty states:** As a first-time user, an empty workspace shows an empty
   `vault/wiki/` tree and an empty Sessions list with clear "nothing yet" messaging rather than
   errors.
@@ -117,6 +122,24 @@ Numbered, testable, unambiguous.
   **separated** and **isolated** area and interests" (the `**…**` segments rendered **bold**);
   **Knowledge** → "Accumulated knowledge in this area"; **Sessions** → "All previous cases
   (conversations)".
+
+### Deep-linkable state (bookmarkable URL)
+
+- **FR-29 (URL params + restore on load):** The active **workspace** and the sidebar's
+  **open/closed** state MUST be encoded in the page URL as bookmarkable query parameters —
+  `?workspace=<name>&sidebar=open|closed`. On page load the UI MUST **restore** from these params:
+  the named workspace becomes active (falling back to the default when the param is absent or names
+  an unknown workspace) and the sidebar starts open or closed per `sidebar` (absent ⇒ the FR-1
+  default of **closed/hidden**). The restored state MUST match a shared bookmark exactly.
+- **FR-30 (workspace change → full reload with deep link):** Selecting a workspace from the picker
+  (FR-4) or creating one (FR-6) MUST **navigate the page to the deep-linked URL** carrying the new
+  `workspace` (and the current `sidebar` state), i.e. a **full page reload**, so the bookmarkable
+  URL always reflects the active workspace.
+- **FR-31 (sidebar toggle → silent URL update):** Expanding or collapsing the whole sidebar (FR-1)
+  MUST update the `sidebar` query param **in place, without reloading the page** (via
+  `history.replaceState`), so the chat and all transient state are preserved while the URL stays
+  bookmarkable. (Individual **panel** collapse/expand, FR-2, is *not* URL-encoded — only the whole
+  sidebar's open/closed state is.)
 
 ### Workspaces panel (selector + create)
 
@@ -343,6 +366,12 @@ Numbered, testable, unambiguous.
   and ingest, and **persists across a server restart**; the UI reaches this only over `/api/*`.
   (FR-28, P9)
 
+- [ ] **AC-14:** The URL carries `?workspace=<name>&sidebar=open|closed`; loading such a URL
+  restores that workspace and sidebar state (absent/unknown ⇒ default workspace, sidebar closed).
+  **Switching or creating** a workspace navigates to the new deep-linked URL (full reload), while
+  **toggling the whole sidebar** updates the `sidebar` param silently via `history.replaceState`
+  (no reload, chat preserved). (FR-29, FR-30, FR-31)
+
 ## Resolved Decisions
 
 - **D1 — Relationship to 003:** this is a **new feature (004) that extends 003**; 003's chat
@@ -369,6 +398,11 @@ Numbered, testable, unambiguous.
   portal, log, sessions); uploads use a **separate sanctioned human channel**
   (`capabilities.deposit_raw`) that writes to `vault/raw/` directly and validates against path
   traversal. *(User decision.)*
+
+- **D6 — Sidebar toggle updates URL silently:** switching workspaces does a **full page reload**
+  onto the deep-linked URL (the workspace re-scopes everything anyway), but toggling the whole
+  sidebar updates the `sidebar` param **in place** via `history.replaceState` — no reload — so the
+  in-progress chat and transient UI state are preserved. *(User decision, 2026-08-23.)*
 
 ## Open Questions
 

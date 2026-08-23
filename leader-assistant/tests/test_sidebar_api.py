@@ -259,19 +259,19 @@ def test_initial_selects_default_and_hides_create(monkeypatch):
 
     monkeypatch.setattr(ui, "_wiki_html", lambda v: f"<em>{v}</em>")
     monkeypatch.setattr(ui, "_list_workspaces", lambda: {"workspaces": ["alpha", "beta"], "default": "beta"})
-    box, active, picker, _wiki, status, create = ui._initial()
+    box, active, picker, _wiki, status, create, *_ = ui._initial()
     assert box == "beta" and active == "beta" and status == "**Active:** beta"
     assert create["visible"] is False
     assert picker["visible"] is False and picker["choices"] == ["alpha"]  # others, hidden
 
     # Default not in the list → fall back to the first workspace.
     monkeypatch.setattr(ui, "_list_workspaces", lambda: {"workspaces": ["alpha"], "default": "gone"})
-    _b, active2, _p, _w, _s, _c = ui._initial()
+    _b, active2, _p, _w, _s, _c, *_ = ui._initial()
     assert active2 == "alpha"
 
     # No workspaces at all → no active, empty box, "nothing yet" indicator.
     monkeypatch.setattr(ui, "_list_workspaces", lambda: {"workspaces": [], "default": "x"})
-    box3, active3, _p3, _w3, status3, _c3 = ui._initial()
+    box3, active3, _p3, _w3, status3, _c3, *_ = ui._initial()
     assert box3 == "" and active3 is None and "No workspaces yet" in status3
 
 
@@ -283,7 +283,7 @@ def test_initial_surfaces_api_error(monkeypatch):
         raise RuntimeError("connection refused")
 
     monkeypatch.setattr(ui, "_list_workspaces", boom)
-    box, active, _picker, wiki, status, create = ui._initial()
+    box, active, _picker, wiki, status, create, *_ = ui._initial()
     assert box == "" and active is None
     assert "API not reachable" in wiki and "API error" in status
     assert create["visible"] is False

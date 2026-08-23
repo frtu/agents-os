@@ -10,8 +10,16 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import types
+
+from app import ui
 
 UI_PATH = pathlib.Path(__file__).resolve().parent.parent / "app" / "ui.py"
+
+
+def _req(**params):
+    """A minimal stand-in for gr.Request exposing dict-able query_params."""
+    return types.SimpleNamespace(query_params=params)
 
 
 def test_root_serves_web_ui(client):
@@ -56,3 +64,48 @@ def test_ui_client_targets_api_paths():
     src = UI_PATH.read_text()
     assert "/api/workspaces" in src
     assert "/api/chat/stream" in src
+
+
+# --- spec 004 deep-linkable URL state (FR-29/FR-30/FR-31, AC-14) --------------
+
+
+def test_initial_restores_workspace_and_open_sidebar_from_url(monkeypatch):
+    # FR-29: ?workspace=beta&sidebar=open restores that workspace active and opens the sidebar.
+    monkeypatch.setattr(ui, "_list_workspaces",
+                        lambda: {"workspaces": ["alpha", "beta"], "default": "alpha"})
+    monkeypatch.setattr(ui, "_wiki_html", lambda ws: "")
+    out = ui._initial(_req(workspace="beta", sidebar="open"))
+    assert out[1] == "beta"           # active workspace state
+    assert out[6]["open"] is True     # sidebar update opens
+
+
+def test_initial_defaults_and_hides_sidebar_without_params(monkeypatch):
+    # FR-29: absent params ⇒ default workspace, sidebar closed (FR-1 default).
+    monkeypatch.setattr(ui, "_list_workspaces",
+                        lambda: {"workspaces": ["alpha", "beta"], "default": "alpha"})
+    monkeypatch.setattr(ui, "_wiki_html", lambda ws: "")
+    out = ui._initial(_req())
+    assert out[1] == "alpha"
+    assert out[6]["open"] is False
+
+
+def test_initial_unknown_workspace_falls_back_to_default(monkeypatch):
+    # FR-29: an unknown ?workspace falls back to the default workspace.
+    monkeypatch.setattr(ui, "_list_workspaces",
+                        lambda: {"workspaces": ["alpha", "beta"], "default": "alpha"})
+    monkeypatch.setattr(ui, "_wiki_html", lambda ws: "")
+    out = ui._initial(_req(workspace="ghost", sidebar="closed"))
+    assert out[1] == "alpha"
+    assert out[6]["open"] is False
+
+
+def test_ui_wires_deep_link_navigation_and_silent_toggle():
+    # FR-30: workspace select/create navigates to the deep-linked URL (full reload).
+    # FR-31: sidebar toggle updates the URL silently via history.replaceState (no reload).
+    src = UI_PATH.read_text()
+    assert "window.location.href" in src          # FR-30 full reload
+    assert "_NAV_WORKSPACE_JS" in src
+    assert "history.replaceState" in src          # FR-31 silent update
+    assert "sidebar.expand(" in src and "sidebar.collapse(" in src
+    assert "searchParams.set('workspace'" in src
+    assert "searchParams.set('sidebar'" in src

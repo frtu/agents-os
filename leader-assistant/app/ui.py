@@ -183,6 +183,35 @@ _PANEL_TIP_JS = """
 }
 """
 
+# spec 004 FR-30: switching/creating a workspace navigates to the deep-linked URL (full reload),
+# preserving the current ?sidebar state. Takes the (updated) workspace-name box value.
+_NAV_WORKSPACE_JS = """
+(ws) => {
+  if (!ws) return;
+  const u = new URL(window.location);
+  u.searchParams.set('workspace', ws);
+  if (!u.searchParams.get('sidebar')) u.searchParams.set('sidebar', 'closed');
+  window.location.href = u.toString();
+}
+"""
+
+# spec 004 FR-31: toggling the whole sidebar updates ?sidebar in place (no reload) so the chat and
+# transient state survive; the URL stays bookmarkable.
+_SIDEBAR_OPEN_JS = """
+() => {
+  const u = new URL(window.location);
+  u.searchParams.set('sidebar', 'open');
+  history.replaceState(null, '', u.toString());
+}
+"""
+_SIDEBAR_CLOSED_JS = """
+() => {
+  const u = new URL(window.location);
+  u.searchParams.set('sidebar', 'closed');
+  history.replaceState(null, '', u.toString());
+}
+"""
+
 _CSS = """
 #refresh-vault button, #create-vault button { font-size: 1.1rem; padding: 0 6px; }
 .wiki-tree { font-size: 0.9rem; line-height: 1.5; max-height: 240px;
@@ -759,25 +788,36 @@ def _status(active):
     return "No workspaces yet — type a name and click ＋."
 
 
-def _initial():
-    """Populate the sidebar on page load (server is up by then)."""
+def _initial(request: gr.Request = None):
+    """Populate the sidebar on page load, restoring deep-linked state (spec 004 FR-29).
+
+    Reads ``?workspace=`` and ``?sidebar=open|closed`` from the URL: the named workspace becomes
+    active when known (else the default), and the sidebar opens only when ``sidebar=open`` (absent
+    ⇒ the FR-1 default of closed/hidden).
+    """
+    params = dict(request.query_params) if request is not None else {}
+    want_ws = params.get("workspace") or None
+    sidebar_open = gr.update(open=params.get("sidebar") == "open")
     try:
         info = _list_workspaces()
     except Exception as e:
         return (
             "", None, gr.update(choices=[], visible=False),
             f"<em>API not reachable: {html.escape(str(e))}</em>",
-            f"API error: {e}", gr.update(visible=False),
+            f"API error: {e}", gr.update(visible=False), sidebar_open,
         )
     vaults = info.get("workspaces", [])
     default = info.get("default", "default")
-    active = default if default in vaults else (vaults[0] if vaults else None)
+    if want_ws and want_ws in vaults:
+        active = want_ws  # FR-29: restore the bookmarked workspace.
+    else:
+        active = default if default in vaults else (vaults[0] if vaults else None)
     wiki = _wiki_html(active) if active else "<em>No workspaces yet.</em>"
     # FR-3: box pre-filled with the active name (the "original"); FR-5: Create hidden until changed.
     return (
         active or "", active,
         _picker_update(_others(vaults, active), visible=False),
-        wiki, _status(active), gr.update(visible=False),
+        wiki, _status(active), gr.update(visible=False), sidebar_open,
     )
 
 
@@ -929,7 +969,7 @@ def build_demo() -> gr.Blocks:
         interaction = gr.State(None)  # spec 008: the pending interaction dict, or None
         active_model = gr.State(None)  # spec 004 FR-28: the active agent model selector
 
-        with gr.Sidebar(open=False, width=340):
+        with gr.Sidebar(open=False, width=340) as sidebar:
             # spec 004 FR-26: the Model selector sits at the TOP of the sidebar (above all panels).
             model_picker = gr.Dropdown(
                 choices=[], label="Model", show_label=True, container=True,
@@ -1008,7 +1048,8 @@ def build_demo() -> gr.Blocks:
 
         # --- wiring ---
         sidebar_out = [vault_box, active_vault, vault_suggest, wiki_view, vault_status, create_btn]
-        demo.load(_initial, None, sidebar_out)
+        # spec 004 FR-29: _initial also restores the sidebar open/closed state from ?sidebar.
+        demo.load(_initial, None, sidebar_out + [sidebar])
         demo.load(_sessions_html, [active_vault], [sessions_view])
         # spec 004 FR-26/FR-27: populate the top-of-sidebar Model picker; FR-28: selecting persists.
         demo.load(_model_initial, None, [model_picker, model_source]).then(
@@ -1023,9 +1064,19 @@ def build_demo() -> gr.Blocks:
         # and toggles the Create button (FR-5).
         vault_box.focus(_on_focus, [active_vault], [vault_suggest])
         vault_box.input(_suggest, [vault_box, active_vault], [vault_suggest, create_btn])
-        vault_suggest.select(_pick_workspace, [vault_suggest, active_vault], sidebar_out)
+        # spec 004 FR-30: selecting or creating a workspace navigates to the deep-linked URL
+        # (full reload) so the bookmarkable URL always reflects the active workspace.
+        vault_suggest.select(_pick_workspace, [vault_suggest, active_vault], sidebar_out).then(
+            None, [vault_box], None, js=_NAV_WORKSPACE_JS
+        )
         refresh_btn.click(_refresh, [active_vault], sidebar_out)
-        create_btn.click(_create_vault_action, [vault_box, active_vault], sidebar_out)
+        create_btn.click(_create_vault_action, [vault_box, active_vault], sidebar_out).then(
+            None, [vault_box], None, js=_NAV_WORKSPACE_JS
+        )
+
+        # spec 004 FR-31: toggling the whole sidebar updates ?sidebar silently (no reload).
+        sidebar.expand(None, None, None, js=_SIDEBAR_OPEN_JS)
+        sidebar.collapse(None, None, None, js=_SIDEBAR_CLOSED_JS)
 
         # spec 004 FR-28: choosing a model persists it process-wide; revert on failure.
         model_picker.change(
