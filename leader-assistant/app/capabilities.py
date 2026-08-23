@@ -11,7 +11,8 @@ import asyncio
 import os
 import re
 import subprocess
-from datetime import date
+import uuid
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import AsyncIterator
 
@@ -730,10 +731,10 @@ async def _ask_stream_impl(
     conv = conversation.load_or_create(wpath, conversation_id)
     cid = conv.conversation_id
 
-    def delta(reply: str, *, done: bool, citations=None, pending=None, executed=False) -> models.ChatDelta:
+    def delta(reply: str, *, done: bool, citations=None, pending=None, executed=False, interaction=None) -> models.ChatDelta:
         return models.ChatDelta(
             workspace=name, conversation_id=cid, reply=reply, done=done,
-            citations=citations or [], pending_plan=pending, executed=executed,
+            citations=citations or [], pending_plan=pending, executed=executed, interaction=interaction,
         )
 
     # --- approval turn (D2) ---
@@ -743,6 +744,7 @@ async def _ask_stream_impl(
             pending_model = models.Plan(**conv.pending_plan["plan"]) if not executed else None
             if executed:
                 conversation.clear_pending_plan(conv)
+                conversation.clear_pending_interaction(conv)  # drop the shadow approval interaction (FR-17)
             conversation.append_turn(conv, message or "(approve)", reply)
             yield delta(reply, done=True, pending=pending_model, executed=executed)
         else:
@@ -757,8 +759,9 @@ async def _ask_stream_impl(
         p.requires_approval = True  # importing a skill is always consequential
         conversation.set_pending_plan(conv, message, p.model_dump())
         reply = _consequential_reply(p)
+        itx = _approval_interaction_for_plan(conv, message, p)  # deliver approval as an interaction (FR-17)
         conversation.append_turn(conv, message, reply)
-        yield delta(reply, done=True, pending=p)
+        yield delta(reply, done=True, pending=p, interaction=itx)
         return
 
     # --- consequential request → plan-first, no mutation this turn (FR-5) ---
@@ -766,8 +769,9 @@ async def _ask_stream_impl(
         p = _plan_for(message, selector)
         conversation.set_pending_plan(conv, message, p.model_dump())
         reply = _consequential_reply(p)
+        itx = _approval_interaction_for_plan(conv, message, p)  # deliver approval as an interaction (FR-17)
         conversation.append_turn(conv, message, reply)
-        yield delta(reply, done=True, pending=p)
+        yield delta(reply, done=True, pending=p, interaction=itx)
         return
 
     # --- routine request → agent answer via capabilities-as-tools (FR-2/6) ---
@@ -803,11 +807,357 @@ async def ask(
     async for d in ask_stream(workspace, message, conversation_id, approve):
         last = d
     assert last is not None
+    return _answer_from_delta(last)
+
+
+def _answer_from_delta(d: models.ChatDelta) -> models.ChatAnswer:
     return models.ChatAnswer(
-        workspace=last.workspace,
-        conversation_id=last.conversation_id,
-        reply=last.reply,
-        citations=last.citations,
-        pending_plan=last.pending_plan,
-        executed=last.executed,
+        workspace=d.workspace,
+        conversation_id=d.conversation_id,
+        reply=d.reply,
+        citations=d.citations,
+        pending_plan=d.pending_plan,
+        executed=d.executed,
+        interaction=d.interaction,
     )
+
+
+# --- agent<->user interaction channel (feature 008-agent-user-interaction) ---
+#
+# A blocking interaction (approval/clarification) is emitted at a turn boundary — the
+# durable `pending-interaction` record in the conversation is the source of truth (P1,
+# FR-11), streamed to the frontend as ChatDelta.interaction (FR-1) and answered via
+# `respond_to_interaction*`. Approval is the 1-proposal degenerate case of clarification
+# (D1); the plan-first approval flow (FR-5) is delivered as an approval interaction (FR-17).
+
+INTERACTION_TIMEOUT_MSG = "Something goes wrong, please retry later."  # spec 008 D6
+
+# Option-count bounds per kind (spec 008 FR-6): notification=0, approval=1, clarification=2–4.
+_KIND_BOUNDS = {"notification": (0, 0), "approval": (1, 1), "clarification": (2, 4)}
+
+
+def _new_interaction_id() -> str:
+    return "itx-" + uuid.uuid4().hex[:12]
+
+
+def _now_iso() -> str:
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def _is_expired(record: dict) -> bool:
+    """Whether a pending-interaction record's countdown has elapsed (spec 008 FR-9)."""
+    try:
+        created = datetime.fromisoformat(record["created"])
+    except (KeyError, ValueError, TypeError):
+        return False
+    return datetime.now() > created + timedelta(seconds=int(record.get("timeout_seconds", 30)))
+
+
+def _norm_option(i: int, opt) -> models.InteractionOption:
+    """Coerce a caller-supplied option (str | dict | model) into an InteractionOption."""
+    if isinstance(opt, models.InteractionOption):
+        return opt
+    if isinstance(opt, str):
+        return models.InteractionOption(id=f"opt-{i + 1}", label=opt)
+    if isinstance(opt, dict):
+        return models.InteractionOption(
+            id=opt.get("id") or f"opt-{i + 1}",
+            label=opt.get("label", f"Option {i + 1}"),
+            detail=opt.get("detail", ""),
+        )
+    raise WorkspaceError(f"invalid interaction option: {opt!r}")
+
+
+def _describe_interaction(itx: models.Interaction) -> str:
+    lines = [f"[{itx.kind}] {itx.prompt}"]
+    for o in itx.options:
+        lines.append(f"- ({o.id}) {o.label}" + (f" — {o.detail}" if o.detail else ""))
+    return "\n".join(lines)
+
+
+def _interaction_context(itx: models.Interaction) -> str:
+    """A message that scopes a 'chat about it' discussion to the pending decision (FR-7)."""
+    lines = [f"The user wants to discuss a pending {itx.kind}: {itx.prompt}"]
+    if itx.options:
+        lines.append("The options on the table are:")
+        for o in itx.options:
+            lines.append(f"- {o.label}" + (f" — {o.detail}" if o.detail else ""))
+    lines.append("Discuss this specific decision with the user; do not take any action or resolve it yet.")
+    return "\n".join(lines)
+
+
+def _interaction_from_record(record: dict) -> models.Interaction:
+    fields = models.Interaction.model_fields
+    return models.Interaction(**{k: record[k] for k in fields if k in record})
+
+
+def create_interaction(
+    selector: str | None,
+    conversation_id: str | None,
+    kind: str,
+    prompt: str,
+    options: list | None = None,
+    timeout: int | None = None,
+    *,
+    _plan: dict | None = None,
+    _request: str | None = None,
+) -> models.Interaction:
+    """Raise a mid-task interaction request, persisting blocking ones durably (spec 008 FR-1/2/6/13/15).
+
+    Validates the kind and the option-count bounds (FR-6); enforces at most one outstanding
+    blocking interaction per conversation (FR-15); captures the request into the sessions record
+    (FR-13). Notifications are non-blocking and not persisted (FR-3); approval/clarification are
+    persisted as the durable `pending-interaction` (FR-11). The `_plan`/`_request` payload lets an
+    approval wrap a plan-first plan (FR-17).
+    """
+    from . import config
+    from . import conversation as convo
+
+    if kind not in _KIND_BOUNDS:
+        raise WorkspaceError(f"unknown interaction kind: {kind!r}")
+    lo, hi = _KIND_BOUNDS[kind]
+    opts = [_norm_option(i, o) for i, o in enumerate(options or [])]
+    if not (lo <= len(opts) <= hi):
+        raise WorkspaceError(f"{kind} requires {lo}..{hi} options, got {len(opts)}")
+
+    name, workspace = _resolve_for_chat(selector)
+    conv = convo.load_or_create(workspace, conversation_id)
+
+    blocking = kind in ("approval", "clarification")
+    if blocking and conv.pending_interaction:
+        prev = conv.pending_interaction
+        if prev.get("status") == "pending" and not _is_expired(prev):
+            raise WorkspaceError("a blocking interaction is already pending for this conversation (FR-15)")
+
+    timeout_s = int(timeout) if timeout and int(timeout) > 0 else config.interaction_timeout_seconds()
+    itx = models.Interaction(
+        interaction_id=_new_interaction_id(),
+        conversation_id=conv.conversation_id,
+        kind=kind,
+        prompt=prompt,
+        options=opts,
+        timeout_seconds=timeout_s,
+        created=_now_iso(),
+        status="pending",
+    )
+    convo.append_event(conv, "interaction", _describe_interaction(itx))
+    if blocking:
+        record = itx.model_dump()
+        if _plan is not None:
+            record["plan"] = _plan
+            record["request"] = _request or ""
+        convo.set_pending_interaction(conv, record)
+    return itx
+
+
+def _approval_interaction_for_plan(conv, request: str, p: models.Plan) -> models.Interaction:
+    """Deliver a plan-first plan as an approval interaction wrapping the plan (spec 008 FR-17).
+
+    The single proposal is "Proceed with this plan"; accepting it executes the stored plan via
+    the same path as the legacy approve-to-execute turn. Persisted as the durable pending
+    interaction so a reloaded UI can re-render the approval card (FR-11).
+    """
+    from . import config
+    from . import conversation as convo
+
+    itx = models.Interaction(
+        interaction_id=_new_interaction_id(),
+        conversation_id=conv.conversation_id,
+        kind="approval",
+        prompt=f"Approve this plan (risk={p.risk})? {request}",
+        options=[models.InteractionOption(id="approve", label="Proceed with this plan", detail=p.request)],
+        timeout_seconds=config.interaction_timeout_seconds(),
+        created=_now_iso(),
+        status="pending",
+    )
+    record = itx.model_dump()
+    record["plan"] = p.model_dump()
+    record["request"] = request
+    convo.append_event(conv, "interaction", _describe_interaction(itx))
+    convo.set_pending_interaction(conv, record)
+    return itx
+
+
+def get_pending_interaction(selector: str | None, conversation_id: str) -> models.Interaction | None:
+    """Return a conversation's still-pending interaction so a reloaded client can re-render it (FR-11).
+
+    Read of the durable record (P1). If the countdown has elapsed, the interaction auto-resolves to
+    its safe default (timeout, no action), is cleared, and is returned with status='expired' so the
+    UI can surface the timeout (FR-9). Returns None when nothing is pending.
+    """
+    from . import conversation as convo
+
+    _, workspace = _resolve_scaffolded(selector)
+    conv = convo.load(workspace, conversation_id)
+    if conv is None or not conv.pending_interaction:
+        return None
+    record = conv.pending_interaction
+    itx = _interaction_from_record(record)
+    if _is_expired(record):
+        itx.status, itx.resolution = "expired", "timeout"
+        convo.append_event(conv, "interaction", f"[timeout] {itx.interaction_id} expired — no action taken")
+        convo.clear_pending_interaction(conv)
+    return itx
+
+
+async def respond_to_interaction_stream(
+    selector: str | None,
+    conversation_id: str,
+    interaction_id: str,
+    choice: str,
+) -> AsyncIterator[models.ChatDelta]:
+    """Answer a pending interaction and resume the task (spec 008 FR-7/FR-14/FR-16).
+
+    Idempotent and id-scoped (FR-16): an unknown, already-resolved, superseded, or expired id is
+    rejected with **no side effects**. `choice`:
+      - ``"chat"``   → open a discussion scoped to the interaction WITHOUT resolving it, then
+                        re-present the decision as a NEW interaction id (supersedes the old, D8/D9);
+      - ``"decline"``→ refuse; no consequential action runs (FR-14);
+      - an option id → authorize/select that proposal; a plan-wrapping approval executes it (FR-17).
+    """
+    from . import conversation as convo
+
+    name, wpath = _resolve_for_chat(selector)
+    conv = convo.load_or_create(wpath, conversation_id)
+    cid = conv.conversation_id
+
+    def delta(reply, *, done, citations=None, pending=None, executed=False, interaction=None):
+        return models.ChatDelta(
+            workspace=name, conversation_id=cid, reply=reply, done=done,
+            citations=citations or [], pending_plan=pending, executed=executed, interaction=interaction,
+        )
+
+    record = conv.pending_interaction
+    # FR-16: reject unknown / mismatched / already-resolved / superseded ids with no side effects.
+    if not record or record.get("interaction_id") != interaction_id or record.get("status") != "pending":
+        yield delta("That request is no longer awaiting a response.", done=True)
+        return
+    # FR-9: an elapsed countdown aborts with the fixed message and takes no action.
+    if _is_expired(record):
+        convo.append_event(conv, "interaction", f"[timeout] {interaction_id} expired — no action taken")
+        convo.clear_pending_interaction(conv)
+        yield delta(INTERACTION_TIMEOUT_MSG, done=True)
+        return
+
+    itx = _interaction_from_record(record)
+
+    # --- "chat about it" (FR-7): discuss in scope, never resolve; re-present a fresh interaction ---
+    if choice == "chat":
+        convo.append_event(conv, "interaction", f"[chat-about-it] discussing {interaction_id}")
+        _mark_running(cid)
+        try:
+            reply, citations = await _routine_reply(name, selector, wpath, conv, _interaction_context(itx))
+        finally:
+            _unmark_running(cid)
+        # Supersede the old id and re-present the same decision with a NEW id + fresh countdown (D8/D9).
+        fresh = _represent_interaction(conv, itx)
+        convo.append_turn(conv, "(chat about it)", reply)
+        yield delta(reply, done=True, citations=citations, interaction=fresh)
+        return
+
+    # --- decline (FR-14): no consequential action ---
+    if choice == "decline":
+        _resolve_record(conv, record, "declined")
+        if conv.pending_plan:
+            convo.clear_pending_plan(conv)
+        reply = "Declined — no action taken (human-in-the-loop, P8)."
+        convo.append_turn(conv, "(declined)", reply)
+        yield delta(reply, done=True)
+        return
+
+    chosen = next((o for o in itx.options if o.id == choice), None)
+    if chosen is None:
+        # Not a valid option → reject without side effects (the interaction stays pending).
+        yield delta("That is not a valid option for this request.", done=True)
+        return
+
+    _resolve_record(conv, record, chosen.id)
+
+    # --- approval wrapping a plan-first plan (FR-17) → execute it now ---
+    if "plan" in record:
+        reply, executed = _execute_pending(name, selector, {"request": record.get("request", ""), "plan": record["plan"]})
+        if executed and conv.pending_plan:
+            convo.clear_pending_plan(conv)
+        pending_model = None if executed else models.Plan(**record["plan"])
+        convo.append_turn(conv, f"(approved) {chosen.label}", reply)
+        yield delta(reply, done=True, pending=pending_model, executed=executed)
+        return
+
+    # --- generic clarification/approval selection → continue with that choice ---
+    reply = f"Proceeding with your choice: {chosen.label}."
+    convo.append_turn(conv, f"(selected) {chosen.label}", reply)
+    yield delta(reply, done=True)
+
+
+async def respond_to_interaction(
+    selector: str | None,
+    conversation_id: str,
+    interaction_id: str,
+    choice: str,
+) -> models.ChatAnswer:
+    """Non-streaming interaction response — drives the stream to completion (FR-12)."""
+    last: models.ChatDelta | None = None
+    async for d in respond_to_interaction_stream(selector, conversation_id, interaction_id, choice):
+        last = d
+    assert last is not None
+    return _answer_from_delta(last)
+
+
+def _resolve_record(conv, record: dict, resolution: str) -> None:
+    """Mark a pending interaction resolved (audit) and clear it from the durable record (FR-13/FR-16)."""
+    from . import conversation as convo
+
+    record["status"] = "resolved"
+    record["resolution"] = resolution
+    convo.append_event(conv, "interaction", f"[resolved] {record.get('interaction_id')} → {resolution}")
+    convo.clear_pending_interaction(conv)
+
+
+def _represent_interaction(conv, itx: models.Interaction) -> models.Interaction:
+    """Supersede a pending interaction and re-emit the same decision with a NEW id (spec 008 D8/D9)."""
+    from . import config
+    from . import conversation as convo
+
+    fresh = models.Interaction(
+        interaction_id=_new_interaction_id(),
+        conversation_id=conv.conversation_id,
+        kind=itx.kind,
+        prompt=itx.prompt,
+        options=itx.options,
+        timeout_seconds=itx.timeout_seconds or config.interaction_timeout_seconds(),
+        created=_now_iso(),  # fresh countdown after the discussion (D8)
+        status="pending",
+    )
+    record = fresh.model_dump()
+    # Preserve any plan payload so the re-presented approval still executes on accept (FR-17).
+    if conv.pending_interaction and "plan" in conv.pending_interaction:
+        record["plan"] = conv.pending_interaction["plan"]
+        record["request"] = conv.pending_interaction.get("request", "")
+    convo.append_event(conv, "interaction", _describe_interaction(fresh))
+    convo.set_pending_interaction(conv, record)
+    return fresh
+
+
+async def _routine_reply(name, selector, wpath, conv, message) -> tuple[str, list[models.Citation]]:
+    """Run one routine (non-consequential) turn to completion, returning (reply, citations).
+
+    Uses the agent runtime when available, else the deterministic cited fallback (FR-2). Shared by
+    the 'chat about it' discussion path so it stays in parity with the normal chat turn.
+    """
+    from . import agent, conversation, persona
+
+    system_prompt = persona.build_system_prompt()
+    citations: list[models.Citation] = []
+    final_reply, final_sid, agent_ok = "", conv.sdk_session_id, True
+    try:
+        async for reply, sid in agent.run_stream(
+            system_prompt, message, selector, wpath, conv.sdk_session_id, citations
+        ):
+            final_reply, final_sid = reply, sid
+    except agent.AgentUnavailable:
+        agent_ok = False
+    if agent_ok:
+        conversation.set_sdk_session_id(conv, final_sid)
+    else:
+        final_reply, citations = _fallback_answer(selector, message)
+    return final_reply, citations

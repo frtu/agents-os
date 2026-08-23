@@ -35,7 +35,9 @@ from pathlib import Path
 
 from . import vault as vault_mod
 
-_FRONT_KEYS = ("category", "conversation-id", "created", "sdk-session-id", "pending-plan")
+_FRONT_KEYS = (
+    "category", "conversation-id", "created", "sdk-session-id", "pending-plan", "pending-interaction",
+)
 
 
 @dataclass
@@ -53,6 +55,10 @@ class Conversation:
     created: str
     sdk_session_id: str | None = None
     pending_plan: dict | None = None  # {"request": str, "plan": {...models.Plan...}}
+    # spec 008 FR-11: a durable, blocking agent→user interaction awaiting a response.
+    # Shape: a serialised models.Interaction dict, optionally carrying a "plan"/"request"
+    # payload when the interaction wraps a plan-first approval (FR-17).
+    pending_interaction: dict | None = None
     turns: list[Turn] = field(default_factory=list)
 
 
@@ -73,6 +79,8 @@ def _render_frontmatter(conv: Conversation) -> str:
         lines.append(f"sdk-session-id: {conv.sdk_session_id}")
     if conv.pending_plan is not None:
         lines.append(f"pending-plan: {json.dumps(conv.pending_plan, ensure_ascii=False)}")
+    if conv.pending_interaction is not None:
+        lines.append(f"pending-interaction: {json.dumps(conv.pending_interaction, ensure_ascii=False)}")
     lines.append("---")
     return "\n".join(lines) + "\n"
 
@@ -129,6 +137,7 @@ def load(workspace: Path, conversation_id: str) -> Conversation | None:
         return None
     front, body = _parse(p.read_text(encoding="utf-8"))
     pending = front.get("pending-plan")
+    pending_itx = front.get("pending-interaction")
     return Conversation(
         conversation_id=front.get("conversation-id", conversation_id),
         path=p,
@@ -136,6 +145,7 @@ def load(workspace: Path, conversation_id: str) -> Conversation | None:
         created=front.get("created", date.today().isoformat()),
         sdk_session_id=front.get("sdk-session-id") or None,
         pending_plan=json.loads(pending) if pending else None,
+        pending_interaction=json.loads(pending_itx) if pending_itx else None,
         turns=_parse_turns(body),
     )
 
@@ -172,6 +182,20 @@ def append_turn(conv: Conversation, user_message: str, assistant_reply: str) -> 
     conv.turns.append(Turn("assistant", stamp, assistant_reply.strip()))
 
 
+def append_event(conv: Conversation, label: str, text: str) -> None:
+    """Append a single labelled block (append-only) — used to capture interactions (spec 008 FR-13).
+
+    Unlike ``append_turn`` (a user+assistant pair) this records one event, e.g. an interaction
+    request or its resolution, so decisions stay auditable in the durable ``sessions/`` record.
+    """
+    vault_mod.guard_write_path(conv.workspace, conv.path)
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    block = f"\n## [{stamp}] {label}\n{text.strip()}\n"
+    with conv.path.open("a", encoding="utf-8") as fh:
+        fh.write(block)
+    conv.turns.append(Turn(label, stamp, text.strip()))
+
+
 def _rewrite_frontmatter(conv: Conversation) -> None:
     """Replace only the frontmatter block; leave turn body bytes untouched."""
     vault_mod.guard_write_path(conv.workspace, conv.path)
@@ -186,6 +210,17 @@ def set_pending_plan(conv: Conversation, request: str, plan: dict) -> None:
 
 def clear_pending_plan(conv: Conversation) -> None:
     conv.pending_plan = None
+    _rewrite_frontmatter(conv)
+
+
+def set_pending_interaction(conv: Conversation, interaction: dict) -> None:
+    """Persist a blocking interaction as the durable source of truth (spec 008 FR-11, P1)."""
+    conv.pending_interaction = interaction
+    _rewrite_frontmatter(conv)
+
+
+def clear_pending_interaction(conv: Conversation) -> None:
+    conv.pending_interaction = None
     _rewrite_frontmatter(conv)
 
 

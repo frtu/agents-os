@@ -110,6 +110,9 @@ AC2). The human web UI (Gradio, spec 003) owns `/`, so Swagger is relocated to *
 | `POST` | `/api/chat` | `ChatRequest` | `ChatAnswer` |
 | `POST` | `/api/chat/stream` | `ChatRequest` | SSE stream of `ChatDelta` |
 | `GET`  | `/api/chat/status` | `?conversation_id=&workspace=` | `ChatStatus` (running, exists) |
+| `GET`  | `/api/chat/interaction` | `?conversation_id=&workspace=` | pending `Interaction` or null (spec 008) |
+| `POST` | `/api/chat/interaction` | `InteractionResponse` | `ChatAnswer` (resumes the task) |
+| `POST` | `/api/chat/interaction/stream` | `InteractionResponse` | SSE stream of `ChatDelta` |
 
 (Target contract; code still serves the `/api/vaults` + `vault` variants — see the
 divergence note above.)

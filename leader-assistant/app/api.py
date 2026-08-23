@@ -162,6 +162,60 @@ async def chat_stream(req: models.ChatRequest) -> StreamingResponse:
     return StreamingResponse(events(), media_type="text/event-stream")
 
 
+# --- agent<->user interaction (feature 008; parity, P9) --------------------
+
+
+@app.get(
+    "/api/chat/interaction",
+    response_model=models.Interaction | None,
+    tags=["chat"],
+    summary="Fetch a conversation's pending interaction",
+)
+def get_interaction(conversation_id: str, workspace: str | None = None) -> models.Interaction | None:
+    """Return the still-pending interaction for a conversation, or null (spec 008 FR-11).
+
+    Lets a reloaded/reconnected client re-render an unanswered approval/clarification card. An
+    elapsed interaction is auto-resolved to its safe default and returned with status='expired'.
+    """
+    return capabilities.get_pending_interaction(workspace, conversation_id)
+
+
+@app.post(
+    "/api/chat/interaction",
+    response_model=models.ChatAnswer,
+    tags=["chat"],
+    summary="Respond to a pending interaction",
+)
+async def respond_interaction(req: models.InteractionResponse) -> models.ChatAnswer:
+    """Answer a pending interaction by id and resume the task (spec 008 FR-12/FR-16).
+
+    Same protocol the UI uses (P9): `choice` is an option id, `decline`, or `chat`. Responding to
+    an unknown/resolved/expired id is rejected with no side effects.
+    """
+    try:
+        return await capabilities.respond_to_interaction(
+            req.workspace, req.conversation_id, req.interaction_id, req.choice
+        )
+    except WorkspaceError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/chat/interaction/stream", tags=["chat"], summary="Respond to a pending interaction (streamed, SSE)")
+async def respond_interaction_stream(req: models.InteractionResponse) -> StreamingResponse:
+    """SSE stream of the resumed turn after answering an interaction; final event has `done: true`."""
+
+    async def events():
+        try:
+            async for delta in capabilities.respond_to_interaction_stream(
+                req.workspace, req.conversation_id, req.interaction_id, req.choice
+            ):
+                yield f"data: {delta.model_dump_json()}\n\n"
+        except WorkspaceError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(events(), media_type="text/event-stream")
+
+
 # --- skills (feature 005-skill-import; parity, P9) --------------------------
 
 

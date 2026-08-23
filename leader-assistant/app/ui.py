@@ -43,6 +43,8 @@ GREETING = (
 )
 APPROVE_MSG = "Approve the pending plan and execute it."
 RAW_SUBDIRS = ["notes", "clippings", "docs", "transcripts", "assets"]
+# spec 008 D6: on timeout the card is dismissed and the user is told exactly this.
+INTERACTION_TIMEOUT_MSG = "Something goes wrong, please retry later."
 
 # Tooltip labels for the icon-only vault buttons, applied on load (spec 004 FR-5).
 _TOOLTIP_JS = """
@@ -109,6 +111,36 @@ _SESSION_JS = """
 # js shim for the hidden trigger: replace the (ignored) placeholder arg with the last-clicked id,
 # passing the active workspace through unchanged, so _open_session(conversation_id, vault) runs.
 _SESSION_PICK_JS = "(pick, vault) => [window.__lastCid || '', vault]"
+
+# spec 008 FR-9/D8: the interaction card's countdown. A single global interval drives the
+# visible remaining-seconds and, at zero, clicks the hidden #itx-expire trigger so the card is
+# dismissed with the timeout message. Called whenever the card is (re)rendered — it re-reads the
+# fresh data-seconds from #itx-timer, giving each re-presented interaction a fresh countdown
+# (D8: pause during "chat about it", reset after). If the card is hidden, #itx-timer is absent
+# and the timer simply stops.
+_COUNTDOWN_JS = """
+() => {
+  if (!window.__itx) window.__itx = {};
+  const s = window.__itx;
+  if (s.iv) { clearInterval(s.iv); s.iv = null; }
+  const timer = document.getElementById('itx-timer');
+  if (!timer) return;
+  let remaining = parseInt(timer.getAttribute('data-seconds') || '30', 10);
+  const out = document.getElementById('itx-remaining');
+  const tick = () => {
+    if (out) out.textContent = remaining;
+    if (remaining <= 0) {
+      clearInterval(s.iv); s.iv = null;
+      const btn = document.getElementById('itx-expire');
+      if (btn) btn.click();
+      return;
+    }
+    remaining -= 1;
+  };
+  tick();
+  s.iv = setInterval(tick, 1000);
+}
+"""
 
 # spec 004 FR-2b: per-panel header tooltips describing each panel's purpose. Native `title` renders
 # unreliably on the accordion header (as with the wiki tree), and the Area tooltip contains `**bold**`
@@ -206,6 +238,25 @@ _CSS = """
   border: 1px solid var(--border-color-primary, #4b5563); border-radius: 4px;
   padding: 4px 8px; font-size: 0.8rem; box-shadow: 0 2px 6px rgba(0,0,0,0.35);
 }
+/* spec 008 FR-8: the interaction card is visually distinct from the chat box below it — a
+   bordered, tinted panel with its own controls and an animated countdown wheel. */
+#interaction-card {
+  border: 1px solid var(--color-accent, #f59e0b); border-radius: 8px; padding: 12px 14px;
+  margin: 6px 2px; background: var(--background-fill-secondary);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.itx-timer {
+  display: flex; align-items: center; gap: 8px; margin-top: 6px;
+  font-size: 0.82rem; color: var(--body-text-color-subdued);
+}
+.itx-spinner {
+  width: 15px; height: 15px; border: 2px solid var(--border-color-primary, #4b5563);
+  border-top-color: var(--color-accent, #f59e0b); border-radius: 50%;
+  display: inline-block; animation: itx-spin 0.8s linear infinite;
+}
+@keyframes itx-spin { to { transform: rotate(360deg); } }
+/* Hidden expire trigger clicked by the countdown JS at zero. */
+.itx-hidden { display: none !important; }
 """
 
 
@@ -265,6 +316,40 @@ def _post_upload(workspace: str, provenance: str, filename: str, data: bytes) ->
     )
     r.raise_for_status()
     return r.json()
+
+
+def _get_pending_interaction(workspace, conversation_id) -> dict | None:
+    """Fetch a conversation's still-pending interaction (spec 008 FR-11), for reload recovery."""
+    r = httpx.get(
+        f"{_api_base()}/api/chat/interaction",
+        params={"workspace": workspace, "conversation_id": conversation_id},
+        timeout=10.0,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+async def _stream_interaction(workspace, conversation_id, interaction_id, choice):
+    """Yield decoded ChatDelta dicts from the interaction-response SSE stream (spec 008 FR-12/FR-16)."""
+    payload = {
+        "workspace": workspace or None,
+        "conversation_id": conversation_id,
+        "interaction_id": interaction_id,
+        "choice": choice,
+    }
+    async with httpx.AsyncClient(base_url=_api_base(), timeout=httpx.Timeout(None)) as c:
+        async with c.stream("POST", "/api/chat/interaction/stream", json=payload) as r:
+            if r.status_code != 200:
+                body = (await r.aread()).decode(errors="replace")[:300]
+                yield {"error": f"API {r.status_code}: {body}"}
+                return
+            async for line in r.aiter_lines():
+                line = line.strip()
+                if line.startswith("data:"):
+                    try:
+                        yield json.loads(line[len("data:"):].strip())
+                    except json.JSONDecodeError:
+                        continue
 
 
 async def _stream_chat(workspace, message, conversation_id, approve):
@@ -430,32 +515,38 @@ def _add_approve_msg(history):
 
 
 async def _run_turn(history, conversation_id, workspace, approve):
-    """Stream one assistant turn, updating the last message as text arrives."""
+    """Stream one assistant turn, updating the last message as text arrives.
+
+    A consequential turn ends with an approval interaction (spec 008 FR-17); the card owns
+    approval, so the legacy Approve button only shows for the rare plan without an interaction.
+    """
     user_msg = _text(history[-1]["content"]) if history else ""
     history = history + [{"role": "assistant", "content": THINKING}]
-    yield history, conversation_id, gr.update(visible=False)
+    yield (history, conversation_id, gr.update(visible=False), *_card_updates(None))
 
     reply, cid = "", conversation_id
-    citations, pending = [], None
+    citations, pending, interaction = [], None, None
     try:
         async for data in _stream_chat(workspace, user_msg, conversation_id, approve):
             if "error" in data:
                 history[-1]["content"] = f"⚠️ {data['error']}"
-                yield history, cid, gr.update(visible=False)
+                yield (history, cid, gr.update(visible=False), *_card_updates(None))
                 return
             reply = data.get("reply", reply)
             cid = data.get("conversation_id", cid)
             citations = data.get("citations") or citations
             pending = data.get("pending_plan") or pending
+            interaction = data.get("interaction") or interaction
             history[-1]["content"] = reply or THINKING
-            yield history, cid, gr.update(visible=False)
+            yield (history, cid, gr.update(visible=False), *_card_updates(None))
     except Exception as e:  # network/transport failure -> surface it (FR-11)
         history[-1]["content"] = f"⚠️ Could not reach the API: {e}"
-        yield history, cid, gr.update(visible=False)
+        yield (history, cid, gr.update(visible=False), *_card_updates(None))
         return
 
     history[-1]["content"] = (reply or "…") + _format_extras(citations, pending)
-    yield history, cid, gr.update(visible=bool(pending))
+    show_approve = bool(pending) and not interaction
+    yield (history, cid, gr.update(visible=show_approve), *_card_updates(interaction))
 
 
 async def _respond(history, conversation_id, workspace):
@@ -466,6 +557,132 @@ async def _respond(history, conversation_id, workspace):
 async def _approve(history, conversation_id, workspace):
     async for out in _run_turn(history, conversation_id, workspace, approve=True):
         yield out
+
+
+# --- agent<->user interaction card (feature 008) ---------------------------
+
+
+def _timer_html(seconds: int) -> str:
+    """Countdown wheel + remaining-seconds; `data-seconds` seeds the JS timer (spec 008 FR-9)."""
+    seconds = int(seconds or 0)
+    return (
+        f"<div class='itx-timer' id='itx-timer' data-seconds='{seconds}'>"
+        f"<span class='itx-spinner'></span>"
+        f"<span>Auto-cancels in <b id='itx-remaining'>{seconds}</b>s — nothing changes until you choose.</span>"
+        f"</div>"
+    )
+
+
+def _card_updates(interaction: dict | None):
+    """Updates for [card, prompt, radio, timer, interaction-state] from a ChatDelta interaction.
+
+    A blocking interaction (approval/clarification) shows the card with its options as radios and
+    a fresh countdown (spec 008 FR-6/FR-8). Anything else — no interaction or a non-blocking
+    notification — hides the card and clears the state.
+    """
+    if not interaction or interaction.get("kind") == "notification":
+        return (
+            gr.update(visible=False),
+            gr.update(),
+            gr.update(choices=[], value=None, visible=False),
+            gr.update(value=""),
+            None,
+        )
+    prompt = interaction.get("prompt", "")
+    opts = interaction.get("options", [])
+    seconds = int(interaction.get("timeout_seconds", 30) or 30)
+    choices = [(o.get("label") or o.get("id"), o.get("id")) for o in opts]
+    value = choices[0][1] if len(choices) == 1 else None  # approval pre-selects its lone option
+    return (
+        gr.update(visible=True),
+        gr.update(value=f"**Decision needed** — {prompt}"),
+        gr.update(choices=choices, value=value, visible=bool(choices)),
+        gr.update(value=_timer_html(seconds)),
+        interaction,
+    )
+
+
+async def _run_interaction(history, conversation_id, workspace, interaction, choice):
+    """Answer a pending interaction and stream the resumed turn (spec 008 FR-12/FR-16).
+
+    Reflects the human's decision in the transcript, hides the card while the turn runs
+    (pausing the countdown, D8), then re-shows the card only if a fresh interaction is
+    re-presented ("chat about it", FR-7); otherwise the card stays dismissed.
+    """
+    if not interaction:
+        yield (history, conversation_id, gr.update(visible=False), *_card_updates(None))
+        return
+    interaction_id = interaction.get("interaction_id")
+    label = {"chat": "💬 Let's discuss this first", "decline": "Decline — take no action"}.get(choice)
+    if label is None:
+        label = next(
+            (o.get("label") or o.get("id") for o in interaction.get("options", []) if o.get("id") == choice),
+            choice,
+        )
+    history = history + [
+        {"role": "user", "content": label},
+        {"role": "assistant", "content": THINKING},
+    ]
+    yield (history, conversation_id, gr.update(visible=False), *_card_updates(None))
+
+    reply, cid = "", conversation_id
+    citations, fresh = [], None
+    try:
+        async for data in _stream_interaction(workspace, conversation_id, interaction_id, choice):
+            if "error" in data:
+                history[-1]["content"] = f"⚠️ {data['error']}"
+                yield (history, cid, gr.update(visible=False), *_card_updates(None))
+                return
+            reply = data.get("reply", reply)
+            cid = data.get("conversation_id", cid)
+            citations = data.get("citations") or citations
+            fresh = data.get("interaction") or fresh
+            history[-1]["content"] = reply or THINKING
+            yield (history, cid, gr.update(visible=False), *_card_updates(None))
+    except Exception as e:  # network/transport failure -> surface it (FR-11)
+        history[-1]["content"] = f"⚠️ Could not reach the API: {e}"
+        yield (history, cid, gr.update(visible=False), *_card_updates(None))
+        return
+
+    history[-1]["content"] = (reply or "…") + _format_extras(citations, None)
+    yield (history, cid, gr.update(visible=False), *_card_updates(fresh))
+
+
+async def _submit_interaction(history, conversation_id, workspace, interaction, radio_value):
+    if not radio_value:  # nothing selected — keep the card up (countdown restarts on .then)
+        yield (history, conversation_id, gr.update(visible=False), *_card_updates(interaction))
+        return
+    async for out in _run_interaction(history, conversation_id, workspace, interaction, radio_value):
+        yield out
+
+
+async def _decline_interaction(history, conversation_id, workspace, interaction):
+    async for out in _run_interaction(history, conversation_id, workspace, interaction, "decline"):
+        yield out
+
+
+async def _chat_interaction(history, conversation_id, workspace, interaction):
+    async for out in _run_interaction(history, conversation_id, workspace, interaction, "chat"):
+        yield out
+
+
+def _expire_interaction(history, interaction):
+    """Countdown reached zero: dismiss the card and report the fixed timeout message (spec 008 D6)."""
+    if not interaction:
+        return (history, *_card_updates(None))
+    history = (history or []) + [{"role": "assistant", "content": INTERACTION_TIMEOUT_MSG}]
+    return (history, *_card_updates(None))
+
+
+def _recover_card(conversation_id, workspace):
+    """Re-render an unanswered card after a reload/session-resume (spec 008 FR-11)."""
+    if not conversation_id:
+        return _card_updates(None)
+    try:
+        itx = _get_pending_interaction(workspace, conversation_id)
+    except Exception:
+        itx = None
+    return _card_updates(itx)
 
 
 # --- sidebar handlers (feature 004) ----------------------------------------
@@ -661,6 +878,7 @@ def build_demo() -> gr.Blocks:
         gr.HTML(f"<style>{_CSS}</style>")
         conversation = gr.State(None)
         active_vault = gr.State(None)
+        interaction = gr.State(None)  # spec 008: the pending interaction dict, or None
 
         with gr.Sidebar(open=True, width=340):
             # spec 004 FR-2a: advanced surface — collapsed by default; FR-2b tooltip via _PANEL_TIP_JS.
@@ -716,6 +934,19 @@ def build_demo() -> gr.Blocks:
             height=560, show_label=False,
             value=[{"role": "assistant", "content": GREETING}],
         )
+        # spec 008 FR-8: a distinct decision card, above the (always new-task) chat box. It carries
+        # its own radio options, a constant "chat about it" affordance, and an animated countdown.
+        with gr.Group(visible=False, elem_id="interaction-card") as interaction_card:
+            interaction_prompt = gr.Markdown("")
+            interaction_radio = gr.Radio(choices=[], show_label=False, container=False, visible=False)
+            interaction_timer = gr.HTML("")
+            with gr.Row():
+                interaction_submit = gr.Button("Submit", variant="primary", scale=2)
+                interaction_chat = gr.Button("💬 Chat about it", scale=2)
+                interaction_decline = gr.Button("Decline", variant="stop", scale=1)
+            # Hidden trigger the countdown JS clicks at zero (spec 008 D6).
+            interaction_expire = gr.Button(elem_id="itx-expire", elem_classes=["itx-hidden"])
+
         box = gr.Textbox(show_label=False, submit_btn=True, placeholder="Ask about the project…")
         approve_btn = gr.Button("✅ Approve plan", variant="primary", visible=False)
 
@@ -740,10 +971,14 @@ def build_demo() -> gr.Blocks:
         active_vault.change(_sessions_html, [active_vault], [sessions_view])
         refresh_btn.click(_sessions_html, [active_vault], [sessions_view])
         # Clicking a session row (JS) clicks session_go; the js shim injects the clicked id so
-        # _open_session resumes that conversation in the chat (FR-19/FR-20).
+        # _open_session resumes that conversation in the chat (FR-19/FR-20). On resume, recover any
+        # still-pending interaction card (spec 008 FR-11) and (re)start its countdown.
+        card_out = [interaction_card, interaction_prompt, interaction_radio, interaction_timer, interaction]
         session_go.click(
             _open_session, [session_pick, active_vault], [chat, conversation],
             js=_SESSION_PICK_JS,
+        ).then(_recover_card, [conversation, active_vault], card_out).then(
+            None, None, None, js=_COUNTDOWN_JS
         )
 
         upload_btn.click(
@@ -752,13 +987,32 @@ def build_demo() -> gr.Blocks:
             [upload_group, upload_progress, upload_status, uploader, wiki_view],
         )
 
-        new_chat_btn.click(_new_chat, None, [chat, conversation])
+        # New conversation clears the chat and dismisses any open interaction card (FR-8).
+        new_chat_btn.click(_new_chat, None, [chat, conversation]).then(
+            lambda: _card_updates(None), None, card_out
+        )
 
+        # spec 008 FR-8: the bottom chat box always starts a NEW task; it never answers the card.
+        turn_out = [chat, conversation, approve_btn, *card_out]
         box.submit(_user_submit, [box, chat], [box, chat]).then(
-            _respond, [chat, conversation, active_vault], [chat, conversation, approve_btn]
-        )
+            _respond, [chat, conversation, active_vault], turn_out
+        ).then(None, None, None, js=_COUNTDOWN_JS)
         approve_btn.click(_add_approve_msg, [chat], [chat]).then(
-            _approve, [chat, conversation, active_vault], [chat, conversation, approve_btn]
-        )
+            _approve, [chat, conversation, active_vault], turn_out
+        ).then(None, None, None, js=_COUNTDOWN_JS)
+
+        # spec 008 FR-7/FR-12/FR-16: the card's own controls answer the pending interaction.
+        interaction_submit.click(
+            _submit_interaction,
+            [chat, conversation, active_vault, interaction, interaction_radio],
+            turn_out,
+        ).then(None, None, None, js=_COUNTDOWN_JS)
+        interaction_chat.click(
+            _chat_interaction, [chat, conversation, active_vault, interaction], turn_out,
+        ).then(None, None, None, js=_COUNTDOWN_JS)
+        interaction_decline.click(
+            _decline_interaction, [chat, conversation, active_vault, interaction], turn_out,
+        ).then(None, None, None, js=_COUNTDOWN_JS)
+        interaction_expire.click(_expire_interaction, [chat, interaction], [chat, *card_out])
 
     return demo

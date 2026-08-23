@@ -157,6 +157,9 @@ class ChatAnswer(BaseModel):
         None, description="Populated when the request is consequential and awaits approval (FR-5)"
     )
     executed: bool = Field(False, description="True when this turn approved and executed a stored plan (FR-5)")
+    interaction: "Interaction | None" = Field(
+        None, description="A pending agent→user interaction card raised by this turn (spec 008 FR-1/FR-2)"
+    )
 
 
 class ChatDelta(BaseModel):
@@ -169,6 +172,9 @@ class ChatDelta(BaseModel):
     citations: list[Citation] = Field(default_factory=list)
     pending_plan: Plan | None = None
     executed: bool = False
+    interaction: "Interaction | None" = Field(
+        None, description="A pending agent→user interaction card raised by this turn (spec 008 FR-1/FR-2)"
+    )
 
 
 class ChatStatus(BaseModel):
@@ -185,6 +191,58 @@ class ChatStatus(BaseModel):
     )
     exists: bool = Field(
         ..., description="True when a durable session record exists for this conversation id"
+    )
+
+
+# --- agent<->user interaction (feature 008-agent-user-interaction) -----------
+
+
+class InteractionOption(BaseModel):
+    """One selectable proposal on an interaction card (spec 008 FR-5/FR-6).
+
+    For an approval this is the single thing being consented to (rendered Yes/No);
+    for a clarification these are the 2–4 distinct approaches. The constant
+    "chat about it" affordance is NOT an option — it is added by every surface (FR-7).
+    """
+
+    id: str = Field(..., description="Stable option id referenced by an Interaction Response")
+    label: str = Field(..., description="Short, human-readable choice text")
+    detail: str = Field("", description="Optional rationale / longer description")
+
+
+class Interaction(BaseModel):
+    """A structured mid-task request from the backend for the user to notice or decide (spec 008 FR-2).
+
+    `kind` is one of notification | approval | clarification. Option bounds (FR-6):
+    notification=0, approval=1, clarification=2–4. `status` moves pending → resolved |
+    expired | superseded; `resolution` records the chosen option id, "declined", or "timeout".
+    """
+
+    interaction_id: str = Field(..., description="Unique id, scoped to the conversation (FR-2)")
+    conversation_id: str
+    kind: str = Field(..., description="'notification' | 'approval' | 'clarification'")
+    prompt: str = Field(..., description="Human-readable message / question")
+    options: list[InteractionOption] = Field(
+        default_factory=list, description="Proposals (0=notification, 1=approval, 2–4=clarification)"
+    )
+    timeout_seconds: int = Field(30, description="Countdown before the safe-default resolution (FR-9)")
+    created: str = Field(..., description="ISO-8601 timestamp the request was (re-)presented")
+    status: str = Field("pending", description="pending | resolved | expired | superseded")
+    resolution: str | None = Field(
+        None, description="Chosen option id, 'declined', or 'timeout' once resolved"
+    )
+
+
+class InteractionResponse(BaseModel):
+    """The user's (or machine caller's) answer to a pending interaction (spec 008 FR-12/FR-16)."""
+
+    workspace: str | None = Field(None, description="Workspace selector; omitted = default")
+    conversation_id: str = Field(..., description="Conversation the interaction belongs to")
+    interaction_id: str = Field(..., description="The interaction id being answered (FR-16)")
+    choice: str = Field(
+        ...,
+        description="An option id to select/approve, 'decline' to refuse, or 'chat' for deep context (FR-7)",
+        examples=["opt-1", "decline", "chat"],
     )
 
 
@@ -294,3 +352,8 @@ class ImportSkillReport(BaseModel):
     link_path: str = Field(..., description="Path of the created skills/<name> link, relative to the workspace")
     committed: bool = Field(..., description="Whether the install was recorded as a git commit")
     message: str
+
+
+# ChatAnswer/ChatDelta forward-reference Interaction (defined below them); resolve now.
+ChatAnswer.model_rebuild()
+ChatDelta.model_rebuild()

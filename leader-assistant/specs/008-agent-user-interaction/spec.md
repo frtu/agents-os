@@ -1,7 +1,7 @@
 # Feature Specification: Agent–User Interaction (Approval, Clarification & Live Feedback)
 
 **Feature ID:** `008-agent-user-interaction`
-**Status:** Draft
+**Status:** Implemented (see [`plan.md`](plan.md))
 **Created:** 2026-08-23 · **Last Updated:** 2026-08-23
 
 > Describes **what** and **why**, never **how**. Realizes the clarification & human-in-the-loop
@@ -85,8 +85,8 @@ over REST for machine callers (P9).
   is the *only* way to talk *about* the pending decision.
 - **Scenario 5 — I walked away (timeout):** As a user who left the screen, when the countdown reaches
   zero, the pending approval/clarification resolves to its **safe default** (no consequential action
-  taken) and the agent reports that it timed out and did nothing, so I'm never surprised by an action
-  I didn't authorize.
+  taken); the card is dismissed and the agent reports **"Something goes wrong, please retry later"** so
+  I'm never surprised by an action I didn't authorize and know to re-ask.
 - **Scenario 6 — I reloaded (durability):** As a user who refreshed the page or reconnected while a
   question was pending, when the UI reloads, the **pending interaction card reappears** with its
   options and I can still answer it — the agent didn't lose the question.
@@ -134,7 +134,9 @@ Numbered, testable, unambiguous.
   final **"chat about it"** option. Selecting it MUST open a **focused discussion scoped to the pending
   interaction's context** (its prompt, proposals, and rationale) **without resolving** the interaction.
   After discussing, the user MUST still be able to select a proposal / approve, and the agent MAY
-  **re-present an updated interaction** for the same decision.
+  **re-present an updated interaction** for the same decision — a re-presented interaction is a **new
+  interaction with a new id** that **supersedes** the prior one (the prior id becomes non-answerable,
+  D9). While in "chat about it", the pending interaction's countdown is **paused** (FR-9, D8).
 - **FR-8 (new-task vs. deep-context boundary):** The always-present **bottom chat box** MUST start a
   **new top-level task/turn** and MUST **not** be interpreted as an answer to any pending interaction.
   The **only** way to enter the pending interaction's deep context is the card's **"chat about it"**
@@ -147,7 +149,10 @@ Numbered, testable, unambiguous.
   optional per-request override), and the **remaining time SHOULD be visible** (an animated wheel /
   countdown). On expiry: a **notification** auto-dismisses; a **blocking** request (approval,
   clarification) resolves to its **safe default = no proposal selected / not approved**, so gated work
-  does **not** proceed (FR-14). Timeout of a blocking request MUST be reported back to the user.
+  does **not** proceed (FR-14). Timeout of a blocking request MUST **abort** the interaction and report
+  the exact message **"Something goes wrong, please retry later"** to the user (D6). The countdown MUST
+  **pause** while the user is in the card's "chat about it" discussion and **reset** to a fresh timeout
+  when the interaction is (re-)presented afterward (D8).
 - **FR-10 (distinct interaction card):** Approval and clarification MUST render as a **visually
   distinct card** — clearly differentiated from ordinary chat messages — so the user immediately
   recognizes that **their input is required**. The card MUST show the prompt, the selectable options as
@@ -233,36 +238,37 @@ Numbered, testable, unambiguous.
 
 ## Acceptance Criteria
 
-- [ ] **AC-1:** During a task the backend can stream an Interaction Request to the frontend and pause
+- [x] **AC-1:** During a task the backend can stream an Interaction Request to the frontend and pause
   the gated work until a matching response or timeout; the frontend renders it before the turn ends.
   (FR-1, FR-2)
-- [ ] **AC-2:** An **approval** request shows exactly one proposal with **Yes/No** plus **"chat about
+- [x] **AC-2:** An **approval** request shows exactly one proposal with **Yes/No** plus **"chat about
   it"**; **Yes** proceeds, **No** does not, and neither is inferred without an explicit click.
   (FR-4, FR-6, FR-14)
-- [ ] **AC-3:** A **clarification** request shows **2–4** single-select proposals plus **"chat about
+- [x] **AC-3:** A **clarification** request shows **2–4** single-select proposals plus **"chat about
   it"**; selecting exactly one causes the agent to continue with that choice; a request with 0, 1, or
   >4 proposals is rejected as malformed. (FR-5, FR-6)
-- [ ] **AC-4:** Selecting **"chat about it"** opens a discussion **scoped to that interaction** without
+- [x] **AC-4:** Selecting **"chat about it"** opens a discussion **scoped to that interaction** without
   resolving it; afterward the user can still select/approve, and the agent may re-present an updated
   interaction. (FR-7)
-- [ ] **AC-5:** Typing in the **bottom chat box** while an interaction is pending starts a **new task**
+- [x] **AC-5:** Typing in the **bottom chat box** while an interaction is pending starts a **new task**
   and does **not** answer the pending interaction, which remains answerable. (FR-8)
-- [ ] **AC-6:** Every request carries a timeout defaulting to **30s** and configurable; on expiry a
+- [x] **AC-6:** Every request carries a timeout defaulting to **30s** and configurable; on expiry a
   notification auto-dismisses and a blocking request resolves to **no authorization** (nothing
-  consequential runs) and reports the timeout; remaining time is visible. (FR-9, FR-14)
-- [ ] **AC-7:** Approval and clarification render as a **visually distinct card** (progress/countdown +
+  consequential runs) and reports **"Something goes wrong, please retry later"**; remaining time is
+  visible and the countdown pauses during "chat about it". (FR-9, FR-14, D6, D8)
+- [x] **AC-7:** Approval and clarification render as a **visually distinct card** (progress/countdown +
   radio options + "chat about it") clearly marking that input is required. (FR-10)
-- [ ] **AC-8:** A pending interaction is **recoverable after reload/restart** and can be re-rendered and
+- [x] **AC-8:** A pending interaction is **recoverable after reload/restart** and can be re-rendered and
   answered; the durable record is authoritative. (FR-11, P1)
-- [ ] **AC-9:** The interaction request/response protocol works over **REST** for a machine caller with
+- [x] **AC-9:** The interaction request/response protocol works over **REST** for a machine caller with
   effect equivalent to a UI click, verified by a parity check. (FR-12, P9)
-- [ ] **AC-10:** Each interaction (request, options, resolution/timeout, and any "chat about it" turns)
+- [x] **AC-10:** Each interaction (request, options, resolution/timeout, and any "chat about it" turns)
   is recorded in the conversation's `sessions/` record. (FR-13, P6)
-- [ ] **AC-11:** Responding to an **unknown/resolved/expired** interaction id is rejected with **no
+- [x] **AC-11:** Responding to an **unknown/resolved/expired** interaction id is rejected with **no
   side effects** — no double execution, no post-timeout execution. (FR-16)
-- [ ] **AC-12:** At most **one blocking** interaction is outstanding per task and gated work does not
+- [x] **AC-12:** At most **one blocking** interaction is outstanding per task and gated work does not
   proceed while it is; notifications may stream alongside. (FR-15)
-- [ ] **AC-13:** A consequential request's plan-first approval ([[002-assistant-chat]] FR-5) is
+- [x] **AC-13:** A consequential request's plan-first approval ([[002-assistant-chat]] FR-5) is
   delivered as an **approval** interaction, preserving "plan shown → explicit approval → execute"
   (P8). (FR-17)
 
@@ -277,26 +283,28 @@ Numbered, testable, unambiguous.
 - **D4 — Bottom chat box = new task.** The global chat box always starts a new top-level turn; deep
   context for a pending decision is entered only via the card. *(User decision.)*
 - **D5 — Default timeout 30s, configurable**, with a visible animated countdown. *(User decision.)*
-- **D6 — Timeout/decline is never authorization.** A blocking interaction that times out or is declined
-  performs no consequential action (safe default), preserving P8. *(Derived from P8.)*
+- **D6 — Timeout/decline is never authorization; timeout aborts with a fixed message.** A blocking
+  interaction that times out or is declined performs no consequential action (safe default), preserving
+  P8. On timeout the interaction **aborts** (no auto-select of any option) and the user is told
+  **"Something goes wrong, please retry later"**. *(Derived from P8; message per user decision.)*
 - **D7 — Async + durable delivery.** The request is streamed and the pending interaction is durable
   (survives reload/restart), reusing the conversation-store guarantees of [[002-assistant-chat]]
   FR-13/FR-14. *(Design decision.)*
+- **D8 — Countdown pauses during "chat about it" and resets afterward.** Entering the card's deep-context
+  discussion pauses the timeout; a re-presented interaction starts a fresh countdown. *(User decision.)*
+- **D9 — Re-presented interaction gets a new id.** After "chat about it", an updated interaction is a
+  new id that supersedes the prior one; responding to the superseded id is rejected (FR-16). *(User
+  decision.)*
+- **D10 — Notifications never block.** A notification always auto-expires and never requires
+  acknowledgement. *(Confirmed; was an open question.)*
 
 ## Open Questions
 
-- `[NEEDS CLARIFICATION: On clarification timeout, is the safe default always "abort / take no action",
-  or may the agent pre-mark a *recommended* option that auto-selects on timeout?]` — this spec assumes
-  **abort / no action** (D6); confirm before allowing auto-select.
-- `[NEEDS CLARIFICATION: May a notification optionally *require* acknowledgement (block until dismissed)
-  rather than always auto-expiring?]` — this spec assumes notifications never block (FR-3).
-- `[NEEDS CLARIFICATION: When the agent re-presents an updated interaction after "chat about it", is the
-  original interaction id superseded (new id) or reused?]` — affects FR-16 idempotency semantics.
-- `[NEEDS CLARIFICATION: Should the timeout countdown pause while the user is in the card's "chat about
-  it" discussion, and resume/reset afterward?]`
-- **Deferred to `plan.md` (how, not what):** the push transport (SSE vs WebSocket), the on-disk shape of
-  a pending interaction within the `sessions/` record, the REST endpoint shapes for delivering a request
-  and posting a response, and the exact card markup/animation.
+- **Resolved in [`plan.md`](plan.md) (how, not what):** the push transport (turn-boundary SSE over the
+  existing chat stream, not WebSocket), the on-disk shape of a pending interaction (a mutable
+  `pending-interaction` frontmatter field in `sessions/<id>.md`), the REST endpoint shapes
+  (`GET`/`POST /api/chat/interaction`, `POST /api/chat/interaction/stream`), and the card
+  markup/animation (a distinct Gradio card with radio options + a client-side countdown wheel).
 
 ## Review Checklist
 

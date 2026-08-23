@@ -61,6 +61,26 @@ def foundation_docs_source() -> Path:
     return skills_library_root() / "second-brain" / "references"
 
 
+DEFAULT_INTERACTION_TIMEOUT = 30
+
+
+def interaction_timeout_seconds() -> int:
+    """Default countdown for an agent→user interaction card (spec 008 FR-9, D5).
+
+    System-wide default is **30 seconds**, overridable via ``LEADER_INTERACTION_TIMEOUT``.
+    A per-request override is applied at ``create_interaction`` time; this is the fallback.
+    A non-positive or unparseable value falls back to the 30s default.
+    """
+    raw = os.getenv("LEADER_INTERACTION_TIMEOUT")
+    if raw is None:
+        return DEFAULT_INTERACTION_TIMEOUT
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_INTERACTION_TIMEOUT
+    return value if value > 0 else DEFAULT_INTERACTION_TIMEOUT
+
+
 def mcp_tool_blacklist() -> set[str]:
     """Agent MCP tool names withheld from the agent (spec 006 FR-1).
 
