@@ -241,7 +241,9 @@ def test_ui_wires_in_chat_card_bridge():
     # (_ITX_JS) stashes the choice and clicks #itx-go, whose handler runs _submit_interaction.
     src = UI_PATH.read_text()
     assert "_ITX_JS" in src and "js=_ITX_JS" in src        # bridge listener defined + loaded
-    assert "data-itx-choice" in src                        # the attribute the bridge reads
+    # DOMPurify in gr.Chatbot strips data-* attrs, so the choice is encoded in the button id
+    # (id="itx-opt-<choice>") — the bridge reads that, not a data-* attribute.
+    assert 'id^="itx-opt-"' in src                         # the selector the bridge reads
     assert "getElementById('itx-go')" in src               # JS clicks the hidden trigger
     assert "itx_go.click(" in src                           # the trigger runs the answer handler
     assert "_submit_interaction" in src

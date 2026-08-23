@@ -288,6 +288,14 @@ Numbered, testable, unambiguous.
   edge) — that copies the **active conversation id** to the clipboard, giving brief visual
   confirmation. When there is no active conversation id yet (a fresh thread before its first turn),
   the control MUST degrade gracefully (nothing to copy) rather than error.
+- **FR-36 (full-height, bottom-anchored conversation):** The chat (middle) panel MUST use **all of
+  the remaining vertical space** between the conversation header (FR-33) and the chat input row —
+  the transcript, not a fixed-height box, fills the viewport. Messages MUST be **anchored to the
+  bottom**: when the transcript is shorter than the panel, the messages sit flush at the **bottom**
+  (empty space accumulates at the top), and new turns push earlier ones **upward**; when it overflows
+  it scrolls normally with the latest turn visible. The **input** MUST grow **upward** as the user
+  types past one line — its bottom edge stays fixed while its top edge rises (bounded by a max before
+  it scrolls internally), so the chat area above it shrinks rather than the input pushing off-screen.
 
 ### Settings quick menu (model selector + future sub-panels)
 
@@ -438,6 +446,9 @@ Numbered, testable, unambiguous.
   both surfaces derive it from the backend (P9). (FR-33)
 - [ ] **AC-17:** A **copy** control in the conversation header copies the active conversation id to
   the clipboard with brief confirmation, and no-ops gracefully when there is no id yet. (FR-34)
+- [ ] **AC-19:** The conversation transcript fills the remaining vertical space and anchors its
+  messages to the **bottom** (short threads sit flush at the bottom; overflow scrolls with the latest
+  turn visible), and the input grows **upward** past one line while its bottom edge stays fixed. (FR-36)
 
 ## Resolved Decisions
 

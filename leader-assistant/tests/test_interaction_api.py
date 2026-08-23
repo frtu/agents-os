@@ -204,11 +204,13 @@ def test_ac7_ui_card_renders_distinct_in_chat_message(isolated_workspace_root):
     card = ui._card_html(clar)
     assert "itx-card" in card and "data-itx-id='itx-2'" in card
     assert "Pick an approach" in card
-    assert "data-itx-choice='opt-1'" in card and "Ingest audit" in card
-    assert "data-itx-choice='opt-2'" in card and "Wiki sweep" in card
-    assert f"data-itx-choice='{ui.CHAT_ABOUT_IT[1]}'" in card and ui.CHAT_ABOUT_IT[0] in card
-    assert "data-itx-choice='decline'" in card    # ✕ decline (FR-14)
-    assert "data-seconds='30'" in card            # animated countdown seeded (FR-9)
+    # The choice rides in the element id (gr.Chatbot's DOMPurify strips data-*, keeps id) — the JS
+    # bridge reads id="itx-opt-<choice>".
+    assert "id='itx-opt-opt-1'" in card and "Ingest audit" in card
+    assert "id='itx-opt-opt-2'" in card and "Wiki sweep" in card
+    assert f"id='itx-opt-{ui.CHAT_ABOUT_IT[1]}'" in card and ui.CHAT_ABOUT_IT[0] in card
+    assert "id='itx-opt-decline'" in card         # ✕ decline (FR-14)
+    assert "id='itx-remaining'>30<" in card       # animated countdown seeded from text (FR-9)
 
     # Approval (1 proposal) still gets the constant "chat about it" as the final option (FR-7).
     appr = {
@@ -217,8 +219,8 @@ def test_ac7_ui_card_renders_distinct_in_chat_message(isolated_workspace_root):
         "timeout_seconds": 30,
     }
     appr_card = ui._card_html(appr)
-    assert "data-itx-choice='approve'" in appr_card and "Proceed with this plan" in appr_card
-    assert f"data-itx-choice='{ui.CHAT_ABOUT_IT[1]}'" in appr_card
+    assert "id='itx-opt-approve'" in appr_card and "Proceed with this plan" in appr_card
+    assert f"id='itx-opt-{ui.CHAT_ABOUT_IT[1]}'" in appr_card
 
     assert ui._card_html(None) is None
     # notifications never block (D10) -> no card

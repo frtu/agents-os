@@ -126,19 +126,20 @@ _SESSION_JS = """
 _SESSION_PICK_JS = "(pick, vault) => [window.__lastCid || '', vault]"
 
 # spec 008 FR-8/FR-10: the interaction card is an assistant chat message (HTML), so native gr.Radio
-# can't live inside it. A delegated click listener bridges a click on any `.itx-card [data-itx-choice]`
+# can't live inside it. A delegated click listener bridges a click on any `.itx-card [id^=itx-opt-]`
 # control (an option, the "chat about it" affordance, or the ✕ decline) to the answer handler: it stashes
 # the choice in `window.__itxChoice` and clicks the hidden #itx-go trigger (same pattern as sessions).
-# Already-answered cards (`.itx-resolved`) are inert.
+# The choice is carried in the element `id` (id="itx-opt-<choice>"), not a data-* attribute, because
+# `gr.Chatbot`'s DOMPurify strips data-* but keeps id. Already-answered cards (`.itx-resolved`) are inert.
 _ITX_JS = """
 () => {
   if (window.__itxInit) return;
   window.__itxInit = true;
   document.addEventListener('click', (e) => {
-    const t = e.target && e.target.closest ? e.target.closest('.itx-card [data-itx-choice]') : null;
+    const t = e.target && e.target.closest ? e.target.closest('.itx-card [id^="itx-opt-"]') : null;
     if (!t) return;
     if (t.closest('.itx-resolved')) return;   // an answered/expired card no longer answers
-    window.__itxChoice = t.getAttribute('data-itx-choice') || '';
+    window.__itxChoice = t.id.slice('itx-opt-'.length);
     const go = document.getElementById('itx-go');
     if (go) go.click();
   });
@@ -148,9 +149,9 @@ _ITX_JS = """
 # spec 008 FR-9/D8: the interaction card's countdown. A single global interval drives the
 # visible remaining-seconds and, at zero, clicks the hidden #itx-expire trigger so the card is
 # dismissed with the timeout message. Called whenever the card is (re)rendered — it re-reads the
-# fresh data-seconds from #itx-timer, giving each re-presented interaction a fresh countdown
-# (D8: pause during "chat about it", reset after). If the card is hidden, #itx-timer is absent
-# and the timer simply stops.
+# fresh seed from #itx-remaining's text, giving each re-presented interaction a fresh countdown
+# (D8: pause during "chat about it", reset after). Seeding from the text (not a data-* attribute)
+# survives gr.Chatbot's DOMPurify. If the card is absent, #itx-timer is missing and the timer stops.
 _COUNTDOWN_JS = """
 () => {
   if (!window.__itx) window.__itx = {};
@@ -158,8 +159,8 @@ _COUNTDOWN_JS = """
   if (s.iv) { clearInterval(s.iv); s.iv = null; }
   const timer = document.getElementById('itx-timer');
   if (!timer) return;
-  let remaining = parseInt(timer.getAttribute('data-seconds') || '30', 10);
   const out = document.getElementById('itx-remaining');
+  let remaining = parseInt((out && out.textContent) || '30', 10);
   const tick = () => {
     if (out) out.textContent = remaining;
     if (remaining <= 0) {
@@ -293,6 +294,21 @@ _COPY_CONV_JS = """
 """
 
 _CSS = """
+/* spec 004 FR-36: the whole app fills the viewport so the conversation can take the leftover
+   vertical space. Make the Gradio container a full-height flex column; the chat panel flexes to
+   fill the gap between the header and the input, everything else keeps its natural height. */
+.gradio-container { height: 100vh !important; max-width: 100% !important; }
+.gradio-container > .main,
+.gradio-container > .main > .wrap,
+.gradio-container > .main > .wrap > .contain { height: 100%; }
+.gradio-container > .main > .wrap > .contain > .gap { display: flex; flex-direction: column; height: 100%; }
+/* The chatbot block flexes to fill; min-height:0 lets it shrink so its own scroll (not the page) runs. */
+#chatbot { flex: 1 1 auto; min-height: 0; }
+#chatbot .wrap, #chatbot .bubble-wrap { height: 100%; }
+/* Anchor messages to the bottom: push the message list down with an auto top margin when it is
+   shorter than the panel, while still allowing normal scroll+overflow when it is taller (FR-36). */
+#chatbot .bubble-wrap > div:first-child,
+#chatbot .message-wrap { margin-top: auto; }
 #refresh-vault button, #create-vault button { font-size: 1.1rem; padding: 0 6px; }
 /* spec 004 FR-33/FR-34: conversation header row — title then an icon-only copy button beside it.
    The title's Gradio block is full-width by default, so constrain it to its content (fit-content)
@@ -746,10 +762,11 @@ async def _approve(history, conversation_id, workspace):
 
 
 def _timer_html(seconds: int) -> str:
-    """Countdown wheel + remaining-seconds; `data-seconds` seeds the JS timer (spec 008 FR-9)."""
+    """Countdown wheel + remaining-seconds (spec 008 FR-9). The JS timer seeds from #itx-remaining's
+    text — `gr.Chatbot`'s DOMPurify strips data-*, but preserves the id + text content."""
     seconds = int(seconds or 0)
     return (
-        f"<div class='itx-timer' id='itx-timer' data-seconds='{seconds}'>"
+        f"<div class='itx-timer' id='itx-timer'>"
         f"<span class='itx-spinner'></span>"
         f"<span>Auto-cancels in <b id='itx-remaining'>{seconds}</b>s — nothing changes until you choose.</span>"
         f"</div>"
@@ -774,15 +791,19 @@ def _card_html(interaction: dict | None) -> str | None:
     prompt = html.escape(interaction.get("prompt", ""))
     seconds = int(interaction.get("timeout_seconds", 30) or 30)
     opts = list(interaction.get("options", [])) + [{"id": CHAT_ABOUT_IT[1], "label": CHAT_ABOUT_IT[0]}]
+    # The choice is encoded in the element `id` (id="itx-opt-<choice>") — NOT a data-* attribute —
+    # because `gr.Chatbot`'s DOMPurify strips data-* but preserves id/class; the JS bridge reads the id.
     buttons = "".join(
         f"<button class='itx-opt{' itx-chat' if o.get('id') == CHAT_ABOUT_IT[1] else ''}' "
-        f"data-itx-choice='{html.escape(str(o.get('id')))}'>"
+        f"id='itx-opt-{html.escape(str(o.get('id')))}'>"
         f"{html.escape(str(o.get('label') or o.get('id')))}</button>"
         for o in opts
     )
+    # data-itx-id is for server-side _neutralize_card matching on the history string (that runs on the
+    # Python value, not the rendered DOM, so the stripped attribute in the browser is irrelevant here).
     return (
         f"<div class='itx-card' data-itx-id='{iid}'>"
-        f"<button class='itx-close' data-itx-choice='decline' title='Decline — take no action'>✕</button>"
+        f"<button class='itx-close' id='itx-opt-decline' title='Decline — take no action'>✕</button>"
         f"<div class='itx-prompt'>{prompt}</div>"
         f"<div class='itx-opts'>{buttons}</div>"
         f"{_timer_html(seconds)}"
@@ -1255,8 +1276,10 @@ def build_demo() -> gr.Blocks:
         # (_ITX_JS) stashes the clicked option in window.__itxChoice and clicks #itx-go; its js-only
         # click mirrors that global into itx_choice (updating the store), then _submit_interaction
         # answers it. #itx-expire is the hidden trigger the countdown JS clicks at zero (D6).
+        # spec 004 FR-36: no fixed height — CSS flexes the panel to fill the vertical space between
+        # the header and the input, and anchors messages to the bottom (short threads sit flush low).
         chat = gr.Chatbot(
-            height=560, show_label=False, elem_id="chatbot",
+            show_label=False, elem_id="chatbot",
             value=[{"role": "assistant", "content": GREETING}],
         )
         itx_choice = gr.Textbox(visible=False, elem_id="itx-choice")
@@ -1275,9 +1298,11 @@ def build_demo() -> gr.Blocks:
                 )
                 model_source = gr.HTML("")
             with gr.Row(elem_id="chat-input-row"):
+                # spec 004 FR-36: grow upward past one line (bottom edge fixed) up to max_lines,
+                # then scroll internally, so the chat area above shrinks instead of the input drifting.
                 box = gr.Textbox(
                     show_label=False, submit_btn=True, placeholder="Ask about the project…",
-                    scale=8, container=False,
+                    scale=8, container=False, lines=1, max_lines=8,
                 )
                 settings_btn = gr.Button("⚙", elem_id="settings-btn", scale=0, min_width=44)
         approve_btn = gr.Button("✅ Approve plan", variant="primary", visible=False)
