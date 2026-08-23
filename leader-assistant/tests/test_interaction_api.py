@@ -187,27 +187,28 @@ def test_ac6_expiry_aborts_with_fixed_message_no_action(client, isolated_workspa
 # --- AC-7: the UI renders a visually distinct card ----------------------------
 
 
-def test_ac7_ui_card_updates_render_distinct_card(isolated_workspace_root):
-    # AC-7 (FR-7/FR-10): the UI turns an interaction into a visible bubble whose radio options are the
-    # proposals plus a constant "chat about it" last; nothing is pre-selected (selecting = submitting,
-    # so no answer is inferred — P8). Hides for None / non-blocking notifications.
+def test_ac7_ui_card_renders_distinct_in_chat_message(isolated_workspace_root):
+    # AC-7 (FR-7/FR-10): the UI turns an interaction into a distinct assistant-message card (HTML) that
+    # rides inside the chat scroll. Its inline options are the proposals plus a constant "chat about it"
+    # last, plus a ✕ decline; nothing is pre-selected — clicking is what submits (P8). Returns falsy for
+    # None / non-blocking notifications.
     from app import ui
 
-    # A clarification with 2 proposals -> radios = [proposals..., "chat about it"], no pre-selection.
+    # A clarification with 2 proposals -> inline option buttons = [proposals..., "chat about it"] + ✕.
     clar = {
         "interaction_id": "itx-2", "conversation_id": "c", "kind": "clarification",
         "prompt": "Pick an approach",
         "options": [{"id": "opt-1", "label": "Ingest audit"}, {"id": "opt-2", "label": "Wiki sweep"}],
         "timeout_seconds": 30,
     }
-    card, _prompt, radio, timer, state = ui._card_updates(clar)
-    assert card["visible"] is True
-    assert radio["choices"] == [
-        ("Ingest audit", "opt-1"), ("Wiki sweep", "opt-2"), ui.CHAT_ABOUT_IT,
-    ]
-    assert radio["value"] is None                 # nothing inferred; selecting is what submits (P8)
-    assert "data-seconds='30'" in timer["value"]  # animated countdown seeded (FR-9)
-    assert state == clar
+    card = ui._card_html(clar)
+    assert "itx-card" in card and "data-itx-id='itx-2'" in card
+    assert "Pick an approach" in card
+    assert "data-itx-choice='opt-1'" in card and "Ingest audit" in card
+    assert "data-itx-choice='opt-2'" in card and "Wiki sweep" in card
+    assert f"data-itx-choice='{ui.CHAT_ABOUT_IT[1]}'" in card and ui.CHAT_ABOUT_IT[0] in card
+    assert "data-itx-choice='decline'" in card    # ✕ decline (FR-14)
+    assert "data-seconds='30'" in card            # animated countdown seeded (FR-9)
 
     # Approval (1 proposal) still gets the constant "chat about it" as the final option (FR-7).
     appr = {
@@ -215,15 +216,13 @@ def test_ac7_ui_card_updates_render_distinct_card(isolated_workspace_root):
         "prompt": "Proceed?", "options": [{"id": "approve", "label": "Proceed with this plan"}],
         "timeout_seconds": 30,
     }
-    _c, _p, appr_radio, *_ = ui._card_updates(appr)
-    assert appr_radio["choices"] == [("Proceed with this plan", "approve"), ui.CHAT_ABOUT_IT]
-    assert appr_radio["value"] is None
+    appr_card = ui._card_html(appr)
+    assert "data-itx-choice='approve'" in appr_card and "Proceed with this plan" in appr_card
+    assert f"data-itx-choice='{ui.CHAT_ABOUT_IT[1]}'" in appr_card
 
-    hidden_card, *_rest, hidden_state = ui._card_updates(None)
-    assert hidden_card["visible"] is False and hidden_state is None
-
-    note_card, *_ = ui._card_updates({"kind": "notification", "prompt": "busy", "options": []})
-    assert note_card["visible"] is False          # notifications never block (D10)
+    assert ui._card_html(None) is None
+    # notifications never block (D10) -> no card
+    assert ui._card_html({"kind": "notification", "prompt": "busy", "options": []}) is None
 
 
 # --- AC-8: durable & recoverable after restart --------------------------------

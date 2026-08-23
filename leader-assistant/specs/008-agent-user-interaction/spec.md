@@ -159,9 +159,12 @@ Numbered, testable, unambiguous.
   when the interaction is (re-)presented afterward (D8).
 - **FR-10 (distinct interaction card):** Approval and clarification MUST render as a **visually
   distinct card** — clearly differentiated from ordinary chat messages — so the user immediately
-  recognizes that **their input is required**. The card MUST show the prompt, the selectable options as
-  **radio-style choices**, the "chat about it" option, and the progress/countdown indicator. Options
-  SHOULD be presented as selectable cards that read as actionable.
+  recognizes that **their input is required**. The card MUST render **as an assistant message within the
+  conversation scroll** (part of the message history, a left-aligned assistant bubble — not an element
+  exterior to the message list); the human's selection then appears as a user message. It stays clearly
+  differentiated via its accent border and inline option controls. The card MUST show the prompt, the
+  selectable options as **selectable choices**, the "chat about it" option, and the progress/countdown
+  indicator. Options SHOULD be presented as selectable cards that read as actionable.
 
 ### Async, durability, parity & capture
 
@@ -271,7 +274,9 @@ Numbered, testable, unambiguous.
   consequential runs) and reports **"Something goes wrong, please retry later"**; remaining time is
   visible and the countdown pauses during "chat about it". (FR-9, FR-14, D6, D8)
 - [x] **AC-7:** Approval and clarification render as a **visually distinct card** (progress/countdown +
-  radio options + "chat about it") clearly marking that input is required. (FR-10)
+  selectable options + "chat about it") **as an assistant message inside the conversation scroll** (part
+  of the message history; the human's selection appears as a user message), clearly marking that input is
+  required. (FR-10)
 - [x] **AC-8:** A pending interaction is **recoverable after reload/restart** and can be re-rendered and
   answered; the durable record is authoritative. (FR-11, P1)
 - [x] **AC-9:** The interaction request/response protocol works over **REST** for a machine caller with

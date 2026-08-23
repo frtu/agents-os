@@ -595,7 +595,12 @@ def test_ui_wires_conversation_header_and_copy_fr33_fr34():
     src = pathlib.Path(ui.__file__).read_text()
     assert 'elem_id="conv-header"' in src
     assert 'elem_id="conv-title"' in src
-    assert 'elem_id="copy-conv-id"' in src        # copy button the JS labels "Copied ✓"
+    assert 'elem_id="copy-conv-id"' in src
+    # FR-34: icon-only copy button (no "Copy id" text label), placed to the LEFT next to the title —
+    # the title must not flex-grow to push it to the opposite edge.
+    assert 'gr.Button("⧉"' in src and "Copy id" not in src
+    assert "#conv-title { flex: 0 1 auto;" in ui._CSS
+    assert "#conv-header {" in ui._CSS and "justify-content: flex-start;" in ui._CSS
     assert "_COPY_CONV_JS" in src
     assert "navigator.clipboard.writeText(cid)" in ui._COPY_CONV_JS
     assert "#conv-url textarea" in ui._COPY_CONV_JS  # reads the same mirror as the sync JS

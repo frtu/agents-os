@@ -107,6 +107,12 @@ also offers).
 - **Scenario 8 — Empty states:** As a first-time user, an empty workspace shows an empty
   `vault/wiki/` tree and an empty Sessions list with clear "nothing yet" messaging rather than
   errors.
+- **Scenario 9 — Change the model from the chat panel:** As a user, I click the **settings
+  button next to the chat Submit control**; a **quick menu** opens showing the **Model** selector
+  (pre-selected to the active model, with the list `source` shown). I pick a different model and it
+  takes effect process-wide without interrupting my conversation. The menu is designed to grow —
+  future settings sub-panels will live here too — and it closes when I click away or re-toggle the
+  button. The left sidebar no longer carries a Model panel.
 
 ## Functional Requirements
 
@@ -277,17 +283,28 @@ Numbered, testable, unambiguous.
   conversation`). For interface parity (P9), the conversation-**detail** endpoint (FR-20) MUST
   return this title so the header and the Sessions list derive it from the **same backend source**
   rather than recomputing it independently.
-- **FR-34 (copy conversation id):** The conversation header MUST include a **copy control** that
-  copies the **active conversation id** to the clipboard, giving brief visual confirmation. When
-  there is no active conversation id yet (a fresh thread before its first turn), the control MUST
-  degrade gracefully (nothing to copy) rather than error.
+- **FR-34 (copy conversation id):** The conversation header MUST include an **icon-only copy
+  control** — placed **immediately to the left, next to the title** (not pushed to the opposite
+  edge) — that copies the **active conversation id** to the clipboard, giving brief visual
+  confirmation. When there is no active conversation id yet (a fresh thread before its first turn),
+  the control MUST degrade gracefully (nothing to copy) rather than error.
 
-### Model selector
+### Settings quick menu (model selector + future sub-panels)
 
-- **FR-26 (model selector):** A **Model** control MUST appear at the **top of the sidebar**
-  (above the Area/Workspaces panel). It MUST show the **currently active** Claude Agent SDK
-  model and let the user pick another from a list. The selection governs the agent runtime
-  used for both chat (`app/agent.py`) and knowledge ingestion (`app/activity_ingest.py`).
+- **FR-26 (model selector):** A **Model** control MUST let the user see the **currently active**
+  Claude Agent SDK model and pick another from a list. The selection governs the agent runtime
+  used for both chat (`app/agent.py`) and knowledge ingestion (`app/activity_ingest.py`). The
+  control MUST NOT live in the left sidebar; it is presented **inside the settings quick menu**
+  (FR-35) rather than as a standalone sidebar panel.
+- **FR-35 (settings quick menu):** The **conversation (chat) panel** MUST provide a **settings
+  button placed next to the chat Submit control**. Activating it MUST open a **quick menu** (a
+  compact popover/dropdown anchored to the button) that contains the **model selector** (FR-26)
+  as its first section. The quick menu MUST be **extensible**: it is structured to host
+  **additional sub-panels** in the future (e.g. persona, tools, session options) without
+  relocating the model control again. Opening the menu MUST NOT interrupt the active
+  conversation, and the menu MUST be dismissible (click-away or re-toggling the button). The
+  quick menu holds **no capability the REST API lacks** — the model section is still backed only
+  by `GET`/`POST /api/models` (P9, FR-28).
 - **FR-27 (hybrid source):** The list of available models MUST be sourced from the **provider**
   (Anthropic `/v1/models`) when it is reachable and credentialed, and MUST otherwise fall back
   to a **curated static list** (aliases `opus`/`sonnet`/`haiku` plus known pinned model IDs) so
@@ -322,6 +339,9 @@ Numbered, testable, unambiguous.
   ingested (new upload endpoint, FR-16); its lifetime is shown by the progress bar.
 - **Sessions list** — the active workspace's prior conversations, each with an id and a label,
   used to resume a thread (new list endpoint, FR-17; durable records in `sessions/`).
+- **Settings quick menu** — a compact popover opened from a **button next to the chat Submit**,
+  hosting the **model selector** (FR-26) and structured to hold future settings sub-panels
+  (FR-35); backed only by `GET`/`POST /api/models` (P9).
 
 ## Constraints & Assumptions
 
@@ -390,12 +410,16 @@ Numbered, testable, unambiguous.
   (FR-14, FR-22, P2)
 - [ ] **AC-11:** Empty and error states are shown for no-workspaces, empty `vault/wiki/`, no
   sessions, and endpoint failures. (FR-23)
-- [ ] **AC-12:** A **Model** dropdown sits at the **top of the sidebar**, pre-selected to the
-  active model; its choices come from `GET /api/models` (provider list when credentialed, else the
-  static fallback) and the `source` is surfaced. (FR-26, FR-27)
-- [ ] **AC-13:** Choosing a model calls `POST /api/models`, takes effect **process-wide** for chat
-  and ingest, and **persists across a server restart**; the UI reaches this only over `/api/*`.
-  (FR-28, P9)
+- [ ] **AC-12:** A **settings button next to the chat Submit control** opens a **quick menu**
+  whose first section is the **Model** selector, pre-selected to the active model; its choices come
+  from `GET /api/models` (provider list when credentialed, else the static fallback) and the
+  `source` is surfaced. The left sidebar contains **no** Model panel. (FR-26, FR-27, FR-35)
+- [ ] **AC-13:** Choosing a model in the quick menu calls `POST /api/models`, takes effect
+  **process-wide** for chat and ingest, and **persists across a server restart**; the UI reaches
+  this only over `/api/*`. (FR-28, P9)
+- [ ] **AC-18:** The settings quick menu opens from the button beside Submit without interrupting
+  the active conversation, is **dismissible** (click-away or re-toggle), and is **structured to
+  host additional sub-panels** beyond the model selector. (FR-35)
 
 - [ ] **AC-14:** The URL carries `?workspace=<name>&sidebar=open|closed`; loading such a URL
   restores that workspace and sidebar state (absent/unknown ⇒ default workspace, sidebar closed).
@@ -448,6 +472,13 @@ Numbered, testable, unambiguous.
   `conversation` params **in place** via `history.replaceState` — no reload — so the in-progress chat
   and transient UI state are preserved. The chat already loads a resumed thread in-page, so a
   conversation switch needs no reload. *(User decisions, 2026-08-23.)*
+
+- **D7 — Model control moves from the sidebar into a settings quick menu:** the **Model** selector
+  is **removed from the left sidebar** and relocated into a **quick menu opened by a settings button
+  next to the chat Submit** (FR-26, FR-35). The menu is deliberately built as an **extensible shell**
+  so future settings sub-panels (persona, tools, session options) can be added without moving the
+  model control again. Function, hybrid source, persistence, and REST-only backing (FR-27/FR-28) are
+  unchanged — only the surface location moves. *(User decision, 2026-08-24.)*
 
 ## Open Questions
 

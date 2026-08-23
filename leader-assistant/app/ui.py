@@ -24,6 +24,10 @@ Every panel is backed by a REST endpoint (`/api/workspaces`, `/api/wiki-tree`, `
 Chat streams from `POST /api/chat/stream` (SSE) with a full-reply fallback to
 `POST /api/chat`. Consequential replies carry a `pending_plan` which the UI shows with
 an explicit **Approve plan** control (spec 003 FR-8, P8) — no auto-approval.
+
+A **settings ⚙ button next to the chat Submit** opens a **quick menu** (popover) hosting the
+**Model** selector (spec 004 FR-26/FR-35), backed only by `GET`/`POST /api/models`; the menu is
+built to grow more settings sub-panels. The model control no longer lives in the sidebar.
 """
 
 from __future__ import annotations
@@ -121,6 +125,26 @@ _SESSION_JS = """
 # passing the active workspace through unchanged, so _open_session(conversation_id, vault) runs.
 _SESSION_PICK_JS = "(pick, vault) => [window.__lastCid || '', vault]"
 
+# spec 008 FR-8/FR-10: the interaction card is an assistant chat message (HTML), so native gr.Radio
+# can't live inside it. A delegated click listener bridges a click on any `.itx-card [data-itx-choice]`
+# control (an option, the "chat about it" affordance, or the ✕ decline) to the answer handler: it stashes
+# the choice in `window.__itxChoice` and clicks the hidden #itx-go trigger (same pattern as sessions).
+# Already-answered cards (`.itx-resolved`) are inert.
+_ITX_JS = """
+() => {
+  if (window.__itxInit) return;
+  window.__itxInit = true;
+  document.addEventListener('click', (e) => {
+    const t = e.target && e.target.closest ? e.target.closest('.itx-card [data-itx-choice]') : null;
+    if (!t) return;
+    if (t.closest('.itx-resolved')) return;   // an answered/expired card no longer answers
+    window.__itxChoice = t.getAttribute('data-itx-choice') || '';
+    const go = document.getElementById('itx-go');
+    if (go) go.click();
+  });
+}
+"""
+
 # spec 008 FR-9/D8: the interaction card's countdown. A single global interval drives the
 # visible remaining-seconds and, at zero, clicks the hidden #itx-expire trigger so the card is
 # dismissed with the timeout message. Called whenever the card is (re)rendered — it re-reads the
@@ -192,6 +216,24 @@ _PANEL_TIP_JS = """
 }
 """
 
+# spec 004 FR-35: dismiss the settings quick menu on click-away. Clicking outside the menu and
+# its ⚙ button (while the menu is open) clicks the button so the Python toggle keeps state in sync.
+_SETTINGS_DISMISS_JS = """
+() => {
+  if (window.__settingsDismissInit) return;
+  window.__settingsDismissInit = true;
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('settings-menu');
+    const btn = document.getElementById('settings-btn');
+    if (!menu || !btn) return;
+    if (menu.offsetParent === null) return;  // menu hidden → nothing to dismiss
+    if (menu.contains(e.target) || btn.contains(e.target)) return;  // click inside → keep open
+    const b = btn.querySelector('button') || btn;
+    b.click();  // outside click → re-toggle closed (keeps gr.State in sync)
+  }, true);
+}
+"""
+
 # spec 004 FR-30: switching/creating a workspace navigates to the deep-linked URL (full reload),
 # preserving the current ?sidebar state. Takes the (updated) workspace-name box value.
 _NAV_WORKSPACE_JS = """
@@ -246,17 +288,19 @@ _COPY_CONV_JS = """
   if (!cid) return;
   navigator.clipboard.writeText(cid);
   const btn = document.querySelector('#copy-conv-id button') || document.querySelector('#copy-conv-id');
-  if (btn) { const o = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = o; }, 1200); }
+  if (btn) { const o = btn.textContent; btn.textContent = '✓'; setTimeout(() => { btn.textContent = o; }, 1200); }
 }
 """
 
 _CSS = """
 #refresh-vault button, #create-vault button { font-size: 1.1rem; padding: 0 6px; }
-/* spec 004 FR-33/FR-34: conversation header row — title fills, copy button hugs the right. */
-#conv-header { align-items: center; gap: 8px; flex-wrap: nowrap; }
-#conv-title { flex: 1 1 auto; min-width: 0; }
+/* spec 004 FR-33/FR-34: conversation header row — title then an icon-only copy button beside it.
+   The title's Gradio block is full-width by default, so constrain it to its content (fit-content)
+   so the copy button hugs the title on the left instead of being pushed to the far edge. */
+#conv-header { align-items: center; gap: 6px; flex-wrap: nowrap; justify-content: flex-start; }
+#conv-title { flex: 0 1 auto; min-width: 0; width: fit-content; max-width: 100%; margin: 0; }
 #conv-title h3 { margin: 8px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#copy-conv-id { flex: 0 0 auto; }
+#copy-conv-id { flex: 0 0 auto; min-width: 36px; padding: 0 8px; }
 .wiki-tree { font-size: 0.9rem; line-height: 1.5; max-height: 240px;
              overflow-y:auto; overflow-x:hidden;
              border:1px solid var(--border-color-primary); border-radius:6px; padding:6px 8px; }
@@ -310,25 +354,37 @@ _CSS = """
   border: 1px solid var(--border-color-primary, #4b5563); border-radius: 4px;
   padding: 4px 8px; font-size: 0.8rem; box-shadow: 0 2px 6px rgba(0,0,0,0.35);
 }
-/* spec 008 FR-8/FR-10 (plan.md): the interaction card reads as an assistant chat bubble — a
-   compact, left-aligned tinted bubble sized like a message, with its options as radios and an
-   animated countdown. A top-right ✕ declines; selecting a radio auto-submits. */
-#interaction-card {
+/* spec 008 FR-8/FR-10 (plan.md): the interaction card is an assistant chat message (HTML) rendered
+   inside the conversation scroll. `.itx-card` is the accent-bordered bubble; its options are inline
+   clickable controls (native gr.Radio can't live in a chat message), with an animated countdown.
+   A top-right ✕ declines; selecting an option auto-submits (via the JS click-bridge). */
+.itx-card {
   position: relative;
   border: 1px solid var(--color-accent, #f59e0b); border-radius: 14px;
-  padding: 10px 12px 8px; margin: 4px 2px 6px 0; width: fit-content; max-width: min(80%, 520px);
+  padding: 10px 30px 8px 12px; max-width: min(90%, 520px);
   background: var(--background-fill-secondary); box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
-#interaction-card .prose { font-size: 0.9rem; }
-/* Compact the radio options so the bubble stays message-sized. */
-#interaction-card .wrap { gap: 4px; }
-#interaction-card label { font-size: 0.88rem; padding: 3px 6px; }
-/* Top-right ✕ decline affordance (spec 008 FR-14) — replaces the Decline button. */
+.itx-prompt { font-size: 0.92rem; margin-bottom: 8px; }
+/* The options as a vertical list of clickable "radio-style" buttons. */
+.itx-opts { display: flex; flex-direction: column; gap: 6px; }
+.itx-opt {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  padding: 6px 10px; font-size: 0.88rem; line-height: 1.3;
+  border: 1px solid var(--border-color-primary, #4b5563); border-radius: 8px;
+  background: var(--background-fill-primary); color: var(--body-text-color);
+}
+.itx-opt:hover { border-color: var(--color-accent, #f59e0b); background: var(--background-fill-secondary); }
+.itx-chat { color: var(--body-text-color-subdued); }
+/* An answered/expired card is inert and dimmed; its options/timer are gone. */
+.itx-resolved { opacity: 0.7; }
+.itx-resolved .itx-choice { font-size: 0.85rem; color: var(--body-text-color-subdued); margin-top: 6px; }
+/* Top-right ✕ decline affordance (spec 008 FR-14). */
 .itx-close {
-  position: absolute !important; top: 4px; right: 4px; z-index: 2;
-  min-width: 0 !important; width: 24px !important; height: 24px !important;
-  padding: 0 !important; line-height: 1; border-radius: 50% !important;
-  font-size: 0.9rem; flex: none !important;
+  position: absolute; top: 6px; right: 8px; cursor: pointer;
+  width: 20px; height: 20px; line-height: 18px; text-align: center;
+  padding: 0; border-radius: 50%; font-size: 0.85rem;
+  border: 1px solid var(--border-color-primary, #4b5563);
+  background: var(--background-fill-primary); color: var(--body-text-color);
 }
 .itx-timer {
   display: flex; align-items: center; gap: 8px; margin-top: 6px;
@@ -342,8 +398,30 @@ _CSS = """
 @keyframes itx-spin { to { transform: rotate(360deg); } }
 /* Hidden expire trigger clicked by the countdown JS at zero. */
 .itx-hidden { display: none !important; }
-/* spec 004 FR-27: the model-source hint under the top-of-sidebar Model picker. */
+/* spec 004 FR-27: the model-source hint under the Model picker (now in the settings quick menu). */
 .model-src { font-size: 0.75rem; color: var(--body-text-color-subdued); }
+/* spec 004 FR-35: the settings quick menu is a popover anchored above the chat input row.
+   #chat-input-wrap is the positioned ancestor; the ⚙ button sits beside Submit. */
+#chat-input-wrap { position: relative; }
+#chat-input-row { align-items: flex-end; gap: 6px; }
+#settings-btn { min-width: 44px !important; }
+#settings-menu {
+  position: absolute; bottom: 100%; right: 0; z-index: 60;
+  width: 320px; max-width: 90vw; margin-bottom: 8px; padding: 12px;
+  border-radius: 12px; border: 1px solid var(--border-color-primary);
+  background: var(--background-fill-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  overflow: visible;  /* see below: don't clip the inner group Gradio renders position:absolute */
+}
+/* spec 004 FR-35 fix: Gradio renders the menu's inner group `position:absolute`, which collapses
+   #settings-menu to ~26px and (with the group's default overflow:hidden) clips the whole popover,
+   so it appeared as an empty pill. Pull the inner group back into flow so the popover sizes to its
+   content, and drop its duplicate group chrome so #settings-menu is the single visible box. */
+#settings-menu > * { position: static !important; }
+#settings-menu > .gr-group {
+  border: none !important; background: transparent !important; box-shadow: none !important;
+}
+#settings-menu-title { margin: 0 0 6px; font-size: 0.85rem; }
 """
 
 
@@ -621,7 +699,7 @@ async def _run_turn(history, conversation_id, workspace, approve):
     """
     user_msg = _text(history[-1]["content"]) if history else ""
     history = history + [{"role": "assistant", "content": THINKING}]
-    yield (history, conversation_id, gr.update(visible=False), *_card_updates(None))
+    yield (history, conversation_id, gr.update(visible=False), None)
 
     reply, cid = "", conversation_id
     citations, pending, interaction = [], None, None
@@ -629,7 +707,7 @@ async def _run_turn(history, conversation_id, workspace, approve):
         async for data in _stream_chat(workspace, user_msg, conversation_id, approve):
             if "error" in data:
                 history[-1]["content"] = f"⚠️ {data['error']}"
-                yield (history, cid, gr.update(visible=False), *_card_updates(None))
+                yield (history, cid, gr.update(visible=False), None)
                 return
             reply = data.get("reply", reply)
             cid = data.get("conversation_id", cid)
@@ -637,15 +715,21 @@ async def _run_turn(history, conversation_id, workspace, approve):
             pending = data.get("pending_plan") or pending
             interaction = data.get("interaction") or interaction
             history[-1]["content"] = reply or THINKING
-            yield (history, cid, gr.update(visible=False), *_card_updates(None))
+            yield (history, cid, gr.update(visible=False), None)
     except Exception as e:  # network/transport failure -> surface it (FR-11)
         history[-1]["content"] = f"⚠️ Could not reach the API: {e}"
-        yield (history, cid, gr.update(visible=False), *_card_updates(None))
+        yield (history, cid, gr.update(visible=False), None)
         return
 
     history[-1]["content"] = (reply or "…") + _format_extras(citations, pending)
+    # spec 008 FR-8/FR-10: a blocking interaction is appended as its own assistant message (the card
+    # bubble) inside the chat scroll; the card owns approval, so the legacy Approve button only shows
+    # for the rare plan without an interaction.
+    card = _card_html(interaction)
+    if card:
+        history = history + [{"role": "assistant", "content": card}]
     show_approve = bool(pending) and not interaction
-    yield (history, cid, gr.update(visible=show_approve), *_card_updates(interaction))
+    yield (history, cid, gr.update(visible=show_approve), interaction)
 
 
 async def _respond(history, conversation_id, workspace):
@@ -672,62 +756,98 @@ def _timer_html(seconds: int) -> str:
     )
 
 
-CHAT_ABOUT_IT = ("💬 Chat about it", "chat")  # constant final radio option (spec 008 FR-7)
+CHAT_ABOUT_IT = ("💬 Chat about it", "chat")  # constant final option (spec 008 FR-7)
 
 
-def _card_updates(interaction: dict | None):
-    """Updates for [card, prompt, radio, timer, interaction-state] from a ChatDelta interaction.
+def _card_html(interaction: dict | None) -> str | None:
+    """Build the interaction card as an assistant chat-message HTML string (spec 008 FR-8/FR-10).
 
-    A blocking interaction (approval/clarification) shows the bubble with its proposals as radios,
-    "chat about it" as the final option, and a fresh countdown (spec 008 FR-6/FR-7). Selecting any
-    radio auto-submits (see wiring); the top-right ✕ declines. Anything else — no interaction or a
-    non-blocking notification — hides the bubble and clears the state.
+    A blocking interaction (approval/clarification) renders as an accent-bordered `.itx-card` bubble
+    inside the chat scroll: the prompt, its proposals + the constant "chat about it" as inline
+    clickable options (data-itx-choice), a top-right ✕ decline, and an animated countdown. The clicks
+    reach the backend via the JS bridge (_ITX_JS → #itx-go). Returns None for no interaction or a
+    non-blocking notification. No option is pre-selected — clicking is what submits (P8).
     """
     if not interaction or interaction.get("kind") == "notification":
-        return (
-            gr.update(visible=False),
-            gr.update(),
-            gr.update(choices=[], value=None, visible=False),
-            gr.update(value=""),
-            None,
-        )
-    prompt = interaction.get("prompt", "")
-    opts = interaction.get("options", [])
+        return None
+    iid = html.escape(str(interaction.get("interaction_id", "")))
+    prompt = html.escape(interaction.get("prompt", ""))
     seconds = int(interaction.get("timeout_seconds", 30) or 30)
-    # Proposals + the constant "chat about it" as the last option. No pre-selection: the user must
-    # actively pick, and that selection is what submits (P8 — no answer inferred without a click).
-    choices = [(o.get("label") or o.get("id"), o.get("id")) for o in opts] + [CHAT_ABOUT_IT]
+    opts = list(interaction.get("options", [])) + [{"id": CHAT_ABOUT_IT[1], "label": CHAT_ABOUT_IT[0]}]
+    buttons = "".join(
+        f"<button class='itx-opt{' itx-chat' if o.get('id') == CHAT_ABOUT_IT[1] else ''}' "
+        f"data-itx-choice='{html.escape(str(o.get('id')))}'>"
+        f"{html.escape(str(o.get('label') or o.get('id')))}</button>"
+        for o in opts
+    )
     return (
-        gr.update(visible=True),
-        gr.update(value=prompt),
-        gr.update(choices=choices, value=None, visible=True),
-        gr.update(value=_timer_html(seconds)),
-        interaction,
+        f"<div class='itx-card' data-itx-id='{iid}'>"
+        f"<button class='itx-close' data-itx-choice='decline' title='Decline — take no action'>✕</button>"
+        f"<div class='itx-prompt'>{prompt}</div>"
+        f"<div class='itx-opts'>{buttons}</div>"
+        f"{_timer_html(seconds)}"
+        f"</div>"
     )
 
 
-async def _run_interaction(history, conversation_id, workspace, interaction, choice):
-    """Answer a pending interaction and stream the resumed turn (spec 008 FR-12/FR-16).
-
-    Reflects the human's decision in the transcript, hides the card while the turn runs
-    (pausing the countdown, D8), then re-shows the card only if a fresh interaction is
-    re-presented ("chat about it", FR-7); otherwise the card stays dismissed.
-    """
-    if not interaction:
-        yield (history, conversation_id, gr.update(visible=False), *_card_updates(None))
-        return
-    interaction_id = interaction.get("interaction_id")
+def _choice_label(interaction: dict, choice: str) -> str:
+    """The transcript label for a chosen option / decline / chat (spec 008 P6 traceability)."""
     label = {"chat": "💬 Let's discuss this first", "decline": "Decline — take no action"}.get(choice)
     if label is None:
         label = next(
             (o.get("label") or o.get("id") for o in interaction.get("options", []) if o.get("id") == choice),
             choice,
         )
-    history = history + [
+    return label
+
+
+def _neutralize_card(history, interaction_id: str, label: str):
+    """Rewrite the answered/expired card message in place so it can no longer be answered.
+
+    Finds the message carrying `data-itx-id="{interaction_id}"` and replaces it with a static,
+    dimmed `.itx-resolved` bubble (prompt + the resolution, no options, no #itx-timer) — so only the
+    active card ever carries the countdown ids and a stale card cannot be re-clicked (spec 008 FR-15).
+    """
+    marker = f"data-itx-id='{html.escape(str(interaction_id))}'"
+    out = list(history or [])
+    for i in range(len(out) - 1, -1, -1):
+        content = out[i].get("content") if isinstance(out[i], dict) else None
+        if isinstance(content, str) and marker in content:
+            # Recover the prompt text from the card's own markup (kept escaped).
+            prompt = ""
+            start = content.find("<div class='itx-prompt'>")
+            if start != -1:
+                start += len("<div class='itx-prompt'>")
+                end = content.find("</div>", start)
+                if end != -1:
+                    prompt = content[start:end]
+            out[i] = {"role": "assistant", "content": (
+                f"<div class='itx-card itx-resolved' data-itx-id='{html.escape(str(interaction_id))}'>"
+                f"<div class='itx-prompt'>{prompt}</div>"
+                f"<div class='itx-choice'>→ {html.escape(str(label))}</div>"
+                f"</div>"
+            )}
+            break
+    return out
+
+
+async def _run_interaction(history, conversation_id, workspace, interaction, choice):
+    """Answer a pending interaction and stream the resumed turn (spec 008 FR-12/FR-16).
+
+    Neutralizes the active card message in place, reflects the human's decision as a user message,
+    then appends a fresh card message only if a new interaction is re-presented ("chat about it",
+    FR-7); otherwise the card stays resolved.
+    """
+    if not interaction:
+        yield (history, conversation_id, gr.update(visible=False), None)
+        return
+    interaction_id = interaction.get("interaction_id")
+    label = _choice_label(interaction, choice)
+    history = _neutralize_card(history, interaction_id, label) + [
         {"role": "user", "content": label},
         {"role": "assistant", "content": THINKING},
     ]
-    yield (history, conversation_id, gr.update(visible=False), *_card_updates(None))
+    yield (history, conversation_id, gr.update(visible=False), None)
 
     reply, cid = "", conversation_id
     citations, fresh = [], None
@@ -735,53 +855,58 @@ async def _run_interaction(history, conversation_id, workspace, interaction, cho
         async for data in _stream_interaction(workspace, conversation_id, interaction_id, choice):
             if "error" in data:
                 history[-1]["content"] = f"⚠️ {data['error']}"
-                yield (history, cid, gr.update(visible=False), *_card_updates(None))
+                yield (history, cid, gr.update(visible=False), None)
                 return
             reply = data.get("reply", reply)
             cid = data.get("conversation_id", cid)
             citations = data.get("citations") or citations
             fresh = data.get("interaction") or fresh
             history[-1]["content"] = reply or THINKING
-            yield (history, cid, gr.update(visible=False), *_card_updates(None))
+            yield (history, cid, gr.update(visible=False), None)
     except Exception as e:  # network/transport failure -> surface it (FR-11)
         history[-1]["content"] = f"⚠️ Could not reach the API: {e}"
-        yield (history, cid, gr.update(visible=False), *_card_updates(None))
+        yield (history, cid, gr.update(visible=False), None)
         return
 
     history[-1]["content"] = (reply or "…") + _format_extras(citations, None)
-    yield (history, cid, gr.update(visible=False), *_card_updates(fresh))
+    card = _card_html(fresh)
+    if card:
+        history = history + [{"role": "assistant", "content": card}]
+    yield (history, cid, gr.update(visible=False), fresh)
 
 
-async def _submit_interaction(history, conversation_id, workspace, interaction, radio_value):
-    if not radio_value:  # nothing selected — keep the card up (countdown restarts on .then)
-        yield (history, conversation_id, gr.update(visible=False), *_card_updates(interaction))
+async def _submit_interaction(history, conversation_id, workspace, interaction, choice):
+    """Answer the pending card from the JS bridge (spec 008 FR-7/FR-12/FR-16). `choice` is the
+    clicked option id, "chat", or "decline"; empty means no click reached us — keep the card up."""
+    choice = (choice or "").strip()
+    if not choice:
+        yield (history, conversation_id, gr.update(visible=False), interaction)
         return
-    async for out in _run_interaction(history, conversation_id, workspace, interaction, radio_value):
-        yield out
-
-
-async def _decline_interaction(history, conversation_id, workspace, interaction):
-    async for out in _run_interaction(history, conversation_id, workspace, interaction, "decline"):
+    async for out in _run_interaction(history, conversation_id, workspace, interaction, choice):
         yield out
 
 
 def _expire_interaction(history, interaction):
-    """Countdown reached zero: dismiss the card and report the fixed timeout message (spec 008 D6)."""
+    """Countdown reached zero: neutralize the card and report the fixed timeout message (spec 008 D6)."""
     if not interaction:
-        return (history, *_card_updates(None))
-    history = (history or []) + [{"role": "assistant", "content": INTERACTION_TIMEOUT_MSG}]
-    return (history, *_card_updates(None))
+        return (history, None)
+    history = _neutralize_card(history, interaction.get("interaction_id"), "⏱ Timed out")
+    history = history + [{"role": "assistant", "content": INTERACTION_TIMEOUT_MSG}]
+    return (history, None)
 
 
-def _recover_card(conversation_id, workspace):
-    """Re-render an unanswered card after a reload/session-resume (spec 008 FR-11)."""
+def _recover_card(history, conversation_id, workspace):
+    """Re-append an unanswered card message after a reload/session-resume (spec 008 FR-11)."""
     if not conversation_id:
-        return _card_updates(None)
+        return (history, None)
     try:
         itx = _get_pending_interaction(workspace, conversation_id)
     except Exception:
         itx = None
-    return _card_updates(itx)
+    card = _card_html(itx)
+    if card:
+        history = (history or []) + [{"role": "assistant", "content": card}]
+    return (history, itx)
 
 
 # --- model selector (feature 004 FR-26..FR-28) -----------------------------
@@ -816,6 +941,12 @@ def _pick_model(model, current):
     except Exception as e:
         return gr.update(value=current), current, f"<em>Could not set model: {html.escape(str(e))}</em>"
     return gr.update(value=data.get("current")), data.get("current"), _model_hint(data.get("source", ""))
+
+
+def _toggle_settings(is_open: bool):
+    """Toggle the settings quick menu open/closed (spec 004 FR-35; re-toggle dismisses)."""
+    now = not is_open
+    return now, gr.update(visible=now)
 
 
 # --- sidebar handlers (feature 004) ----------------------------------------
@@ -1063,15 +1194,9 @@ def build_demo() -> gr.Blocks:
         active_vault = gr.State(None)
         interaction = gr.State(None)  # spec 008: the pending interaction dict, or None
         active_model = gr.State(None)  # spec 004 FR-28: the active agent model selector
+        settings_open = gr.State(False)  # spec 004 FR-35: settings quick-menu open/closed
 
         with gr.Sidebar(open=False, width=340) as sidebar:
-            # spec 004 FR-26: the Model selector sits at the TOP of the sidebar (above all panels).
-            model_picker = gr.Dropdown(
-                choices=[], label="Model", show_label=True, container=True,
-                interactive=True, filterable=True, elem_id="model-picker",
-            )
-            model_source = gr.HTML("")
-
             # spec 004 FR-2a: advanced surface — collapsed by default; FR-2b tooltip via _PANEL_TIP_JS.
             with gr.Accordion("Area (Workspaces)", open=False, elem_id="area-panel"):
                 # FR-7: `Active` indicator at the top, above the name box.
@@ -1123,24 +1248,38 @@ def build_demo() -> gr.Blocks:
         # title (same backend-derived label as the Sessions list) with a copy-id control beside it.
         with gr.Row(elem_id="conv-header"):
             conv_title = gr.Markdown("### New conversation", elem_id="conv-title")
-            copy_conv_btn = gr.Button("⧉ Copy id", size="sm", scale=0, elem_id="copy-conv-id")
+            # spec 004 FR-34: icon-only copy control, sitting next to the title on the left.
+            copy_conv_btn = gr.Button("⧉", size="sm", scale=0, min_width=36, elem_id="copy-conv-id")
+        # spec 008 FR-8/FR-10: the interaction card is an assistant message inside the chat scroll
+        # (see _card_html), so it needs no separate surface — just a hidden bridge. A JS listener
+        # (_ITX_JS) stashes the clicked option in window.__itxChoice and clicks #itx-go; its js-only
+        # click mirrors that global into itx_choice (updating the store), then _submit_interaction
+        # answers it. #itx-expire is the hidden trigger the countdown JS clicks at zero (D6).
         chat = gr.Chatbot(
-            height=560, show_label=False,
+            height=560, show_label=False, elem_id="chatbot",
             value=[{"role": "assistant", "content": GREETING}],
         )
-        # spec 008 FR-8: a distinct decision card, above the (always new-task) chat box. It carries
-        # its own radio options, a constant "chat about it" affordance, and an animated countdown.
-        with gr.Group(visible=False, elem_id="interaction-card") as interaction_card:
-            # Top-right ✕ declines (safe default, FR-14) — replaces the Decline button.
-            interaction_decline = gr.Button("✕", elem_classes=["itx-close"])
-            interaction_prompt = gr.Markdown("")
-            # Proposals + "chat about it"; selecting a radio auto-submits (see wiring, FR-7).
-            interaction_radio = gr.Radio(choices=[], show_label=False, container=False, visible=False)
-            interaction_timer = gr.HTML("")
-            # Hidden trigger the countdown JS clicks at zero (spec 008 D6).
-            interaction_expire = gr.Button(elem_id="itx-expire", elem_classes=["itx-hidden"])
+        itx_choice = gr.Textbox(visible=False, elem_id="itx-choice")
+        itx_go = gr.Button(elem_id="itx-go", elem_classes=["itx-hidden"])
+        itx_expire = gr.Button(elem_id="itx-expire", elem_classes=["itx-hidden"])
 
-        box = gr.Textbox(show_label=False, submit_btn=True, placeholder="Ask about the project…")
+        # spec 004 FR-35: the chat input row carries a settings button next to Submit that opens a
+        # quick menu (popover) hosting the Model selector (FR-26) — structured to grow more sub-panels.
+        with gr.Column(elem_id="chat-input-wrap"):
+            with gr.Group(visible=False, elem_id="settings-menu") as settings_menu:
+                gr.Markdown("**Settings**", elem_id="settings-menu-title")
+                # spec 004 FR-26: the Model selector — first (and, for now, only) sub-panel.
+                model_picker = gr.Dropdown(
+                    choices=[], label="Model", show_label=True, container=True,
+                    interactive=True, filterable=True, elem_id="model-picker",
+                )
+                model_source = gr.HTML("")
+            with gr.Row(elem_id="chat-input-row"):
+                box = gr.Textbox(
+                    show_label=False, submit_btn=True, placeholder="Ask about the project…",
+                    scale=8, container=False,
+                )
+                settings_btn = gr.Button("⚙", elem_id="settings-btn", scale=0, min_width=44)
         approve_btn = gr.Button("✅ Approve plan", variant="primary", visible=False)
         # spec 004 FR-32: a hidden mirror of the active conversation id that _CONV_SYNC_JS reads from
         # the DOM to keep ?conversation in sync (js-only listeners can't read gr.State inputs).
@@ -1148,23 +1287,24 @@ def build_demo() -> gr.Blocks:
 
         # --- wiring ---
         sidebar_out = [vault_box, active_vault, vault_suggest, wiki_view, vault_status, create_btn]
-        card_out = [interaction_card, interaction_prompt, interaction_radio, interaction_timer, interaction]
         # spec 004 FR-29/FR-32: _initial also restores the sidebar open/closed state from ?sidebar and
         # the deep-linked conversation from ?conversation (into chat + conversation state).
         demo.load(_initial, None, sidebar_out + [sidebar, chat, conversation]).then(
-            _recover_card, [conversation, active_vault], card_out
+            _recover_card, [chat, conversation, active_vault], [chat, interaction]
         ).then(_conv_title_md, [conversation, active_vault], [conv_title]).then(
             None, None, None, js=_COUNTDOWN_JS
         )
         demo.load(_sessions_html, [active_vault], [sessions_view])
-        # spec 004 FR-26/FR-27: populate the top-of-sidebar Model picker; FR-28: selecting persists.
+        # spec 004 FR-26/FR-27: populate the quick-menu Model picker; FR-28: selecting persists.
         demo.load(_model_initial, None, [model_picker, model_source]).then(
             lambda d=None: d, [model_picker], [active_model]
         )
         demo.load(None, None, None, js=_TOOLTIP_JS)
         demo.load(None, None, None, js=_WIKI_TIP_JS)
         demo.load(None, None, None, js=_SESSION_JS)
+        demo.load(None, None, None, js=_ITX_JS)  # spec 008: in-chat card click-bridge
         demo.load(None, None, None, js=_PANEL_TIP_JS)
+        demo.load(None, None, None, js=_SETTINGS_DISMISS_JS)
 
         # FR-4: clicking the box reveals the picker of the other workspaces; typing narrows it
         # and toggles the Create button (FR-5).
@@ -1187,6 +1327,9 @@ def build_demo() -> gr.Blocks:
         # spec 004 FR-34: copy the active conversation id (read from the #conv-url mirror) to clipboard.
         copy_conv_btn.click(None, None, None, js=_COPY_CONV_JS)
 
+        # spec 004 FR-35: the settings button beside Submit toggles the quick menu (re-toggle
+        # dismisses; _SETTINGS_DISMISS_JS also closes on click-away).
+        settings_btn.click(_toggle_settings, [settings_open], [settings_open, settings_menu])
         # spec 004 FR-28: choosing a model persists it process-wide; revert on failure.
         model_picker.change(
             _pick_model, [model_picker, active_model], [model_picker, active_model, model_source]
@@ -1202,7 +1345,7 @@ def build_demo() -> gr.Blocks:
         session_go.click(
             _open_session, [session_pick, active_vault], [chat, conversation],
             js=_SESSION_PICK_JS,
-        ).then(_recover_card, [conversation, active_vault], card_out).then(
+        ).then(_recover_card, [chat, conversation, active_vault], [chat, interaction]).then(
             _conv_title_md, [conversation, active_vault], [conv_title]
         ).then(None, None, None, js=_COUNTDOWN_JS)
 
@@ -1212,10 +1355,10 @@ def build_demo() -> gr.Blocks:
             [upload_group, upload_progress, upload_status, uploader, wiki_view],
         )
 
-        # New conversation clears the chat, dismisses any open interaction card (FR-8), and clears
-        # the ?conversation param (spec 004 FR-32) via the hidden mirror + _CONV_SYNC_JS.
+        # New conversation clears the chat (dropping any open card message, FR-8), clears the pending
+        # interaction state, and clears the ?conversation param (spec 004 FR-32) via the hidden mirror.
         new_chat_btn.click(_new_chat, None, [chat, conversation]).then(
-            lambda: _card_updates(None), None, card_out
+            lambda: None, None, [interaction]
         ).then(lambda: "### New conversation", None, [conv_title]).then(
             lambda: "", None, [conv_url]
         ).then(None, None, None, js=_CONV_SYNC_JS)
@@ -1223,7 +1366,7 @@ def build_demo() -> gr.Blocks:
         # spec 008 FR-8: the bottom chat box always starts a NEW task; it never answers the card.
         # spec 004 FR-32: after a turn, mirror the (possibly newly created) conversation id into the
         # hidden #conv-url box, then _CONV_SYNC_JS syncs ?conversation so the thread is bookmarkable.
-        turn_out = [chat, conversation, approve_btn, *card_out]
+        turn_out = [chat, conversation, approve_btn, interaction]
         box.submit(_user_submit, [box, chat], [box, chat]).then(
             _respond, [chat, conversation, active_vault], turn_out
         ).then(None, None, None, js=_COUNTDOWN_JS).then(
@@ -1239,16 +1382,22 @@ def build_demo() -> gr.Blocks:
             None, None, None, js=_CONV_SYNC_JS
         )
 
-        # spec 008 FR-7/FR-12/FR-16: the card's own controls answer the pending interaction.
-        # Selecting a radio option (a proposal or "chat about it") auto-submits it; the ✕ declines.
-        interaction_radio.input(
+        # spec 008 FR-7/FR-12/FR-16: the in-chat card answers via the JS bridge. Clicking an option
+        # (proposal, "chat about it", or the ✕ decline) sets window.__itxChoice and clicks #itx-go;
+        # its js-only click mirrors the choice into itx_choice (updating the store), then
+        # _submit_interaction answers the pending interaction and streams the resumed turn.
+        itx_go.click(None, None, [itx_choice], js="() => window.__itxChoice || ''").then(
             _submit_interaction,
-            [chat, conversation, active_vault, interaction, interaction_radio],
+            [chat, conversation, active_vault, interaction, itx_choice],
             turn_out,
-        ).then(None, None, None, js=_COUNTDOWN_JS)
-        interaction_decline.click(
-            _decline_interaction, [chat, conversation, active_vault, interaction], turn_out,
-        ).then(None, None, None, js=_COUNTDOWN_JS)
-        interaction_expire.click(_expire_interaction, [chat, interaction], [chat, *card_out])
+        ).then(None, None, None, js=_COUNTDOWN_JS).then(
+            lambda cid: cid or "", [conversation], [conv_url]
+        ).then(_conv_title_md, [conversation, active_vault], [conv_title]).then(
+            None, None, None, js=_CONV_SYNC_JS
+        )
+        # spec 008 D6: the countdown JS clicks #itx-expire at zero → neutralize the card + timeout msg.
+        itx_expire.click(_expire_interaction, [chat, interaction], [chat, interaction]).then(
+            None, None, None, js=_COUNTDOWN_JS
+        )
 
     return demo

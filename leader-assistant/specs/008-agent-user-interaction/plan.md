@@ -49,12 +49,19 @@
 - **Plan-first as approval (FR-17).** A consequential turn still sets `pending_plan` (backward compat with
   the legacy `approve=true` chat path) **and** emits an approval interaction wrapping the plan. Any
   resolution clears both fields so the plan can never execute twice.
-- **UI card (`app/ui.py`, FR-8/FR-10).** A compact **chat bubble** sized to read as an assistant message
-  (not a full-width panel), shown just above the chat box: prompt + the proposals as **radio options with
-  the constant "chat about it" as the final option** + an animated spinner/countdown. **Selecting a radio
-  option auto-submits** the answer (`Radio.input`) — no Submit button. A **top-right ✕** on the bubble
-  declines (safe default, FR-14) — no Decline button. The bottom chat box always starts a new task.
-  Reload recovery re-renders the card from `GET /api/chat/interaction`.
+- **UI card (`app/ui.py`, FR-8/FR-10).** The card is **an actual assistant message inside the conversation
+  scroll** — appended to the chat transcript as a left-aligned assistant bubble, so it reads as part of the
+  conversation, not an element exterior to the message list. Its proposals + the constant "chat about it"
+  render as **inline HTML option controls** within the message (native `gr.Radio` can't live inside a
+  `gr.Chatbot` message); **selecting an option auto-submits** the answer and the human's pick appears as a
+  normal **user** message (right side). A **top-right ✕** on the bubble declines (safe default, FR-14). An
+  animated spinner/countdown rides in the message. The option/✕ clicks reach the backend through a **JS
+  click-bridge** — a delegated listener stores the choice in a `window` global and clicks a hidden `#itx-go`
+  trigger (mirroring the session-select bridge), whose handler answers the pending interaction; the
+  countdown/expire use the existing `#itx-timer`/`#itx-remaining`/`#itx-expire` bridge. Once answered or
+  timed out, the card message is **neutralized in place** (options + timer removed, dimmed) so it can't be
+  re-answered. The bottom chat box always starts a new task. Reload recovery **re-appends** the card
+  message from `GET /api/chat/interaction`.
 
 ## Agent-initiated interactions (FR-18)
 
