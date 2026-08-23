@@ -600,6 +600,12 @@ def upload_and_ingest(
     return models.UploadReport(workspace=name, files=results, count=len(results), committed=committed)
 
 
+def _derive_conversation_title(conv) -> str:
+    """First user line, truncated — the shared label for Sessions list + chat header (spec 004 FR-33)."""
+    first_user = next((t.text for t in conv.turns if t.role == "user"), "").strip()
+    return first_user.splitlines()[0][:60] if first_user else "New conversation"
+
+
 def list_conversations(selector: str | None = None) -> models.ConversationList:
     """List prior conversations for the Sessions panel, newest first (FR-17/FR-19)."""
     from . import conversation as convo
@@ -613,8 +619,7 @@ def list_conversations(selector: str | None = None) -> models.ConversationList:
             conv = convo.load(workspace, p.stem)
             if conv is None:
                 continue
-            first_user = next((t.text for t in conv.turns if t.role == "user"), "").strip()
-            title = first_user.splitlines()[0][:60] if first_user else "New conversation"
+            title = _derive_conversation_title(conv)
             summaries.append(
                 models.ConversationSummary(
                     conversation_id=conv.conversation_id,
@@ -639,7 +644,11 @@ def get_conversation(selector: str | None, conversation_id: str) -> models.Conve
         for t in conv.turns
     ]
     return models.ConversationDetail(
-        workspace=name, conversation_id=conv.conversation_id, created=conv.created, messages=messages
+        workspace=name,
+        conversation_id=conv.conversation_id,
+        created=conv.created,
+        title=_derive_conversation_title(conv),
+        messages=messages,
     )
 
 

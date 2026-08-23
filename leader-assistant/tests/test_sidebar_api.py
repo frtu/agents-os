@@ -10,6 +10,8 @@ pipeline still never mutates it.
 
 from __future__ import annotations
 
+import pathlib
+
 
 def _make_workspace(client, name="demo"):
     assert client.post("/api/workspaces", json={"name": name}).status_code == 200
@@ -164,6 +166,22 @@ def test_sessions_list_and_resume(client, offline_agent):
     assert detail.status_code == 200
     roles = [m["role"] for m in detail.json()["messages"]]
     assert "user" in roles and "assistant" in roles
+
+
+def test_session_detail_title_matches_list_fr33(client, offline_agent):
+    # spec 004 FR-33: the detail endpoint returns the SAME derived title as the Sessions list, so the
+    # chat-panel header and the left menu label come from one backend source (P9 parity).
+    v = _make_workspace(client)
+    posted = client.post("/api/chat", json={"workspace": v, "message": "what did we decide?"})
+    cid = posted.json()["conversation_id"]
+
+    summary = next(
+        c for c in client.get("/api/sessions", params={"workspace": v}).json()["conversations"]
+        if c["conversation_id"] == cid
+    )
+    detail = client.get(f"/api/sessions/{cid}", params={"workspace": v}).json()
+    assert detail["title"] == summary["title"]
+    assert detail["title"]  # non-empty for a real turn
 
 
 def test_session_date_bucketing(monkeypatch):
@@ -508,8 +526,12 @@ def test_session_click_bridge_is_wired():
 
     # Delegated listener targets the rendered rows, records the id, and fires the hidden trigger.
     assert ".session-tree [data-cid]" in ui._SESSION_JS
-    assert "window.__lastCid = t.getAttribute('data-cid')" in ui._SESSION_JS
+    assert "t.getAttribute('data-cid')" in ui._SESSION_JS
+    assert "window.__lastCid = cid" in ui._SESSION_JS
     assert "document.getElementById('session-go')" in ui._SESSION_JS
+    # spec 004 FR-32: selecting a session also updates ?conversation in place (silent, no reload).
+    assert "searchParams.set('conversation'" in ui._SESSION_JS
+    assert "history.replaceState" in ui._SESSION_JS
     # The js shim replaces the placeholder arg with the clicked id, passing the vault through.
     assert ui._SESSION_PICK_JS == "(pick, vault) => [window.__lastCid || '', vault]"
     # The bridge components stay in the DOM (CSS-hidden), because Gradio drops visible=False ones.
@@ -540,6 +562,44 @@ def test_open_session_resumes_and_strips_nonce(monkeypatch):
     # An empty selection is a no-op (no conversation resumed).
     _, cid3 = ui._open_session("", "demo")
     assert cid3 is None
+
+
+def test_conv_title_md_uses_backend_title_fr33(monkeypatch):
+    # spec 004 FR-33: the chat-panel header label is the detail endpoint's derived title.
+    from app import ui
+
+    monkeypatch.setattr(ui, "_get_session_detail", lambda v, c: {"title": "Ship the release"})
+    assert ui._conv_title_md("abc123", "demo") == "### Ship the release"
+
+
+def test_conv_title_md_degrades_to_new_conversation_fr33(monkeypatch):
+    # spec 004 FR-33: no id, a titleless thread, or a load error all fall back to "New conversation".
+    from app import ui
+
+    assert ui._conv_title_md(None, "demo") == "### New conversation"
+    monkeypatch.setattr(ui, "_get_session_detail", lambda v, c: {"title": ""})
+    assert ui._conv_title_md("abc123", "demo") == "### New conversation"
+
+    def boom(v, c):
+        raise RuntimeError("no such session")
+
+    monkeypatch.setattr(ui, "_get_session_detail", boom)
+    assert ui._conv_title_md("ghost", "demo") == "### New conversation"
+
+
+def test_ui_wires_conversation_header_and_copy_fr33_fr34():
+    # spec 004 FR-33/FR-34: a titled header row sits atop the chat panel with a copy-id control;
+    # copy reads the id from the #conv-url mirror (DOM source of truth) and no-ops when empty.
+    from app import ui
+
+    src = pathlib.Path(ui.__file__).read_text()
+    assert 'elem_id="conv-header"' in src
+    assert 'elem_id="conv-title"' in src
+    assert 'elem_id="copy-conv-id"' in src        # copy button the JS labels "Copied ✓"
+    assert "_COPY_CONV_JS" in src
+    assert "navigator.clipboard.writeText(cid)" in ui._COPY_CONV_JS
+    assert "#conv-url textarea" in ui._COPY_CONV_JS  # reads the same mirror as the sync JS
+    assert "if (!cid) return" in ui._COPY_CONV_JS    # graceful no-op with no active id
 
 
 def test_wiki_tree_names_are_single_line_with_tooltip():

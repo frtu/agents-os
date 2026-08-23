@@ -100,6 +100,10 @@ also offers).
   it opens in the chat and the URL gains `?conversation=<id>` silently (no reload). I bookmark or share
   the link, and reopening it restores that same conversation in the chat. Clicking **New conversation**
   clears the param and starts a fresh thread.
+- **Scenario 7e — See and copy the conversation:** As a user, the top of the chat panel shows the
+  **title** of the conversation I'm in — the same label it has in the Sessions list — so I always know
+  which thread I'm reading. A **copy** control next to it copies the conversation id to my clipboard
+  (with a brief "Copied" confirmation) so I can reference or share it.
 - **Scenario 8 — Empty states:** As a first-time user, an empty workspace shows an empty
   `vault/wiki/` tree and an empty Sessions list with clear "nothing yet" messaging rather than
   errors.
@@ -263,6 +267,21 @@ Numbered, testable, unambiguous.
   (per FR-19), not as an action button. Each relative-date group MUST be an **independently
   collapsible section** (its conversations expand/collapse) and MUST be **expanded by default**.
 
+### Conversation header (chat panel title + copy id)
+
+- **FR-33 (conversation title header):** The chat (middle) panel MUST show, at its **top**, the
+  **active conversation's title** — the **same derived title** shown for that conversation in the
+  Sessions list (FR-25: the first user message, truncated; `New conversation` when there is none).
+  The header MUST update whenever the active conversation changes: opening/resuming one (FR-20),
+  restoring one from the deep link (FR-32), or starting a **New conversation** (FR-24, → `New
+  conversation`). For interface parity (P9), the conversation-**detail** endpoint (FR-20) MUST
+  return this title so the header and the Sessions list derive it from the **same backend source**
+  rather than recomputing it independently.
+- **FR-34 (copy conversation id):** The conversation header MUST include a **copy control** that
+  copies the **active conversation id** to the clipboard, giving brief visual confirmation. When
+  there is no active conversation id yet (a fresh thread before its first turn), the control MUST
+  degrade gracefully (nothing to copy) rather than error.
+
 ### Model selector
 
 - **FR-26 (model selector):** A **Model** control MUST appear at the **top of the sidebar**
@@ -388,6 +407,13 @@ Numbered, testable, unambiguous.
   chat (unknown/absent ⇒ fresh thread), scoped to the active workspace. Selecting a session, a new
   thread acquiring an id on its first turn, or starting **New conversation** updates `?conversation`
   **silently** via `history.replaceState` (no reload); **New conversation** clears it. (FR-32)
+
+- [ ] **AC-16:** The chat panel shows the active conversation's **title** at its top, matching the
+  Sessions-list label for that conversation, and updates on open/resume/deep-link-restore and to
+  `New conversation` on a fresh thread. The conversation-**detail** endpoint returns this title so
+  both surfaces derive it from the backend (P9). (FR-33)
+- [ ] **AC-17:** A **copy** control in the conversation header copies the active conversation id to
+  the clipboard with brief confirmation, and no-ops gracefully when there is no id yet. (FR-34)
 
 ## Resolved Decisions
 

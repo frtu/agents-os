@@ -311,6 +311,7 @@ class ConversationDetail(BaseModel):
     workspace: str
     conversation_id: str
     created: str
+    title: str = Field("", description="Derived label (first user message, truncated) — spec 004 FR-33")
     messages: list[ConversationMessage] = Field(default_factory=list)
 
 

@@ -188,21 +188,36 @@ def test_ac6_expiry_aborts_with_fixed_message_no_action(client, isolated_workspa
 
 
 def test_ac7_ui_card_updates_render_distinct_card(isolated_workspace_root):
-    # AC-7 (FR-10): the UI turns an interaction into a visible card with radio options + a countdown
-    # wheel, and hides for None / non-blocking notifications.
+    # AC-7 (FR-7/FR-10): the UI turns an interaction into a visible bubble whose radio options are the
+    # proposals plus a constant "chat about it" last; nothing is pre-selected (selecting = submitting,
+    # so no answer is inferred — P8). Hides for None / non-blocking notifications.
     from app import ui
 
-    itx = {
+    # A clarification with 2 proposals -> radios = [proposals..., "chat about it"], no pre-selection.
+    clar = {
+        "interaction_id": "itx-2", "conversation_id": "c", "kind": "clarification",
+        "prompt": "Pick an approach",
+        "options": [{"id": "opt-1", "label": "Ingest audit"}, {"id": "opt-2", "label": "Wiki sweep"}],
+        "timeout_seconds": 30,
+    }
+    card, _prompt, radio, timer, state = ui._card_updates(clar)
+    assert card["visible"] is True
+    assert radio["choices"] == [
+        ("Ingest audit", "opt-1"), ("Wiki sweep", "opt-2"), ui.CHAT_ABOUT_IT,
+    ]
+    assert radio["value"] is None                 # nothing inferred; selecting is what submits (P8)
+    assert "data-seconds='30'" in timer["value"]  # animated countdown seeded (FR-9)
+    assert state == clar
+
+    # Approval (1 proposal) still gets the constant "chat about it" as the final option (FR-7).
+    appr = {
         "interaction_id": "itx-1", "conversation_id": "c", "kind": "approval",
         "prompt": "Proceed?", "options": [{"id": "approve", "label": "Proceed with this plan"}],
         "timeout_seconds": 30,
     }
-    card, _prompt, radio, timer, state = ui._card_updates(itx)
-    assert card["visible"] is True
-    assert radio["choices"] == [("Proceed with this plan", "approve")]
-    assert radio["value"] == "approve"           # approval pre-selects its lone proposal
-    assert "data-seconds='30'" in timer["value"]  # animated countdown seeded (FR-9)
-    assert state == itx
+    _c, _p, appr_radio, *_ = ui._card_updates(appr)
+    assert appr_radio["choices"] == [("Proceed with this plan", "approve"), ui.CHAT_ABOUT_IT]
+    assert appr_radio["value"] is None
 
     hidden_card, *_rest, hidden_state = ui._card_updates(None)
     assert hidden_card["visible"] is False and hidden_state is None

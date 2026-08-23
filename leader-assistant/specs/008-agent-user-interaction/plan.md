@@ -49,9 +49,12 @@
 - **Plan-first as approval (FR-17).** A consequential turn still sets `pending_plan` (backward compat with
   the legacy `approve=true` chat path) **and** emits an approval interaction wrapping the plan. Any
   resolution clears both fields so the plan can never execute twice.
-- **UI card (`app/ui.py`, FR-8/FR-10).** A distinct bordered `gr.Group` above the chat box: prompt +
-  radio options + constant "chat about it" + Decline + an animated spinner/countdown. The bottom chat box
-  always starts a new task. Reload recovery re-renders the card from `GET /api/chat/interaction`.
+- **UI card (`app/ui.py`, FR-8/FR-10).** A compact **chat bubble** sized to read as an assistant message
+  (not a full-width panel), shown just above the chat box: prompt + the proposals as **radio options with
+  the constant "chat about it" as the final option** + an animated spinner/countdown. **Selecting a radio
+  option auto-submits** the answer (`Radio.input`) — no Submit button. A **top-right ✕** on the bubble
+  declines (safe default, FR-14) — no Decline button. The bottom chat box always starts a new task.
+  Reload recovery re-renders the card from `GET /api/chat/interaction`.
 
 ## Agent-initiated interactions (FR-18)
 

@@ -101,7 +101,16 @@ _SESSION_JS = """
   document.addEventListener('click', (e) => {
     const t = e.target && e.target.closest ? e.target.closest('.session-tree [data-cid]') : null;
     if (!t) return;
-    window.__lastCid = t.getAttribute('data-cid');
+    const cid = t.getAttribute('data-cid');
+    window.__lastCid = cid;
+    // spec 004 FR-32: reflect the selected conversation in the URL silently (no reload) so the
+    // thread is bookmarkable. Done here (not via a State-input .then) because the clicked id is
+    // available directly and gr.State does not reliably reach a js-only listener.
+    if (cid) {
+      const u = new URL(window.location);
+      u.searchParams.set('conversation', cid);
+      history.replaceState(null, '', u.toString());
+    }
     const go = document.getElementById('session-go');
     if (go) go.click();
   });
@@ -212,10 +221,14 @@ _SIDEBAR_CLOSED_JS = """
 }
 """
 
-# spec 004 FR-32: selecting/starting a conversation updates ?conversation in place (no reload) so the
-# thread is bookmarkable; an empty id (New conversation) clears the param. Takes the conversation id.
-_CONV_URL_JS = """
-(cid) => {
+# spec 004 FR-32: sync ?conversation in place (no reload) so the active thread is bookmarkable. A
+# js-only listener reads the current id from the hidden #conv-url mirror in the DOM rather than a
+# Gradio input, because gr.State/component values do not reach a js-only ("fn=None") listener; a
+# non-empty value sets the param, an empty one (New conversation) clears it.
+_CONV_SYNC_JS = """
+() => {
+  const el = document.querySelector('#conv-url textarea, #conv-url input');
+  const cid = el ? (el.value || '').trim() : '';
   const u = new URL(window.location);
   if (cid) u.searchParams.set('conversation', cid);
   else u.searchParams.delete('conversation');
@@ -223,8 +236,27 @@ _CONV_URL_JS = """
 }
 """
 
+# spec 004 FR-34: copy the active conversation id to the clipboard. Reads the id from the same
+# hidden #conv-url mirror the sync JS uses (the DOM source of truth), no-ops when empty, and gives
+# brief "Copied" feedback by swapping the button label.
+_COPY_CONV_JS = """
+() => {
+  const el = document.querySelector('#conv-url textarea, #conv-url input');
+  const cid = el ? (el.value || '').trim() : '';
+  if (!cid) return;
+  navigator.clipboard.writeText(cid);
+  const btn = document.querySelector('#copy-conv-id button') || document.querySelector('#copy-conv-id');
+  if (btn) { const o = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = o; }, 1200); }
+}
+"""
+
 _CSS = """
 #refresh-vault button, #create-vault button { font-size: 1.1rem; padding: 0 6px; }
+/* spec 004 FR-33/FR-34: conversation header row — title fills, copy button hugs the right. */
+#conv-header { align-items: center; gap: 8px; flex-wrap: nowrap; }
+#conv-title { flex: 1 1 auto; min-width: 0; }
+#conv-title h3 { margin: 8px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#copy-conv-id { flex: 0 0 auto; }
 .wiki-tree { font-size: 0.9rem; line-height: 1.5; max-height: 240px;
              overflow-y:auto; overflow-x:hidden;
              border:1px solid var(--border-color-primary); border-radius:6px; padding:6px 8px; }
@@ -278,12 +310,25 @@ _CSS = """
   border: 1px solid var(--border-color-primary, #4b5563); border-radius: 4px;
   padding: 4px 8px; font-size: 0.8rem; box-shadow: 0 2px 6px rgba(0,0,0,0.35);
 }
-/* spec 008 FR-8: the interaction card is visually distinct from the chat box below it — a
-   bordered, tinted panel with its own controls and an animated countdown wheel. */
+/* spec 008 FR-8/FR-10 (plan.md): the interaction card reads as an assistant chat bubble — a
+   compact, left-aligned tinted bubble sized like a message, with its options as radios and an
+   animated countdown. A top-right ✕ declines; selecting a radio auto-submits. */
 #interaction-card {
-  border: 1px solid var(--color-accent, #f59e0b); border-radius: 8px; padding: 12px 14px;
-  margin: 6px 2px; background: var(--background-fill-secondary);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  position: relative;
+  border: 1px solid var(--color-accent, #f59e0b); border-radius: 14px;
+  padding: 10px 12px 8px; margin: 4px 2px 6px 0; width: fit-content; max-width: min(80%, 520px);
+  background: var(--background-fill-secondary); box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+#interaction-card .prose { font-size: 0.9rem; }
+/* Compact the radio options so the bubble stays message-sized. */
+#interaction-card .wrap { gap: 4px; }
+#interaction-card label { font-size: 0.88rem; padding: 3px 6px; }
+/* Top-right ✕ decline affordance (spec 008 FR-14) — replaces the Decline button. */
+.itx-close {
+  position: absolute !important; top: 4px; right: 4px; z-index: 2;
+  min-width: 0 !important; width: 24px !important; height: 24px !important;
+  padding: 0 !important; line-height: 1; border-radius: 50% !important;
+  font-size: 0.9rem; flex: none !important;
 }
 .itx-timer {
   display: flex; align-items: center; gap: 8px; margin-top: 6px;
@@ -627,12 +672,16 @@ def _timer_html(seconds: int) -> str:
     )
 
 
+CHAT_ABOUT_IT = ("💬 Chat about it", "chat")  # constant final radio option (spec 008 FR-7)
+
+
 def _card_updates(interaction: dict | None):
     """Updates for [card, prompt, radio, timer, interaction-state] from a ChatDelta interaction.
 
-    A blocking interaction (approval/clarification) shows the card with its options as radios and
-    a fresh countdown (spec 008 FR-6/FR-8). Anything else — no interaction or a non-blocking
-    notification — hides the card and clears the state.
+    A blocking interaction (approval/clarification) shows the bubble with its proposals as radios,
+    "chat about it" as the final option, and a fresh countdown (spec 008 FR-6/FR-7). Selecting any
+    radio auto-submits (see wiring); the top-right ✕ declines. Anything else — no interaction or a
+    non-blocking notification — hides the bubble and clears the state.
     """
     if not interaction or interaction.get("kind") == "notification":
         return (
@@ -645,12 +694,13 @@ def _card_updates(interaction: dict | None):
     prompt = interaction.get("prompt", "")
     opts = interaction.get("options", [])
     seconds = int(interaction.get("timeout_seconds", 30) or 30)
-    choices = [(o.get("label") or o.get("id"), o.get("id")) for o in opts]
-    value = choices[0][1] if len(choices) == 1 else None  # approval pre-selects its lone option
+    # Proposals + the constant "chat about it" as the last option. No pre-selection: the user must
+    # actively pick, and that selection is what submits (P8 — no answer inferred without a click).
+    choices = [(o.get("label") or o.get("id"), o.get("id")) for o in opts] + [CHAT_ABOUT_IT]
     return (
         gr.update(visible=True),
-        gr.update(value=f"**Decision needed** — {prompt}"),
-        gr.update(choices=choices, value=value, visible=bool(choices)),
+        gr.update(value=prompt),
+        gr.update(choices=choices, value=None, visible=True),
         gr.update(value=_timer_html(seconds)),
         interaction,
     )
@@ -712,11 +762,6 @@ async def _submit_interaction(history, conversation_id, workspace, interaction, 
 
 async def _decline_interaction(history, conversation_id, workspace, interaction):
     async for out in _run_interaction(history, conversation_id, workspace, interaction, "decline"):
-        yield out
-
-
-async def _chat_interaction(history, conversation_id, workspace, interaction):
-    async for out in _run_interaction(history, conversation_id, workspace, interaction, "chat"):
         yield out
 
 
@@ -993,6 +1038,21 @@ def _new_chat():
     return [{"role": "assistant", "content": GREETING}], None
 
 
+def _conv_title_md(conversation_id, workspace):
+    """Chat-panel header label = the same backend-derived title as the Sessions list (spec 004 FR-33).
+
+    Fetches the conversation-detail title (FR-20 parity) for a live thread; an absent id or a load
+    error degrades to the neutral "New conversation" label rather than surfacing an error.
+    """
+    if not (workspace and conversation_id):
+        return "### New conversation"
+    try:
+        title = (_get_session_detail(workspace, conversation_id).get("title") or "").strip()
+    except Exception:
+        title = ""
+    return f"### {title}" if title else "### New conversation"
+
+
 # --- UI assembly ------------------------------------------------------------
 
 
@@ -1059,8 +1119,11 @@ def build_demo() -> gr.Blocks:
                 )
                 session_go = gr.Button(elem_id="session-go", elem_classes=["session-bridge"])
 
-        # Main area: chat.
-        gr.HTML('<h2 style="margin:8px 2px">Leader <b>Assistant</b></h2>')
+        # Main area: chat. spec 004 FR-33/FR-34: the chat panel's top shows the active conversation's
+        # title (same backend-derived label as the Sessions list) with a copy-id control beside it.
+        with gr.Row(elem_id="conv-header"):
+            conv_title = gr.Markdown("### New conversation", elem_id="conv-title")
+            copy_conv_btn = gr.Button("⧉ Copy id", size="sm", scale=0, elem_id="copy-conv-id")
         chat = gr.Chatbot(
             height=560, show_label=False,
             value=[{"role": "assistant", "content": GREETING}],
@@ -1068,18 +1131,20 @@ def build_demo() -> gr.Blocks:
         # spec 008 FR-8: a distinct decision card, above the (always new-task) chat box. It carries
         # its own radio options, a constant "chat about it" affordance, and an animated countdown.
         with gr.Group(visible=False, elem_id="interaction-card") as interaction_card:
+            # Top-right ✕ declines (safe default, FR-14) — replaces the Decline button.
+            interaction_decline = gr.Button("✕", elem_classes=["itx-close"])
             interaction_prompt = gr.Markdown("")
+            # Proposals + "chat about it"; selecting a radio auto-submits (see wiring, FR-7).
             interaction_radio = gr.Radio(choices=[], show_label=False, container=False, visible=False)
             interaction_timer = gr.HTML("")
-            with gr.Row():
-                interaction_submit = gr.Button("Submit", variant="primary", scale=2)
-                interaction_chat = gr.Button("💬 Chat about it", scale=2)
-                interaction_decline = gr.Button("Decline", variant="stop", scale=1)
             # Hidden trigger the countdown JS clicks at zero (spec 008 D6).
             interaction_expire = gr.Button(elem_id="itx-expire", elem_classes=["itx-hidden"])
 
         box = gr.Textbox(show_label=False, submit_btn=True, placeholder="Ask about the project…")
         approve_btn = gr.Button("✅ Approve plan", variant="primary", visible=False)
+        # spec 004 FR-32: a hidden mirror of the active conversation id that _CONV_SYNC_JS reads from
+        # the DOM to keep ?conversation in sync (js-only listeners can't read gr.State inputs).
+        conv_url = gr.Textbox(visible=False, elem_id="conv-url")
 
         # --- wiring ---
         sidebar_out = [vault_box, active_vault, vault_suggest, wiki_view, vault_status, create_btn]
@@ -1088,7 +1153,9 @@ def build_demo() -> gr.Blocks:
         # the deep-linked conversation from ?conversation (into chat + conversation state).
         demo.load(_initial, None, sidebar_out + [sidebar, chat, conversation]).then(
             _recover_card, [conversation, active_vault], card_out
-        ).then(None, None, None, js=_COUNTDOWN_JS)
+        ).then(_conv_title_md, [conversation, active_vault], [conv_title]).then(
+            None, None, None, js=_COUNTDOWN_JS
+        )
         demo.load(_sessions_html, [active_vault], [sessions_view])
         # spec 004 FR-26/FR-27: populate the top-of-sidebar Model picker; FR-28: selecting persists.
         demo.load(_model_initial, None, [model_picker, model_source]).then(
@@ -1117,6 +1184,9 @@ def build_demo() -> gr.Blocks:
         sidebar.expand(None, None, None, js=_SIDEBAR_OPEN_JS)
         sidebar.collapse(None, None, None, js=_SIDEBAR_CLOSED_JS)
 
+        # spec 004 FR-34: copy the active conversation id (read from the #conv-url mirror) to clipboard.
+        copy_conv_btn.click(None, None, None, js=_COPY_CONV_JS)
+
         # spec 004 FR-28: choosing a model persists it process-wide; revert on failure.
         model_picker.change(
             _pick_model, [model_picker, active_model], [model_picker, active_model, model_source]
@@ -1127,14 +1197,14 @@ def build_demo() -> gr.Blocks:
         refresh_btn.click(_sessions_html, [active_vault], [sessions_view])
         # Clicking a session row (JS) clicks session_go; the js shim injects the clicked id so
         # _open_session resumes that conversation in the chat (FR-19/FR-20). On resume, recover any
-        # still-pending interaction card (spec 008 FR-11) and (re)start its countdown, then reflect
-        # the resumed thread in the URL silently (spec 004 FR-32).
+        # still-pending interaction card (spec 008 FR-11) and (re)start its countdown. The URL's
+        # ?conversation is updated by _SESSION_JS at click time (spec 004 FR-32).
         session_go.click(
             _open_session, [session_pick, active_vault], [chat, conversation],
             js=_SESSION_PICK_JS,
         ).then(_recover_card, [conversation, active_vault], card_out).then(
-            None, None, None, js=_COUNTDOWN_JS
-        ).then(None, [conversation], None, js=_CONV_URL_JS)
+            _conv_title_md, [conversation, active_vault], [conv_title]
+        ).then(None, None, None, js=_COUNTDOWN_JS)
 
         upload_btn.click(
             _do_upload,
@@ -1143,29 +1213,38 @@ def build_demo() -> gr.Blocks:
         )
 
         # New conversation clears the chat, dismisses any open interaction card (FR-8), and clears
-        # the ?conversation param (spec 004 FR-32).
+        # the ?conversation param (spec 004 FR-32) via the hidden mirror + _CONV_SYNC_JS.
         new_chat_btn.click(_new_chat, None, [chat, conversation]).then(
             lambda: _card_updates(None), None, card_out
-        ).then(None, [conversation], None, js=_CONV_URL_JS)
+        ).then(lambda: "### New conversation", None, [conv_title]).then(
+            lambda: "", None, [conv_url]
+        ).then(None, None, None, js=_CONV_SYNC_JS)
 
         # spec 008 FR-8: the bottom chat box always starts a NEW task; it never answers the card.
-        # spec 004 FR-32: after a turn, sync ?conversation so a freshly-started thread is bookmarkable.
+        # spec 004 FR-32: after a turn, mirror the (possibly newly created) conversation id into the
+        # hidden #conv-url box, then _CONV_SYNC_JS syncs ?conversation so the thread is bookmarkable.
         turn_out = [chat, conversation, approve_btn, *card_out]
         box.submit(_user_submit, [box, chat], [box, chat]).then(
             _respond, [chat, conversation, active_vault], turn_out
-        ).then(None, None, None, js=_COUNTDOWN_JS).then(None, [conversation], None, js=_CONV_URL_JS)
+        ).then(None, None, None, js=_COUNTDOWN_JS).then(
+            lambda cid: cid or "", [conversation], [conv_url]
+        ).then(_conv_title_md, [conversation, active_vault], [conv_title]).then(
+            None, None, None, js=_CONV_SYNC_JS
+        )
         approve_btn.click(_add_approve_msg, [chat], [chat]).then(
             _approve, [chat, conversation, active_vault], turn_out
-        ).then(None, None, None, js=_COUNTDOWN_JS).then(None, [conversation], None, js=_CONV_URL_JS)
+        ).then(None, None, None, js=_COUNTDOWN_JS).then(
+            lambda cid: cid or "", [conversation], [conv_url]
+        ).then(_conv_title_md, [conversation, active_vault], [conv_title]).then(
+            None, None, None, js=_CONV_SYNC_JS
+        )
 
         # spec 008 FR-7/FR-12/FR-16: the card's own controls answer the pending interaction.
-        interaction_submit.click(
+        # Selecting a radio option (a proposal or "chat about it") auto-submits it; the ✕ declines.
+        interaction_radio.input(
             _submit_interaction,
             [chat, conversation, active_vault, interaction, interaction_radio],
             turn_out,
-        ).then(None, None, None, js=_COUNTDOWN_JS)
-        interaction_chat.click(
-            _chat_interaction, [chat, conversation, active_vault, interaction], turn_out,
         ).then(None, None, None, js=_COUNTDOWN_JS)
         interaction_decline.click(
             _decline_interaction, [chat, conversation, active_vault, interaction], turn_out,

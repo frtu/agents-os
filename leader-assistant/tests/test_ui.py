@@ -163,8 +163,12 @@ def test_initial_no_conversation_param_starts_fresh(monkeypatch):
 
 
 def test_ui_wires_conversation_deep_link():
-    # FR-32: session select / new chat / turn completion update ?conversation silently.
+    # FR-32: selecting a session updates ?conversation at click time (_SESSION_JS); new chat / turn
+    # completion sync it via the hidden #conv-url mirror + _CONV_SYNC_JS. All silent (replaceState).
     src = UI_PATH.read_text()
-    assert "_CONV_URL_JS" in src
-    assert "searchParams.set('conversation'" in src
-    assert "searchParams.delete('conversation'" in src   # New conversation clears it
+    assert "_CONV_SYNC_JS" in src
+    assert 'elem_id="conv-url"' in src                    # hidden mirror the sync JS reads
+    assert "searchParams.set('conversation'" in src       # set on select / active thread
+    assert "searchParams.delete('conversation'" in src    # cleared for New conversation / no thread
+    # select-time update lives in the session click listener, not a State-input .then
+    assert "history.replaceState" in src
