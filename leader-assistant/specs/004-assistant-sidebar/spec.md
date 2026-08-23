@@ -167,9 +167,12 @@ Numbered, testable, unambiguous.
 - **FR-10:** The file browser MUST scope strictly to the workspace's **`vault/wiki/`** subtree
   and MUST NOT expose `vault/raw/`, `sessions/`, `vault/output/`, `.git/`, or any path outside
   the workspace.
-- **FR-10a:** The tree MUST list **only folders that contain data**. A folder whose subtree holds
-  no files (empty, or containing only empty subfolders) MUST be omitted from the tree. Pruning is
-  applied in the read endpoint (FR-15) so both surfaces stay in parity.
+- **FR-10a:** When listing a folder's files, `README.md` MUST be **excluded from the listing
+  entirely** (it is a placeholder/scaffold file and is never displayed). After excluding
+  `README.md`, the tree MUST list **only folders that contain data**: a folder whose subtree holds
+  no remaining files (empty, containing only empty subfolders, or containing only `README.md`
+  files) MUST be omitted from the tree. Pruning is applied in the read endpoint (FR-15) so both
+  surfaces stay in parity.
 
 ### Upload → `vault/raw/` → ingest
 

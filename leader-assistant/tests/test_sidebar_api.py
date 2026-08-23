@@ -46,6 +46,29 @@ def test_wiki_tree_prunes_empty_folders(client):
     assert "sources" in dirs and "concepts" not in dirs
 
 
+def test_wiki_tree_excludes_readme_and_prunes_readme_only_folders(client, isolated_workspace_root):
+    # FR-10a: README.md is never listed; a folder whose subtree holds only README.md is empty
+    # after that exclusion → pruned. A sibling folder with real content is kept, but its own
+    # README.md is still not listed.
+    v = _make_workspace(client)
+    wiki = isolated_workspace_root / v / "vault" / "wiki"
+    (wiki / "concepts" / "patterns").mkdir(parents=True, exist_ok=True)
+    (wiki / "concepts" / "patterns" / "README.md").write_text("# Patterns\n")  # README-only → prune
+    (wiki / "projects").mkdir(parents=True, exist_ok=True)
+    (wiki / "projects" / "README.md").write_text("# Projects\n")  # excluded from listing
+    (wiki / "projects" / "alpha.md").write_text("# Alpha\nreal content\n")  # real → keep folder
+
+    def flat(nodes):
+        for n in nodes:
+            yield n["path"]
+            yield from flat(n["children"])
+
+    paths = set(flat(client.get("/api/wiki-tree", params={"workspace": v}).json()["nodes"]))
+    assert "concepts" not in paths and "concepts/patterns" not in paths  # README-only subtree pruned
+    assert "projects" in paths and "projects/alpha.md" in paths  # kept for real content
+    assert "projects/README.md" not in paths  # README.md is never listed (FR-10a)
+
+
 def test_wiki_tree_rejects_symlink_escape(client, isolated_workspace_root, tmp_path):
     # FR-10: a symlink under vault/wiki/ MUST NOT expose paths outside vault/wiki/ (escaping the
     # workspace, or reaching the forbidden vault/raw/, sessions/, vault/output/).

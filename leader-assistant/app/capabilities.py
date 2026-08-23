@@ -449,19 +449,23 @@ def wiki_tree(selector: str | None = None) -> models.WikiTree:
         return real == wiki_root or wiki_root in real.parents
 
     def build(d: Path) -> list[models.WikiNode]:
+        # Returns the folder's displayable children, or [] when nothing remains — which signals
+        # the caller to prune this (empty) folder (spec 004 FR-10a). README.md is excluded from
+        # the listing entirely (a placeholder, never displayed), so a folder left with no files
+        # after that exclusion is treated as empty and dropped.
         nodes: list[models.WikiNode] = []
         for child in sorted(d.iterdir(), key=lambda p: (p.is_file(), p.name.lower())):
             if child.name.startswith("."):
                 continue
             if child.is_symlink() and not within_wiki(child):
                 continue  # FR-10: reject symlinks resolving outside vault/wiki/
+            if child.is_file() and child.name.lower() == "readme.md":
+                continue  # FR-10a: README.md is never listed
             rel = child.relative_to(wiki).as_posix()
             if child.is_dir():
                 children = build(child)
-                # spec 004 FR-10a: list only folders that contain data; a subtree with no
-                # files is pruned so empty folders never appear in the browser.
                 if not children:
-                    continue
+                    continue  # empty subtree (or README-only) → pruned
                 nodes.append(
                     models.WikiNode(name=child.name, path=rel, type="dir", children=children)
                 )
