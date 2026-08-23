@@ -152,7 +152,7 @@ async def _headless(  # pragma: no cover — requires the live SDK runtime/crede
     allowed = _ACTIVITY_TOOLS if tools is None else tools
     opts = ClaudeAgentOptions(
         system_prompt=system_prompt,
-        model="sonnet",
+        model=config.agent_model(),
         allowed_tools=allowed,
         permission_mode="bypassPermissions",
         setting_sources=["project"],

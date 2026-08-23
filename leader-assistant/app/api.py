@@ -75,6 +75,21 @@ def lint(workspace: str | None = None) -> models.LintReport:
     return capabilities.lint(workspace)
 
 
+@app.get("/api/models", response_model=models.AvailableModels, tags=["ops"], summary="List selectable agent models")
+def list_models() -> models.AvailableModels:
+    """Available Claude Agent SDK models + the active one (spec 004 FR-26/FR-27)."""
+    return capabilities.available_models()
+
+
+@app.post("/api/models", response_model=models.AvailableModels, tags=["ops"], summary="Select the process-wide agent model")
+def set_model(req: models.SetModelRequest) -> models.AvailableModels:
+    """Select + persist the process-wide agent model (spec 004 FR-28)."""
+    try:
+        return capabilities.set_active_model(req.model)
+    except WorkspaceError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.get("/api/spec", tags=["knowledge"], summary="Read a page's raw Markdown")
 def spec_read(path: str, workspace: str | None = None) -> dict[str, str]:
     try:

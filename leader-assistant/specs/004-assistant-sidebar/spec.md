@@ -228,6 +228,22 @@ Numbered, testable, unambiguous.
   (per FR-19), not as an action button. Each relative-date group MUST be an **independently
   collapsible section** (its conversations expand/collapse) and MUST be **expanded by default**.
 
+### Model selector
+
+- **FR-26 (model selector):** A **Model** control MUST appear at the **top of the sidebar**
+  (above the Area/Workspaces panel). It MUST show the **currently active** Claude Agent SDK
+  model and let the user pick another from a list. The selection governs the agent runtime
+  used for both chat (`app/agent.py`) and knowledge ingestion (`app/activity_ingest.py`).
+- **FR-27 (hybrid source):** The list of available models MUST be sourced from the **provider**
+  (Anthropic `/v1/models`) when it is reachable and credentialed, and MUST otherwise fall back
+  to a **curated static list** (aliases `opus`/`sonnet`/`haiku` plus known pinned model IDs) so
+  the control works offline (Constitution P1/P10). The `source` (`provider` | `static`) MUST be
+  surfaced so the human knows which list they are seeing.
+- **FR-28 (scope, persistence, parity):** Selecting a model MUST take effect **process-wide**
+  (every workspace and conversation, chat and ingest) and MUST be **persisted** so the choice
+  survives a server restart. The control MUST be backed only by REST (`GET`/`POST /api/models`)
+  — the UI holds no capability the API lacks (P9).
+
 ### Cross-cutting
 
 - **FR-22:** Selecting a workspace, browsing `vault/wiki/`, uploading, or resuming a conversation
@@ -320,6 +336,12 @@ Numbered, testable, unambiguous.
   (FR-14, FR-22, P2)
 - [ ] **AC-11:** Empty and error states are shown for no-workspaces, empty `vault/wiki/`, no
   sessions, and endpoint failures. (FR-23)
+- [ ] **AC-12:** A **Model** dropdown sits at the **top of the sidebar**, pre-selected to the
+  active model; its choices come from `GET /api/models` (provider list when credentialed, else the
+  static fallback) and the `source` is surfaced. (FR-26, FR-27)
+- [ ] **AC-13:** Choosing a model calls `POST /api/models`, takes effect **process-wide** for chat
+  and ingest, and **persists across a server restart**; the UI reaches this only over `/api/*`.
+  (FR-28, P9)
 
 ## Resolved Decisions
 

@@ -257,6 +257,8 @@ _CSS = """
 @keyframes itx-spin { to { transform: rotate(360deg); } }
 /* Hidden expire trigger clicked by the countdown JS at zero. */
 .itx-hidden { display: none !important; }
+/* spec 004 FR-27: the model-source hint under the top-of-sidebar Model picker. */
+.model-src { font-size: 0.75rem; color: var(--body-text-color-subdued); }
 """
 
 
@@ -277,6 +279,18 @@ def _api_base() -> str:
 
 def _list_workspaces() -> dict:
     r = httpx.get(f"{_api_base()}/api/workspaces", timeout=10.0)
+    r.raise_for_status()
+    return r.json()
+
+
+def _list_models() -> dict:
+    r = httpx.get(f"{_api_base()}/api/models", timeout=10.0)
+    r.raise_for_status()
+    return r.json()
+
+
+def _set_model(model: str) -> dict:
+    r = httpx.post(f"{_api_base()}/api/models", json={"model": model}, timeout=10.0)
     r.raise_for_status()
     return r.json()
 
@@ -685,6 +699,40 @@ def _recover_card(conversation_id, workspace):
     return _card_updates(itx)
 
 
+# --- model selector (feature 004 FR-26..FR-28) -----------------------------
+
+
+def _model_choices(data: dict) -> list[tuple[str, str]]:
+    """Map an AvailableModels payload to Gradio (label, value) choices."""
+    return [(m.get("label") or m["id"], m["id"]) for m in data.get("models", [])]
+
+
+def _model_initial():
+    """Populate the Model dropdown on load: choices, active value, and source hint (FR-26/FR-27)."""
+    try:
+        data = _list_models()
+    except Exception as e:
+        return gr.update(choices=[], value=None), f"<em>Models unavailable: {html.escape(str(e))}</em>"
+    choices = _model_choices(data)
+    return gr.update(choices=choices, value=data.get("current")), _model_hint(data.get("source", ""))
+
+
+def _model_hint(source: str) -> str:
+    where = "from provider" if source == "provider" else "offline list"
+    return f"<span class='model-src'>Agent model · {html.escape(where)}</span>"
+
+
+def _pick_model(model, current):
+    """Selecting a model persists it process-wide (FR-28); on failure, revert to the prior value."""
+    if not model or model == current:
+        return gr.update(), current, gr.update()
+    try:
+        data = _set_model(model)
+    except Exception as e:
+        return gr.update(value=current), current, f"<em>Could not set model: {html.escape(str(e))}</em>"
+    return gr.update(value=data.get("current")), data.get("current"), _model_hint(data.get("source", ""))
+
+
 # --- sidebar handlers (feature 004) ----------------------------------------
 
 
@@ -879,8 +927,16 @@ def build_demo() -> gr.Blocks:
         conversation = gr.State(None)
         active_vault = gr.State(None)
         interaction = gr.State(None)  # spec 008: the pending interaction dict, or None
+        active_model = gr.State(None)  # spec 004 FR-28: the active agent model selector
 
-        with gr.Sidebar(open=True, width=340):
+        with gr.Sidebar(open=False, width=340):
+            # spec 004 FR-26: the Model selector sits at the TOP of the sidebar (above all panels).
+            model_picker = gr.Dropdown(
+                choices=[], label="Model", show_label=True, container=True,
+                interactive=True, filterable=True, elem_id="model-picker",
+            )
+            model_source = gr.HTML("")
+
             # spec 004 FR-2a: advanced surface — collapsed by default; FR-2b tooltip via _PANEL_TIP_JS.
             with gr.Accordion("Area (Workspaces)", open=False, elem_id="area-panel"):
                 # FR-7: `Active` indicator at the top, above the name box.
@@ -954,6 +1010,10 @@ def build_demo() -> gr.Blocks:
         sidebar_out = [vault_box, active_vault, vault_suggest, wiki_view, vault_status, create_btn]
         demo.load(_initial, None, sidebar_out)
         demo.load(_sessions_html, [active_vault], [sessions_view])
+        # spec 004 FR-26/FR-27: populate the top-of-sidebar Model picker; FR-28: selecting persists.
+        demo.load(_model_initial, None, [model_picker, model_source]).then(
+            lambda d=None: d, [model_picker], [active_model]
+        )
         demo.load(None, None, None, js=_TOOLTIP_JS)
         demo.load(None, None, None, js=_WIKI_TIP_JS)
         demo.load(None, None, None, js=_SESSION_JS)
@@ -966,6 +1026,11 @@ def build_demo() -> gr.Blocks:
         vault_suggest.select(_pick_workspace, [vault_suggest, active_vault], sidebar_out)
         refresh_btn.click(_refresh, [active_vault], sidebar_out)
         create_btn.click(_create_vault_action, [vault_box, active_vault], sidebar_out)
+
+        # spec 004 FR-28: choosing a model persists it process-wide; revert on failure.
+        model_picker.change(
+            _pick_model, [model_picker, active_model], [model_picker, active_model, model_source]
+        )
 
         # Re-scope Sessions when the active workspace changes (FR-21) and on explicit refresh.
         active_vault.change(_sessions_html, [active_vault], [sessions_view])

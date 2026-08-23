@@ -106,6 +106,8 @@ AC2). The human web UI (Gradio, spec 003) owns `/`, so Swagger is relocated to *
 | `POST` | `/api/query` | `{workspace?,question}` | `Answer` (reply + citations) |
 | `POST` | `/api/plan` | `{workspace?,request}` | `Plan` (risk, steps, requires_approval) |
 | `GET`  | `/api/lint` | `?workspace=` | `LintReport` |
+| `GET`  | `/api/models` | — | `AvailableModels` (models, current, source) |
+| `POST` | `/api/models` | `{model}` | `AvailableModels` (spec 004 FR-28) |
 | `GET`  | `/api/spec` | `?path=&workspace=` | `{path, content}` |
 | `POST` | `/api/chat` | `ChatRequest` | `ChatAnswer` |
 | `POST` | `/api/chat/stream` | `ChatRequest` | SSE stream of `ChatDelta` |
@@ -182,6 +184,8 @@ curl -s -X POST localhost:8000/api/query  -H 'content-type: application/json' \
 | `LEADER_WORKSPACE_PATH` | explicit single-workspace path (wins over root) | — |
 | `LEADER_DEFAULT_WORKSPACE` | default workspace selector | `_default_` |
 | `LEADER_HOST` / `LEADER_PORT` | server bind | `127.0.0.1` / `8000` |
+| `LEADER_AGENT_MODEL` | Claude Agent SDK model (chat + ingest activity); a UI/persisted selection overrides this | `sonnet` |
+| `LEADER_SETTINGS_PATH` | runtime settings file (holds the selected model) | `<workspace root>/.leader-settings.json` |
 
 (Target names; code still reads `LEADER_VAULT_ROOT` / `LEADER_VAULT_PATH` /
 `LEADER_DEFAULT_VAULT` with default `default` — see the divergence note above.)

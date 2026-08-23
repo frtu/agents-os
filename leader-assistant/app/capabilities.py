@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import AsyncIterator
 
-from . import models, vault
+from . import config, models, vault
 from .agent import AgentUnavailable
 from .vault import WorkspaceError
 
@@ -425,6 +425,62 @@ def import_skill(selector: str | None, name: str) -> models.ImportSkillReport:
         committed=committed,
         message=f"Imported skill '{safe}' as a reference-link into {ws_name}.",
     )
+
+
+# --- model selection (feature 004-assistant-sidebar, FR-26..FR-28) ---------
+
+
+def _provider_models() -> list[models.ModelChoice]:
+    """Fetch the model list from Anthropic (spec 004 FR-27).
+
+    Only attempted when an API key is present; wrapped so any network/parse failure
+    surfaces as an empty list, letting ``available_models`` fall back to the static list.
+    """
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        return []
+    import httpx  # local import: keeps the offline path free of any network dependency
+
+    resp = httpx.get(
+        "https://api.anthropic.com/v1/models",
+        headers={"x-api-key": api_key, "anthropic-version": "2023-06-01"},
+        timeout=5.0,
+    )
+    resp.raise_for_status()
+    out: list[models.ModelChoice] = []
+    for m in resp.json().get("data", []):
+        mid = m.get("id")
+        if mid:
+            out.append(models.ModelChoice(id=mid, label=m.get("display_name") or mid))
+    return out
+
+
+def available_models() -> models.AvailableModels:
+    """The model picker payload: list + active choice + its source (spec 004 FR-27).
+
+    Hybrid: the provider list when reachable/credentialed, else the curated static
+    fallback. The active model is always guaranteed to appear in the returned list.
+    """
+    try:
+        choices = _provider_models()
+        source = "provider" if choices else "static"
+    except Exception:  # any provider failure → offline fallback (FR-27)
+        choices, source = [], "static"
+    if not choices:
+        choices = [models.ModelChoice(id=i, label=label) for i, label in config.STATIC_MODELS]
+    current = config.agent_model()
+    if current not in {c.id for c in choices}:
+        choices = [models.ModelChoice(id=current, label=current), *choices]
+    return models.AvailableModels(models=choices, current=current, source=source)
+
+
+def set_active_model(model: str) -> models.AvailableModels:
+    """Persist a process-wide model selection and return the refreshed picker (FR-28)."""
+    try:
+        config.set_agent_model(model)
+    except ValueError as e:
+        raise WorkspaceError(str(e))
+    return available_models()
 
 
 # --- sidebar capabilities (feature 004-assistant-sidebar) ------------------

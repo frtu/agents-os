@@ -354,6 +354,28 @@ class ImportSkillReport(BaseModel):
     message: str
 
 
+class ModelChoice(BaseModel):
+    """One selectable Claude Agent SDK model (spec 004 FR-26/FR-27)."""
+
+    id: str = Field(..., description="Model selector passed to the SDK (alias or full id)")
+    label: str = Field(..., description="Human-readable display name")
+    description: str = Field("", description="Optional extra detail")
+
+
+class AvailableModels(BaseModel):
+    """The model picker's data: the list, the active choice, and where the list came from (FR-27)."""
+
+    models: list[ModelChoice] = Field(default_factory=list)
+    current: str = Field(..., description="The currently active model selector")
+    source: str = Field(..., description="'provider' (fetched) | 'static' (offline fallback)")
+
+
+class SetModelRequest(BaseModel):
+    """Select the process-wide agent model (spec 004 FR-28)."""
+
+    model: str = Field(..., description="Model selector to activate", examples=["opus"])
+
+
 # ChatAnswer/ChatDelta forward-reference Interaction (defined below them); resolve now.
 ChatAnswer.model_rebuild()
 ChatDelta.model_rebuild()

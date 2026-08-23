@@ -70,6 +70,17 @@ def test_blacklist_is_config_driven(monkeypatch):
     assert "mcp__leader__query" in allowed
 
 
+def test_agent_model_defaults_to_sonnet_and_is_env_overridable(monkeypatch):
+    # plan §Technical Context: the agent SDK model is configurable, default `sonnet`,
+    # overridable via LEADER_AGENT_MODEL for both the chat and ingest-activity runtimes.
+    monkeypatch.delenv("LEADER_AGENT_MODEL", raising=False)
+    assert config.agent_model() == "sonnet"
+    monkeypatch.setenv("LEADER_AGENT_MODEL", "  opus  ")
+    assert config.agent_model() == "opus"  # trimmed
+    monkeypatch.setenv("LEADER_AGENT_MODEL", "")
+    assert config.agent_model() == "sonnet"  # blank falls back to default
+
+
 def test_tools_are_bound_to_active_workspace():
     # AC-4: a workspace supplied in tool args is ignored; the handler uses the bound one.
     capabilities.create_workspace("bound")

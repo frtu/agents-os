@@ -7,10 +7,13 @@ Environment overrides:
 - LEADER_SKILLS_SOURCE     shared skill library root (default: repo-sibling skills/)
 - LEADER_FOUNDATION_DOCS_SOURCE  foundation-doc source dir (default: <skills>/second-brain/references)
 - LEADER_MCP_TOOL_BLACKLIST comma-separated agent MCP tool names to withhold
+- LEADER_AGENT_MODEL       Claude Agent SDK model selector (default: sonnet)
+- LEADER_SETTINGS_PATH     runtime settings file (default: <workspace root>/.leader-settings.json)
 """
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -59,6 +62,80 @@ def foundation_docs_source() -> Path:
     if override:
         return Path(override).expanduser()
     return skills_library_root() / "second-brain" / "references"
+
+
+DEFAULT_AGENT_MODEL = "sonnet"
+
+# Curated offline fallback for the model picker (spec 004 FR-27). Aliases resolve to the
+# latest model in each tier; the pinned IDs are the currently-known concrete versions. Used
+# whenever the provider's /v1/models list is unreachable or uncredentialed.
+STATIC_MODELS: tuple[tuple[str, str], ...] = (
+    ("opus", "Claude Opus (latest)"),
+    ("sonnet", "Claude Sonnet (latest)"),
+    ("haiku", "Claude Haiku (latest)"),
+    ("claude-opus-4-7", "Claude Opus 4.7"),
+    ("claude-sonnet-4-6", "Claude Sonnet 4.6"),
+    ("claude-haiku-4-5-20251001", "Claude Haiku 4.5"),
+)
+
+_SETTINGS_MODEL_KEY = "agent_model"
+
+
+def settings_path() -> Path:
+    """File holding runtime, UI-selectable settings (spec 004 FR-28).
+
+    Lives under the (git-ignored) workspace root by default so runtime state stays with
+    the workspaces rather than the source tree. Overridable via ``LEADER_SETTINGS_PATH``.
+    """
+    override = os.getenv("LEADER_SETTINGS_PATH")
+    if override:
+        return Path(override).expanduser()
+    return workspace_root() / ".leader-settings.json"
+
+
+def _read_settings() -> dict:
+    """Load the settings file, tolerant of a missing or corrupt file (returns ``{}``)."""
+    path = settings_path()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError, OSError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write_settings(data: dict) -> None:
+    path = settings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def agent_model() -> str:
+    """Model the Claude Agent SDK runtime uses (plan §Technical Context, spec 004 FR-28).
+
+    Governs both the chat runtime (``app/agent.py``) and the ingest-activity runtime
+    (``app/activity_ingest.py``) so a single knob selects the model for every agent surface.
+    Precedence: the **persisted** setting (a UI selection) wins over env ``LEADER_AGENT_MODEL``,
+    which wins over the ``sonnet`` default. Read fresh each call so a selection applies
+    process-wide immediately. Blank values at any layer fall through to the next.
+    """
+    persisted = _read_settings().get(_SETTINGS_MODEL_KEY)
+    if isinstance(persisted, str) and persisted.strip():
+        return persisted.strip()
+    raw = os.getenv("LEADER_AGENT_MODEL")
+    if raw is None or not raw.strip():
+        return DEFAULT_AGENT_MODEL
+    return raw.strip()
+
+
+def set_agent_model(value: str) -> str:
+    """Persist the runtime model selection (spec 004 FR-28); returns the stored value."""
+    value = (value or "").strip()
+    if not value:
+        raise ValueError("model must be a non-empty string")
+    data = _read_settings()
+    data[_SETTINGS_MODEL_KEY] = value
+    _write_settings(data)
+    return value
 
 
 DEFAULT_INTERACTION_TIMEOUT = 30

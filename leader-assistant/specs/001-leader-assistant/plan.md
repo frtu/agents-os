@@ -29,7 +29,7 @@ This single feature folder is the buildable layer over the whole local spec set.
 ## Technical Context (decided)
 
 - **Language / runtime:** Python 3.11+.
-- **Agent runtime:** `claude-agent-sdk` with `Read`, `Glob`, `Grep`, `Write`, `Edit` tools **scoped to the active workspace**; resumable sessions (pass-through `session_id`); partial-message streaming. Assistant behavior driven by system-prompt sections derived from the numbered specs.
+- **Agent runtime:** `claude-agent-sdk` with `Read`, `Glob`, `Grep`, `Write`, `Edit` tools **scoped to the active workspace**; resumable sessions (pass-through `session_id`); partial-message streaming. Assistant behavior driven by system-prompt sections derived from the numbered specs. The underlying model is **configurable** (`config.agent_model()`, default `sonnet`) so operators and users can select a model without code changes; the same setting governs the chat runtime and the ingest-activity runtime. Resolution precedence is **persisted setting > env `LEADER_AGENT_MODEL` > default**, so a **runtime selection** (sidebar Model control → `GET`/`POST /api/models`, spec 004 FR-26..FR-28) takes effect **process-wide** and is **persisted** (settings file under the workspace root) to survive restarts. The available-model list is **hybrid**: fetched from the provider (Anthropic `/v1/models`) when credentialed, else a curated static fallback (offline-safe, P1/P10).
 - **REST:** FastAPI (JSON in/out; SSE for streaming).
 - **Chat UI:** Gradio, mounted on the **same** FastAPI app (single server).
 - **Storage:** filesystem only — Markdown + YAML frontmatter, Obsidian-compatible, git-versioned. **No database, no vector store** (P1/P10). Optional on-device search (`qmd`) is a later, non-canonical add-on (see `plan-tbd.md`).

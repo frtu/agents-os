@@ -262,7 +262,7 @@ async def run_stream(
     server = _build_server(specs)
     opts = ClaudeAgentOptions(
         system_prompt=system_prompt,
-        model="sonnet",
+        model=config.agent_model(),
         mcp_servers={_SERVER: server},
         allowed_tools=[*_NATIVE_TOOLS, *_allowed_tool_names(specs)],
         permission_mode="bypassPermissions",
