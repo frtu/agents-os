@@ -7,6 +7,8 @@ consequential return a plan for approval rather than executing (spec 13-api AC2)
 
 from __future__ import annotations
 
+import asyncio
+import os
 import re
 import subprocess
 from datetime import date
@@ -14,6 +16,7 @@ from pathlib import Path
 from typing import AsyncIterator
 
 from . import models, vault
+from .agent import AgentUnavailable
 from .vault import WorkspaceError
 
 # --- helpers ---------------------------------------------------------------
@@ -54,7 +57,9 @@ def _wiki_pages(workspace: Path) -> list[Path]:
     wiki = workspace / "vault" / "wiki"
     if not wiki.is_dir():
         return []
-    return [p for p in wiki.rglob("*.md") if p.name not in ("portal.md", "log.md")]
+    # Special control files (spec 03-workspace §5) are not knowledge pages: portal (catalog),
+    # log (ledger), tbd (unprocessed-work backlog, spec 007 FR-14).
+    return [p for p in wiki.rglob("*.md") if p.name not in ("portal.md", "log.md", "tbd.md")]
 
 
 def _git_commit(workspace: Path, message: str) -> bool:
@@ -118,13 +123,69 @@ def get_workspace_info(selector: str | None = None) -> models.WorkspaceInfo:
     )
 
 
-def ingest(req: models.IngestRequest) -> models.IngestReport:
-    """Create a vault/wiki/sources summary page, update portal, append log, commit.
+def _activity_enabled() -> bool:
+    """Whether to attempt the headless ingest activity (spec 007 FR-7).
 
-    Note: raw content is summarised into vault/wiki/sources/; vault/raw/ itself is never
-    written by the assistant (spec 03-workspace AC2).
+    Off by default so the capability is deterministic/offline; enable with
+    ``LEADER_INGEST_ACTIVITY=1`` on a machine with the agent runtime. When disabled — or when
+    the runtime raises ``AgentUnavailable`` — ingest uses the in-process fallback.
+    """
+    return os.getenv("LEADER_INGEST_ACTIVITY", "").strip() in {"1", "true", "True"}
+
+
+def ingest(req: models.IngestRequest) -> models.IngestReport:
+    """Ingest workflow orchestrator (spec 007 FR-7): run the activity, else fall back.
+
+    Attempts the ``second-brain-ingest`` activity headless via ``activity_ingest`` (the
+    bottom-up workflow); when the runtime is unavailable (or disabled) it falls back to a
+    deterministic in-process ingest. Either way it returns an ``IngestReport`` carrying the
+    activity Output Object (progress + errors) and never writes under ``vault/raw/`` (FR-8/FR-2).
     """
     name, workspace = _resolve_scaffolded(req.workspace)
+    if _activity_enabled():
+        try:
+            return _ingest_via_activity(name, workspace, req)
+        except AgentUnavailable:
+            pass  # runtime absent → deterministic fallback (FR-7)
+    return _ingest_inprocess(name, workspace, req)
+
+
+def _ingest_via_activity(name: str, workspace: Path, req: models.IngestRequest) -> models.IngestReport:
+    """Run the ingest activity through the interface and shape its Output Object (FR-6/FR-7)."""
+    from . import activity_ingest
+
+    inp = activity_ingest.build_input(name, workspace)
+    output = asyncio.run(activity_ingest.run(inp))
+    committed = _git_commit(workspace, f"ingest(activity): {req.title}")
+    source_page = _latest_source_page(workspace)
+    return models.IngestReport(
+        workspace=name,
+        source_page=source_page,
+        portal_updated=True,
+        committed=committed,
+        message=f"Ingest activity completed for {name}.",
+        progress=output.progress,
+        errors=output.errors,
+    )
+
+
+def _latest_source_page(workspace: Path) -> str:
+    """Most-recently-modified vault/wiki/sources page, relative to the workspace (or "")."""
+    sources = workspace / "vault" / "wiki" / "sources"
+    pages = list(sources.rglob("*.md")) if sources.is_dir() else []
+    if not pages:
+        return ""
+    latest = max(pages, key=lambda p: p.stat().st_mtime)
+    return latest.relative_to(workspace).as_posix()
+
+
+def _ingest_inprocess(name: str, workspace: Path, req: models.IngestRequest) -> models.IngestReport:
+    """Deterministic in-process ingest — the offline fallback (spec 007 FR-7/FR-8).
+
+    Produces a vault/wiki/sources summary, updates the portal, appends the log, records the
+    item in tbd.md, and commits. Returns a valid Output Object (progress + errors). Never
+    writes under vault/raw/ (P2).
+    """
     provenance = _slug(req.provenance)
     dest_dir = workspace / "vault" / "wiki" / "sources" / provenance
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -152,15 +213,45 @@ def ingest(req: models.IngestRequest) -> models.IngestReport:
     rel = page.relative_to(workspace).as_posix()
     _update_portal(workspace, rel, req.title, preview)
     vault.append_log(workspace, "ingest", req.title)
+    _record_tbd_ingested(workspace, req.title, rel)
     committed = _git_commit(workspace, f"ingest: {req.title}")
 
+    progress = [
+        f"Wrote source summary {rel}",
+        "Updated vault/wiki/portal.md",
+        "Appended vault/wiki/log.md",
+        "Checked off item in vault/wiki/tbd.md",
+        "Committed" if committed else "Commit skipped (no repo)",
+    ]
     return models.IngestReport(
         workspace=name,
         source_page=rel,
         portal_updated=True,
         committed=committed,
         message=f"Ingested '{req.title}' into {rel}",
+        progress=progress,
+        errors=[],
     )
+
+
+def _record_tbd_ingested(workspace: Path, title: str, rel: str) -> None:
+    """Check off a completed ingest in the tbd.md backlog under Sources (spec 007 FR-14/FR-15).
+
+    Inserts a checked entry directly beneath the '## Sources' topic/theme heading so the
+    backlog stays sectioned; appends the heading + entry if it is missing. tbd.md is a normal
+    wiki artifact (committed with the run) and never lives under vault/raw/.
+    """
+    tbd = workspace / "vault" / "wiki" / "tbd.md"
+    vault.guard_write_path(workspace, tbd)
+    entry = f"- [x] {date.today().isoformat()} ingested '{title}' → {rel}\n"
+    text = tbd.read_text(encoding="utf-8") if tbd.exists() else ""
+    lines = text.splitlines(keepends=True)
+    for i, line in enumerate(lines):
+        if line.startswith("## Sources"):
+            lines.insert(i + 1, entry)
+            tbd.write_text("".join(lines), encoding="utf-8")
+            return
+    tbd.write_text(text.rstrip() + "\n\n## Sources (capture → ingest)\n" + entry, encoding="utf-8")
 
 
 def _update_portal(workspace: Path, rel: str, title: str, preview: str) -> None:
@@ -386,12 +477,14 @@ def _safe_name(filename: str | None) -> str:
     return Path(filename or "upload").name or "upload"
 
 
-def deposit_raw(workspace: Path, provenance: str, filename: str, data: bytes) -> Path:
-    """Write a human-uploaded original into `vault/raw/<provenance>/` (Constitution P2 v1.1.0).
+def capture(workspace: Path, provenance: str, filename: str, data: bytes) -> Path:
+    """Capture a source into `vault/raw/<provenance>/` — input only, no processing (spec 007 FR-1).
 
-    This is the **sanctioned human channel** into `vault/raw/`: it deliberately does NOT go
-    through `guard_write_path` (which forbids the *ingestion pipeline* from touching vault/raw/).
-    It still validates that the resolved destination stays inside `vault/raw/`.
+    This is the **only sanctioned human channel** into `vault/raw/` (Constitution P2, FR-2): it
+    deliberately does NOT go through `guard_write_path` (which forbids the *ingest workflow* and
+    the agent from touching vault/raw/). It deposits the source and does **no** knowledge
+    processing — no summary, no wiki write, no portal/log mutation, and it never auto-runs ingest
+    (FR-3). It still validates that the resolved destination stays inside `vault/raw/`.
     """
     raw_dir = workspace / "vault" / "raw" / provenance
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -408,19 +501,21 @@ def upload_and_ingest(
     files: list[tuple[str, bytes]],
     provenance: str = "notes",
 ) -> models.UploadReport:
-    """Deposit uploaded originals into `vault/raw/` then ingest text ones (FR-12/FR-16).
+    """Capture uploaded originals into `vault/raw/` then ingest text ones (FR-12/FR-16).
 
-    Text-decodable files are ingested via the existing `ingest` pipeline (producing a
-    `vault/wiki/sources` summary + portal/log update). Binary files are stored under `vault/raw/`
-    only, with a note. Never mutates existing raw content (create/overwrite by name is a
-    human action; ingestion still never touches vault/raw/).
+    This is an explicit two-step *compose* of the two independent primitives (spec 007 FR-3):
+    it first **captures** each file (input only, no processing) and then invokes the separate
+    **ingest** workflow on text-decodable ones (producing a `vault/wiki/sources` summary +
+    portal/log update). Capture itself never auto-ingests; the chaining here is the caller's
+    choice. Binary files are captured under `vault/raw/` only, with a note. Ingest never touches
+    vault/raw/.
     """
     name, workspace = _resolve_scaffolded(selector)
     prov = _slug(provenance)
     results: list[models.UploadedFile] = []
     for filename, data in files:
         safe = _safe_name(filename)
-        raw_path = deposit_raw(workspace, prov, safe, data)
+        raw_path = capture(workspace, prov, safe, data)
         rel_raw = raw_path.relative_to(workspace).as_posix()
         try:
             text = data.decode("utf-8")

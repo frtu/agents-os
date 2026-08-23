@@ -12,6 +12,7 @@ plus vault/wiki/portal.md (catalog) and vault/wiki/log.md (append-only ledger).
 
 from __future__ import annotations
 
+import hashlib
 import subprocess
 from datetime import date
 from pathlib import Path
@@ -20,6 +21,10 @@ from . import config
 
 # Canonical subdirectories (spec 03-workspace §2, §3).
 RAW_SUBDIRS = ("assets", "clippings", "docs", "notes", "transcripts")
+
+# Foundation docs bootstrapped into vault/docs/ on create (spec 22 R1, spec 007 FR-9).
+# Each is copied verbatim (immutable core) and paired with a mutable *-extension.md overlay.
+FOUNDATION_DOCS = ("wiki-schema", "wiki-architecture")
 WIKI_SUBDIRS = (
     "sources/_daily_",
     "concepts/patterns",
@@ -83,8 +88,95 @@ def scaffold_workspace(workspace: Path) -> Path:
     log = vault / "wiki" / "log.md"
     if not log.exists():
         log.write_text("# Log\n\nAppend-only operational record.\n")
+    _bootstrap_foundation_docs(workspace)
+    _bootstrap_tbd(workspace)
     _init_workspace_repo(workspace)
     return workspace
+
+
+def _bootstrap_foundation_docs(workspace: Path) -> None:
+    """Populate vault/docs/ with immutable core copies + mutable extensions (spec 22 R1/R2/R7).
+
+    For each foundation doc: copy the source verbatim into ``vault/docs/<name>.md`` (the core,
+    byte-identical to the skill library's ``references/`` — spec 007 FR-9/AC-12), and create
+    ``<name>-extension.md`` in the spec 22 §4 format (header + Path-overrides / Added /
+    Overridden / Removed sections) recording this workspace's path overrides (FR-10). Idempotent
+    and non-destructive: never overwrites an existing core or extension.
+    """
+    docs = workspace / "vault" / "docs"
+    docs.mkdir(parents=True, exist_ok=True)
+    src_dir = config.foundation_docs_source()
+    today = date.today().isoformat()
+    for name in FOUNDATION_DOCS:
+        core = docs / f"{name}.md"
+        source = src_dir / f"{name}.md"
+        content = source.read_text(encoding="utf-8") if source.is_file() else ""
+        if not core.exists():
+            core.write_text(content, encoding="utf-8")  # verbatim copy (immutable core, R2)
+        source_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        ext = docs / f"{name}-extension.md"
+        if not ext.exists():
+            ext.write_text(
+                _extension_template(name, workspace.name, source, source_hash, today),
+                encoding="utf-8",
+            )
+
+
+def _extension_template(
+    name: str, workspace_name: str, source: Path, source_hash: str, copied: str
+) -> str:
+    """Render a *-extension.md in the spec 22 §4 format (header + fixed sections)."""
+    title = name.replace("-", " ").title()
+    return (
+        "---\n"
+        f"extends: {name}.md\n"
+        f"source: {source.as_posix()}\n"
+        f"source-hash: {source_hash}\n"
+        f"copied: {copied}\n"
+        "---\n\n"
+        f"# {title} — {workspace_name} extension\n\n"
+        f"> Overlays `{name}.md`. Extension wins on conflict (spec 22 R5). Do not edit the core.\n\n"
+        "## Path overrides\n"
+        "- `raw/` → `vault/raw/`\n"
+        "- `wiki/` → `vault/wiki/`\n"
+        "- index file: `wiki/index.md` → `vault/wiki/portal.md`\n\n"
+        "## Added rules\n"
+        "- (none yet)\n\n"
+        "## Overridden rules\n"
+        "- (none yet)\n\n"
+        "## Removed/restricted rules\n"
+        "- (none yet)\n"
+    )
+
+
+def _bootstrap_tbd(workspace: Path) -> None:
+    """Create vault/wiki/tbd.md — the unprocessed-work backlog (spec 007 FR-14/FR-15).
+
+    Sectioned by **topic & theme** (headings), not a flat list; the ingest workflow reads and
+    updates it each run. Idempotent: never clobbers an existing backlog.
+    """
+    tbd = workspace / "vault" / "wiki" / "tbd.md"
+    if tbd.exists():
+        return
+    tbd.write_text(
+        "---\n"
+        "title: To Be Done\n"
+        "category: backlog\n"
+        f"created: {date.today().isoformat()}\n"
+        "status: active\n"
+        "---\n\n"
+        "# tbd — unprocessed changes to `vault/wiki/`\n\n"
+        "> Backlog of unprocessed knowledge work, grouped by **topic & theme** (spec 007 FR-14/FR-15).\n"
+        "> The ingest workflow reads this file, processes items, checks off/removes completed work,\n"
+        "> and records newly-discovered work back under the right section.\n\n"
+        "## Sources (capture → ingest)\n"
+        "- (no captured sources awaiting ingest)\n\n"
+        "## Concepts (patterns & technologies)\n"
+        "- (none)\n\n"
+        "## Synthesis (cross-topic articulation)\n"
+        "- (none)\n",
+        encoding="utf-8",
+    )
 
 
 def _init_workspace_repo(workspace: Path) -> None:

@@ -68,8 +68,9 @@ def _capability_tool_specs(
 
     Pure and SDK-free: handlers call ``capabilities`` directly. Every handler injects
     ``workspace_selector`` and ignores any ``workspace`` in tool args (the sandbox,
-    FR-6). The chat surface is deliberately absent (structural exclusion, D4). Mutating
-    tools (``ingest``/``import_skill``) execute directly (FR-4, spec 005 D1).
+    FR-6). The chat surface is deliberately absent (structural exclusion, D4). The mutating
+    tool ``import_skill`` executes directly (spec 005 D1); the narrow ``ingest`` tool was
+    removed (spec 007 FR-12) — ingest now runs as the bottom-up workflow.
     """
     from . import capabilities  # lazy import to avoid an agent<->capabilities cycle
 
@@ -129,20 +130,6 @@ def _capability_tool_specs(
     async def list_installed_skills_h(args: dict) -> dict:
         return _ok(capabilities.list_installed_skills(workspace_selector).model_dump_json(indent=2))
 
-    async def ingest_h(args: dict) -> dict:
-        try:
-            report = capabilities.ingest(
-                models.IngestRequest(
-                    workspace=workspace_selector,
-                    title=args["title"],
-                    content=args["content"],
-                    provenance=args.get("provenance") or "notes",
-                )
-            )
-        except Exception as e:  # noqa: BLE001
-            return _ok(f"error: {e}")
-        return _ok(report.model_dump_json(indent=2))
-
     async def import_skill_h(args: dict) -> dict:
         try:
             report = capabilities.import_skill(workspace_selector, args["name"])
@@ -163,7 +150,8 @@ def _capability_tool_specs(
         ToolSpec("conversation_status", "Report whether a conversation has a turn in progress on the server (running) and whether it exists.", {"conversation_id": str}, conversation_status_h),
         ToolSpec("list_available_skills", "List skills available to install from the shared library, each with a description and an installed flag.", {}, list_available_skills_h),
         ToolSpec("list_installed_skills", "List skills currently installed in the active workspace.", {}, list_installed_skills_h),
-        ToolSpec("ingest", "Ingest a source into the workspace: writes a vault/wiki/sources summary, updates the portal, appends the log, and commits. Never writes vault/raw/.", {"title": str, "content": str, "provenance": str}, ingest_h),
+        # spec 007 FR-12: the narrow `ingest` MCP tool is removed. Ingest runs as the bottom-up
+        # workflow (capabilities.ingest → activity_ingest), not a constrained {title,content} tool.
         ToolSpec("import_skill", "Reference-link a shared-library skill into the active workspace and commit.", {"name": str}, import_skill_h),
     ]
 

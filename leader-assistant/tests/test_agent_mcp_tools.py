@@ -14,13 +14,14 @@ import pytest
 
 from app import agent, capabilities, config
 
-# The parity tool set the agent should expose by default (spec 006 AC-1).
+# The parity tool set the agent should expose by default (spec 006 AC-1). The narrow
+# `ingest` tool was removed by spec 007 FR-12 — ingest runs as the bottom-up workflow.
 EXPECTED_DEFAULT = {
     "query", "spec_read", "plan",
     "list_workspaces", "get_workspace_info", "lint", "wiki_tree",
     "list_conversations", "get_conversation", "conversation_status",
     "list_available_skills", "list_installed_skills",
-    "ingest", "import_skill",
+    "import_skill",
 }
 
 
@@ -77,17 +78,11 @@ def test_tools_are_bound_to_active_workspace():
     assert info["name"] == "bound"  # not "other"
 
 
-def test_ingest_handler_executes_and_commits(isolated_workspace_root):
-    # AC-5: the ingest tool writes a wiki source and commits, in the active workspace.
-    capabilities.create_workspace("demo")
-    result = asyncio.run(
-        _handler("ingest", "demo")({"title": "Note", "content": "hello world", "provenance": "notes"})
-    )
-    report = _payload(result)
-    assert report["workspace"] == "demo"
-    assert report["source_page"].startswith("vault/wiki/sources/")
-    assert report["committed"] is True
-    assert (isolated_workspace_root / "demo" / report["source_page"]).is_file()
+def test_ingest_tool_is_not_registered():
+    # spec 007 FR-12/AC-9: the narrow `ingest` MCP tool is gone from specs and allowed_tools.
+    assert "ingest" not in _names()
+    specs = agent._selected_specs(None, [], config.mcp_tool_blacklist())
+    assert "mcp__leader__ingest" not in agent._allowed_tool_names(specs)
 
 
 def test_import_skill_handler_creates_reference_link(isolated_workspace_root):

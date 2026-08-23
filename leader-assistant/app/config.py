@@ -5,6 +5,7 @@ Environment overrides:
 - LEADER_WORKSPACE_ROOT    root directory holding Workspaces/<name>/ (default: ./Workspaces)
 - LEADER_DEFAULT_WORKSPACE default workspace selector when none is supplied
 - LEADER_SKILLS_SOURCE     shared skill library root (default: repo-sibling skills/)
+- LEADER_FOUNDATION_DOCS_SOURCE  foundation-doc source dir (default: <skills>/second-brain/references)
 - LEADER_MCP_TOOL_BLACKLIST comma-separated agent MCP tool names to withhold
 """
 
@@ -45,6 +46,19 @@ def skills_library_root() -> Path:
     if override:
         return Path(override).expanduser()
     return Path(__file__).resolve().parent.parent.parent / "skills"
+
+
+def foundation_docs_source() -> Path:
+    """Directory the foundation docs are bootstrapped from (spec 007 FR-9/D10, spec 22 R1).
+
+    Default: the skill library's ``second-brain/references/`` — the source the
+    ``second-brain-ingest`` skill was authored against (``wiki-schema.md`` /
+    ``wiki-architecture.md``). Overridable via LEADER_FOUNDATION_DOCS_SOURCE.
+    """
+    override = os.getenv("LEADER_FOUNDATION_DOCS_SOURCE")
+    if override:
+        return Path(override).expanduser()
+    return skills_library_root() / "second-brain" / "references"
 
 
 def mcp_tool_blacklist() -> set[str]:

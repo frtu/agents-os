@@ -66,9 +66,10 @@ def test_ac3_consequential_returns_pending_plan_no_mutation(client, offline_agen
     assert body["pending_plan"]["requires_approval"] is True
     assert body["executed"] is False
 
-    # No wiki page was created by this turn.
+    # No wiki page was created by this turn. (portal/log/tbd are scaffold control files,
+    # spec 03-workspace §5 / spec 007 FR-14 — not created by this turn.)
     wiki = isolated_workspace_root / "_default_" / "vault" / "wiki"
-    pages = [p for p in wiki.rglob("*.md") if p.name not in ("portal.md", "log.md")]
+    pages = [p for p in wiki.rglob("*.md") if p.name not in ("portal.md", "log.md", "tbd.md")]
     assert pages == []
 
 

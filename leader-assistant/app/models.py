@@ -43,6 +43,41 @@ class IngestReport(BaseModel):
     portal_updated: bool
     committed: bool = Field(..., description="Whether a git commit was recorded")
     message: str
+    # spec 007 FR-7: the ingest workflow surfaces the activity Output Object (progress + errors).
+    progress: list[str] = Field(default_factory=list, description="What was processed / created / updated")
+    errors: list[str] = Field(default_factory=list, description="What failed and why")
+
+
+# --- activity interface (feature 007-knowledge-activities) ------------------
+# The activity-agnostic contract every conforming activity implements (spec 007 FR-5).
+# The compute unit (e.g. the `second-brain-ingest` skill) runs behind this contract so it
+# stays interchangeable; the Output Object is exactly a progress list and an error list (D3).
+
+
+class ActivityInput(BaseModel):
+    """Parameters handed to an activity run (spec 007 FR-5).
+
+    Activity-agnostic: carries the target workspace path plus the injected runtime context
+    (path mapping / overlaid foundation-doc contract) the activity needs, never activity
+    internals. `raw_selection` narrows which captured sources to process (empty = all).
+    """
+
+    workspace: str = Field(..., description="Workspace selector/name for the run")
+    workspace_path: str = Field(..., description="Absolute path of the target workspace")
+    raw_selection: list[str] = Field(
+        default_factory=list,
+        description="Captured raw paths (relative to the workspace) to process; empty = all",
+    )
+    context: str = Field(
+        "", description="Injected runtime context: overlaid foundation-doc contract + path mapping (FR-11)"
+    )
+
+
+class ActivityOutput(BaseModel):
+    """The activity's result — exactly a progress list and an error list (spec 007 FR-5, D3)."""
+
+    progress: list[str] = Field(default_factory=list, description="Steps completed / artifacts created or updated")
+    errors: list[str] = Field(default_factory=list, description="Failures encountered, each with a reason")
 
 
 class QueryRequest(BaseModel):
