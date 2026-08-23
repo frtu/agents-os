@@ -96,6 +96,10 @@ also offers).
   share the link), and reopening it later restores the same workspace and sidebar state. Toggling the
   sidebar updates the URL silently (no reload, my chat stays intact); switching workspaces reloads the
   page onto the new deep-linked URL.
+- **Scenario 7d — Bookmark a conversation:** As a user, I click a conversation in the Sessions panel;
+  it opens in the chat and the URL gains `?conversation=<id>` silently (no reload). I bookmark or share
+  the link, and reopening it restores that same conversation in the chat. Clicking **New conversation**
+  clears the param and starts a fresh thread.
 - **Scenario 8 — Empty states:** As a first-time user, an empty workspace shows an empty
   `vault/wiki/` tree and an empty Sessions list with clear "nothing yet" messaging rather than
   errors.
@@ -140,6 +144,14 @@ Numbered, testable, unambiguous.
   `history.replaceState`), so the chat and all transient state are preserved while the URL stays
   bookmarkable. (Individual **panel** collapse/expand, FR-2, is *not* URL-encoded — only the whole
   sidebar's open/closed state is.)
+- **FR-32 (conversation deep-link):** The active **conversation** MUST be encoded in the URL as a
+  bookmarkable `?conversation=<id>` param. On page load the UI MUST **restore** that conversation
+  into the chat, scoped to the active workspace (FR-29); an **absent or unknown** id starts a fresh
+  thread (the greeting). Selecting a conversation from the Sessions panel (FR-20), a fresh thread
+  **acquiring an id on its first turn**, or starting a **New conversation** (FR-24) MUST update
+  `?conversation` **in place via `history.replaceState`** (no reload — the chat already loads the
+  thread in-page). **New conversation** MUST **clear** the param. Switching workspace (FR-30) reloads
+  onto the new deep link and MUST NOT carry a stale `conversation` from the previous workspace.
 
 ### Workspaces panel (selector + create)
 
@@ -372,6 +384,11 @@ Numbered, testable, unambiguous.
   **toggling the whole sidebar** updates the `sidebar` param silently via `history.replaceState`
   (no reload, chat preserved). (FR-29, FR-30, FR-31)
 
+- [ ] **AC-15:** The URL carries `?conversation=<id>`; loading such a URL restores that thread in the
+  chat (unknown/absent ⇒ fresh thread), scoped to the active workspace. Selecting a session, a new
+  thread acquiring an id on its first turn, or starting **New conversation** updates `?conversation`
+  **silently** via `history.replaceState` (no reload); **New conversation** clears it. (FR-32)
+
 ## Resolved Decisions
 
 - **D1 — Relationship to 003:** this is a **new feature (004) that extends 003**; 003's chat
@@ -399,10 +416,12 @@ Numbered, testable, unambiguous.
   (`capabilities.deposit_raw`) that writes to `vault/raw/` directly and validates against path
   traversal. *(User decision.)*
 
-- **D6 — Sidebar toggle updates URL silently:** switching workspaces does a **full page reload**
-  onto the deep-linked URL (the workspace re-scopes everything anyway), but toggling the whole
-  sidebar updates the `sidebar` param **in place** via `history.replaceState` — no reload — so the
-  in-progress chat and transient UI state are preserved. *(User decision, 2026-08-23.)*
+- **D6 — Sidebar toggle & conversation switch update the URL silently:** switching workspaces does a
+  **full page reload** onto the deep-linked URL (the workspace re-scopes everything anyway), but
+  toggling the whole sidebar and selecting/starting a conversation update the `sidebar` /
+  `conversation` params **in place** via `history.replaceState` — no reload — so the in-progress chat
+  and transient UI state are preserved. The chat already loads a resumed thread in-page, so a
+  conversation switch needs no reload. *(User decisions, 2026-08-23.)*
 
 ## Open Questions
 

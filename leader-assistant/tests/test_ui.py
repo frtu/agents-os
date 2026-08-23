@@ -109,3 +109,62 @@ def test_ui_wires_deep_link_navigation_and_silent_toggle():
     assert "sidebar.expand(" in src and "sidebar.collapse(" in src
     assert "searchParams.set('workspace'" in src
     assert "searchParams.set('sidebar'" in src
+
+
+# --- spec 004 conversation deep-link (FR-32, AC-15) ---------------------------
+
+
+def test_initial_restores_conversation_from_url(monkeypatch):
+    # FR-32: ?conversation=<id> restores that thread into the chat, scoped to the active workspace.
+    monkeypatch.setattr(ui, "_list_workspaces",
+                        lambda: {"workspaces": ["alpha"], "default": "alpha"})
+    monkeypatch.setattr(ui, "_wiki_html", lambda ws: "")
+    captured = {}
+
+    def fake_detail(ws, cid):
+        captured["args"] = (ws, cid)
+        return {"messages": [{"role": "user", "text": "hi"},
+                             {"role": "assistant", "text": "hello there"}]}
+
+    monkeypatch.setattr(ui, "_get_session_detail", fake_detail)
+    out = ui._initial(_req(workspace="alpha", conversation="conv-123"))
+    assert captured["args"] == ("alpha", "conv-123")   # detail fetched, workspace-scoped
+    chat_msgs, conv = out[7], out[8]
+    assert conv == "conv-123"
+    assert [m["content"] for m in chat_msgs] == ["hi", "hello there"]
+
+
+def test_initial_unknown_conversation_starts_fresh(monkeypatch):
+    # FR-32: an unknown/erroring ?conversation degrades to a fresh thread (greeting), not an error.
+    monkeypatch.setattr(ui, "_list_workspaces",
+                        lambda: {"workspaces": ["alpha"], "default": "alpha"})
+    monkeypatch.setattr(ui, "_wiki_html", lambda ws: "")
+
+    def boom(ws, cid):
+        raise RuntimeError("no such session")
+
+    monkeypatch.setattr(ui, "_get_session_detail", boom)
+    out = ui._initial(_req(workspace="alpha", conversation="ghost"))
+    chat_msgs, conv = out[7], out[8]
+    assert conv is None
+    assert chat_msgs == [{"role": "assistant", "content": ui.GREETING}]
+
+
+def test_initial_no_conversation_param_starts_fresh(monkeypatch):
+    # FR-32: absent ?conversation ⇒ fresh thread, no session lookup.
+    monkeypatch.setattr(ui, "_list_workspaces",
+                        lambda: {"workspaces": ["alpha"], "default": "alpha"})
+    monkeypatch.setattr(ui, "_wiki_html", lambda ws: "")
+    monkeypatch.setattr(ui, "_get_session_detail",
+                        lambda *a: (_ for _ in ()).throw(AssertionError("should not fetch")))
+    out = ui._initial(_req(workspace="alpha"))
+    assert out[8] is None
+    assert out[7] == [{"role": "assistant", "content": ui.GREETING}]
+
+
+def test_ui_wires_conversation_deep_link():
+    # FR-32: session select / new chat / turn completion update ?conversation silently.
+    src = UI_PATH.read_text()
+    assert "_CONV_URL_JS" in src
+    assert "searchParams.set('conversation'" in src
+    assert "searchParams.delete('conversation'" in src   # New conversation clears it

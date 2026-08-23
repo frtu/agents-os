@@ -212,6 +212,17 @@ _SIDEBAR_CLOSED_JS = """
 }
 """
 
+# spec 004 FR-32: selecting/starting a conversation updates ?conversation in place (no reload) so the
+# thread is bookmarkable; an empty id (New conversation) clears the param. Takes the conversation id.
+_CONV_URL_JS = """
+(cid) => {
+  const u = new URL(window.location);
+  if (cid) u.searchParams.set('conversation', cid);
+  else u.searchParams.delete('conversation');
+  history.replaceState(null, '', u.toString());
+}
+"""
+
 _CSS = """
 #refresh-vault button, #create-vault button { font-size: 1.1rem; padding: 0 6px; }
 .wiki-tree { font-size: 0.9rem; line-height: 1.5; max-height: 240px;
@@ -788,23 +799,46 @@ def _status(active):
     return "No workspaces yet — type a name and click ＋."
 
 
-def _initial(request: gr.Request = None):
-    """Populate the sidebar on page load, restoring deep-linked state (spec 004 FR-29).
+def _restore_chat(workspace, conversation_id):
+    """Chat + conversation-state to restore a deep-linked thread (spec 004 FR-32).
 
-    Reads ``?workspace=`` and ``?sidebar=open|closed`` from the URL: the named workspace becomes
-    active when known (else the default), and the sidebar opens only when ``sidebar=open`` (absent
-    ⇒ the FR-1 default of closed/hidden).
+    An unknown/absent id (or a load error) falls back to a fresh thread with the greeting rather
+    than surfacing an error, so a stale bookmark degrades gracefully.
+    """
+    greeting = [{"role": "assistant", "content": GREETING}]
+    if not (workspace and conversation_id):
+        return greeting, None
+    try:
+        detail = _get_session_detail(workspace, conversation_id)
+    except Exception:
+        return greeting, None
+    msgs = [
+        {"role": ("user" if m.get("role") == "user" else "assistant"), "content": m.get("text", "")}
+        for m in detail.get("messages", [])
+    ]
+    return (msgs or greeting), (conversation_id if msgs else None)
+
+
+def _initial(request: gr.Request = None):
+    """Populate the sidebar on page load, restoring deep-linked state (spec 004 FR-29/FR-32).
+
+    Reads ``?workspace=``, ``?sidebar=open|closed`` and ``?conversation=`` from the URL: the named
+    workspace becomes active when known (else the default), the sidebar opens only when
+    ``sidebar=open`` (absent ⇒ the FR-1 default of closed/hidden), and the named conversation is
+    restored into the chat scoped to that workspace (unknown/absent ⇒ a fresh thread).
     """
     params = dict(request.query_params) if request is not None else {}
     want_ws = params.get("workspace") or None
+    want_conv = params.get("conversation") or None
     sidebar_open = gr.update(open=params.get("sidebar") == "open")
+    greeting = [{"role": "assistant", "content": GREETING}]
     try:
         info = _list_workspaces()
     except Exception as e:
         return (
             "", None, gr.update(choices=[], visible=False),
             f"<em>API not reachable: {html.escape(str(e))}</em>",
-            f"API error: {e}", gr.update(visible=False), sidebar_open,
+            f"API error: {e}", gr.update(visible=False), sidebar_open, greeting, None,
         )
     vaults = info.get("workspaces", [])
     default = info.get("default", "default")
@@ -813,11 +847,12 @@ def _initial(request: gr.Request = None):
     else:
         active = default if default in vaults else (vaults[0] if vaults else None)
     wiki = _wiki_html(active) if active else "<em>No workspaces yet.</em>"
+    chat_msgs, conv = _restore_chat(active, want_conv)  # FR-32
     # FR-3: box pre-filled with the active name (the "original"); FR-5: Create hidden until changed.
     return (
         active or "", active,
         _picker_update(_others(vaults, active), visible=False),
-        wiki, _status(active), gr.update(visible=False), sidebar_open,
+        wiki, _status(active), gr.update(visible=False), sidebar_open, chat_msgs, conv,
     )
 
 
@@ -1048,8 +1083,12 @@ def build_demo() -> gr.Blocks:
 
         # --- wiring ---
         sidebar_out = [vault_box, active_vault, vault_suggest, wiki_view, vault_status, create_btn]
-        # spec 004 FR-29: _initial also restores the sidebar open/closed state from ?sidebar.
-        demo.load(_initial, None, sidebar_out + [sidebar])
+        card_out = [interaction_card, interaction_prompt, interaction_radio, interaction_timer, interaction]
+        # spec 004 FR-29/FR-32: _initial also restores the sidebar open/closed state from ?sidebar and
+        # the deep-linked conversation from ?conversation (into chat + conversation state).
+        demo.load(_initial, None, sidebar_out + [sidebar, chat, conversation]).then(
+            _recover_card, [conversation, active_vault], card_out
+        ).then(None, None, None, js=_COUNTDOWN_JS)
         demo.load(_sessions_html, [active_vault], [sessions_view])
         # spec 004 FR-26/FR-27: populate the top-of-sidebar Model picker; FR-28: selecting persists.
         demo.load(_model_initial, None, [model_picker, model_source]).then(
@@ -1088,14 +1127,14 @@ def build_demo() -> gr.Blocks:
         refresh_btn.click(_sessions_html, [active_vault], [sessions_view])
         # Clicking a session row (JS) clicks session_go; the js shim injects the clicked id so
         # _open_session resumes that conversation in the chat (FR-19/FR-20). On resume, recover any
-        # still-pending interaction card (spec 008 FR-11) and (re)start its countdown.
-        card_out = [interaction_card, interaction_prompt, interaction_radio, interaction_timer, interaction]
+        # still-pending interaction card (spec 008 FR-11) and (re)start its countdown, then reflect
+        # the resumed thread in the URL silently (spec 004 FR-32).
         session_go.click(
             _open_session, [session_pick, active_vault], [chat, conversation],
             js=_SESSION_PICK_JS,
         ).then(_recover_card, [conversation, active_vault], card_out).then(
             None, None, None, js=_COUNTDOWN_JS
-        )
+        ).then(None, [conversation], None, js=_CONV_URL_JS)
 
         upload_btn.click(
             _do_upload,
@@ -1103,19 +1142,21 @@ def build_demo() -> gr.Blocks:
             [upload_group, upload_progress, upload_status, uploader, wiki_view],
         )
 
-        # New conversation clears the chat and dismisses any open interaction card (FR-8).
+        # New conversation clears the chat, dismisses any open interaction card (FR-8), and clears
+        # the ?conversation param (spec 004 FR-32).
         new_chat_btn.click(_new_chat, None, [chat, conversation]).then(
             lambda: _card_updates(None), None, card_out
-        )
+        ).then(None, [conversation], None, js=_CONV_URL_JS)
 
         # spec 008 FR-8: the bottom chat box always starts a NEW task; it never answers the card.
+        # spec 004 FR-32: after a turn, sync ?conversation so a freshly-started thread is bookmarkable.
         turn_out = [chat, conversation, approve_btn, *card_out]
         box.submit(_user_submit, [box, chat], [box, chat]).then(
             _respond, [chat, conversation, active_vault], turn_out
-        ).then(None, None, None, js=_COUNTDOWN_JS)
+        ).then(None, None, None, js=_COUNTDOWN_JS).then(None, [conversation], None, js=_CONV_URL_JS)
         approve_btn.click(_add_approve_msg, [chat], [chat]).then(
             _approve, [chat, conversation, active_vault], turn_out
-        ).then(None, None, None, js=_COUNTDOWN_JS)
+        ).then(None, None, None, js=_COUNTDOWN_JS).then(None, [conversation], None, js=_CONV_URL_JS)
 
         # spec 008 FR-7/FR-12/FR-16: the card's own controls answer the pending interaction.
         interaction_submit.click(
