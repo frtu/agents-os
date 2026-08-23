@@ -41,6 +41,100 @@ An external project-management system is accessed **only when explicitly request
 
 ---
 
+# Core Concepts: Capture vs Ingest
+
+Two words that are easy to conflate but are deliberately distinct in this system. Keeping
+them separate is what lets the raw layer stay immutable (§2.2) while the wiki compounds
+(§2.1).
+
+## Capture — an input mechanism, no processing
+
+**Capture** is the sanctioned way human content lands in `vault/raw/`. It is *only* an
+input mechanism: it deposits bytes and preserves provenance. It performs **no knowledge
+processing** — no summarizing, no classification, no wiki mutation. Nothing derived is
+produced.
+
+- Channels: the UI upload panel, the API upload route, or an assistant depositing a
+  human-provided source on the human's behalf.
+- Destination: `vault/raw/<provenance>/…`, which is **human-owned** (Constitution P2).
+- Guarantee: capture never triggers, and is never blocked by, the internal pipeline.
+  A captured file simply *exists* in `raw/`, ready to be ingested later.
+
+> Naming: the concept previously described as the "human channel to `vault/raw/`",
+> "upload", or "deposit_raw" is unified under **capture**.
+
+## Ingest — the internal workflow, built bottom-up
+
+**Ingest** is the internal **workflow** that consumes *captured* content and organizes it
+into durable knowledge (`vault/raw/ → vault/wiki/`). Unlike capture, ingest is where all
+the processing happens: read the raw source, produce a source summary, update the wiki
+categories, refresh `portal.md`, append `log.md`, commit.
+
+Ingest is built **bottom-up**, in layers, so the actual reasoning lives in a reusable
+compute unit (a skill) that the application orchestrates but never rewrites:
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│ Capability          capabilities.ingest — orchestrates the workflow, │
+│                     picks captured sources, invokes the activity,     │
+│                     records the report (offline fallback if no SDK)   │
+├─────────────────────────────────────────────────────────────────────┤
+│ Implementation      activity_ingest.py — the "uber package": injects  │
+│  (wrapper)          runtime context (path mapping raw/ ↔              │
+│                     {workspace}/vault/raw/) into the skill WITHOUT     │
+│                     modifying the skill; two-phase headless bridge     │
+├─────────────────────────────────────────────────────────────────────┤
+│ Interface           the activity contract: Input Object (parameters)  │
+│  (contract)         → Output Object (progress list + error list),     │
+│                     as pydantic classes                                │
+├─────────────────────────────────────────────────────────────────────┤
+│ Activity            the compute unit — provided by the skill           │
+│  (compute unit)     `second-brain-ingest`, run headless. Never edited  │
+│                     by the app; context is injected around it.         │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**The activity** is the lowest layer: a skill (`second-brain-ingest`) that already knows
+how to turn raw sources into wiki knowledge. The app treats it as a black box and never
+modifies it.
+
+**The interface** is a contract: an Input Object (the parameters the activity needs) and
+an Output Object (a **progress list** and an **error list**), both pydantic classes. Any
+activity that fits this contract is interchangeable.
+
+**The implementation** (`activity_ingest.py`) is the "uber package" that fits the
+interface and bridges to a **headless** agent run. It injects runtime context — most
+importantly the path mapping between the skill's assumed layout (`raw/`, `wiki/`) and this
+workspace's real layout (`{workspace}/vault/raw/`, `{workspace}/vault/wiki/`) — as prompt
+context, so the skill runs unmodified. It runs in **two phases**:
+
+1. **Run the activity headless.** Build the context, inject the parameters, invoke the
+   skill, and collect its (unstructured) output.
+2. **Coerce to the contract.** Call headless *again* to reshape that unstructured output
+   into the structured pydantic Output Object (progress + errors).
+
+**The capability** (`capabilities.ingest`) sits on top: it selects which captured sources
+to process, invokes the activity through the interface, and turns the Output Object into
+the workflow's report — with the current in-process logic kept as an offline fallback when
+the agent runtime is unavailable.
+
+## Foundation docs: shared truth + per-workspace extension
+
+The activity's skill expects foundation docs (`wiki-schema.md`, `wiki-architecture.md`).
+On workspace create, these are **copied** into `vault/docs/` so the activity always has
+them locally. Alongside each copy, the workspace also gets an **extension** doc:
+
+- `vault/docs/wiki-schema.md` / `wiki-architecture.md` — the shared foundation, copied
+  verbatim and **never modified**.
+- `vault/docs/wiki-schema-extension.md` / `wiki-architecture-extension.md` — per-workspace
+  overrides that **reference** the common docs and may extend or override them (e.g. map
+  the layout paths `raw/ → vault/raw/`, `wiki/ → vault/wiki/`, index `→ portal.md`).
+
+This keeps the shared truth immutable while letting each workspace adapt paths without
+forking the foundation.
+
+---
+
 # 2. Product Principles
 
 ## 2.1 Knowledge compounds

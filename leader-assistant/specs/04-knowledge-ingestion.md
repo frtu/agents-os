@@ -21,20 +21,42 @@ Last Updated: 2026-08-13
 
 # Knowledge Ingestion
 
-Ingestion is **event-driven**: any new document stored anywhere under `vault/raw/` automatically starts ingestion. The user should never need to say "process this file."
-
 > This spec describes the **local** two-stage pipeline (`vault/raw → sessions → dreaming → vault/wiki/sources → vault/wiki/category`). The remote source uses a flatter `raw → source → wiki` model; the divergence is recorded in [[04-knowledge-ingestion-contradiction]]. Local is authoritative. Concept creation/update here writes the lifecycle counter/reference fields (`usage-count`, `referenced-to`, `last-correction`) per [[05-zettelkasten]].
+
+## 0. Capture vs Ingest
+
+Two distinct steps, deliberately separated (Constitution P2; README § Core Concepts):
+
+- **Capture** — an *input mechanism only*. It deposits a human-provided source into
+  `vault/raw/<provenance>/` and performs **no processing**. Channels: UI upload, API upload,
+  or the assistant depositing on a human's behalf ([[004-assistant-sidebar]]). Capture never
+  derives knowledge; it just makes a source *exist* in `raw/`, ready to be ingested.
+- **Ingest** — the internal **workflow** that reads *captured* sources and derives durable
+  knowledge (`vault/raw/ → vault/wiki/`). Everything in §2–§4 below is the ingest workflow.
+
+Ingest is built **bottom-up** on a reusable **activity** — a skill (`second-brain-ingest`) run
+headless behind a pydantic contract — that the app orchestrates but never modifies. The activity
+interface, the `activity_ingest.py` wrapper, and the capture→ingest wiring are specified in
+[[007-knowledge-activities]]. This MOC defines *what* the workflow must achieve; feature 007
+defines *how* it is layered and invoked.
 
 ## 1. Trigger
 
+Ingest runs over already-**captured** sources under `vault/raw/`. Two invocation modes:
+
+- **On-demand (implemented target).** Ingest is invoked explicitly for a workspace (via the
+  capability / API), scanning `vault/raw/` for unprocessed sources ([[007-knowledge-activities]]).
+- **Event-driven (future).** A watcher observes `vault/raw/` and starts ingest automatically on
+  a new/updated file, so the user never has to say "process this file."
+
 ```text
-vault/raw/{any-path}/{document}
+vault/raw/{any-path}/{document}   (captured, immutable)
               │
               ▼
-       ingestion trigger
+       ingest workflow  (on-demand today; event-driven later)
 ```
 
-Includes arbitrary subdirectories (`vault/raw/articles/`, `vault/raw/zoom/`, `vault/raw/voice/`, `vault/raw/imported/`, …). The implementation MUST watch `vault/raw/` recursively for created/updated files.
+Includes arbitrary subdirectories (`vault/raw/articles/`, `vault/raw/zoom/`, `vault/raw/voice/`, `vault/raw/imported/`, …). The event-driven mode MUST watch `vault/raw/` recursively for created/updated files.
 
 ## 2. Pipeline
 
@@ -98,8 +120,12 @@ New source → ingestion → new concept → project relevance detected
 
 ## 6. Acceptance Criteria
 
-- AC1: Dropping a file anywhere under `vault/raw/` triggers ingestion without a manual command.
+- AC1: Ingest runs over captured sources under `vault/raw/`. On-demand invocation scans `vault/raw/`
+  for unprocessed sources (implemented target); event-driven auto-trigger on file drop is the future
+  extension ([[007-knowledge-activities]]).
 - AC2: Every ingested source yields exactly one source summary under the mirrored `{provenance}` path.
 - AC3: Contradictions are recorded with both sources cited.
 - AC4: Every ingest updates `portal.md` and appends one `ingest` log entry.
 - AC5: Proposed mutations pass through [[10-risk-engine]] before landing on `main`.
+- AC6: Capture (input) never derives knowledge and ingest (workflow) never writes back into
+  `vault/raw/` — the two steps stay separated (Constitution P2).

@@ -35,7 +35,7 @@ Derived from the README and the canonical references. When README and references
 
 ## Layout
 
-**Core (00-02)** — foundational, change infrequently. **MOCs (03-20)** — evolving Maps of Content that link concerns together.
+**Core (00-02)** — foundational, change infrequently. **MOCs (03-20, 22)** — evolving Maps of Content that link concerns together. **21** — outputs extension.
 
 | # | Document | Covers | README |
 |---|----------|--------|--------|
@@ -61,6 +61,7 @@ Derived from the README and the canonical references. When README and references
 | 19 | [non-functional](19-non-functional.md) | portability, scalability, non-goals | §28, §29, §10 |
 | 20 | [testing](20-testing.md) | invariant test matrix, acceptance | §28, §13, §12 |
 | 21 | [outputs](21-outputs.md) | *extension:* secondary PO/PM outputs, template reuse | §3, §16, §26 |
+| 22 | [metadata-management](22-metadata-management.md) | foundation docs (wiki-schema/architecture): bootstrap, core+extension, traceability | §10, §11, §32 |
 
 ## Reading Order
 
@@ -72,6 +73,7 @@ Derived from the README and the canonical references. When README and references
 5. **Build interfaces & architecture**: 12 → 13 → 14 → 15.
 6. **Cross-cutting**: 16 → 17 → 18 → 19 → 20.
 7. **Secondary capability**: 21 (outputs) + root [`templates/`](../templates/).
+   **Metadata contract**: 22 (foundation-doc management) — read alongside 03/04 and feature 007.
 8. **Build it**: [`001-leader-assistant/plan.md`](001-leader-assistant/plan.md) → [`plan-tbd.md`](001-leader-assistant/plan-tbd.md) → [`tasks.md`](001-leader-assistant/tasks.md), tracking open items in [`clarification.md`](clarification.md).
 
 ## Conventions

@@ -4,8 +4,10 @@ The non-negotiable principles for the **AI Product Owner / Project Specification
 
 > **Derivation.** This constitution is derived from the remote Leader Assistant constitution (10 principles) and customized to this repository's local spec kit (`specs/00`–`specs/20`). Where the local spec set and the remote source disagree, the local intent is authoritative and the conflict is recorded in a `specs/NN-*-contradiction.md` file; unresolved decisions are indexed in [`specs/clarification.md`](../specs/clarification.md).
 
-Version: 1.1.0 · Ratified: 2026-08-16 · Last amended: 2026-08-16
+Version: 1.1.1 · Ratified: 2026-08-16 · Last amended: 2026-08-22
 
+> **Amendment 1.1.1 (2026-08-22).** Principle 2 clarified with terminology: the human-owned input channel into `vault/raw/` is named **capture** — an input mechanism that deposits sources *without any knowledge processing*. This is distinguished from **ingest**, the internal *workflow* that reads captured sources and derives durable knowledge (`vault/raw/ → vault/wiki/`). No principle changed; the two words are now used consistently across the spec kit. Motivated by feature [`007-knowledge-activities`](../specs/007-knowledge-activities/spec.md).
+>
 > **Amendment 1.1.0 (2026-08-16).** Principle 2 clarified: `vault/raw/` is *human-owned* — the app may help a human add/modify/delete raw sources — while the **internal ingestion pipeline** remains forbidden from mutating `vault/raw/`. Motivated by feature [`004-assistant-sidebar`](../specs/004-assistant-sidebar/spec.md) (local file upload into `vault/raw/`).
 
 ---
@@ -21,9 +23,12 @@ Source specs: [[03-workspace]], [[19-non-functional]].
 
 ## Principle 2 — `vault/raw/` is human-owned; the pipeline never mutates it
 
-Sources in `vault/raw/` are the source of truth for provenance and the entry point of the knowledge pipeline. **Humans may add, modify, or delete files in `vault/raw/`**, and the app SHOULD provide tools (upload, edit, delete) to help them manage these sources. In contrast, the **internal ingestion process and the assistant/agent MUST NEVER modify, rewrite, or delete files in `vault/raw/`**: automated processing only *reads* `vault/raw/` and writes *new* files downstream (`vault/wiki/sources/`, then `vault/wiki/`). The `{provenance}` subpath under `vault/raw/` is preserved through the whole knowledge chain.
+Sources in `vault/raw/` are the source of truth for provenance and the entry point of the knowledge pipeline. **Humans may add, modify, or delete files in `vault/raw/`**, and the app SHOULD provide tools to help them manage these sources through the **capture** channel — an input mechanism that deposits sources into `vault/raw/<provenance>/` *without any knowledge processing* (no summarizing, classification, or wiki mutation). In contrast, the **internal ingestion process and the assistant/agent MUST NEVER modify, rewrite, or delete files in `vault/raw/`**: **ingest** — the internal workflow — only *reads* `vault/raw/` and writes *new* files downstream (`vault/wiki/sources/`, then `vault/wiki/`). The `{provenance}` subpath under `vault/raw/` is preserved through the whole knowledge chain.
 
-Source specs: [[03-workspace]], [[18-security]].
+- **Capture** = deposit into `vault/raw/` (human-owned input; no processing).
+- **Ingest** = the internal workflow that derives knowledge from captured sources (`vault/raw/ → vault/wiki/`); never writes back into `vault/raw/`.
+
+Source specs: [[03-workspace]], [[04-knowledge-ingestion]], [[18-security]].
 
 ## Principle 3 — The pipeline has one direction
 

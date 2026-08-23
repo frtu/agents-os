@@ -62,8 +62,9 @@ Workspaces/<workspace-name>/
 ├── skills/         # installed skills — each a file/folder or a reference-link to another folder
 ├── sessions/       # operational conversations (short-term memory)
 └── vault/          # ingestion root — the durable knowledge store
-    ├── raw/        # human-owned sources (never modified by the pipeline)
+    ├── raw/        # human-owned sources (captured; never modified by the pipeline)
     ├── wiki/       # LLM workspace — all durable knowledge
+    ├── docs/       # foundation docs (copied on create) + per-workspace extensions
     └── output/     # generated artifacts (reports, query results)
 
 templates/          # repo-root, externalized, shared output templates (NOT inside a workspace)
@@ -105,17 +106,21 @@ Feature 005 decides the previously-TBD import/loading mechanism:
 
 ## 3. `vault/` — Ingestion Root (Knowledge Store)
 
-The vault is the durable knowledge store and holds three subfolders: `raw/` (immutable,
-human-owned sources), `wiki/` (synthesized durable knowledge), and `output/` (generated
-artifacts). The provenance chain flows `vault/raw/ → sessions/ → vault/wiki/`.
+The vault is the durable knowledge store and holds four subfolders: `raw/` (immutable,
+human-owned sources), `wiki/` (synthesized durable knowledge), `docs/` (foundation +
+extension docs for the ingestion activity, §3.4), and `output/` (generated artifacts). The
+provenance chain flows `vault/raw/ → sessions/ → vault/wiki/`.
 
-### 3.1 `vault/raw/` — Human-Owned Sources
+### 3.1 `vault/raw/` — Human-Owned Sources (the capture target)
 
 Properties: provenance-preserving, source of truth, ingestion-triggering, never treated as
 synthesized knowledge. **Humans own `vault/raw/`**: they may add, modify, or delete these files,
-and the app provides tools (e.g. upload) to help them do so (Constitution P2, feature
-[[004-assistant-sidebar]]). The **ingestion pipeline / LLM reads but never modifies** these
-files — all automated processing produces new files downstream.
+and the app provides tools to help them do so through the **capture** channel (Constitution P2,
+features [[004-assistant-sidebar]] and [[007-knowledge-activities]]). **Capture** is an input
+mechanism only — it deposits a source into `vault/raw/<provenance>/` and performs **no knowledge
+processing**. The **ingest workflow / LLM reads but never modifies** these files — all automated
+processing produces new files downstream (see [[04-knowledge-ingestion]] for how captured sources
+become knowledge).
 
 Canonical subdirectories:
 
@@ -145,6 +150,7 @@ vault/wiki/
 ├── projects/{initiative}|{product}/{project}/
 ├── synthesis/
 ├── portal.md                    # master catalog (updated every ingest)
+├── tbd.md                       # unprocessed-work backlog, sectioned by topic & theme
 └── log.md                       # append-only operational record
 ```
 
@@ -161,6 +167,31 @@ Reports, query results, exported deliverables. May feed back into knowledge via
 [[15-integrations]] §Output→Knowledge. Produced by reusing templates from the root `templates/`
 folder (§6b, [[21-outputs]]).
 
+### 3.4 `vault/docs/` — Foundation & Extension Docs
+
+The ingestion **activity** (the `second-brain-ingest` skill, [[007-knowledge-activities]]) expects
+foundation docs describing the wiki schema and architecture. Rather than have the app rewrite the
+skill, each workspace carries these docs locally so the activity can read them at runtime. Their
+lifecycle and rules (bootstrap, immutable core, extension overlay, traceability) are governed by
+[[22-metadata-management]] — this section defines only the folder location.
+
+```text
+vault/docs/
+├── wiki-schema.md                 # foundation — COPIED verbatim on create; never modified
+├── wiki-architecture.md           # foundation — COPIED verbatim on create; never modified
+├── wiki-schema-extension.md       # per-workspace override; references the foundation
+└── wiki-architecture-extension.md # per-workspace override; references the foundation
+```
+
+- **Foundation docs** (`wiki-schema.md`, `wiki-architecture.md`) are copied from the shared source
+  on workspace create and are **immutable** — the workspace never edits them, so the shared truth
+  stays consistent across workspaces (option (b)).
+- **Extension docs** (`*-extension.md`) are per-workspace. They **reference** the foundation and may
+  **extend or override** it — chiefly to reconcile the activity's assumed layout with this
+  workspace's real layout (`raw/ → vault/raw/`, `wiki/ → vault/wiki/`, index `→ vault/wiki/portal.md`).
+- The activity wrapper injects these docs as runtime context so the skill runs **unmodified**
+  ([[007-knowledge-activities]]).
+
 ## 4. `sessions/` — Short-Term Memory
 
 Ephemeral operational conversation logs at the **workspace level** (a sibling of `vault/`, not
@@ -172,6 +203,9 @@ inside it). Not part of the wiki. Feed the dreaming pipeline. See [[06-conversat
   by category. Updated on every ingest. See [[17-observability]].
 - `vault/wiki/log.md` — append-only entries `## [YYYY-MM-DD] operation | Title`. Never edit
   existing entries.
+- `vault/wiki/tbd.md` — maintained backlog of **unprocessed** `vault/wiki/` changes, classified
+  by section (topic & theme); drives ingest's selection of unprocessed work
+  ([[007-knowledge-activities]] FR-14/FR-15).
 
 ## 6. Git as Ledger
 
@@ -192,9 +226,13 @@ copies is open — [[001-leader-assistant/plan-tbd|plan-tbd]] TBD-5.
 ## 7. Acceptance Criteria
 
 - AC1: The three workspace children (`skills/`, `sessions/`, `vault/`) exist with the roles above;
-  the vault holds `raw/`, `wiki/`, `output/`; the repo-root `templates/` folder exists outside any
-  workspace.
-- AC2: No process ever writes to files under `vault/raw/` (the pipeline/LLM never mutates it).
+  the vault holds `raw/`, `wiki/`, `docs/`, `output/`; the repo-root `templates/` folder exists
+  outside any workspace.
+- AC2: No process ever writes to files under `vault/raw/` (the pipeline/LLM never mutates it); the
+  only sanctioned writer is the **capture** channel acting on a human's behalf (P2).
+- AC9: On create, `vault/docs/` contains verbatim copies of the foundation docs (`wiki-schema.md`,
+  `wiki-architecture.md`) plus the two extension docs (`wiki-schema-extension.md`,
+  `wiki-architecture-extension.md`); the foundation copies are never modified thereafter (§3.4).
 - AC6: A workspace is resolvable by selector or default (`_default_`);
   `LEADER_WORKSPACE_ROOT`/`LEADER_WORKSPACE_PATH`/`LEADER_DEFAULT_WORKSPACE` are honored (P13).
 - AC3: `vault/wiki/portal.md` reflects every wiki page after an ingest.

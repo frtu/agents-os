@@ -2,7 +2,13 @@
 
 **Feature ID:** `006-mcp-capability-tools`
 **Status:** Draft
-**Created:** 2026-08-17 · **Last Updated:** 2026-08-17
+**Created:** 2026-08-17 · **Last Updated:** 2026-08-22
+
+> **Superseded in part by [[007-knowledge-activities]] (2026-08-22).** The `ingest` MCP tool
+> (originally FR-4/AC-1/AC-5/Scenario-3/D1 below) is **removed**: ingest is no longer a narrow
+> `{title,content,provenance}` direct-execute tool but an internal **workflow** built on an
+> activity (feature 007). All other parity tools in this feature are unchanged. Where the text
+> below still lists `ingest` as a registered tool, read it as removed per feature 007 FR-12.
 
 > Describes **what** and **why**. Gives the chat agent (Claude Agent SDK runtime) an
 > in-process MCP tool for **every** capability-layer function — not just the original
@@ -71,9 +77,9 @@ full access.
 - **Scenario 2 — Inspect the workspace from chat:** As an operator I ask "lint my workspace"
   or "what's in my wiki?"; the agent calls `lint` / `wiki_tree` and reports, all scoped to my
   active workspace.
-- **Scenario 3 — Ingest via the agent:** As an operator I ask the agent to record a note; it
-  calls the `ingest` tool, which writes a `vault/wiki/sources/` summary, updates the portal,
-  appends the log, and commits — never touching `vault/raw/`.
+- **Scenario 3 — Ingest via the agent:** ~~As an operator I ask the agent to record a note; it
+  calls the `ingest` tool…~~ **Superseded by [[007-knowledge-activities]]:** there is no narrow
+  `ingest` tool; ingest is an internal workflow over the `second-brain-ingest` activity.
 - **Scenario 4 — Sandbox holds:** As an operator, even if the agent tries to name a *different*
   workspace in a tool call, the call still targets my active workspace; the agent cannot read
   or mutate another workspace.
@@ -106,11 +112,12 @@ Numbered, testable, unambiguous.
   include: `query`, `spec_read`, `plan`, `list_workspaces`, `get_workspace_info`, `lint`,
   `wiki_tree`, `list_conversations`, `get_conversation`, `list_available_skills`,
   `list_installed_skills`.
-- **FR-4:** The registered **mutating** tools MUST include `ingest` and `import_skill`, and they
-  MUST **execute directly** when the agent calls them (create the wiki source / reference-link,
-  update portal/log as applicable, and git-commit), consistent with the autonomous-within-
-  workspace model (spec 005 D1). `create_workspace` and `upload` MUST NOT be registered (default
-  blacklist, FR-1; and see D2 for `upload`).
+- **FR-4:** The registered **mutating** tools MUST include `import_skill`, and it MUST **execute
+  directly** when the agent calls it (create the reference-link, update as applicable, and
+  git-commit), consistent with the autonomous-within-workspace model (spec 005 D1).
+  `create_workspace` and `upload` MUST NOT be registered (default blacklist, FR-1; and see D2 for
+  `upload`). **`ingest` is NO LONGER a registered tool** — superseded by
+  [[007-knowledge-activities]] FR-12; ingest is now a workflow, not a narrow MCP tool.
 - **FR-5:** The `query` tool MUST preserve its citation-surfacing behaviour (citations returned
   by the capability are surfaced to the chat reply, as in feature 002).
 
@@ -164,8 +171,9 @@ Numbered, testable, unambiguous.
 - [ ] **AC-1:** With the default configuration, the agent's MCP server registers exactly the
   parity tool set — `query`, `spec_read`, `plan`, `list_workspaces`, `get_workspace_info`,
   `lint`, `wiki_tree`, `list_conversations`, `get_conversation`, `list_available_skills`,
-  `list_installed_skills`, `ingest`, `import_skill` — and **not** `chat`/`ask`, `upload`, or
-  `create_workspace`. (FR-1, FR-2, FR-3, FR-4)
+  `list_installed_skills`, `import_skill` — and **not** `chat`/`ask`, `upload`,
+  `create_workspace`, or `ingest` (ingest removed per [[007-knowledge-activities]] FR-12).
+  (FR-1, FR-2, FR-3, FR-4)
 - [ ] **AC-2:** `chat`/`ask` is never registered even when the blacklist is emptied
   (`LEADER_MCP_TOOL_BLACKLIST=""`). (FR-3 structural exclusion)
 - [ ] **AC-3:** Adding a name to `LEADER_MCP_TOOL_BLACKLIST` removes exactly that tool from both
@@ -174,9 +182,9 @@ Numbered, testable, unambiguous.
   FR-2, FR-8)
 - [ ] **AC-4:** Every registered tool is workspace-bound: invoking a tool handler with a
   *different* workspace in its arguments still operates on the run's active workspace. (FR-6)
-- [ ] **AC-5:** The `ingest` tool handler, when invoked, creates a `vault/wiki/sources/` summary
-  and a git commit in the active workspace; the `import_skill` tool handler creates the
-  reference-link and commit. (FR-4)
+- [ ] **AC-5:** ~~The `ingest` tool handler…~~ **Superseded by [[007-knowledge-activities]]** —
+  no `ingest` tool. The `import_skill` tool handler creates the reference-link and commit in the
+  active workspace. (FR-4)
 - [ ] **AC-6:** A chat turn asking "what skills can I install?" reaches `list_available_skills`
   through the agent and returns the catalog. (FR-3; resolves 005 gap.) *(Exercised by the opt-in
   live-agent test; offline tests cover the registry, handlers, blacklist, and binding.)*
@@ -185,10 +193,10 @@ Numbered, testable, unambiguous.
 
 ## Resolved Decisions
 
-- **D1 — Direct execution for `ingest` and `import_skill`:** the agent calls these tools and
-  they execute immediately (no per-tool approval), matching the autonomous-within-workspace
-  execution model ratified in spec 005 D1. Chat-level plan-first for consequential *requests*
-  is unchanged. *(User decision.)*
+- **D1 — Direct execution for `import_skill`:** the agent calls this tool and it executes
+  immediately (no per-tool approval), matching the autonomous-within-workspace execution model
+  ratified in spec 005 D1. Chat-level plan-first for consequential *requests* is unchanged.
+  *(Originally covered `ingest` too; `ingest` is removed per [[007-knowledge-activities]] D7/FR-12.)*
 - **D2 — `upload`/`deposit_raw` stays human-only:** exposing the upload capability to the agent
   would let it write `vault/raw/` (that capability deliberately bypasses `guard_write_path` as
   the sanctioned human channel), defeating P2 and the 005 FR-10 raw-guard. It is therefore in
