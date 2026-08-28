@@ -42,13 +42,18 @@ def default_workspace_name() -> str:
 def skills_library_root() -> Path:
     """Shared skill library root (spec 005 FR-1).
 
-    Default: the ``skills/`` folder sibling to this repo (``agents-os-frtu/skills``),
-    i.e. two parents up from ``app/``. Overridable via LEADER_SKILLS_SOURCE.
+    Resolution order: LEADER_SKILLS_SOURCE override, then the repo-local ``library/skills`` (this
+    repo bundles its own skill library), then the ``skills/`` folder sibling to the repo. Returning
+    a real directory matters because foundation-doc bootstrap now fails loudly on a missing source.
     """
     override = os.getenv("LEADER_SKILLS_SOURCE")
     if override:
         return Path(override).expanduser()
-    return Path(__file__).resolve().parent.parent.parent / "skills"
+    repo = Path(__file__).resolve().parent.parent  # <repo>/app -> <repo>
+    local = repo / "library" / "skills"
+    if local.is_dir():
+        return local
+    return repo.parent / "skills"
 
 
 def foundation_docs_source() -> Path:
