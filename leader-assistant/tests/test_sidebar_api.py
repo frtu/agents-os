@@ -410,13 +410,13 @@ def test_workspace_status_renamed_to_active():
 
 
 def test_workspace_panel_layout_labels():
-    # FR-2/FR-2a/FR-3/FR-5: panel titled "Area (Workspaces)", the box placeholder is
+    # FR-2/FR-2a/FR-3/FR-5: panel titled "Workspaces (Areas)", the box placeholder is
     # "workspace name", and the Create (+) button starts hidden (name unchanged).
     from app import ui
 
     demo = ui.build_demo()
     labels = [getattr(c, "label", None) for c in demo.blocks.values()]
-    assert "Area (Workspaces)" in labels  # renamed from "Vault"/"Workspaces" (FR-2)
+    assert "Workspaces (Areas)" in labels  # renamed from "Vault"/"Area (Workspaces)" (FR-2)
     placeholders = [getattr(c, "placeholder", None) for c in demo.blocks.values()]
     assert "workspace name" in placeholders
     create = next(c for c in demo.blocks.values() if getattr(c, "elem_id", None) == "create-vault")
@@ -424,15 +424,15 @@ def test_workspace_panel_layout_labels():
 
 
 def test_sidebar_panels_default_expansion_and_titles():
-    # FR-2/FR-2a: three panels titled Area (Workspaces) / Knowledge / Sessions; the two
-    # advanced panels start collapsed, Sessions starts expanded.
+    # FR-2/FR-2a: three panels titled Workspaces (Areas) / Knowledge (Resources) /
+    # Sessions (Projects/Archives); the two advanced panels start collapsed, Sessions expanded.
     from app import ui
 
     demo = ui.build_demo()
     by_id = {getattr(c, "elem_id", None): c for c in demo.blocks.values()}
     area, knowledge, sessions = by_id["area-panel"], by_id["knowledge-panel"], by_id["sessions-panel"]
     assert (area.label, knowledge.label, sessions.label) == (
-        "Area (Workspaces)", "Knowledge", "Sessions",
+        "Workspaces (Areas)", "Knowledge (Resources)", "Sessions (Projects/Archives)",
     )
     assert area.open is False  # advanced surface, collapsed by default
     assert knowledge.open is False

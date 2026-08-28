@@ -273,3 +273,22 @@ def test_ui_wires_in_chat_card_bridge():
     assert "getElementById('itx-go')" in src               # JS clicks the hidden trigger
     assert "itx_go.click(" in src                           # the trigger runs the answer handler
     assert "_submit_interaction" in src
+
+
+def test_countdown_js_is_loop_safe():
+    # spec 008 FR-9/D11: the countdown must not drive an expire->re-render->expire join/data loop.
+    # (A) it never arms off a stale/zero/NaN seed, (C) it reads only the last LIVE (non-resolved)
+    # card and fires #itx-expire at most once per timer id.
+    from app import ui
+
+    js = ui._COUNTDOWN_JS
+    # (C) select only live cards, never a resolved/duplicate timer node
+    assert ".itx-card:not(.itx-resolved) .itx-timer" in js
+    # (A) guard: do not arm the interval unless the seed is a positive number
+    assert "if (!(remaining > 0)) return;" in js
+    # (D11) fire the expire at most once per interaction (timer id)
+    assert "s.expired === tid" in js and "s.expired = tid" in js
+    # (A) no synchronous first tick before the setInterval — the old code called tick() immediately,
+    # which is exactly what fired the spurious join. It must only schedule the interval.
+    assert "tick();\n  s.iv" not in js
+    assert "s.iv = setInterval(tick, 1000);" in js

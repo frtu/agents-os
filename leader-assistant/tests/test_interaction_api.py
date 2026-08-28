@@ -210,7 +210,10 @@ def test_ac7_ui_card_renders_distinct_in_chat_message(isolated_workspace_root):
     assert "id='itx-opt-opt-2'" in card and "Wiki sweep" in card
     assert f"id='itx-opt-{ui.CHAT_ABOUT_IT[1]}'" in card and ui.CHAT_ABOUT_IT[0] in card
     assert "id='itx-opt-decline'" in card         # ✕ decline (FR-14)
-    assert "id='itx-remaining'>30<" in card       # animated countdown seeded from text (FR-9)
+    # spec 008 FR-9/D11: countdown seeded from text; remaining is a class + the timer id is scoped
+    # per interaction so the JS reads only the live card and can't self-retrigger an expire loop.
+    assert "class='itx-remaining'>30<" in card
+    assert "id='itx-timer-itx-2'" in card
 
     # Approval (1 proposal) still gets the constant "chat about it" as the final option (FR-7).
     appr = {

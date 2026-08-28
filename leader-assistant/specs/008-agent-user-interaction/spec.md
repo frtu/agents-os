@@ -156,7 +156,9 @@ Numbered, testable, unambiguous.
   does **not** proceed (FR-14). Timeout of a blocking request MUST **abort** the interaction and report
   the exact message **"Something goes wrong, please retry later"** to the user (D6). The countdown MUST
   **pause** while the user is in the card's "chat about it" discussion and **reset** to a fresh timeout
-  when the interaction is (re-)presented afterward (D8).
+  when the interaction is (re-)presented afterward (D8). The auto-expire MUST fire **at most once per
+  interaction** and MUST derive its remaining time only from the **currently-live** card, never from an
+  already-resolved or superseded one, so it cannot re-trigger itself (D11).
 - **FR-10 (distinct interaction card):** Approval and clarification MUST render as a **visually
   distinct card** — clearly differentiated from ordinary chat messages — so the user immediately
   recognizes that **their input is required**. The card MUST render **as an assistant message within the
@@ -320,6 +322,11 @@ Numbered, testable, unambiguous.
   decision.)*
 - **D10 — Notifications never block.** A notification always auto-expires and never requires
   acknowledgement. *(Confirmed; was an open question.)*
+- **D11 — The countdown auto-expire is idempotent and reads only the live card.** The client-side timer
+  fires the expire action at most once per interaction and seeds its remaining time from the currently
+  active card alone (a resolved/superseded card carries no countdown), so a stale or zero-valued timer
+  can never re-arm and drive an expire→re-render→expire loop. *(Bug fix: previously the timer could
+  synchronously re-fire off a stale seed, causing a UI flip.)*
 
 ## Open Questions
 

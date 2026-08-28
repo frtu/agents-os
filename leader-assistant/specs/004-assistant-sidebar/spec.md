@@ -130,7 +130,7 @@ Numbered, testable, unambiguous.
 - **FR-2a (default expansion):** The **Area (Workspaces)** and **Knowledge** panels are advanced
   surfaces and MUST start **collapsed** by default, letting the user toggle them open when needed;
   the **Sessions** panel MUST start **expanded** by default. Panel titles MUST read exactly
-  **`Area (Workspaces)`**, **`Knowledge`**, and **`Sessions`**.
+  **`Workspaces (Areas)`**, **`Knowledge (Resources)`**, and **`Sessions (Projects/Archives)`**.
 - **FR-2b (panel tooltips):** Each panel header MUST expose a **tooltip** describing the panel's
   purpose, shown on hover. The texts MUST be: **Area (Workspaces)** → "Manage multiple
   **separated** and **isolated** area and interests" (the `**…**` segments rendered **bold**);

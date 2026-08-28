@@ -146,32 +146,44 @@ _ITX_JS = """
 }
 """
 
-# spec 008 FR-9/D8: the interaction card's countdown. A single global interval drives the
+# spec 008 FR-9/D8/D11: the interaction card's countdown. A single global interval drives the
 # visible remaining-seconds and, at zero, clicks the hidden #itx-expire trigger so the card is
 # dismissed with the timeout message. Called whenever the card is (re)rendered — it re-reads the
-# fresh seed from #itx-remaining's text, giving each re-presented interaction a fresh countdown
-# (D8: pause during "chat about it", reset after). Seeding from the text (not a data-* attribute)
-# survives gr.Chatbot's DOMPurify. If the card is absent, #itx-timer is missing and the timer stops.
+# fresh seed from the live card's `.itx-remaining` text, giving each re-presented interaction a fresh
+# countdown (D8: pause during "chat about it", reset after). D11 (loop fix): it seeds only from the
+# last non-resolved `.itx-card` timer, never arms off a stale/zero seed, and fires #itx-expire at most
+# once per timer id — so a resolved/duplicate timer can't drive an expire→re-render→expire join loop.
+# Seeding from text (not data-*) survives gr.Chatbot's DOMPurify. No live timer → the timer stops.
 _COUNTDOWN_JS = """
 () => {
   if (!window.__itx) window.__itx = {};
   const s = window.__itx;
   if (s.iv) { clearInterval(s.iv); s.iv = null; }
-  const timer = document.getElementById('itx-timer');
+  // D11: seed only from the LAST LIVE card's timer (a resolved card has no `.itx-timer`), never a
+  // stale/duplicate node — the fix for the expire->re-render->expire join/data loop.
+  const timers = document.querySelectorAll('.itx-card:not(.itx-resolved) .itx-timer');
+  const timer = timers.length ? timers[timers.length - 1] : null;
   if (!timer) return;
-  const out = document.getElementById('itx-remaining');
-  let remaining = parseInt((out && out.textContent) || '30', 10);
+  const tid = timer.id || '';
+  const out = timer.querySelector('.itx-remaining');
+  let remaining = parseInt((out && out.textContent) || '0', 10);
+  // A: never arm off a stale/zero/NaN seed, so we can't synchronously fire a spurious #itx-expire.
+  if (!(remaining > 0)) return;
   const tick = () => {
     if (out) out.textContent = remaining;
     if (remaining <= 0) {
       clearInterval(s.iv); s.iv = null;
+      // D11: expire this interaction at most once, even if the timer is re-seeded after the click.
+      if (s.expired === tid) return;
+      s.expired = tid;
       const btn = document.getElementById('itx-expire');
       if (btn) btn.click();
       return;
     }
     remaining -= 1;
   };
-  tick();
+  // A: no synchronous first tick — start after the fresh card has painted so the first evaluation
+  // reads the live seed, not a mid-render stale one.
   s.iv = setInterval(tick, 1000);
 }
 """
@@ -759,14 +771,17 @@ async def _approve(history, conversation_id, workspace):
 # --- agent<->user interaction card (feature 008) ---------------------------
 
 
-def _timer_html(seconds: int) -> str:
-    """Countdown wheel + remaining-seconds (spec 008 FR-9). The JS timer seeds from #itx-remaining's
-    text — `gr.Chatbot`'s DOMPurify strips data-*, but preserves the id + text content."""
+def _timer_html(seconds: int, iid: str = "") -> str:
+    """Countdown wheel + remaining-seconds (spec 008 FR-9/D11). The timer id is scoped per interaction
+    (`itx-timer-<iid>`) and the remaining value is a `.itx-remaining` *class* — `gr.Chatbot`'s DOMPurify
+    strips data-* but preserves id/class + text. Per-card scoping lets the JS target only the live card
+    and fire the expire once (D11), so a stale/resolved timer can never re-arm an expire loop."""
     seconds = int(seconds or 0)
+    tid = f"itx-timer-{iid}" if iid else "itx-timer"
     return (
-        f"<div class='itx-timer' id='itx-timer'>"
+        f"<div class='itx-timer' id='{tid}'>"
         f"<span class='itx-spinner'></span>"
-        f"<span>Auto-cancels in <b id='itx-remaining'>{seconds}</b>s — nothing changes until you choose.</span>"
+        f"<span>Auto-cancels in <b class='itx-remaining'>{seconds}</b>s — nothing changes until you choose.</span>"
         f"</div>"
     )
 
@@ -804,7 +819,7 @@ def _card_html(interaction: dict | None) -> str | None:
         f"<button class='itx-close' id='itx-opt-decline' title='Decline — take no action'>✕</button>"
         f"<div class='itx-prompt'>{prompt}</div>"
         f"<div class='itx-opts'>{buttons}</div>"
-        f"{_timer_html(seconds)}"
+        f"{_timer_html(seconds, iid)}"
         f"</div>"
     )
 
@@ -1217,7 +1232,7 @@ def build_demo() -> gr.Blocks:
 
         with gr.Sidebar(open=False, width=340) as sidebar:
             # spec 004 FR-2a: advanced surface — collapsed by default; FR-2b tooltip via _PANEL_TIP_JS.
-            with gr.Accordion("Area (Workspaces)", open=False, elem_id="area-panel"):
+            with gr.Accordion("Workspaces (Areas)", open=False, elem_id="area-panel"):
                 # FR-7: `Active` indicator at the top, above the name box.
                 vault_status = gr.Markdown("")
                 with gr.Row():
@@ -1236,7 +1251,7 @@ def build_demo() -> gr.Blocks:
                 )
 
             # spec 004 FR-2a: advanced surface — collapsed by default; FR-2b tooltip via _PANEL_TIP_JS.
-            with gr.Accordion("Knowledge", open=False, elem_id="knowledge-panel"):
+            with gr.Accordion("Knowledge (Resources)", open=False, elem_id="knowledge-panel"):
                 wiki_view = gr.HTML("<em>Loading…</em>")
                 gr.Markdown("**Add files → raw/ + ingest**")
                 with gr.Group() as upload_group:
@@ -1251,7 +1266,7 @@ def build_demo() -> gr.Blocks:
                 upload_status = gr.Markdown("")
 
             # spec 004 FR-2a: primary surface — expanded by default; FR-2b tooltip via _PANEL_TIP_JS.
-            with gr.Accordion("Sessions", open=True, elem_id="sessions-panel"):
+            with gr.Accordion("Sessions (Projects/Archives)", open=True, elem_id="sessions-panel"):
                 new_chat_btn = gr.Button("＋ New conversation", size="sm")
                 # spec 004 FR-19/FR-25: conversations render as clickable text (💬 + label) in
                 # collapsible date sections. Clicks are bridged (JS) into session_pick, whose
