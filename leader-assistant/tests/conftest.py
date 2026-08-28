@@ -37,6 +37,15 @@ def skills_library(tmp_path, monkeypatch):
             f"---\nname: {name}\ndescription: {desc}\n---\n\n# {name}\n\nDo the thing.\n",
             encoding="utf-8",
         )
+    # The real shared library ships second-brain/references/{wiki-schema,wiki-architecture}.md —
+    # the foundation-doc source (spec 007 D10 / spec 22 R1). Bootstrap now fails loudly on a missing
+    # source, so the throwaway library must provide non-empty foundation docs like the real one.
+    refs = lib / "second-brain" / "references"
+    refs.mkdir(parents=True)
+    (refs / "wiki-schema.md").write_text("# Wiki Schema CORE\n\nraw/ wiki/ layout.\n", encoding="utf-8")
+    (refs / "wiki-architecture.md").write_text(
+        "# Wiki Architecture CORE\n\nsix categories.\n", encoding="utf-8"
+    )
     monkeypatch.setenv("LEADER_SKILLS_SOURCE", str(lib))
     return lib
 

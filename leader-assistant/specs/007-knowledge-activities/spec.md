@@ -178,7 +178,11 @@ Numbered, testable, unambiguous.
   foundation docs `wiki-schema.md` and `wiki-architecture.md` from the **skill library's
   `references/`** (i.e. `skills/second-brain/references/{wiki-schema,wiki-architecture}.md`, the
   same source the skill was authored against). These copies are the **immutable core** and MUST
-  NOT be modified by the app thereafter ([[22-metadata-management]] R1/R2).
+  NOT be modified by the app thereafter ([[22-metadata-management]] R1/R2). Each core copy MUST be
+  a **non-empty** verbatim copy: if a source doc is missing or empty, create MUST **fail with a
+  clear error** naming the source path rather than writing a 0-byte core (which would leave the
+  extension as the only populated file — the inversion bug). A pre-existing 0-byte core MUST be
+  re-copied on the next create (self-heal).
 - **FR-10:** On workspace create, `vault/docs/` MUST also contain `wiki-schema-extension.md` and
   `wiki-architecture-extension.md`, in the extension file format of [[22-metadata-management]] §4
   (header `extends`/`source`/`source-hash`/`copied`, plus Path-overrides / Added / Overridden /

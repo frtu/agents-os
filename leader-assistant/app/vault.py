@@ -101,7 +101,9 @@ def _bootstrap_foundation_docs(workspace: Path) -> None:
     byte-identical to the skill library's ``references/`` — spec 007 FR-9/AC-12), and create
     ``<name>-extension.md`` in the spec 22 §4 format (header + Path-overrides / Added /
     Overridden / Removed sections) recording this workspace's path overrides (FR-10). Idempotent
-    and non-destructive: never overwrites an existing core or extension.
+    and non-destructive: never overwrites a non-empty core or an existing extension. Raises
+    ``WorkspaceError`` if a source doc is missing/empty (spec 22 R1) rather than writing a 0-byte
+    core, and re-copies an existing 0-byte core (self-heal).
     """
     docs = workspace / "vault" / "docs"
     docs.mkdir(parents=True, exist_ok=True)
@@ -110,8 +112,19 @@ def _bootstrap_foundation_docs(workspace: Path) -> None:
     for name in FOUNDATION_DOCS:
         core = docs / f"{name}.md"
         source = src_dir / f"{name}.md"
-        content = source.read_text(encoding="utf-8") if source.is_file() else ""
-        if not core.exists():
+        # spec 22 R1 / spec 007 FR-9: the core is a NON-EMPTY verbatim copy of a real source doc.
+        # Never fabricate an empty core — a 0-byte core with an empty-string hash makes the
+        # extension look like the "full" file (the inversion bug). Fail loudly instead.
+        if not source.is_file():
+            raise WorkspaceError(
+                f"foundation doc source not found: {source}. Set LEADER_FOUNDATION_DOCS_SOURCE "
+                f"(or LEADER_SKILLS_SOURCE) to the skill library's second-brain/references directory."
+            )
+        content = source.read_text(encoding="utf-8")
+        if not content.strip():
+            raise WorkspaceError(f"foundation doc source is empty: {source}")
+        # Self-heal: treat an existing 0-byte core (from a previously botched bootstrap) as absent.
+        if not core.exists() or core.stat().st_size == 0:
             core.write_text(content, encoding="utf-8")  # verbatim copy (immutable core, R2)
         source_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
         ext = docs / f"{name}-extension.md"

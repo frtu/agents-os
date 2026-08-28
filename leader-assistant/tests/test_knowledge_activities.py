@@ -162,6 +162,36 @@ def test_extension_encodes_path_overrides_and_provenance(foundation_source, isol
     assert "index file: `wiki/index.md` → `vault/wiki/portal.md`" in ext
 
 
+def test_bootstrap_raises_when_source_missing(tmp_path, monkeypatch, isolated_workspace_root):
+    # spec 22 R1 AC8 / spec 007 FR-9: a missing source MUST fail loudly, never write an empty core
+    # (the inversion bug: a 0-byte wiki-architecture.md while the extension is the only populated file).
+    monkeypatch.setenv("LEADER_FOUNDATION_DOCS_SOURCE", str(tmp_path / "does-not-exist"))
+    with pytest.raises(vault.WorkspaceError, match="foundation doc source not found"):
+        vault.scaffold_workspace(isolated_workspace_root / "broken")
+
+
+def test_bootstrap_raises_when_source_empty(tmp_path, monkeypatch, isolated_workspace_root):
+    # spec 22 R1: an empty source is a corruption — fail rather than copy a 0-byte core.
+    src = tmp_path / "refs-empty"
+    src.mkdir()
+    (src / "wiki-schema.md").write_text("", encoding="utf-8")
+    (src / "wiki-architecture.md").write_text("# full\n\nbody\n", encoding="utf-8")
+    monkeypatch.setenv("LEADER_FOUNDATION_DOCS_SOURCE", str(src))
+    with pytest.raises(vault.WorkspaceError, match="empty"):
+        vault.scaffold_workspace(isolated_workspace_root / "broken-empty")
+
+
+def test_bootstrap_self_heals_zero_byte_core(foundation_source, isolated_workspace_root):
+    # spec 22 R1: a pre-existing 0-byte core (from a previously botched bootstrap) is re-copied.
+    ws = _ws()
+    core = ws / "vault" / "docs" / "wiki-architecture.md"
+    core.write_text("", encoding="utf-8")  # simulate the botched empty core
+    assert core.stat().st_size == 0
+    vault.scaffold_workspace(ws)  # idempotent re-run must repair it
+    assert core.read_bytes() == (foundation_source / "wiki-architecture.md").read_bytes()
+    assert core.stat().st_size > 0
+
+
 # --- tbd.md backlog (FR-14/FR-15) ------------------------------------------
 
 

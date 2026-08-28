@@ -78,7 +78,11 @@ See [[03-workspace]] §3.4 for how `vault/docs/` sits in the workspace, and
   `skills/second-brain/references/{wiki-schema,wiki-architecture}.md` (the source the skills
   were authored against; [[007-knowledge-activities]] D10). The two extension files are
   created from the extension template (§4), pre-filled only with the path overrides this
-  workspace needs.
+  workspace needs. The core copy MUST be **non-empty**: if a source doc is **missing or empty**,
+  bootstrap MUST **fail loudly** (a clear error naming the source path) and MUST NOT fabricate an
+  empty core — a 0-byte core with an empty-string `source-hash` is a corruption that makes the
+  extension look like the "full" file (the inversion bug). An existing **0-byte core** MUST be
+  treated as absent and re-copied (self-heal) on the next bootstrap.
 - **R2 — Core is immutable.** No process — human tooling, agent, or ingest workflow — edits a
   core file after bootstrap. The core is a faithful mirror of the shared contract; its only
   legitimate change is a **refresh** (R6).
@@ -165,6 +169,8 @@ skill resolve this vault's real paths. No consumer reads the core alone.
   and a `log.md` entry is appended. (R6, R7)
 - AC7: A vault's entire divergence from the shared contract is readable from its extension
   files alone (single-surface traceability). (R8)
+- AC8: If a foundation-doc source is missing or empty at create, bootstrap **raises** and no
+  0-byte core is written; a pre-existing 0-byte core is re-copied on the next bootstrap. (R1)
 
 ## 7. Constitution & spec alignment
 
