@@ -1,224 +1,171 @@
 ---
 name: interview-2-capture-interview-q-a
 description: >
-  Generate structured interview Q&A notes from transcripts or AI-generated summaries.
-  Creates formatted notes with concise bullet points and natural prose for each
-  question-answer pair. Use when the user says "create interview notes", 
-  "format interview Q&A", or "turn transcript into Q&A".
+  Capture an interview from a transcript or AI-generated summary into two linked notes:
+  a faithful Q&A note and a condensed interview report. Both are generated from the
+  templates in references/. Use when the user says "create interview notes",
+  "capture interview Q&A", "turn transcript into Q&A", or "write the interview report".
 allowed-tools: Bash Read Write Edit Glob AskUserQuestion
 ---
 
-# Interview Q&A Notes
+# Interview Capture: Q&A Note + Report
 
-Transform interview transcripts or AI-generated summaries into structured Q&A notes with dual-layer formatting: concise bullet points for quick scanning plus natural prose for context.
+Transform an interview transcript or AI-generated summary into **two linked notes**, both driven by the templates in `references/`:
 
-## Input Sources
+| Output | Prefix | Template | Purpose |
+|--------|:------:|----------|---------|
+| **Q&A Note** | `3a` | [`references/template-interview-q-a.md`](references/template-interview-q-a.md) | Faithful, themed capture — question-by-question, preserves hedges and corrections |
+| **Interview Report** | `3b` | [`references/template-interview-report.md`](references/template-interview-report.md) | Condensed synthesis — Pros/Cons + themed prose, light judgment, no scores |
 
-| Source Type               | Detection Pattern                   | Example                                          |
-| ------------------------- | ----------------------------------- | ------------------------------------------------ |
-| **Raw transcript**        | `*transcript*.md`, `*Interview*.md` | `2026-07-19 Interview-Fred-T.md`                 |
-| **Voice memo transcript** | `raw/transcripts/*.md`              | `raw/transcripts/2026-07-19 Interview-Fred-T.md` |
-| **Screenshot/image**      | `*.png`, `*.jpg`                    | `Interview Notes.png`                            |
-| **AI summary export**     | `*AI*.md`, `*summary*.md`           | `Interview Summary - Candidate.md`               |
+The Q&A note is the *fidelity* layer; the report is the *gist* layer. Both feed the later post-interview evaluation (`/interview-3-post-review`) but neither scores or makes the hire call.
 
-## Output Format
+## Source-to-output routing
 
-Each Q&A block follows this structure:
+| Source in candidate folder | Detection Pattern | Best-fit output(s) |
+|----------------------------|-------------------|--------------------|
+| **Raw transcript** | `*transcript*.md`, `*Interview*.md` (not "Interview Briefing") | Both — `3a` from the transcript, `3b` synthesized from `3a` |
+| **Voice memo transcript** | `raw/transcripts/*.md` | Both |
+| **AI Q&A summary** (themed questions + answers) | `3a` primarily; `3b` if a report-style summary is also present |
+| **AI report** (Pros/Cons, Summary, Motivation, AI Mindset sections) | `*AI recruiting*.md`, `*report*.md` | `3b` primarily |
+| **Screenshot / image** | `*.png`, `*.jpg` | Whichever the image contains |
 
-```markdown
-### {Question}
-
-**Key Points:**
-- {Concise bullet point 1}
-- {Concise bullet point 2}
-- {Concise bullet point 3}
-
-{Natural prose paragraph expanding on the answer with context, examples, and nuance. 
-This should read like a well-written summary that captures the candidate's actual words 
-and reasoning, not just extracted facts.}
-```
-
-### Format Guidelines
-
-| Element        | Guidelines                                                                         |
-| -------------- | ---------------------------------------------------------------------------------- |
-| **Question**   | Use `###` header, verbatim or lightly cleaned from source                          |
-| **Key Points** | 2-5 bullet points, each ≤15 words, factual extraction                              |
-| **Prose**      | 2-4 sentences, captures tone and reasoning, uses candidate's words where impactful |
+A raw transcript can produce **both** notes: extract the Q&A note first (`3a`), then distill the report (`3b`) from it. A pre-condensed AI export usually maps to one — a Q&A-style summary → `3a`, a Pros/Cons report → `3b`. When in doubt, produce both; a thin report is still useful.
 
 ## Workflow
 
-### 1. Identify Source
+### 1. Read the templates
 
-Check the candidate folder for interview source material:
+Always start by reading both templates so the output matches the current house structure (they may have been revised):
+
+```bash
+cat "references/template-interview-q-a.md"
+cat "references/template-interview-report.md"
+```
+
+Follow the template's own frontmatter, section order, and "How to fill it correctly" rules. Do **not** inline a format here — the templates are the single source of truth.
+
+### 2. Identify source & context
+
+Find interview source material in the candidate folder:
 
 ```bash
 ls -1 "{Raw Candidate Materials}/" 2>/dev/null | \
-  grep -iE "(transcript|interview|summary|notes)" | \
+  grep -iE "(transcript|interview|summary|report|notes)" | \
   grep -viE "^Interview Briefing"
 ```
 
-**Priority order:**
-1. Screenshot/image IF EXIST (needs reading)
-2. Raw transcript (needs Q&A extraction)
+Resolve the placeholders both templates need: `{product}`, `{slug}`, `{level}`, `{step}`, `{Interviewer}`, `{Date}`, `{Source}`. Pull `{product}`/`{level}` from the pre-interview candidate page (`1-candidate-{slug}.md`) if it exists; ask the user only for genuinely ambiguous values (e.g., interview step).
 
-### 2. Extract Q&A Pairs
+If both an image and text source exist, read the image first (`Read` tool) — it often holds hand-written notes not in the transcript.
 
-**From screenshot/image:** (IF EXIST)
-- Read image content using Read tool
-- Extract visible Q&A pairs
-- Structure same as markdown format
+### 3. Extract and capture
 
-**From raw transcript:**
-- Identify interviewer questions (usually preceded by interviewer speaking)
-- Extract candidate responses
-- Group related exchanges into logical Q&A blocks
+**For the Q&A Note (`3a`):**
+- Group questions by **theme**, not chronology (Intro & Motivation, Technical Deep-Dive, Impact & Achievements, Behavioral & Ownership, Candidate's Questions).
+- Quote each question verbatim (or close). Capture answers as **atomic bullets** close to what was said.
+- **Preserve corrections, hedges, and "I don't know"s** — these are signal; never smooth them away.
+- Nest follow-ups under their parent with `↳`.
+- Add the optional `**In short:**` one-line prose synthesis where bullets need a gist, and a one-glyph `*Signal:*` tag (`✅ / ⚠️ / ❌ / ➖`).
 
-### 3. Generate Dual-Layer Notes
+**For the Interview Report (`3b`):**
+- Lead Technical Abilities with **Pros before Cons**; keep both concrete (name the mechanism, the trade-off, the specific wobble).
+- Write **Summary**, **Critical Decision Making**, **Motivation**, and **AI Mindset** as short themed paragraphs — synthesis, not transcript.
+- If a dimension wasn't discussed (e.g., AI tool usage), **say so explicitly** rather than omitting it.
+- Light judgment is allowed; **no scores or verdict** — those belong in the evaluation.
 
-For each Q&A pair:
+### 4. Write both output files
 
-1. **Extract key points** — Distill into 2-5 bullet points
-   - Focus on facts, decisions, metrics, names
-   - Keep each bullet ≤15 words
-   - Use active voice
+Write to the candidate folder:
 
-2. **Write natural prose** — Expand with context
-   - Capture candidate's reasoning and tone
-   - Include specific examples they mentioned
-   - Preserve impactful direct quotes
-   - Connect to role requirements where relevant
+- `wiki/projects/product-{product}/_interviews_/candidate-{slug}/3a-{step}-qa-{slug}.md`
+- `wiki/projects/product-{product}/_interviews_/candidate-{slug}/3b-{step}-report-{slug}.md`
 
-### 4. Organize by Theme
+Use the exact frontmatter and body structure from each template. Cross-link the two: the report's Related section points to `3a` ("the faithful capture this summarizes"); the Q&A note's Related section points to `3b`. Both link the pre-interview candidate page and the source profile. Leave any link plain text if the target page doesn't exist yet (wiki-schema Rule 22).
 
-Group Q&A blocks into logical sections:
+If the source only supports one note, create that one and note in the report why the other was skipped (e.g., "No verbatim Q&A available — report generated from AI summary only").
 
-| Section                        | Content                                           |
-| ------------------------------ | ------------------------------------------------- |
-| **Background & Motivation**    | Self-intro, career history, why this role         |
-| **Technical Deep Dive**        | Architecture, system design, technical decisions  |
-| **Problem Solving**            | Complex cases, debugging, trade-offs              |
-| **Leadership & Collaboration** | Team dynamics, conflict resolution, communication |
-| **Q&A / Candidate Questions**  | Questions the candidate asked                     |
+### 5. Update dossier links
 
-### 5. Write Output File
+- **Candidate page** (`1-candidate-{slug}.md`) — add `3a` and `3b` to the Interview Steps line.
+- **portal.md** — under the candidate's entry, add the two capture notes.
+- **log.md** — append a capture entry (see below).
 
-Write to: `wiki/projects/{team-project}/_interviews_/candidate-{slug}/{N}b-interview-q-a.md`
+### 6. Update log
 
-Use this frontmatter:
+Append to `wiki/log.md`:
 
 ```markdown
----
-Category: projects
-Tags: [hiring, candidate, interview-notes, {step}, {level}, {domain}]
-Source links:
-  - [[source-{candidate-slug}]]
-Created: {date}
-Last Updated: {date}
----
+## [{date}] capture | Candidate {Name} (interview capture)
 
-# Interview Q&A: {Candidate Name}
+Captured {Step} interview for {Name} into Q&A note + report.
 
-**Source:** {AI summary / Voice memo transcript / Raw transcript}
-**Interview Step:** {Step name}
-**Interviewer:** {Name}
-**Date:** {Date}
-
----
-
-{Q&A sections organized by theme}
+**Phase:** post-interview (capture)
+**Step:** {Step}
+**Source:** {Transcript / AI report}
+**Created:**
+- 3a-{step}-qa-{slug}.md
+- 3b-{step}-report-{slug}.md
+**Updated:** 1-candidate-{slug}.md, portal.md
 ```
 
-## Example Output
+### 7. Report results
 
-```markdown
----
-Category: projects
-Tags: [hiring, candidate, interview-notes, {step}, {level}-{level+1}, {product-domain}]
-Source links:
-  - [[source-fred-t]]
-Created: 2026-07-19
-Last Updated: 2026-07-19
----
-
-# Interview Q&A: Fred T
-
-**Source:** Generated summary
-**Interview Step:** {step}
-**Interviewer:** {interviewer name}
-**Date:** 2026-07-19
-
----
-
-## Background & Motivation
-
-### Can you introduce yourself?
-
-**Key Points:**
-- Bullet A
-- Bullet B
-
-Prose paragraph summarizing the candidate's introduction, career history, and motivations for applying to the role. Include any relevant context or examples they provided.
-
-### Why are you leaving XX?
-
-**Key Points:**
-- Bullet C
-- Bullet D
-
-Prose paragraph summarizing the candidate's reasons for leaving their current position, including any challenges or opportunities they are seeking in the new role.
-
----
-
-## Technical Deep Dive
-
-### What is XX technology? How would you explain it to a non-technical person?
-
-**Key Points:**
-- Bullet E
-- Bullet F
-
-Prose paragraph summarizing the candidate's explanation of a deep technical concept, including any analogies or examples they used to illustrate the concept.
 ```
+Created:
+- wiki/projects/product-{product}/_interviews_/candidate-{slug}/3a-{step}-qa-{slug}.md
+- wiki/projects/product-{product}/_interviews_/candidate-{slug}/3b-{step}-report-{slug}.md
+
+Candidate: {Name}
+Step: {Step} · Interviewer: {Name} · Source: {Source}
+
+Q&A Note (3a): {N} questions across {M} themes
+Report (3b): {P} pros / {C} cons · sections: Summary, Decision Making, Motivation, AI Mindset
+
+Next: /interview-3-post-review {candidate-name} to score these into an evaluation
+```
+
+### 8. Stage changes
+
+Call `/change-management-1-stage` to stage all changes and create the change log entry:
+
+```
+/change-management-1-stage
+  trigger: {user's original instruction}
+  operation: interview-capture
+  subject: {Candidate Name}
+  input_files: {transcript / AI report used}
+  created_files: 3a-{step}-qa-{slug}.md, 3b-{step}-report-{slug}.md
+  updated_files: 1-candidate-{slug}.md, portal.md, log.md
+```
+
+Do not commit unless the user explicitly asks.
 
 ## Conventions
 
-- **Slug format:** Lowercase, hyphenated name (e.g., `fred-t`)
-- **File naming:** `{N}b-interview-q-a.md` where N matches the interview step number
-- **Key Points:** Always use `**Key Points:**` heading for consistency
-- **Prose length:** 2-4 sentences per Q&A block
-- **Direct quotes:** Use sparingly, only when candidate's exact words are impactful
+- **Templates are the source of truth.** Read `references/template-interview-*.md` each run and follow their structure and fill-rules; don't reinvent the format.
+- **File naming:** `3a-{step}-qa-{slug}.md` (Q&A note) and `3b-{step}-report-{slug}.md` (report). `{step}` ∈ `coding`, `system-design`, `hiring-manager`, `team-match`, `bar-raiser`.
+- **Slug format:** lowercase, hyphenated name (e.g., `fred-t`).
+- **Neutral capture over judgment.** The Q&A note records; the report synthesizes with light judgment. Neither scores — the verdict lives in `/interview-3-post-review`.
+- **Corrections are gold.** Preserve hedges, self-corrections, and "I don't know"s in both notes.
+- **One pair per interview step.** A candidate with three rounds gets three `3a/3b` pairs, each linked from the candidate page.
 
 ## Edge Cases
 
-**No clear questions in transcript:**
-- Identify topic shifts and create logical section headers
-- Use `### {Topic}` format instead of verbatim questions
+**Only an AI report available (no transcript):** produce `3b` from it; create a thin `3a` only if the report contains attributable questions, otherwise skip `3a` and note the reason in `3b`.
 
-**Very long answers:**
-- Split into multiple Q&A blocks if distinct topics
-- Focus key points on most important elements
-- Prose should summarize, not transcribe
+**Only a Q&A summary available (no report-style sections):** produce `3a`; synthesize `3b` from `3a` (Pros/Cons and Summary can be distilled from the themed answers).
 
-**Screenshot with partial text:**
-- Extract what's visible
-- Mark unclear sections with `[unclear]`
-- Note limitations in file header
+**Screenshot with partial text:** extract what's visible, mark unclear spans `[unclear]`, and note the limitation in the note header's Source line.
 
-**Multiple interviewers:**
-- Note interviewer for each question if identifiable
-- Group by interviewer if format makes sense
+**No clear questions in transcript:** in `3a`, use `### Q: "{topic}"` from topic shifts; in `3b`, rely on the Summary and Pros/Cons which don't require verbatim questions.
+
+**Multiple interviewers:** note the interviewer per question in `3a`; the report `3b` stays single-voice with interviewers named in the header.
 
 ## Integration
 
-This skill can be called from `/interview-eval` when interview sources are detected:
+Called from `/interview-eval` when interview sources are detected, or standalone:
 
 ```
 /interview-2-capture-interview-q-a {candidate-name}
-```
-
-Or standalone when user provides a specific source file:
-
-```
 /interview-2-capture-interview-q-a {source-file-path}
 ```

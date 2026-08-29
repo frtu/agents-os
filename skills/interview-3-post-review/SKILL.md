@@ -32,12 +32,29 @@ Raw materials in: `raw/People/Candidates/{Candidate Name}/`
 
 Required files:
 - Interview transcript (closed captions or notes)
+- Q&A Note + Report (from `interview-2-capture-interview-q-a`, files prefixed `3a-` and `3b-`)
 
 Optional files:
 - Existing source page: `wiki/sources/source-{candidate-slug}.md`
 - Resume, briefing (if source page doesn't exist)
 
 ## Workflow
+
+### 0. Check for Capture Files
+
+Before starting evaluation, check if the Q&A note and report (skill 2 outputs) exist:
+
+```bash
+ls -1 "wiki/projects/product-{product}/_interviews_/candidate-{slug}/" 2>/dev/null | grep -E "^3[ab]-"
+```
+
+**If capture files are missing** (no `3a-` or `3b-` files found):
+- Prompt: "No Q&A note or report found. Run `/interview-2-capture-interview-q-a {candidate-name}` first to capture the interview, then return here for evaluation."
+- Call `/interview-2-capture-interview-q-a {candidate-name}` automatically (or ask user to confirm).
+- Wait for skill 2 to complete and return.
+- Resume with step 1 below.
+
+**If capture files exist:** proceed directly to step 1.
 
 ### 1. Gather Context
 
@@ -68,7 +85,7 @@ Options: `bar-raiser`, `technical`, `system-design`, `hiring-manager`, `culture`
 
 ### 4. Create Evaluation Page
 
-Write `wiki/projects/{team-project}/candidate-{slug}/candidate-{slug}-my-review.md`
+Write `wiki/projects/{team-project}/_interviews_/candidate-{slug}/4-{step}-evaluation-{slug}.md`
 
 Use the template from `references/evaluation-template.md`.
 
@@ -129,7 +146,7 @@ Processed candidate materials for {Name} ({Role}).
 
 **Phase:** post-interview
 **Step:** {Step}
-**Created:** candidate-{slug}-my-review.md
+**Created:** 4-{step}-evaluation-{slug}.md
 **Updated:** source-{slug}.md
 **Verdict:** {Verdict} ({X.X}/5)
 ```
@@ -139,7 +156,7 @@ Processed candidate materials for {Name} ({Role}).
 ```
 Created:
 - wiki/sources/source-{slug}.md (updated)
-- wiki/projects/{team}/candidate-{slug}/candidate-{slug}-my-review.md
+- wiki/projects/{team}/_interviews_/candidate-{slug}/4-{step}-evaluation-{slug}.md
 
 Candidate: {Name}
 Role: {Role} ({Level})
