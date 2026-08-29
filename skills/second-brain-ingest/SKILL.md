@@ -112,7 +112,15 @@ Read the entire file. If the file contains image references, note them — read 
 
 ### 1b. Resolve entity names before writing any link
 
-**If the source is an auto-generated transcript (Whisper/Zoom/...), run `/lint-transcript-normalise` on it FIRST** — that pre-skill fixes garbled proper nouns against its correction dictionary and produces an "Entities to confirm" list. Do not start decomposition until the transcript is normalised and the ambiguous mentions are confirmed.
+**If the source's frontmatter says `Category: transcripts`, you MUST run `/lint-transcript-normalise` on it FIRST.** This is a hard gate, not a judgment call — check the frontmatter of every file before decomposing it:
+
+```bash
+grep -m1 -i "^Category:" "raw/.../source.md"
+```
+
+Also run it when the frontmatter is absent or says something else but the body is clearly auto-generated: a `WEBVTT` header, `NN` + `00:00:00.000 --> 00:00:00.000` cue blocks, or every line labelled with the same speaker.
+
+That pre-skill fixes garbled proper nouns against its correction dictionary and produces an "Entities to confirm" list — **each entry quoting the sentences the term appeared in**, so ambiguity is judged in context. Do not start decomposition until the transcript is normalised and those mentions are confirmed.
 
 Whatever the source, before you write **any** `[[wikilink]]` for a person, product, or system:
 
@@ -142,7 +150,9 @@ Example prompt:
 Wait for user response before proceeding.
 
 **For other source types** (docs, notes, or multiple files):
-Share the 3-5 most important takeaways from the source. Ask the user if they want to emphasize any particular aspects or skip any topics. If the source is a transcript, also present the **"Entities to confirm"** list from step 1b (garbled names, lone initials, unresolved people/products, uncertain roles) and ask the user to confirm or correct them. Wait for confirmation before proceeding.
+Share the 3-5 most important takeaways from the source. Ask the user if they want to emphasize any particular aspects or skip any topics. If the source is a transcript, also present the **"Entities to confirm"** list from step 1b (garbled names, lone initials, unresolved people/products, uncertain roles) and ask the user to confirm or correct them.
+
+**Quote the sentence each ambiguous term appeared in** — a bare list of names is not answerable; the surrounding sentence is what makes it decidable. Wait for confirmation before proceeding, then make sure `/lint-transcript-normalise` records every confirmation back into `config/corrections.json` in the same turn.
 
 ### 3. Decompose into atomic units (PTCA)
 
