@@ -1,7 +1,7 @@
 ---
 name: lint-unformat
-description: Clean up Slack formatting with emoji images, Zoom speaker images, whitespace issues, code block formatting, unescaped table wikilinks, and misaligned markdown tables. Use when the user says "clean slack", "normalize slack emoji", "unformat slack", "clean zoom transcript", "normalize code blocks", "clean whitespace", "remove blank lines", "fix table wikilinks", "escape wikilinks", "align tables", "format tables", "line up pipes", or has markdown files with Slack emoji image syntax, Zoom speaker images, code blocks with extra blank lines, wikilinks with unescaped pipes in tables, or ragged/misaligned table columns.
-version: 0.5.0
+description: Clean up Slack formatting with emoji images, Zoom speaker images, whitespace issues, code block formatting, unescaped table wikilinks, misaligned markdown tables, and missing wikilinks. Use when the user says "clean slack", "normalize slack emoji", "unformat slack", "clean zoom transcript", "normalize code blocks", "clean whitespace", "remove blank lines", "fix table wikilinks", "escape wikilinks", "align tables", "format tables", "line up pipes", "relink wiki", "add wikilinks", "auto-link mentions", or has markdown files with Slack emoji image syntax, Zoom speaker images, code blocks with extra blank lines, wikilinks with unescaped pipes in tables, ragged/misaligned table columns, or unlinked mentions of pages that exist.
+version: 0.6.0
 ---
 
 # Lint Unformat
@@ -17,6 +17,7 @@ Clean up Slack-style emoji, Zoom speaker images, whitespace issues, and code blo
 | **code-blocks**     | `--code-blocks`     | Removes blank lines inside fenced code blocks                       |
 | **table-wikilinks** | standalone script   | Escapes unescaped pipes in wikilinks inside table rows              |
 | **align-tables**    | standalone script   | Pads table columns so pipes align vertically to the widest cell     |
+| **relink-wiki**     | standalone script   | Adds wikilinks for unlinked mentions of pages that exist in the wiki |
 
 ## Procedure
 
@@ -26,6 +27,7 @@ Clean up Slack-style emoji, Zoom speaker images, whitespace issues, and code blo
    - If user says "code blocks", "code block cleanup" → use `--code-blocks`
    - If user says "table wikilinks", "escape wikilinks", "fix table links" → run the standalone `fix-table-wikilinks.py` script (see below)
    - If user says "align tables", "format tables", "normalize tables", "line up pipes" → run the standalone `align-tables.py` script (see below)
+   - If user says "relink wiki", "add wikilinks", "auto-link mentions", "link concepts" → run the standalone `relink-wiki.py` script (see below)
    - If user says "all" or doesn't specify → run with no flags (applies all three)
 
 2. **Determine target files**:
@@ -116,3 +118,30 @@ python3 .claude/commands/lint-unformat/scripts/align-tables.py --verbose .
 
 > Tip: run `fix-table-wikilinks.py` before `align-tables.py` so escaped pipes
 > are correct before column widths are computed.
+
+## Standalone: relink-wiki
+
+Adds wikilinks for plain-text mentions of pages that already exist in the wiki
+but aren't linked yet. It builds a vocabulary from the wiki's content folders
+(`concepts`, `product`, `resources`, `people`, `projects`, `synthesis`),
+generates display-name variations per page slug (Title Case, CamelCase, plus a
+small acronym alias table like CDC → Change Data Capture), then links the **first**
+unlinked occurrence of each term per file: `[[slug|Display]]`. Existing
+wikilinks, code blocks, inline code, frontmatter, and URLs are protected and
+never touched. `README.md`/`log.md`/`portal.md`/`index.md` and the `sources/`
+folder are skipped.
+
+This runs as a separate script. The path argument is the wiki root, relative or 
+absolute (default `wiki`). Run it from a vault directory so `wiki` resolves to that vault's wiki:
+
+```bash
+# Relink a vault wiki (run from the vault directory, e.g. search/)
+python3 ../.claude/commands/lint-unformat/scripts/relink-wiki.py wiki
+# Dry run (preview links that would be added)
+python3 ../.claude/commands/lint-unformat/scripts/relink-wiki.py wiki --dry-run --verbose
+# Only one page (relative to the wiki root, or absolute)
+python3 ../.claude/commands/lint-unformat/scripts/relink-wiki.py wiki --file concepts/patterns/strong-authorisation.md
+```
+
+> Tip: run this after ingest, then follow with `fix-table-wikilinks.py` so any
+> new links that landed inside tables get their pipes escaped.
