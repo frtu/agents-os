@@ -4,8 +4,10 @@ The non-negotiable principles for the **AI Product Owner / Project Specification
 
 > **Derivation.** This constitution is derived from the remote Leader Assistant constitution (10 principles) and customized to this repository's local spec kit (`specs/00`–`specs/20`). Where the local spec set and the remote source disagree, the local intent is authoritative and the conflict is recorded in a `specs/NN-*-contradiction.md` file; unresolved decisions are indexed in [`specs/clarification.md`](../specs/clarification.md).
 
-Version: 1.1.1 · Ratified: 2026-08-16 · Last amended: 2026-08-22
+Version: 1.2.0 · Ratified: 2026-08-16 · Last amended: 2026-08-29
 
+> **Amendment 1.2.0 (2026-08-29).** Principle 8 extended: human control over consequential work is satisfied **either** by reviewing a per-action plan **or** by the operator's **explicit, revocable standing consent** (auto-approve / "trust mode"), provided every executed action stays **auditable and revertible** (recorded in `log.md` and committed to git). Risk is judged on the **actual effect** of the capability about to run (its declared effect tier — Principle 12), never on the wording of a request, and the assistant MUST NOT prompt for an approval it cannot execute. Standing consent is **operator-only**: the agent can request clarification but can **never** grant or bypass its own approval. Downstream specs to reconcile: [[09-planning]], [[10-risk-engine]], [[13-api]], [[14-chat]], and feature `008-agent-user-interaction`. Motivated by feature [`009-approval-optimization`](../specs/009-approval-optimization/spec.md).
+>
 > **Amendment 1.1.1 (2026-08-22).** Principle 2 clarified with terminology: the human-owned input channel into `vault/raw/` is named **capture** — an input mechanism that deposits sources *without any knowledge processing*. This is distinguished from **ingest**, the internal *workflow* that reads captured sources and derives durable knowledge (`vault/raw/ → vault/wiki/`). No principle changed; the two words are now used consistently across the spec kit. Motivated by feature [`007-knowledge-activities`](../specs/007-knowledge-activities/spec.md).
 >
 > **Amendment 1.1.0 (2026-08-16).** Principle 2 clarified: `vault/raw/` is *human-owned* — the app may help a human add/modify/delete raw sources — while the **internal ingestion pipeline** remains forbidden from mutating `vault/raw/`. Motivated by feature [`004-assistant-sidebar`](../specs/004-assistant-sidebar/spec.md) (local file upload into `vault/raw/`).
@@ -101,7 +103,12 @@ Source specs: [[21-outputs]], [[15-integrations]].
 
 ## Principle 8 — Human-in-the-loop for consequential work
 
-The assistant proposes; the human curates. Consequential work — anything the Risk Engine flags, external PM actions, and destructive changes — requires a plan the user can review before execution. Operations that mutate `vault/wiki/` surface their intent and key takeaways for review. Routine autonomous operations (ingestion, dreaming, lint, draft generation) may proceed without a plan, recording their effects in portal/log/git.
+The assistant proposes; the human curates. **Consequential work** — anything the Risk Engine flags, external PM actions, and destructive/irreversible changes — MUST NOT execute unless the human is in control. The human is "in control" when **either** condition holds:
+
+- **Per-action review:** the human reviews a concrete plan of the *actual* action before it runs; or
+- **Standing consent:** the operator has **explicitly and deliberately** enabled **auto-approve ("trust mode")** — a revocable setting the human alone controls — in which case pre-authorized consequential actions run without a per-action prompt.
+
+In **both** cases every executed mutation MUST remain **auditable and revertible**: recorded in `log.md` and committed to the workspace's git repo, so the human can review and undo after the fact. Risk is evaluated on the **actual effect** of the capability about to run — its declared effect tier (P12), evaluated at the boundary — **never** on the wording of a request; and the assistant MUST NOT prompt for an approval it **cannot execute** (no dead-end approvals). Standing consent is **operator-only**: the agent may request **clarification** but can **never** grant or bypass its own approval. Operations that mutate `vault/wiki/` surface their intent and key takeaways for review. Routine autonomous operations (ingestion, dreaming, lint, draft generation) proceed without a plan, recording their effects in portal/log/git.
 
 Source specs: [[09-planning]], [[10-risk-engine]], [[18-security]].
 
