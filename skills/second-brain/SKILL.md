@@ -101,13 +101,15 @@ For each template, replace the placeholders:
 - `{{VAULT_NAME}}` → the vault name from Step 1
 - `{{DOMAIN_DESCRIPTION}}` → a one-line description derived from Step 3
 - `{{DOMAIN_TAGS}}` → generate 5-8 domain-relevant tags as a bullet list based on the domain from Step 3
-- `{{WIKI_SCHEMA}}` → read `<skill-directory>/references/wiki-schema.md` and insert everything from `## Architecture` onward
+- `{{WIKI_SCHEMA}}` → ask agent template to read all the content from `<vault-path>/docs/` to understand the wiki structure and rules. Focus on the directory structure, page naming conventions, and categorization guidelines.
 
 Write the generated config to the vault.
 
 ### 3.5. Copy wiki-architecture.md to vault docs/
 
 After generating agent configs, copy `<skill-directory>/references/wiki-architecture.md` to `<vault-path>/docs/wiki-architecture.md`. This provides the categorization guide for AI-assisted knowledge management.
+
+Also copy `<skill-directory>/references/wiki-schema.md` to `<vault-path>/docs/wiki-schema.md`. This provides the vault folder structures for AI-assisted knowledge management.
 
 Extrapolate and rewrite it to adapt to the vault domain.
 
