@@ -61,7 +61,15 @@ ls -1 "wiki/projects/product-{product}/_interviews_/candidate-{slug}/" 2>/dev/nu
 **Question 1: Interview Step**
 > "Which interview step was completed?"
 
-Options: `bar-raiser`, `technical`, `system-design`, `hiring-manager`, `culture`
+Options: `engineering-screen`, `technical`, `system-design`, `hiring-manager`, `culture`, `bar-raiser`
+
+| Step option | Wiki step page | Rubric |
+|-------------|----------------|--------|
+| `engineering-screen` | [[step-hire-1b-engineering-screen\|Step 1b]] *(P5+/M2+ only)* | [[interview-rubric-engineering-screen\|Engineering Screen Rubric]] — **PRELIMINARY** |
+| `technical` | [[step-hire-2-coding\|Step 2]] | [[interview-rubric-coding\|Coding Rubric]] |
+| `system-design` | [[step-hire-3-system\|Step 3]] | [[interview-rubric-system\|System Rubric]] |
+| `hiring-manager` / `culture` | [[step-hire-4-team-match\|Step 4]] | [[hire-4-team-match-template\|Team Match Template]] |
+| `bar-raiser` | [[step-hire-5-bar-raiser\|Step 5]] | [[interview-rubric-bar-raiser\|Bar Raiser Rubric]] |
 
 **Question 2: Role Details** (if source page doesn't exist)
 > "What role and level?"
@@ -81,11 +89,11 @@ Options: `bar-raiser`, `technical`, `system-design`, `hiring-manager`, `culture`
 
 - Source page: `wiki/sources/source-{candidate-slug}.md`
 - Role definition: `wiki/people/roles/role-ic-{level}.md`
-- Team project: `wiki/projects/{team-project}/`
+- Team project: `wiki/projects/product-{product}/`
 
 ### 4. Create Evaluation Page
 
-Write `wiki/projects/{team-project}/_interviews_/candidate-{slug}/4-{step}-evaluation-{slug}.md`
+Write `wiki/projects/product-{product}/_interviews_/candidate-{slug}/4-{step}-evaluation-{slug}.md`
 
 Use the template from `references/evaluation-template.md`.
 
@@ -109,6 +117,26 @@ Final = (Craft + Culture + Leadership + Result) / 4
 | **Yes**        | 3.5 - 3.9   | Solid, meets bar        |
 | **Lean Yes**   | 3.0 - 3.4   | Meets with gaps         |
 | **No**         | < 3.0       | Does not meet bar       |
+
+#### Engineering Screen exception
+
+If `{step}` is `engineering-screen`, do **not** compute the verdict from the five rating fields alone. Use [[interview-rubric-engineering-screen|the rubric]] and apply these three adjustments:
+
+1. **Narrative outranks field scores.** The stage brief defines **7 assessment areas** but the ATS form exposes only **5 rating fields** — Leadership & Influence, Growth & Ownership, Motivation & Alignment, and AI Mindset have nowhere to land. Uniform mid scores next to a narrative documenting exceptional depth means the form ran out of room, not that the candidate was average. Score from the evidence; note the divergence explicitly.
+2. **Fit gate is separate from ability.** Real, verified depth that maps onto **no open problem on the live roadmap** is *Do Not Proceed for fit*, not a low ability score. Say which of the two it is.
+3. **Produce the gap-routing list.** This stage has a second deliverable besides the verdict: every named gap classified **correctable** vs **fundamental** and assigned to a downstream stage to probe. Add a section to the evaluation page:
+
+```markdown
+## Gap Routing
+
+| Gap | Correctable / Fundamental | Route to | What to probe |
+|-----|---------------------------|----------|---------------|
+| {Gap} | {Classification} | [[step-hire-3-system\|Step 3: System]] | {Specific question} |
+```
+
+Every Strength must attach a **landing site** — the roadmap problem it applies to. A strength with no landing site is a fact, not a signal.
+
+> **Caveat:** this rubric is **PRELIMINARY** (n=1 worked example, [[source-engineering-screen-dpe-architect|DPE Architect 2026-05-21]]); weights, scale bounds, and level calibration are proposed, not confirmed. State this in the evaluation page rather than presenting the score as calibrated.
 
 ### 6. Update Source Page
 
@@ -156,7 +184,7 @@ Processed candidate materials for {Name} ({Role}).
 ```
 Created:
 - wiki/sources/source-{slug}.md (updated)
-- wiki/projects/{team}/_interviews_/candidate-{slug}/4-{step}-evaluation-{slug}.md
+- wiki/projects/product-{product}/_interviews_/candidate-{slug}/4-{step}-evaluation-{slug}.md
 
 Candidate: {Name}
 Role: {Role} ({Level})

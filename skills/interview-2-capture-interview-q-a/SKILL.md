@@ -25,8 +25,9 @@ The Q&A note is the *fidelity* layer; the report is the *gist* layer. Both feed 
 |----------------------------|-------------------|--------------------|
 | **Raw transcript** | `*transcript*.md`, `*Interview*.md` (not "Interview Briefing") | Both — `3a` from the transcript, `3b` synthesized from `3a` |
 | **Voice memo transcript** | `raw/transcripts/*.md` | Both |
-| **AI Q&A summary** (themed questions + answers) | `3a` primarily; `3b` if a report-style summary is also present |
+| **AI Q&A summary** (themed questions + answers) | `> Question` blockquotes | `3a` primarily; `3b` if a report-style summary is also present |
 | **AI report** (Pros/Cons, Summary, Motivation, AI Mindset sections) | `*AI recruiting*.md`, `*report*.md` | `3b` primarily |
+| **ATS scorecard export** (feedback form: rating fields + Strengths/Gaps prose) | `*feedback*.pdf`, `*scorecard*.pdf` | `3b` primarily — the narrative sections are the report; the rating fields feed `/interview-3-post-review` |
 | **Screenshot / image** | `*.png`, `*.jpg` | Whichever the image contains |
 
 A raw transcript can produce **both** notes: extract the Q&A note first (`3a`), then distill the report (`3b`) from it. A pre-condensed AI export usually maps to one — a Q&A-style summary → `3a`, a Pros/Cons report → `3b`. When in doubt, produce both; a thin report is still useful.
@@ -66,6 +67,8 @@ If both an image and text source exist, read the image first (`Read` tool) — i
 - **Preserve corrections, hedges, and "I don't know"s** — these are signal; never smooth them away.
 - Nest follow-ups under their parent with `↳`.
 - Add the optional `**In short:**` one-line prose synthesis where bullets need a gist, and a one-glyph `*Signal:*` tag (`✅ / ⚠️ / ❌ / ➖`).
+
+**If `{step}` is `engineering-screen`:** this stage is retrospective, so the transcript is a sequence of **system deep dives**, not a themed Q&A. Use one `###` theme per system discussed (named after the system: *Policy Zones*, *Sub-column lineage*, …), plus *Background & Motivation*, *Roadmap Mapping*, and *Candidate's Questions*. Inside each deep dive, capture the mechanism, the scale numbers, and the point where it broke — those three are what the stage exists to extract. AI-mindset signal usually appears **inside** a deep dive rather than as its own question; tag it where it occurred and note it in the report. See [[step-hire-1b-engineering-screen|Step 1b]].
 
 **For the Interview Report (`3b`):**
 - Lead Technical Abilities with **Pros before Cons**; keep both concrete (name the mechanism, the trade-off, the specific wobble).
@@ -143,7 +146,7 @@ Do not commit unless the user explicitly asks.
 ## Conventions
 
 - **Templates are the source of truth.** Read `references/template-interview-*.md` each run and follow their structure and fill-rules; don't reinvent the format.
-- **File naming:** `3a-{step}-qa-{slug}.md` (Q&A note) and `3b-{step}-report-{slug}.md` (report). `{step}` ∈ `coding`, `system-design`, `hiring-manager`, `team-match`, `bar-raiser`.
+- **File naming:** `3a-{step}-qa-{slug}.md` (Q&A note) and `3b-{step}-report-{slug}.md` (report). `{step}` ∈ `engineering-screen`, `coding`, `system-design`, `hiring-manager`, `team-match`, `bar-raiser`.
 - **Slug format:** lowercase, hyphenated name (e.g., `fred-t`).
 - **Neutral capture over judgment.** The Q&A note records; the report synthesizes with light judgment. Neither scores — the verdict lives in `/interview-3-post-review`.
 - **Corrections are gold.** Preserve hedges, self-corrections, and "I don't know"s in both notes.

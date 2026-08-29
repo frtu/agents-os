@@ -60,7 +60,9 @@ For IC {Level} evaluated vs {Level+1} level range: "Level {Level}-{Level+1} eval
 **Question 3: Interview Step**
 > "Which interview step are you preparing for?"
 
-Options: `coding`, `system-design`, `hiring-manager` or `team-match`, `bar-raiser`
+Options: `engineering-screen`, `coding`, `system-design`, `hiring-manager` or `team-match`, `bar-raiser`
+
+`engineering-screen` maps to [[step-hire-1b-engineering-screen|Step 1b]] and runs **only for IC lvl 5+ or Manager lvl 2+ reqs**. If the target level from Question 2 is below IC lvl 5 or Manager lvl 2, do not offer it. See "Engineering Screen Preparation" below for how prep differs.
 
 **Question 4: Focus Areas (Optional)**
 
@@ -465,11 +467,51 @@ Call `/change-management-1-stage` to stage all changes:
 
 Do not commit unless user explicitly asks.
 
+## Engineering Screen Preparation (Step 1b)
+
+When `{step}` is `engineering-screen`, the question guide is built differently from the other steps. Read [[step-hire-1b-engineering-screen|Step 1b]] and [[interview-rubric-engineering-screen|Engineering Screen Rubric]] before writing.
+
+**What changes:**
+
+| Aspect | Other steps | Engineering Screen |
+|--------|-------------|--------------------|
+| Question mode | Hypothetical / live problem | **Retrospective** — dig into systems the candidate actually shipped |
+| Source of questions | Rubric criteria | **The candidate's own resume claims**, one deep dive per claim |
+| Second deliverable | — | **Gap-routing list** — each gap named and assigned to a downstream stage |
+| Roadmap | Not referenced | Guide must name **the live roadmap problems** their experience maps onto |
+
+**Assessment areas to cover** (from [[source-hiring-stage-engineering-screen|the stage brief]]) — build one question category per area:
+
+1. Strategic Thinking & Problem Solving
+2. Leadership & Influence
+3. Technical Depth
+4. Communication & Executive Presence
+5. Growth & Ownership Mindset
+6. Motivation & Alignment
+7. AI Mindset
+
+**Question-guide structure for this step** (replaces the generic 5-7 categories):
+
+- **Background & Motivation** — why now, why this domain
+- **Deep Dive: Mechanism** — pick 2-4 shipped systems from the resume; ask *how it actually worked*, not what it did
+- **Deep Dive: Scale & Impact** — force numbers (rows, QPS, teams onboarded, cost delta)
+- **Deep Dive: Where It Broke** — the failure they own; the limit they hit
+- **Strategic Framing & Executive Presence** — can they pitch the system to a non-engineer in two sentences
+- **Roadmap Mapping & Build-vs-Buy** — put a real open problem in front of them
+- **AI Mindset** — do not ask a canned tooling question; **mine it from the deep dives** (where did they reach for a model because conventional analysis failed)
+- **Candidate Questions (Scored)** — what they ask reveals what they think matters
+
+**Interview shape:** ~45 min — 5 background / 25 deep dives / 10 roadmap mapping / 5 candidate questions.
+
+**Red flag to pre-load:** depth that evaporates one layer below the architecture diagram. Every deep dive needs a "and how did that work underneath?" follow-up prepared.
+
+> **Caveat:** this stage is **PRELIMINARY** — weights and scale bounds unconfirmed. Do not present its scores as calibrated.
+
 ## Conventions
 
 - **Slug format:** Lowercase, hyphenated name (e.g., `fred-t`)
 - **File numbering:** `1-` for candidate page, `2-` for questions guide
-- **Step names in files:** `coding`, `system-design`, `hiring-manager` or `team-match`, `bar-raiser`
+- **Step names in files:** `engineering-screen`, `coding`, `system-design`, `hiring-manager` or `team-match`, `bar-raiser`
 - **Leveling:** Include {Level} vs {Level + 1} comparison when level range requested
 - **Questions:** 25-35 tailored questions across 5-7 categories
 - **Evidence tables:** Always include specific examples from source materials

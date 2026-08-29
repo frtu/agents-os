@@ -280,7 +280,7 @@ Narrative observations that don't fit competency boxes — gut feel, qualitative
 - [[source-{candidate-slug}|{Name} Profile]] — Source documents
 - [[{synthesis-page}|{Guide Title}]] — Interview guide
 - [[role-{track}-{level}|{Level} {Title}]] — Target level definition
-- [[{team-project}|{Team Name}]] — Team overview
+- [[product-{product}|{Team Name}]] — Team overview
 ```
 
 ---

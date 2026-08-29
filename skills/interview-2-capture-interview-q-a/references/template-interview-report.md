@@ -53,6 +53,8 @@ Last Updated: {YYYY-MM-DD}
 
 ## Technical Abilities
 
+_Provide detailed set of pros/cons (+/-) for the technical abilities. Be specific, candidates can legally ask for feedback in some countries._
+
 ### Pros
 - {Concrete thing they demonstrated — a design, a mechanism, a trade-off they named}
 - {Another concrete strength, with the specifics}
@@ -65,17 +67,50 @@ Last Updated: {YYYY-MM-DD}
 
 ## Summary
 
+_Please provide an overall impression of the candidate, along with feedback on their Role Related Knowledge and Cognitive Skills (ability to think critically, solve problems and adapt to dynamic challenges)._
+
 {One paragraph: the overall arc of the interview. What they communicated about their experience, how they approached the problem(s), where they were fluent and where they needed help. Neutral-to-light judgment — describe, don't score.}
 
 ## Critical Decision Making
 
+_We want people who dig deep, ask why, and challenge assumptions to drive better thinking._
+
 {One paragraph: the reasoning they showed on the core problem. The trade-offs they weighed (cost vs freshness, batch vs real-time, consistency vs latency), the criteria they used to decide, and where the reasoning held or broke. This is the depth read — be specific about the *mechanism* of their thinking.}
+
+## Curiosity
+
+_We want people who dig deep, ask why, and challenge assumptions to drive better thinking._
+
+- {Where they dug past the surface — asked why, probed a premise, chased the root cause}
+- {A default or assumption they challenged — theirs or the interviewer's — and what better thinking it drove}
+- {If not demonstrated, say so explicitly}
+
+## Get Stuff Done
+
+_We expect people to embrace and apply AI tools to work smarter and solve problems faster._
+
+- {Concrete evidence they reached for AI tools or automation to move faster — what they used, and the result}
+- {A bias for shipping — cut scope, unblocked themselves, delivered under ambiguity — with the specific instance}
+- {If not demonstrated, say so explicitly}
 
 ## Motivation
 
+_We want people who are mission-aligned, not just role-seeking._
+
 {One paragraph: why they're looking, what they're seeking, and how they reacted to this role. Capture their own framing — "wants intellectually stimulating work", "dislikes bureaucracy", "excited to wear many hats". Motivation is a seniority and retention signal; record it faithfully.}
 
+## Zero to One
+
+_We look for founder-like energy — the drive to question everything, learn fast, and push hard when it counts._
+
+- {Founder-like signal — questioned a premise, built something from nothing, owned an ambiguous problem end-to-end}
+- {Learning velocity — picked up a new domain or tool fast, with the specific example}
+- {Intensity when it counted — pushed hard on a crunch/deadline/crisis; note the situation}
+- {If not demonstrated, say so explicitly}
+
 ## AI Mindset
+
+_We expect people to embrace and apply AI tools to work smarter and solve problems faster._
 
 - {What AI/ML-adjacent work they've actually done — feature generation, MLOps, serving models, etc.}
 - {How they think about AI in the workflow}
@@ -132,8 +167,17 @@ The depth read. One paragraph on the *reasoning* they showed: the trade-offs the
 ### Motivation
 One paragraph capturing *their own framing* of why they're looking and what they want. This is a seniority and retention signal — record it faithfully, including tells like "dislikes bureaucracy" or "current project reaching maturity / maintenance mode." Note how they reacted to *this* role specifically.
 
+### Curiosity
+The intellectual-drive read. *We want people who dig deep, ask why, and challenge assumptions to drive better thinking.* Bullets covering: (1) where they dug past the surface — probed a premise, chased a root cause, asked a sharp "why", (2) an assumption they challenged (theirs or yours) and the better thinking it drove. Ground each in a specific instance — "questioned whether the dedup even needed to be exact, reframing the whole approach" beats "curious." **If not demonstrated, say so explicitly.** Shares a tagline with Critical Decision Making but reads a different signal: Critical Decision Making is *the quality of the trade-off reasoning on the core problem*; Curiosity is *the instinct to probe and challenge* wherever it showed up.
+
 ### AI Mindset
 Increasingly a required read. Bullets covering: (1) what AI/ML-adjacent work they've actually done, (2) how they reason about AI in the workflow, (3) whether they use AI tools to work faster. **If a dimension wasn't discussed, say so explicitly** ("No use of AI tools to work faster was discussed") — the absence is itself signal, and prevents the evaluation from over-claiming.
+
+### Get Stuff Done
+The delivery-through-AI read. *We expect people to embrace and apply AI tools to work smarter and solve problems faster.* Bullets covering: (1) concrete evidence they reached for AI tools or automation to move faster, (2) a bias for shipping — where they cut scope, unblocked themselves, or delivered under ambiguity. Name the instance, not the trait — "generated the parser scaffold with an LLM then hand-tuned the edge cases" beats "uses AI." **If not demonstrated, say so explicitly.** This is close to but distinct from AI Mindset: AI Mindset is *how they reason about AI*; Get Stuff Done is *whether they used it to actually ship faster*.
+
+### Zero to One
+The founder-energy read. *We look for founder-like energy — the drive to question everything, learn fast, and push hard when it counts.* Bullets covering: (1) where they questioned a premise or built from nothing, (2) learning velocity on a new domain or tool, (3) intensity when it mattered. Ground each in a specific instance — "rewrote the ingestion path over a weekend when the vendor SDK stalled" beats "high energy." **If not demonstrated, say so explicitly.**
 
 ### Notable Quotes
 Pull 1-5 verbatim lines worth preserving — a crisp trade-off, a revealing red flag, a strong statement. These are the evidence the evaluation will cite. Skip if the source is a paraphrased AI report with no verbatim lines.

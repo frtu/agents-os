@@ -11,6 +11,21 @@ allowed-tools: Bash Read Glob Grep AskUserQuestion Skill
 
 Orchestrate candidate evaluation through the interview pipeline by routing to the appropriate sub-skill.
 
+## Hiring Pipeline Stages
+
+Sub-skills need a `{step}` value. It must be one of the stages in [[hiring-process|Hiring Process]]:
+
+| Stage | `{step}` value | Applies to |
+|-------|----------------|------------|
+| [[step-hire-1-recruiter\|1. Recruiter]] | — (not evaluated here) | All reqs |
+| [[step-hire-1b-engineering-screen\|1b. Engineering Screen]] | `engineering-screen` | **IC lvl 5+ / Manager 2+ reqs only** |
+| [[step-hire-2-coding\|2. Coding]] | `coding` / `technical` | All reqs |
+| [[step-hire-3-system\|3. System]] | `system-design` | All reqs |
+| [[step-hire-4-team-match\|4. Team Match]] | `team-match` / `hiring-manager` / `culture` | All reqs |
+| [[step-hire-5-bar-raiser\|5. Bar Raiser]] | `bar-raiser` | All reqs |
+
+**Engineering Screen gating:** only offer `engineering-screen` when the req is IC lvl 5+ or Manager lvl 2+. If the level is unknown, ask before offering it. Standard reqs go 1 → 2 directly.
+
 ## Input
 
 `{Raw Candidates Folder}`: `raw/People/Candidates`
@@ -91,6 +106,7 @@ ls -1 "{Raw Candidate Materials}"
 | `*REVIEW*.md` or `*[Rr]eview*.md` | Post-interview feedback |
 | `*[Mm]y [Ff]eedback*.md` | Post-interview feedback |
 | `*[Ss]ummary*.md` or `*[Nn]otes*.png` | Interview Q&A notes (AI summary) |
+| `*[Ee]ngineering [Ss]creen*`, `*[Ff]eedback*.pdf`, `*scorecard*.pdf` | Post-interview — completed ATS scorecard (`{step}` likely `engineering-screen`; confirm) |
 | Only briefing/resume/feedback files | Pre-interview |
 
 **Detection logic:**
@@ -153,6 +169,8 @@ When AI summaries or interview notes are detected, offer to generate structured 
 
 | User Says | Route To |
 |-----------|----------|
+| "engineering screen for {name}" | `/interview-1-preparation` (prep) or `/interview-3-post-review` (completed) — `{step}` = `engineering-screen` |
+| "senior screen / architect screen for {name}" | same as above |
 | "pre-interview {name}" | `/interview-1-preparation` |
 | "prepare for interview with {name}" | `/interview-1-preparation` |
 | "capture notes for {name}" | `/interview-2-capture-interview-q-a` |
