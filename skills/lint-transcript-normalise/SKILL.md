@@ -46,7 +46,11 @@ python3 .claude/commands/lint-transcript-normalise/scripts/normalise_transcript.
     "raw/.../transcript.md"
 ```
 
-This prints two sections and writes **nothing**:
+**`raw/` is immutable** (wiki-schema Rule 1) — this skill never rewrites the source
+transcript. The script refuses `--write` on any path containing a `raw/` segment. The
+printed report *is* the deliverable: it is what you carry into ingest.
+
+It prints two sections and writes **nothing**:
 
 - **Confident replacements (would apply)** — safe garble → correct-name fixes.
 - **Entities to confirm** — each ambiguous hit with `Lnn`, the suggested entity + its

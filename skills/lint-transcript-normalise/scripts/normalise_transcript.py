@@ -18,7 +18,8 @@ reviewer / ingest can link confirmed mentions.
 Usage:
     normalise_transcript.py TRANSCRIPT [--corrections FILE] [--write]
 
-    (default is a dry run; nothing is written without --write)
+    (default is a dry run; nothing is written without --write, and --write is
+     refused outright on any path inside raw/ — that material is immutable)
 
 Matching rules:
   - Confident variants: case-INsensitive, whole-word, and never applied inside an
@@ -111,6 +112,13 @@ def main() -> int:
 
     if not args.transcript.exists():
         print(f"error: transcript not found: {args.transcript}", file=sys.stderr)
+        return 2
+    if args.write and "raw" in args.transcript.resolve().parts:
+        print(
+            f"error: refusing --write inside raw/ (immutable source material): {args.transcript}\n"
+            "       Re-run without --write and carry the report into ingest instead.",
+            file=sys.stderr,
+        )
         return 2
     if not args.corrections.exists():
         print(f"error: corrections file not found: {args.corrections}", file=sys.stderr)
