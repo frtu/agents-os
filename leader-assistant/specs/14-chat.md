@@ -62,6 +62,26 @@ raises an approval it cannot execute (009 FR-4), so AC3 below applies to executa
 work; the approval gate is produced **only** by the capability layer, while the agent may raise
 clarification/notification cards ([[008-agent-user-interaction]] FR-18) but never approval.
 
+### 3.2 In-turn grant for agent-raised approvals ([[010-agent-approval-channel]])
+
+The agent also judges some work consequential that no capability resolver flags. It now asks through
+a governed channel instead of prose, and the same trust check decides the outcome **before the turn
+returns**:
+
+```text
+Agent judges its next step consequential → request_approval (tool)
+  └── trust mode on?  ── yes ──► resolved "approved on your behalf" in-turn
+      │                          → agent continues intermediate step → final execution
+      │                          → surfaced as an inert resolved card + log entry
+      └─ no ──────────────────► blocking approval card; tool says stop, nothing runs
+                                 → human approves → **turn resumes** and completes the work
+```
+
+Two properties matter for the turn flow: with trust on there is **no round trip** (one turn does the
+whole job, 010 FR-4), and with trust off approving **resumes** rather than acknowledging (010 FR-7).
+A **clarification** is never auto-answered — standing consent can grant consent but cannot invent a
+choice, so it blocks for the human regardless of trust mode (010 FR-8).
+
 ## 4. Acceptance Criteria
 
 - AC1: Every chat exchange is persisted to `sessions/`.

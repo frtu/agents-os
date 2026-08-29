@@ -17,28 +17,6 @@ def sse_events(text: str) -> list[dict]:
     return [json.loads(line[6:]) for line in text.splitlines() if line.startswith("data: ")]
 
 
-@pytest.fixture
-def ui_over_api(client, monkeypatch):
-    """Route the UI's HTTP calls at the in-process app, keeping the UI an HTTP-only client (P9)."""
-    import types
-
-    import httpx
-
-    from app import ui
-
-    def get(url, **kw):
-        return client.get(url, **{k: v for k, v in kw.items() if k != "timeout"})
-
-    def post(url, **kw):
-        return client.post(url, **{k: v for k, v in kw.items() if k != "timeout"})
-
-    shim = types.SimpleNamespace(
-        get=get, post=post, Timeout=httpx.Timeout, AsyncClient=httpx.AsyncClient
-    )
-    monkeypatch.setattr(ui, "httpx", shim)
-    return ui
-
-
 def _git(workspace, *args: str) -> str:
     out = subprocess.run(
         ["git", "-C", str(workspace), *args], capture_output=True, text=True, check=True

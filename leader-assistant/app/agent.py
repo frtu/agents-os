@@ -70,6 +70,7 @@ def _capability_tool_specs(
     citations: list[models.Citation],
     conversation_id: str | None = None,
     interactions: list[models.Interaction] | None = None,
+    trust: bool = False,
 ) -> list[ToolSpec]:
     """Build an agent tool for every exposable capability (spec 006 FR-3/FR-4).
 
@@ -80,6 +81,11 @@ def _capability_tool_specs(
     removed (spec 007 FR-12) — ingest now runs as the bottom-up workflow. ``request_interaction``
     lets the agent raise a clarification/notification card on its own (spec 008 FR-18), bound to
     the run's ``conversation_id``; cards it raises are appended to ``interactions`` for the caller.
+
+    ``request_approval`` lets it **request** consent through the governed channel (spec 010 FR-1).
+    ``trust`` is the effective trust mode, closed over from the capability layer and absent from
+    every tool schema — the agent can neither read nor set it, and so can never grant its own
+    request (spec 010 FR-2, spec 009 FR-11).
     """
     from . import capabilities  # lazy import to avoid an agent<->capabilities cycle
 
@@ -172,6 +178,33 @@ def _capability_tool_specs(
             interactions.append(itx)
         return _ok(f"raised {kind} interaction {itx.interaction_id} ({len(itx.options)} option(s))")
 
+    async def request_approval_h(args: dict) -> dict:
+        # spec 010 FR-1/FR-2: the agent asks; the capability layer decides, from the operator's
+        # trust mode closed over here. No argument can influence the outcome.
+        prompt = (args.get("prompt") or "").strip()
+        if not prompt:
+            return _ok("error: prompt is required — state exactly what you intend to do")
+        try:
+            itx, granted = capabilities.request_approval(
+                workspace_selector, conversation_id, prompt, args.get("detail", ""), trust=trust
+            )
+        except Exception as e:  # noqa: BLE001 — surface as tool text so the model can adjust
+            return _ok(f"error: {e}")
+        if interactions is not None:
+            interactions.append(itx)
+        if granted:
+            return _ok(
+                f"APPROVED on the operator's behalf (trust mode is on) — interaction "
+                f"{itx.interaction_id}. You are authorised to proceed: carry out the work you just "
+                "described now, in this same turn, and report what you did. Do not ask again."
+            )
+        return _ok(
+            f"NOT APPROVED YET — blocking approval card {itx.interaction_id} is now awaiting the "
+            "user. STOP here and take no action. Do not perform the work, do not ask again in prose, "
+            "and do not use any mutating tool. End your turn by stating that you are waiting for "
+            "their decision; the turn resumes automatically once they answer."
+        )
+
     return [
         ToolSpec("query", "Search the workspace and return an answer with citations. The primary way to browse project knowledge.", {"question": str}, query_h),
         ToolSpec("spec_read", "Read the raw Markdown of a known workspace page by its relative path.", {"path": str}, spec_read_h),
@@ -199,6 +232,17 @@ def _capability_tool_specs(
             {"kind": str, "prompt": str, "options": str},
             request_interaction_h,
         ),
+        ToolSpec(
+            "request_approval",
+            "Request the operator's consent before doing work you judge consequential (destructive, "
+            "irreversible, external, or a large batch of mutations). ALWAYS use this instead of asking "
+            "for approval in prose — a prose approval cannot be recorded, re-presented, or answered. "
+            "'prompt' states exactly what you intend to do; 'detail' adds the effect and whether it is "
+            "reversible. The result tells you whether you are authorised: if approved, do the work now "
+            "in this same turn; if not, stop and take no action. You cannot approve your own request.",
+            {"prompt": str, "detail": str},
+            request_approval_h,
+        ),
     ]
 
 
@@ -208,9 +252,10 @@ def _selected_specs(
     blacklist: set[str],
     conversation_id: str | None = None,
     interactions: list[models.Interaction] | None = None,
+    trust: bool = False,
 ) -> list[ToolSpec]:
     """Capability tools minus the blacklist (spec 006 FR-2). Chat is already absent (D4)."""
-    specs = _capability_tool_specs(workspace_selector, citations, conversation_id, interactions)
+    specs = _capability_tool_specs(workspace_selector, citations, conversation_id, interactions, trust)
     return [s for s in specs if s.name not in blacklist]
 
 
@@ -284,6 +329,7 @@ async def run_stream(
     citations: list[models.Citation],
     conversation_id: str | None = None,
     interactions: list[models.Interaction] | None = None,
+    trust: bool = False,
 ) -> AsyncIterator[tuple[str, str | None]]:
     """Stream (accumulated_reply, sdk_session_id) as the agent produces text.
 
@@ -310,7 +356,8 @@ async def run_stream(
     # allowed_tools from the SAME selected set so registration and permission agree
     # (spec 006 FR-3/FR-8). Chat is never in the set (structural exclusion, D4).
     specs = _selected_specs(
-        workspace_selector, citations, config.mcp_tool_blacklist(), conversation_id, interactions
+        workspace_selector, citations, config.mcp_tool_blacklist(), conversation_id, interactions,
+        trust,
     )
     server = _build_server(specs)
     opts = ClaudeAgentOptions(

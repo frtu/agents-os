@@ -23,6 +23,7 @@ EXPECTED_DEFAULT = {
     "list_available_skills", "list_installed_skills",
     "import_skill",
     "request_interaction",  # spec 008 FR-18: agent-initiated clarification/notification
+    "request_approval",  # spec 010 FR-1: the agent may *request* consent, never grant it
 }
 
 

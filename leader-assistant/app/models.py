@@ -234,6 +234,9 @@ class Interaction(BaseModel):
     `kind` is one of notification | approval | clarification. Option bounds (FR-6):
     notification=0, approval=1, clarification=2–4. `status` moves pending → resolved |
     expired | superseded; `resolution` records the chosen option id, "declined", or "timeout".
+
+    A resolved+"auto-approved" approval carries **no** options: trust mode already decided it on
+    the operator's behalf, so it is context to display, not a question to answer (spec 010 FR-5).
     """
 
     interaction_id: str = Field(..., description="Unique id, scoped to the conversation (FR-2)")
@@ -247,7 +250,11 @@ class Interaction(BaseModel):
     created: str = Field(..., description="ISO-8601 timestamp the request was (re-)presented")
     status: str = Field("pending", description="pending | resolved | expired | superseded")
     resolution: str | None = Field(
-        None, description="Chosen option id, 'declined', or 'timeout' once resolved"
+        None,
+        description=(
+            "Chosen option id, 'declined', 'timeout', or 'auto-approved' when trust mode granted "
+            "consent on the operator's behalf (spec 010 FR-5)"
+        ),
     )
 
 

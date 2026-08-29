@@ -1031,7 +1031,7 @@ async def _ask_stream_impl(
     try:
         async for reply, sid in agent.run_stream(
             system_prompt, message, selector, wpath, conv.sdk_session_id, citations,
-            conv.conversation_id, raised,
+            conv.conversation_id, raised, _trust_mode(auto_approve),
         ):
             final_reply, final_sid = reply, sid
             yield delta(reply, done=False)
@@ -1043,11 +1043,23 @@ async def _ask_stream_impl(
     else:
         final_reply, citations = _fallback_answer(selector, message)
 
-    # Surface an agent-raised card: prefer a blocking clarification, else a notification (FR-18).
-    itx = next((i for i in raised if i.kind == "clarification"), None) or (raised[0] if raised else None)
+    itx = _card_to_surface(raised)
     conversation.append_turn(conv, message, final_reply)
     _record_turn_effects(wpath, message)  # reversible writes stay logged + revertible (spec 009 FR-6)
     yield delta(final_reply, done=True, citations=citations, interaction=itx)
+
+
+def _card_to_surface(raised: list[models.Interaction]) -> models.Interaction | None:
+    """Pick the one card a turn reports on ``ChatDelta.interaction`` (spec 008 FR-18, 010 FR-5).
+
+    A still-pending blocking card wins — it is a question the user must answer. Otherwise an
+    auto-approved approval is surfaced as already-decided context, ahead of a mere notification.
+    """
+    return (
+        next((i for i in raised if i.status == "pending" and i.kind in ("approval", "clarification")), None)
+        or next((i for i in raised if i.kind == "approval"), None)
+        or (raised[0] if raised else None)
+    )
 
 
 async def ask(
@@ -1141,6 +1153,18 @@ def _interaction_context(itx: models.Interaction) -> str:
     return "\n".join(lines)
 
 
+def _resume_context(itx: models.Interaction, chosen: models.InteractionOption) -> str:
+    """Prompt that resumes the paused work with the user's answer in hand (spec 010 FR-7)."""
+    verb = "granted approval for" if itx.kind == "approval" else "chose how to proceed with"
+    lines = [
+        f"The user has {verb} the pending {itx.kind}: {itx.prompt}",
+        f"Their answer: {chosen.label}" + (f" — {chosen.detail}" if chosen.detail else ""),
+        "This is their decision. Carry out that work now, in this turn, and report what you did.",
+        "Do not ask again and do not re-raise a card for the same thing.",
+    ]
+    return "\n".join(lines)
+
+
 def _interaction_from_record(record: dict) -> models.Interaction:
     fields = models.Interaction.model_fields
     return models.Interaction(**{k: record[k] for k in fields if k in record})
@@ -1231,6 +1255,56 @@ def _approval_interaction_for_plan(conv, request: str, p: models.Plan) -> models
     convo.append_event(conv, "interaction", _describe_interaction(itx))
     convo.set_pending_interaction(conv, record)
     return itx
+
+
+def request_approval(
+    selector: str | None,
+    conversation_id: str | None,
+    prompt: str,
+    detail: str = "",
+    *,
+    trust: bool = False,
+) -> tuple[models.Interaction, bool]:
+    """Ask for consent on the agent's behalf; the *outcome* is decided here (spec 010 FR-1/FR-2).
+
+    Returns ``(interaction, granted)``. The agent may reach this to **request** approval, never to
+    grant one — hence ``trust`` is supplied by the capability layer from the operator's per-request
+    or persisted setting, never from tool arguments (FR-2, spec 009 FR-11).
+
+    - ``trust`` off → a real blocking approval card, durable and answerable (FR-3).
+    - ``trust`` on  → resolved as approved **on the operator's behalf immediately**, so the caller
+      continues into final execution in the same turn (FR-4). It is surfaced as already-decided
+      context, not stored as a pending interaction (FR-5), and appended to `log.md` as well as the
+      session record, because standing consent replaces the prompt and never the audit trail
+      (FR-6, P8 v1.2.0 / P12).
+    """
+    from . import config
+    from . import conversation as convo
+
+    if not trust:
+        itx = create_interaction(
+            selector, conversation_id, "approval", prompt,
+            [{"id": "approve", "label": "Approve and continue", "detail": detail or prompt}],
+        )
+        return itx, False
+
+    _name, workspace = _resolve_for_chat(selector)
+    conv = convo.load_or_create(workspace, conversation_id)
+    itx = models.Interaction(
+        interaction_id=_new_interaction_id(),
+        conversation_id=conv.conversation_id,
+        kind="approval",
+        prompt=prompt,
+        options=[],  # already decided: nothing to select (FR-5)
+        timeout_seconds=config.interaction_timeout_seconds(),
+        created=_now_iso(),
+        status="resolved",
+        resolution="auto-approved",
+    )
+    convo.append_event(conv, "interaction", f"[auto-approved] {itx.interaction_id} — {prompt}")
+    # The turn's own _record_turn_effects commits this write, keeping the grant revertible (FR-6).
+    vault.append_log(workspace, "auto-approved", prompt)
+    return itx, True
 
 
 def get_pending_interaction(selector: str | None, conversation_id: str) -> models.Interaction | None:
@@ -1338,10 +1412,16 @@ async def respond_to_interaction_stream(
         yield delta(reply, done=True, pending=pending_model, executed=executed)
         return
 
-    # --- generic clarification/approval selection → continue with that choice ---
-    reply = f"Proceeding with your choice: {chosen.label}."
+    # --- generic clarification/approval selection → resume the turn and finish the work ---
+    # spec 010 FR-7: acknowledging the choice without continuing is a dead-end; the point of
+    # answering is that the work the agent asked about actually happens.
+    _mark_running(cid)
+    try:
+        reply, citations = await _routine_reply(name, selector, wpath, conv, _resume_context(itx, chosen))
+    finally:
+        _unmark_running(cid)
     convo.append_turn(conv, f"(selected) {chosen.label}", reply)
-    yield delta(reply, done=True)
+    yield delta(reply, done=True, citations=citations)
 
 
 async def respond_to_interaction(

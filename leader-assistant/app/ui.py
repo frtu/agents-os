@@ -450,6 +450,8 @@ main.contain > .column { display: flex; flex-direction: column; }
   border: none !important; background: transparent !important; box-shadow: none !important;
 }
 #settings-menu-title { margin: 0 0 6px; font-size: 0.85rem; }
+/* spec 010 FR-9: the trust-mode state line sits under the input row, always in view. */
+#trust-line { margin-top: 4px; padding: 0 4px; min-height: 1rem; }
 """
 
 
@@ -773,7 +775,10 @@ async def _run_turn(history, conversation_id, workspace, approve, auto_approve=N
     if card:
         history = history + [{"role": "assistant", "content": card}]
     show_approve = bool(pending) and not interaction
-    yield (history, cid, gr.update(visible=show_approve), interaction)
+    # An auto-approved interaction is context, not a question: render it, but never make it the
+    # awaiting-answer state — there is nothing to click and nothing to expire (spec 010 FR-5).
+    awaiting = interaction if (interaction or {}).get("status") == "pending" else None
+    yield (history, cid, gr.update(visible=show_approve), awaiting)
 
 
 async def _respond(history, conversation_id, workspace, auto_approve=None):
@@ -815,10 +820,16 @@ def _card_html(interaction: dict | None) -> str | None:
     clickable options (data-itx-choice), a top-right ✕ decline, and an animated countdown. The clicks
     reach the backend via the JS bridge (_ITX_JS → #itx-go). Returns None for no interaction or a
     non-blocking notification. No option is pre-selected — clicking is what submits (P8).
+
+    An already-resolved interaction (trust mode auto-approved it on the operator's behalf) renders
+    as an inert `.itx-resolved` bubble with no options and no countdown: it records what was
+    authorised, it is not a question (spec 010 FR-5).
     """
     if not interaction or interaction.get("kind") == "notification":
         return None
     iid = html.escape(str(interaction.get("interaction_id", "")))
+    if interaction.get("status", "pending") != "pending":
+        return _resolved_card_html(iid, interaction)
     prompt = html.escape(interaction.get("prompt", ""))
     seconds = int(interaction.get("timeout_seconds", 30) or 30)
     opts = list(interaction.get("options", [])) + [{"id": CHAT_ABOUT_IT[1], "label": CHAT_ABOUT_IT[0]}]
@@ -838,6 +849,25 @@ def _card_html(interaction: dict | None) -> str | None:
         f"<div class='itx-prompt'>{prompt}</div>"
         f"<div class='itx-opts'>{buttons}</div>"
         f"{_timer_html(seconds, iid)}"
+        f"</div>"
+    )
+
+
+_RESOLUTION_LABELS = {
+    "auto-approved": "⚡ Approved on your behalf — trust mode is on",
+    "declined": "Declined — no action taken",
+    "timeout": "⏱ Timed out — no action taken",
+}
+
+
+def _resolved_card_html(iid: str, interaction: dict) -> str:
+    """An inert record of an already-decided interaction — context, never answerable (spec 010 FR-5)."""
+    resolution = str(interaction.get("resolution") or "resolved")
+    label = _RESOLUTION_LABELS.get(resolution, resolution)
+    return (
+        f"<div class='itx-card itx-resolved' data-itx-id='{iid}'>"
+        f"<div class='itx-prompt'>{html.escape(interaction.get('prompt', ''))}</div>"
+        f"<div class='itx-choice'>→ {html.escape(label)}</div>"
         f"</div>"
     )
 
@@ -999,13 +1029,13 @@ def _pick_model(model, current):
 
 
 def _trust_hint(enabled: bool) -> str:
-    """The always-visible state line, so the operator knows whether trust mode is on (FR-10)."""
+    """The always-visible state line under the input row (spec 009 FR-10, spec 010 FR-9)."""
     if enabled:
         return (
-            "<span class='model-src'>⚡ Trust mode ON — consequential actions run without asking "
-            "(still logged & git-committed)</span>"
+            "<span class='model-src'>⚡ Auto-approve ON — I approve consequential actions on your "
+            "behalf and continue (still logged &amp; git-committed)</span>"
         )
-    return "<span class='model-src'>Trust mode off — I ask before consequential actions</span>"
+    return "<span class='model-src'>Auto-approve off — you make the final decision</span>"
 
 
 def _trust_initial():
@@ -1361,13 +1391,13 @@ def build_demo() -> gr.Blocks:
                     interactive=True, filterable=True, elem_id="model-picker",
                 )
                 model_source = gr.HTML("")
-                # spec 009 FR-10: the Auto-approve (trust mode) sub-panel — reads/writes the
-                # persisted setting over /api/settings only (P9) and rides every request.
+                # spec 009 FR-10 / spec 010 FR-10: the Auto-approve (trust mode) sub-panel — the
+                # control stays here, reading/writing the persisted setting over /api/settings only
+                # (P9) and riding every request. Its *state line* lives below the input row (010 FR-9).
                 auto_approve_box = gr.Checkbox(
                     label="Auto-approve (trust mode)", value=False,
                     interactive=True, elem_id="auto-approve",
                 )
-                auto_approve_hint = gr.HTML("")
             with gr.Row(elem_id="chat-input-row"):
                 # spec 004 FR-36: grow upward past one line (bottom edge fixed) up to max_lines,
                 # then scroll internally, so the chat area above shrinks instead of the input drifting.
@@ -1376,6 +1406,9 @@ def build_demo() -> gr.Blocks:
                     scale=8, container=False, lines=1, max_lines=8,
                 )
                 settings_btn = gr.Button("⚙", elem_id="settings-btn", scale=0, min_width=44)
+            # spec 010 FR-9: the trust-mode state line is always in view, beneath the input row, so
+            # the operator is never surprised that a consequential action ran without asking.
+            auto_approve_hint = gr.HTML("", elem_id="trust-line")
         approve_btn = gr.Button("✅ Approve plan", variant="primary", visible=False)
         # spec 004 FR-32: a hidden mirror of the active conversation id that _CONV_SYNC_JS reads from
         # the DOM to keep ?conversation in sync (js-only listeners can't read gr.State inputs).

@@ -58,6 +58,34 @@ def client() -> TestClient:
 
 
 @pytest.fixture
+def ui_over_api(client, monkeypatch):
+    """Route the UI's HTTP calls at the in-process app, keeping the UI an HTTP-only client (P9)."""
+    import types
+
+    import httpx
+
+    from app import ui
+
+    def get(url, **kw):
+        return client.get(url, **{k: v for k, v in kw.items() if k != "timeout"})
+
+    def post(url, **kw):
+        return client.post(url, **{k: v for k, v in kw.items() if k != "timeout"})
+
+    def async_client(**kw):
+        # The UI's streaming turns must reach the in-process app too, not whatever happens to be
+        # listening on the real port.
+        kw["transport"] = httpx.ASGITransport(app=client.app)
+        return httpx.AsyncClient(**kw)
+
+    shim = types.SimpleNamespace(
+        get=get, post=post, Timeout=httpx.Timeout, AsyncClient=async_client
+    )
+    monkeypatch.setattr(ui, "httpx", shim)
+    return ui
+
+
+@pytest.fixture
 def offline_agent(monkeypatch):
     """Force chat down its deterministic, no-LLM fallback path.
 

@@ -103,6 +103,26 @@ request that contains risky-sounding words. Concretely:
 AC2 below is satisfied by either a returned plan **or** an explicit operator `auto_approve`; either
 way AC3 holds — the mutation is logged and committed.
 
+### 3.2 The approval channel ([[010-agent-approval-channel]])
+
+An approval request may also come from the **agent's own judgment**, not only from the deterministic
+plan-first path. It adds **no route**: the request rides `ChatDelta.interaction` and is answered
+through the existing `POST /api/chat/interaction` (+ `/stream`) endpoints, exactly like any other
+blocking interaction (010 FR-1/FR-3).
+
+- With trust mode **off**, the interaction arrives `status="pending"`, kind `approval`, exactly one
+  proposal, and is durable — answerable at `/api/chat/interaction` (010 FR-3).
+- With trust mode **on**, the same interaction may appear on `ChatDelta.interaction` already decided:
+  `status="resolved"`, `resolution="auto-approved"`. This is **context, not a question** — it is never
+  stored as the pending interaction, so `GET /api/chat/interaction` returns `null` for it, and posting
+  a response to its id is rejected like any resolved id ([[008-agent-user-interaction]] FR-16).
+  Surfaces MUST render it without selectable options (010 FR-5).
+- Answering an agent-raised approval or clarification **resumes the turn**, so the response completes
+  the requested work rather than acknowledging the choice (010 FR-7).
+
+The agent's surface is unchanged in what it may *decide*: no tool grants an approval, answers an
+interaction, or reads/sets trust mode (010 FR-2; §3.1's structural exclusions still hold).
+
 ## 4. Acceptance Criteria
 
 - AC1: Every Chat capability has an API equivalent.

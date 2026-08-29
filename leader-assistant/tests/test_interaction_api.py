@@ -76,9 +76,12 @@ def test_ac2_approval_no_does_not_proceed(client, isolated_workspace_root):
 # --- AC-3: clarification bounds + selection continues -------------------------
 
 
-def test_ac3_clarification_selection_continues_and_bounds_enforced(client, isolated_workspace_root):
+def test_ac3_clarification_selection_continues_and_bounds_enforced(
+    client, offline_agent, isolated_workspace_root
+):
     # AC-3 (FR-5/FR-6): a 2–4-option clarification is valid and one selection continues; 0/1/>4 and a
-    # wrong approval count are rejected as malformed and never rendered.
+    # wrong approval count are rejected as malformed and never rendered. Selecting **resumes the
+    # turn** rather than acknowledging the choice (spec 010 FR-7 / AC-5).
     client.post("/api/workspaces", json={"name": "demo"})
     itx = capabilities.create_interaction(
         "demo", None, "clarification", "Pick an approach",
@@ -89,7 +92,17 @@ def test_ac3_clarification_selection_continues_and_bounds_enforced(client, isola
         "workspace": "demo", "conversation_id": itx.conversation_id,
         "interaction_id": itx.interaction_id, "choice": itx.options[0].id,
     }).json()
-    assert "Proceeding with your choice" in r["reply"]
+    assert r["reply"]
+    assert "Proceeding with your choice" not in r["reply"]  # the dead-end is gone (spec 010 FR-7)
+    # The selection is recorded in the durable session record and nothing stays pending.
+    detail = client.get(
+        "/api/sessions/" + itx.conversation_id, params={"workspace": "demo"}
+    ).json()
+    assert any("Refactor now" in m["text"] for m in detail["messages"] if m["role"] == "user")
+    assert client.get(
+        "/api/chat/interaction",
+        params={"workspace": "demo", "conversation_id": itx.conversation_id},
+    ).json() is None
 
     with pytest.raises(WorkspaceError):  # clarification needs 2..4
         capabilities.create_interaction("demo", None, "clarification", "one?", ["only"])

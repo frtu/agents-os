@@ -218,7 +218,9 @@ endpoint still works offline. All non-chat capabilities run without any credenti
   and committed (`capabilities._record_turn_effects`), which is what makes running it unprompted safe
   (spec 009 FR-6). This holds for approved and auto-approved actions too.
 - **Trust mode (`auto_approve`) is operator-only** — settable per request or persisted via
-  `/api/settings`; the agent has **no** tool to read, set, or bypass it (spec 009 FR-11).
+  `/api/settings`; the agent has **no** tool to read, set, or bypass it (spec 009 FR-11). It is
+  threaded to the tool layer as a **closure**, never a tool argument, so no value the agent passes
+  can influence a verdict (spec 010 FR-2).
 - **Portal is updated on every ingest** (`_update_portal`).
 - **No DB / vector store** as canonical storage (P1/P10). Markdown + YAML + git only.
 - Keep new capabilities mirrored 1:1 across REST and chat (P9 parity; parity test is
@@ -230,9 +232,19 @@ endpoint still works offline. All non-chat capabilities run without any credenti
 - **The agent can raise its own interaction cards** — via the `request_interaction` MCP tool
   it may raise a **clarification** (2–4 options, pauses the turn) or **notification** card on
   its own judgment when a request is ambiguous, instead of asking in prose (spec 008 FR-18).
-  The card rides the final `ChatDelta.interaction`. **Approval is not agent-initiable** — it
-  stays with the deterministic plan-first path (P8/P12); the agent cannot manufacture its own
-  consent gate.
+  The card rides the final `ChatDelta.interaction`.
+- **Ask ≠ grant (spec 010)** — the agent MAY *request* consent for work its own judgment finds
+  consequential, via the `request_approval` MCP tool; it may never *grant* one. The outcome is
+  decided by `capabilities.request_approval` from the operator's trust mode: off → a blocking
+  `approval` card and the tool tells the agent to stop; on → resolved instantly as
+  `resolution="auto-approved"` (no options — context, not a question) and the agent continues to
+  final execution **in the same turn**. Both outcomes are recorded in `sessions/`; an auto-grant
+  also lands in `log.md` and is committed. `request_interaction` still rejects `kind="approval"`.
+  Never let the agent ask for approval in **prose** — that channel is invisible to trust mode,
+  un-re-presentable, un-timeout-able and un-auditable (`app/persona.py` enforces the tool).
+- **Answering an interaction resumes the turn** — selecting an option re-runs the work with the
+  decision in hand (`_resume_context`), it does not merely acknowledge the click (spec 010 FR-7).
+  The resumed turn is given no card-raising context, so it cannot ask again.
 
 ## Current status
 

@@ -169,7 +169,8 @@ Replace message-keyword gating with **effect-based gating at the capability boun
 - **FR-11 (trust mode is operator-only):** `auto_approve` MUST be settable **only** by the operator
   (request parameter or persisted setting). The **agent MUST NOT** be able to set, read-to-bypass, or
   otherwise self-grant it. (Preserves the 008 invariant: the agent can raise clarification/notification
-  but never approval.)
+  but never *grant* an approval. Unchanged by [[010-agent-approval-channel]], which lets the agent
+  **request** consent but gives it no tool to answer its own request or to read trust mode.)
 
 ### Human-in-the-loop model (deterministic approval, separate from clarification)
 
@@ -177,6 +178,14 @@ Replace message-keyword gating with **effect-based gating at the capability boun
   the capability layer, never by the agent. Clarification and notification cards remain agent-raised
   ([[008-agent-user-interaction]] FR-18) and are **unchanged**. The two kinds MUST stay on distinct
   code paths and be distinguishable to the UI.
+  - **Amended by [[010-agent-approval-channel]] (outcomes vs requests):** approval **outcomes** are
+    produced only by the capability layer — from the human's answer or the operator's trust mode.
+    Approval **requests** MAY originate from either the deterministic plan-first path or from the
+    agent's own judgment via the governed `request_approval` channel (010 FR-1/FR-2). The
+    two-distinct-paths and UI-distinguishability requirements are unchanged, and clarification is still
+    never auto-answered by trust mode (010 FR-8). The amendment closes a hole: forbidding the
+    *structured* agent request produced an ungoverned **prose** approval instead, which `auto_approve`
+    could not skip.
 - **FR-13 (approve/execute integrity):** Approving a pending plan MUST execute the **exact** stored
   action (FR-5) and then clear the pending plan and its shadow approval interaction. If (and only if)
   no executor exists for a stored plan, that is a bug — FR-4 guarantees such a plan is never created.
@@ -201,6 +210,9 @@ Replace message-keyword gating with **effect-based gating at the capability boun
   `/api/*`, and reflects the persisted state. (FR-10, P9)
 - [x] **AC-9:** The agent cannot set or bypass `auto_approve`, and cannot raise an approval card; it
   can still raise clarification/notification cards. (FR-11, FR-12)
+  *Narrowed by [[010-agent-approval-channel]] AC-8: the agent still cannot **grant** an approval,
+  answer an interaction, or read/set trust mode, and `request_interaction` still rejects
+  `kind="approval"` — but the dedicated `request_approval` channel lets it **ask**.*
 - [x] **AC-10:** The `_CONSEQUENTIAL` message regex is gone; risk is decided from data-declared
   capability tiers. (FR-1, FR-2, P12)
 
@@ -219,6 +231,10 @@ Replace message-keyword gating with **effect-based gating at the capability boun
   on, so "human in control" holds via review/revert rather than per-action prompts.
 - **D5 — Keep approval deterministic; keep clarification agent-driven.** Two distinct paths; the
   approval gate is un-fakeable by the agent (preserves the 008 invariant).
+  - **Revised by [[010-agent-approval-channel]] D1:** what must stay un-fakeable is the **grant**, not
+    the **ask**. Denying the agent a way to ask did not make its judgment go away — it made it prose,
+    outside the protocol. Both paths now feed one governed channel whose outcome only the capability
+    layer decides.
 
 ## Constitution impact (must precede implementation)
 
