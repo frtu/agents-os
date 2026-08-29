@@ -164,11 +164,11 @@ One paragraph on the arc of the interview: what experience they communicated, ho
 ### Critical Decision Making
 The depth read. One paragraph on the *reasoning* they showed: the trade-offs they weighed and the criteria they used to decide. Be specific about mechanism — "routed short-window lookups (1-7 days) to DynamoDB GSIs with a 1,000-row limit, and assigned year-long joins to daily batch, weighing batch cost against freshness." This is where you show whether their decisions were principled or improvised.
 
-### Motivation
-One paragraph capturing *their own framing* of why they're looking and what they want. This is a seniority and retention signal — record it faithfully, including tells like "dislikes bureaucracy" or "current project reaching maturity / maintenance mode." Note how they reacted to *this* role specifically.
-
 ### Curiosity
 The intellectual-drive read. *We want people who dig deep, ask why, and challenge assumptions to drive better thinking.* Bullets covering: (1) where they dug past the surface — probed a premise, chased a root cause, asked a sharp "why", (2) an assumption they challenged (theirs or yours) and the better thinking it drove. Ground each in a specific instance — "questioned whether the dedup even needed to be exact, reframing the whole approach" beats "curious." **If not demonstrated, say so explicitly.** Shares a tagline with Critical Decision Making but reads a different signal: Critical Decision Making is *the quality of the trade-off reasoning on the core problem*; Curiosity is *the instinct to probe and challenge* wherever it showed up.
+
+### Motivation
+One paragraph capturing *their own framing* of why they're looking and what they want. This is a seniority and retention signal — record it faithfully, including tells like "dislikes bureaucracy" or "current project reaching maturity / maintenance mode." Note how they reacted to *this* role specifically.
 
 ### AI Mindset
 Increasingly a required read. Bullets covering: (1) what AI/ML-adjacent work they've actually done, (2) how they reason about AI in the workflow, (3) whether they use AI tools to work faster. **If a dimension wasn't discussed, say so explicitly** ("No use of AI tools to work faster was discussed") — the absence is itself signal, and prevents the evaluation from over-claiming.

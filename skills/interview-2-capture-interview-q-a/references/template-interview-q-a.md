@@ -68,7 +68,7 @@ Last Updated: {YYYY-MM-DD}
 - {Answer point}
 - {Answer point}
 
-**In short:** {optional one-line prose synthesis.} · *Signal:* {✅ strong / ⚠️ mixed / ❌ weak / ➖ neutral}
+**In short:** {optional one-line prose synthesis.} · *Signal:* { ⚠️ mixed / ❌ weak / ➖ neutral}  SKIP if green
 
 ### Q: "{Question}"
 - {Answer point}
