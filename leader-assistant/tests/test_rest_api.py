@@ -73,12 +73,18 @@ def test_plan_routine_is_safe(client):
 
 
 def test_plan_consequential_requires_approval(client):
-    # Story: a destructive request is flagged risky and needs approval (P8).
-    r = client.post("/api/plan", json={"request": "delete the onboarding spec"})
+    # Story: an approval-tier action is flagged risky and needs approval (P8).
+    # Spec 009 FR-3: the tier comes from the resolved capability's declared effect,
+    # not from risky-sounding words in the request.
+    r = client.post("/api/plan", json={"request": "create a workspace named archive"})
     assert r.status_code == 200
-    assert r.json()["risk"] == "risky"
-    assert r.json()["requires_approval"] is True
-    assert len(r.json()["steps"]) >= 1
+    body = r.json()
+    assert body["risk"] == "risky"
+    assert body["requires_approval"] is True
+    assert body["capability"] == "create_workspace"
+    assert body["effect_tier"] == "approval"
+    assert body["reversibility"]
+    assert len(body["steps"]) >= 1
 
 
 def test_lint_reports_on_a_fresh_workspace(client):

@@ -86,6 +86,12 @@ Numbered, testable, unambiguous.
   review and MUST NOT execute the change within the same turn. Execution MUST wait for the
   user's **explicit approval** in a subsequent turn; there is **no auto-approval** path.
   *(Resolves Q2: all approvals are asked back to the user.)* (P8, [[09-planning]])
+  - **Superseded by [[009-approval-optimization]]:** "consequential" is no longer *any* workspace
+    mutation nor anything a keyword flags — it is an **executable** capability of declared effect
+    tier `approval`. `reversible` mutations now run in the same turn (git-committed, so undoable),
+    non-executable requests get a plain answer, and the operator **may** grant standing consent
+    (`auto_approve`), which is the auto-approval path this FR originally forbade — permitted by the
+    Constitution P8 amendment (v1.2.0) because every action stays logged and revertible.
 - **FR-6:** For **routine** requests (question answering, retrieval, drafting a
   suggestion), the assistant MAY respond directly without a plan (P8 autonomy boundary).
 - **FR-7:** Every chat turn (user message and assistant reply) MUST be persisted to the
@@ -162,6 +168,8 @@ Numbered, testable, unambiguous.
   context-aware reply. (FR-3)
 - [ ] **AC-3:** A consequential request returns a plan and makes **no** workspace mutation in
   that turn; the mutation happens only after explicit approval. (FR-5, P8)
+  *Narrowed by [[009-approval-optimization]] AC-3: holds for an executable `approval`-tier action
+  with trust mode off.*
 - [ ] **AC-4:** A routine question answers directly without forcing a plan step. (FR-6)
 - [ ] **AC-5:** After any chat turn, a corresponding record exists under the workspace's
   `sessions/`. (FR-7, [[06-conversations]] AC1)

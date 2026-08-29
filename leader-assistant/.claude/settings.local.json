@@ -31,15 +31,17 @@
       "Bash(mkdir -p *)",
       "Bash(lsof *)",
       "Bash(ps *)",
-      "Read(//tmp/**)",
-      "Bash(chmod +x *)",
       "Bash(rm -rf /tmp/*)",
       "Bash(agent-browser *)",
-      "Skill(agent-browser)",
+      "Read(//tmp/**)",
       "WebFetch(domain:localhost)",
       "WebSearch",
+      "Skill(agent-browser)",
       "Bash(pkill -f \"python -m app\")",
-      "Bash(awk '{print $1\" \"$2}')"
+      "Bash(chmod +x *)",
+      "Bash(awk '{print $1\" \"$2}')",
+      "Bash(git --no-pager diff --stat HEAD)",
+      "Bash(git --no-pager diff HEAD -- app/capabilities.py)"
     ]
   }
 }

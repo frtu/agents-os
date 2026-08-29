@@ -1,8 +1,13 @@
 """Surface-agnostic capability layer — the parity boundary (Constitution P9).
 
 Both the REST surface (api.py) and any future chat surface call these
-functions; neither talks to the filesystem directly. Requests that are
-consequential return a plan for approval rather than executing (spec 13-api AC2).
+functions; neither talks to the filesystem directly.
+
+Gating is **effect-based** (spec 009): each capability declares its effect tier as data in
+``EFFECTS``, and a turn is interrupted for approval only when an **executable**
+``approval``-tier capability is about to run and the operator has not granted standing consent
+(``auto_approve``). Requests that map to no executable action are answered, never planned
+(spec 009 FR-4) — so the layer never asks for an approval it cannot honor.
 """
 
 from __future__ import annotations
@@ -12,20 +17,64 @@ import os
 import re
 import subprocess
 import uuid
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import AsyncIterator
+from typing import AsyncIterator, Callable
 
 from . import config, models, vault
 from .agent import AgentUnavailable
 from .vault import WorkspaceError
 
-# --- helpers ---------------------------------------------------------------
+# --- effect metadata: the risk rules, declared as data (spec 009 FR-1, P12) -----------
+#
+# Risk is a property of the capability about to run, not of the words in a request (FR-2).
+# Tiers:
+#   auto        reads and bookkeeping — run silently.
+#   reversible  mutations recoverable from the workspace git repo — run unprompted, then
+#               log + commit so one revert undoes them (FR-6).
+#   approval    destructive, irreversible-outside-git, or privilege-granting — gated (FR-3),
+#               unless the operator has granted standing consent (FR-7).
 
-_CONSEQUENTIAL = re.compile(
-    r"\b(delete|remove|drop|overwrite|rewrite|merge|deploy|push|migrate|rename|create)\b",
-    re.IGNORECASE,
-)
+
+@dataclass(frozen=True)
+class Effect:
+    """One capability's declared effect (spec 009 FR-1). `executable` = this build can run it."""
+
+    tier: str
+    reversibility: str
+    executable: bool = True
+
+
+_READ_ONLY = Effect("auto", "read-only — nothing to undo")
+
+EFFECTS: dict[str, Effect] = {
+    "query": _READ_ONLY,
+    "spec_read": _READ_ONLY,
+    "lint": _READ_ONLY,
+    "plan": _READ_ONLY,
+    "wiki_tree": _READ_ONLY,
+    "list_workspaces": _READ_ONLY,
+    "get_workspace_info": _READ_ONLY,
+    "list_conversations": _READ_ONLY,
+    "get_conversation": _READ_ONLY,
+    "conversation_status": _READ_ONLY,
+    "list_available_skills": _READ_ONLY,
+    "list_installed_skills": _READ_ONLY,
+    "available_models": _READ_ONLY,
+    "get_settings": _READ_ONLY,
+    "set_active_model": Effect("auto", "re-select the previous model"),
+    "update_settings": Effect("auto", "toggle the setting back"),
+    "ingest": Effect("reversible", "`git revert` the ingest commit in the workspace repo"),
+    "capture": Effect("reversible", "delete the captured file from vault/raw/ (human-owned, P2)"),
+    "upload_and_ingest": Effect("reversible", "`git revert` the upload commit; remove the vault/raw/ original"),
+    # Installing a skill grants the agent new executable behaviour — a privilege change, which git
+    # cannot undo after the skill has run. That is why it stays gated (spec 005 FR-4 preserved).
+    "import_skill": Effect("approval", "unlink skills/<name> — but any run it enabled is not undone"),
+    # A new workspace is its own git repo, outside every existing workspace's ledger, so no revert
+    # in the active workspace can remove it.
+    "create_workspace": Effect("approval", "delete the workspace directory manually; no git revert covers it"),
+}
 
 # Explicit "create a workspace named X" intent (FR-10, D1).
 _CREATE_WORKSPACE = re.compile(
@@ -49,6 +98,53 @@ def _import_skill_name(text: str) -> str | None:
     return m.group("before") or m.group("after")
 
 
+def _create_workspace_name(text: str) -> str | None:
+    m = _CREATE_WORKSPACE.search(text)
+    return m.group(1) if m else None
+
+
+@dataclass(frozen=True)
+class ResolvedAction:
+    """The executable capability a chat message resolves to (spec 009 FR-3)."""
+
+    capability: str
+    target: str
+
+
+# The catalog of actions a chat turn can actually perform, declared as data alongside the effect
+# table. A message that matches none of them has NO executable effect: it is answered, never
+# planned or gated (spec 009 FR-4) — which is what keeps "create a summary" from asking to be
+# approved and stops the build from prompting for actions it cannot honor.
+_ACTION_RESOLVERS: tuple[tuple[str, Callable[[str], str | None]], ...] = (
+    ("create_workspace", _create_workspace_name),
+    ("import_skill", _import_skill_name),
+)
+
+
+def _resolve_action(request: str) -> ResolvedAction | None:
+    """Resolve a request to the executable capability it would run, or None (spec 009 FR-3/FR-4)."""
+    for capability, extract in _ACTION_RESOLVERS:
+        target = extract(request)
+        if target and EFFECTS[capability].executable:
+            return ResolvedAction(capability=capability, target=target)
+    return None
+
+
+def _run_action(selector: str | None, action: ResolvedAction) -> str:
+    """Perform a resolved action through the capability layer; returns a human summary (FR-13)."""
+    if action.capability == "create_workspace":
+        info = create_workspace(action.target)
+        return f"Created workspace '{info.name}' at {info.path}."
+    if action.capability == "import_skill":
+        return import_skill(selector, action.target).message
+    raise WorkspaceError(f"no executor for capability {action.capability!r}")  # unreachable (FR-4)
+
+
+def _trust_mode(per_request: bool | None) -> bool:
+    """Trust mode for one turn: an explicit per-request value wins, else the persisted one (FR-9)."""
+    return config.auto_approve() if per_request is None else bool(per_request)
+
+
 def _slug(text: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
     return s or "untitled"
@@ -63,21 +159,23 @@ def _wiki_pages(workspace: Path) -> list[Path]:
     return [p for p in wiki.rglob("*.md") if p.name not in ("portal.md", "log.md", "tbd.md")]
 
 
-def _git_commit(workspace: Path, message: str) -> bool:
-    """Commit workspace changes into the workspace's OWN repo; never an enclosing one.
-
-    Refuses to run if `git -C <workspace>` resolves to a repo whose top-level is
-    not the workspace itself (e.g. a parent project checkout).
-    """
+def _is_own_repo(workspace: Path) -> bool:
+    """Whether `git -C <workspace>` resolves to the workspace's OWN repo, not an enclosing one."""
     try:
         top = subprocess.run(
             ["git", "-C", str(workspace), "rev-parse", "--show-toplevel"],
             capture_output=True, text=True,
         )
-        if top.returncode != 0:
-            return False
-        if Path(top.stdout.strip()).resolve() != workspace.resolve():
-            return False  # would commit into an enclosing repo — refuse
+    except FileNotFoundError:
+        return False
+    return top.returncode == 0 and Path(top.stdout.strip()).resolve() == workspace.resolve()
+
+
+def _git_commit(workspace: Path, message: str) -> bool:
+    """Commit workspace changes into the workspace's OWN repo; never an enclosing one."""
+    if not _is_own_repo(workspace):
+        return False
+    try:
         subprocess.run(["git", "-C", str(workspace), "add", "-A"], capture_output=True, text=True)
         done = subprocess.run(
             ["git", "-C", str(workspace), "commit", "-m", message],
@@ -86,6 +184,20 @@ def _git_commit(workspace: Path, message: str) -> bool:
         return done.returncode == 0
     except FileNotFoundError:
         return False
+
+
+def _vault_is_dirty(workspace: Path) -> bool:
+    """Whether the workspace's own repo has uncommitted changes under `vault/`."""
+    if not _is_own_repo(workspace):
+        return False
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(workspace), "status", "--porcelain", "--", "vault"],
+            capture_output=True, text=True,
+        )
+    except FileNotFoundError:
+        return False
+    return out.returncode == 0 and bool(out.stdout.strip())
 
 
 def _resolve_scaffolded(selector: str | None) -> tuple[str, Path]:
@@ -300,22 +412,59 @@ def _first_match(text: str, terms: list[str]) -> str:
 
 
 def plan(req: models.PlanRequest) -> models.Plan:
-    """Plan-first for consequential work (Constitution P8, spec 13-api AC2)."""
+    """Plan the *actual* effect of a request (spec 009 FR-4/FR-5, Constitution P8).
+
+    Effect-based, never lexical: the request is resolved to the executable capability it would
+    run, and the plan names that capability, its target, its tier and its undo path. A request
+    with no executable action yields a safe advisory plan requiring no approval, so the operator
+    is never asked to authorize something this build cannot perform (FR-4).
+    """
     name, _ = _resolve_scaffolded(req.workspace)
-    consequential = bool(_CONSEQUENTIAL.search(req.request))
-    risk = "risky" if consequential else "safe"
-    steps = [
-        models.PlanStep(order=1, action="Clarify scope and affected pages", rationale="Avoid ambiguity before mutation"),
-        models.PlanStep(order=2, action="Draft changes in the workspace's vault", rationale="Keep vault/raw/ immutable"),
-        models.PlanStep(order=3, action="Evaluate risk and choose branch policy", rationale="Risky work → feature branch"),
-        models.PlanStep(order=4, action="Commit with a typed message", rationale="Every mutation is a git commit"),
-    ]
+    action = _resolve_action(req.request)
+    if action is None:
+        return models.Plan(
+            workspace=name,
+            request=req.request,
+            steps=[
+                models.PlanStep(
+                    order=1,
+                    action="Answer from workspace knowledge, or advise how to proceed",
+                    rationale="No executable action in this build — there is nothing to approve",
+                )
+            ],
+            risk="safe",
+            requires_approval=False,
+            reversibility=_READ_ONLY.reversibility,
+        )
+
+    effect = EFFECTS[action.capability]
+    gated = effect.tier == "approval"
     return models.Plan(
         workspace=name,
         request=req.request,
-        steps=steps,
-        risk=risk,
-        requires_approval=consequential,
+        steps=[
+            models.PlanStep(
+                order=1,
+                action=f"Run `{action.capability}` on '{action.target}'",
+                rationale=f"declared effect tier: {effect.tier}",
+            ),
+            models.PlanStep(
+                order=2,
+                action=f"Undo path — {effect.reversibility}",
+                rationale="the operator must know how to revert before authorizing",
+            ),
+            models.PlanStep(
+                order=3,
+                action="Record it in vault/wiki/log.md and commit to the workspace git repo",
+                rationale="every executed mutation stays auditable and revertible (P12)",
+            ),
+        ],
+        risk="risky" if gated else "safe",
+        requires_approval=gated,
+        capability=action.capability,
+        target=action.target,
+        effect_tier=effect.tier,
+        reversibility=effect.reversibility,
     )
 
 
@@ -481,6 +630,25 @@ def set_active_model(model: str) -> models.AvailableModels:
     except ValueError as e:
         raise WorkspaceError(str(e))
     return available_models()
+
+
+# --- operator settings (feature 009-approval-optimization, FR-8) -----------
+
+
+def get_settings() -> models.Settings:
+    """Read the persisted operator settings (spec 009 FR-8)."""
+    return models.Settings(auto_approve=config.auto_approve(), agent_model=config.agent_model())
+
+
+def update_settings(auto_approve: bool | None = None) -> models.Settings:
+    """Persist operator settings and return the new state (spec 009 FR-8).
+
+    Trust mode is **operator-only** (FR-11): this capability is deliberately not exposed as an
+    agent tool, so the agent can neither grant nor read-to-bypass its own standing consent.
+    """
+    if auto_approve is not None:
+        config.set_auto_approve(auto_approve)
+    return get_settings()
 
 
 # --- sidebar capabilities (feature 004-assistant-sidebar) ------------------
@@ -720,34 +888,43 @@ def _plan_for(request: str, selector: str | None) -> models.Plan:
 def _consequential_reply(p: models.Plan) -> str:
     steps = "\n".join(f"{s.order}. {s.action} — {s.rationale}" for s in p.steps)
     return (
-        f"This request is consequential (risk={p.risk}), so I won't act on it yet. "
-        "Here is the plan I propose — reply approving it to proceed:\n\n"
+        f"This would run `{p.capability}` on '{p.target}' — an {p.effect_tier}-tier effect, "
+        "so I need your go-ahead first. Here is exactly what I would do:\n\n"
         f"{steps}\n\n"
         "No changes have been made this turn (human-in-the-loop, P8)."
     )
 
 
-def _execute_pending(name: str, selector: str | None, pending: dict) -> tuple[str, bool]:
-    """Execute an approved pending plan via the capability layer (FR-5, D2).
+def _execute_pending(selector: str | None, pending: dict) -> tuple[str, bool]:
+    """Execute an approved plan's exact stored action (spec 009 FR-13).
 
-    MVP supports explicit workspace creation deterministically; other action types
-    are reported as not-yet-automatable and the plan is kept pending.
+    FR-4 guarantees an approval is only ever raised for a resolvable executable action, so the
+    unresolvable branch below can only be reached by a stale record written before feature 009;
+    it is cleared rather than left pending forever.
     """
-    request = pending.get("request", "")
-    m = _CREATE_WORKSPACE.search(request)
-    if m:
-        workspace_name = m.group(1)
-        info = create_workspace(workspace_name)
-        return (f"Approved. Created workspace '{info.name}' at {info.path}.", True)
-    skill = _import_skill_name(request)
-    if skill:
-        report = import_skill(selector, skill)
-        return (f"Approved. {report.message}", True)
-    return (
-        "Approved, but this action type isn't automatable yet in this build; "
-        "the plan remains pending for a future capability.",
-        False,
-    )
+    action = _resolve_action(pending.get("request", ""))
+    if action is None:
+        return (
+            "That request needs no action from me — I've cleared the stale approval. "
+            "Ask me again and I'll answer directly.",
+            True,
+        )
+    return (f"Approved. {_run_action(selector, action)}", True)
+
+
+def _record_turn_effects(workspace: Path, message: str) -> None:
+    """Log + commit whatever a turn changed under `vault/` (spec 009 FR-6).
+
+    A turn's skills may write `vault/wiki/` pages — a `reversible` effect, which is only safe to
+    run unprompted because it is recoverable. That guarantee is what this enforces: the turn
+    leaves a log entry and a git commit behind, so the operator can review and revert. A turn
+    that changed nothing under `vault/` records nothing.
+    """
+    if not _vault_is_dirty(workspace):
+        return
+    label = (message.strip().splitlines() or ["(turn)"])[0][:120]
+    vault.append_log(workspace, "chat", label)
+    _git_commit(workspace, f"chat: {label[:60]}")
 
 
 def _fallback_answer(selector: str | None, message: str) -> tuple[str, list[models.Citation]]:
@@ -761,6 +938,7 @@ async def ask_stream(
     message: str = "",
     conversation_id: str | None = None,
     approve: bool = False,
+    auto_approve: bool | None = None,
 ) -> AsyncIterator[models.ChatDelta]:
     """Stream a chat turn (FR-1..FR-6, FR-13), marking it running for status probes (FR-14).
 
@@ -776,7 +954,7 @@ async def ask_stream(
     cid = conversation.load_or_create(wpath, conversation_id).conversation_id
     _mark_running(cid)
     try:
-        async for delta_out in _ask_stream_impl(workspace, message, cid, approve):
+        async for delta_out in _ask_stream_impl(workspace, message, cid, approve, auto_approve):
             yield delta_out
     finally:
         _unmark_running(cid)
@@ -787,6 +965,7 @@ async def _ask_stream_impl(
     message: str = "",
     conversation_id: str | None = None,
     approve: bool = False,
+    auto_approve: bool | None = None,
 ) -> AsyncIterator[models.ChatDelta]:
     """Core chat-turn generator (FR-1..FR-6, FR-13); see ask_stream for running-status tracking."""
     from . import agent, conversation, persona
@@ -805,7 +984,7 @@ async def _ask_stream_impl(
     # --- approval turn (D2) ---
     if approve:
         if conv.pending_plan:
-            reply, executed = _execute_pending(name, selector, conv.pending_plan)
+            reply, executed = _execute_pending(selector, conv.pending_plan)
             pending_model = models.Plan(**conv.pending_plan["plan"]) if not executed else None
             if executed:
                 conversation.clear_pending_plan(conv)
@@ -818,28 +997,33 @@ async def _ask_stream_impl(
             yield delta(reply, done=True)
         return
 
-    # --- import-skill request → plan-first, no install this turn (spec 005 FR-4) ---
-    if _import_skill_name(message):
-        p = _plan_for(message, selector)
-        p.requires_approval = True  # importing a skill is always consequential
-        conversation.set_pending_plan(conv, message, p.model_dump())
-        reply = _consequential_reply(p)
-        itx = _approval_interaction_for_plan(conv, message, p)  # deliver approval as an interaction (FR-17)
+    # A plan stored by an older build can name an action this build cannot execute. FR-4 stops new
+    # ones being created; drop a stale one on the next turn so its card cannot re-present forever.
+    if conv.pending_plan and _resolve_action(conv.pending_plan.get("request", "")) is None:
+        conversation.clear_pending_plan(conv)
+        conversation.clear_pending_interaction(conv)
+
+    # --- effect-based gate at the capability boundary (spec 009 FR-1..FR-3, D1) ---
+    # Only a real, executable action can gate a turn. `auto`/`reversible` tiers run immediately;
+    # `approval` tier asks once, unless the operator granted standing consent (FR-7/FR-9).
+    action = _resolve_action(message)
+    if action is not None:
+        effect = EFFECTS[action.capability]
+        if effect.tier == "approval" and not _trust_mode(auto_approve):
+            p = _plan_for(message, selector)
+            conversation.set_pending_plan(conv, message, p.model_dump())
+            reply = _consequential_reply(p)
+            itx = _approval_interaction_for_plan(conv, message, p)  # deliver approval as an interaction (FR-17)
+            conversation.append_turn(conv, message, reply)
+            yield delta(reply, done=True, pending=p, interaction=itx)
+            return
+        prefix = "Auto-approved (trust mode is on). " if effect.tier == "approval" else ""
+        reply = prefix + _run_action(selector, action)
         conversation.append_turn(conv, message, reply)
-        yield delta(reply, done=True, pending=p, interaction=itx)
+        yield delta(reply, done=True, executed=True)
         return
 
-    # --- consequential request → plan-first, no mutation this turn (FR-5) ---
-    if _CONSEQUENTIAL.search(message):
-        p = _plan_for(message, selector)
-        conversation.set_pending_plan(conv, message, p.model_dump())
-        reply = _consequential_reply(p)
-        itx = _approval_interaction_for_plan(conv, message, p)  # deliver approval as an interaction (FR-17)
-        conversation.append_turn(conv, message, reply)
-        yield delta(reply, done=True, pending=p, interaction=itx)
-        return
-
-    # --- routine request → agent answer via capabilities-as-tools (FR-2/6) ---
+    # --- no executable action → a normal answer, never a plan (FR-4) ---
     system_prompt = persona.build_system_prompt()
     citations: list[models.Citation] = []
     raised: list[models.Interaction] = []  # cards the agent raises on its own (spec 008 FR-18)
@@ -862,6 +1046,7 @@ async def _ask_stream_impl(
     # Surface an agent-raised card: prefer a blocking clarification, else a notification (FR-18).
     itx = next((i for i in raised if i.kind == "clarification"), None) or (raised[0] if raised else None)
     conversation.append_turn(conv, message, final_reply)
+    _record_turn_effects(wpath, message)  # reversible writes stay logged + revertible (spec 009 FR-6)
     yield delta(final_reply, done=True, citations=citations, interaction=itx)
 
 
@@ -870,10 +1055,11 @@ async def ask(
     message: str = "",
     conversation_id: str | None = None,
     approve: bool = False,
+    auto_approve: bool | None = None,
 ) -> models.ChatAnswer:
     """Non-streaming chat turn — drives ask_stream to completion (FR-1)."""
     last: models.ChatDelta | None = None
-    async for d in ask_stream(workspace, message, conversation_id, approve):
+    async for d in ask_stream(workspace, message, conversation_id, approve, auto_approve):
         last = d
     assert last is not None
     return _answer_from_delta(last)
@@ -1144,7 +1330,7 @@ async def respond_to_interaction_stream(
 
     # --- approval wrapping a plan-first plan (FR-17) → execute it now ---
     if "plan" in record:
-        reply, executed = _execute_pending(name, selector, {"request": record.get("request", ""), "plan": record["plan"]})
+        reply, executed = _execute_pending(selector, {"request": record.get("request", ""), "plan": record["plan"]})
         if executed and conv.pending_plan:
             convo.clear_pending_plan(conv)
         pending_model = None if executed else models.Plan(**record["plan"])
@@ -1229,4 +1415,5 @@ async def _routine_reply(name, selector, wpath, conv, message) -> tuple[str, lis
         conversation.set_sdk_session_id(conv, final_sid)
     else:
         final_reply, citations = _fallback_answer(selector, message)
+    _record_turn_effects(wpath, message)  # spec 009 FR-6
     return final_reply, citations

@@ -202,6 +202,12 @@ Numbered, testable, unambiguous.
   experiences one consistent approval mechanism. Backward compatibility of the existing chat
   approve-to-execute path is an implementation concern for `plan.md`; this spec requires only that the
   *behavior* (plan shown, explicit approval before execution, P8) is preserved.
+  - **Refined by [[009-approval-optimization]]:** *when* an approval card appears is decided there —
+    only when an **executable** capability of effect tier `approval` is about to run and the operator
+    has not granted standing consent (`auto_approve`). Approval cards are therefore produced
+    **exclusively by the capability layer** and are never raised for a request the build cannot
+    execute (009 FR-3/FR-4/FR-12). Notification and clarification cards are unchanged, stay
+    agent-raised (FR-18), and remain on a distinct code path so the UI can tell the two apart.
 - **FR-18 (agent-initiated interactions):** During a routine chat turn the **agent itself** (the model,
   via its tool surface) MUST be able to raise an interaction, not only the deterministic plan-first path.
   The agent MAY raise a **clarification** (2–4 proposals, blocking) when a request is genuinely ambiguous

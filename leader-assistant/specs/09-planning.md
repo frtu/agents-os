@@ -57,6 +57,15 @@ Do **not** ask unnecessary questions when reasonable assumptions can be safely m
 
 Autonomous without a plan: ingestion, analysis, synthesis, draft generation, knowledge maintenance. Requires a plan + review: substantial/consequential work, external actions ([[15-integrations]]), and anything the [[10-risk-engine]] marks risky.
 
+### 4.1 Refinement — effect-based, executable-only planning ([[009-approval-optimization]])
+
+The boundary is drawn by the **effect the capability about to run declares**, not by the wording of the request:
+
+- A plan is produced **only** for an **executable** capability of effect tier `approval` (destructive, irreversible-outside-git, or external). `auto` and `reversible` tiers proceed unprompted — reversible work is git-committed, so review happens after the fact by revert.
+- A request that maps to **no executable capability** gets a **direct answer**, never a plan. The assistant never asks for an approval it cannot honor (009 FR-4).
+- A plan names the **actual** capability, its target, effect tier, and undo path (009 FR-5); boilerplate plans are non-conforming.
+- The operator may grant **standing consent** (trust mode / `auto_approve`), which replaces per-action review while keeping every action logged and revertible (Constitution P8 v1.2.0). AC1/AC5 below are satisfied by either per-action review **or** standing consent.
+
 ## 5. Acceptance Criteria
 
 - AC1: Explicit work requests produce a presented plan before execution.

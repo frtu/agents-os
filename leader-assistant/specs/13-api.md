@@ -79,6 +79,30 @@ callers keep full capability access.
 
 Requests that are consequential still flow through [[09-planning]] and [[10-risk-engine]]; the API returns plans/risk outcomes rather than silently executing.
 
+### 3.1 Effect-based gating + trust mode ([[009-approval-optimization]])
+
+"Consequential" means **an executable capability whose declared effect tier is `approval`** — not a
+request that contains risky-sounding words. Concretely:
+
+- `auto`/`reversible` capabilities execute on call; `reversible` ones commit to the workspace repo.
+- An executable `approval`-tier action returns a **plan** naming capability/target/tier/undo path.
+- A request mapping to no executable capability returns a normal answer, never a plan.
+
+**Contract additions:**
+
+- `ChatRequest.auto_approve: bool | null` — per-request standing consent. `true` runs an
+  `approval`-tier action without prompting; `false` forces a prompt; omitted uses the persisted
+  setting (009 FR-7/FR-9).
+- `GET /api/settings` → `Settings {auto_approve, agent_model}` and `POST /api/settings`
+  → `SettingsUpdate {auto_approve?}` — read/update the persisted operator settings, in parity with
+  `GET`/`POST /api/models` (009 FR-8). Persisted in `LEADER_SETTINGS_PATH`.
+- These two settings routes are **structurally excluded** from the agent MCP surface (§2.1): trust
+  mode is standing consent only the operator grants, so the agent has no tool to read, set, or
+  bypass it (009 FR-11).
+
+AC2 below is satisfied by either a returned plan **or** an explicit operator `auto_approve`; either
+way AC3 holds — the mutation is logged and committed.
+
 ## 4. Acceptance Criteria
 
 - AC1: Every Chat capability has an API equivalent.

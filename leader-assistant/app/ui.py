@@ -26,8 +26,10 @@ Chat streams from `POST /api/chat/stream` (SSE) with a full-reply fallback to
 an explicit **Approve plan** control (spec 003 FR-8, P8) — no auto-approval.
 
 A **settings ⚙ button next to the chat Submit** opens a **quick menu** (popover) hosting the
-**Model** selector (spec 004 FR-26/FR-35), backed only by `GET`/`POST /api/models`; the menu is
-built to grow more settings sub-panels. The model control no longer lives in the sidebar.
+**Model** selector (spec 004 FR-26/FR-35), backed only by `GET`/`POST /api/models`, and the
+**Auto-approve (trust mode)** toggle (spec 009 FR-10), backed only by `GET`/`POST /api/settings`.
+The menu is built to grow more settings sub-panels; the model control no longer lives in the
+sidebar.
 """
 
 from __future__ import annotations
@@ -484,6 +486,20 @@ def _set_model(model: str) -> dict:
     return r.json()
 
 
+def _get_settings() -> dict:
+    r = httpx.get(f"{_api_base()}/api/settings", timeout=10.0)
+    r.raise_for_status()
+    return r.json()
+
+
+def _set_auto_approve(enabled: bool) -> dict:
+    r = httpx.post(
+        f"{_api_base()}/api/settings", json={"auto_approve": bool(enabled)}, timeout=10.0
+    )
+    r.raise_for_status()
+    return r.json()
+
+
 def _create_workspace(name: str) -> dict:
     r = httpx.post(f"{_api_base()}/api/workspaces", json={"name": name}, timeout=30.0)
     r.raise_for_status()
@@ -555,17 +571,19 @@ async def _stream_interaction(workspace, conversation_id, interaction_id, choice
                         continue
 
 
-async def _stream_chat(workspace, message, conversation_id, approve):
+async def _stream_chat(workspace, message, conversation_id, approve, auto_approve=None):
     """Yield decoded ChatDelta dicts from the SSE chat stream.
 
     Emits a single ``{"error": ...}`` dict on a non-2xx response so callers can
-    surface it to the user (FR-11) instead of failing silently.
+    surface it to the user (FR-11) instead of failing silently. ``auto_approve`` carries the
+    quick-menu trust setting on every request (spec 009 FR-10).
     """
     payload = {
         "message": message,
         "workspace": workspace or None,
         "conversation_id": conversation_id,
         "approve": approve,
+        "auto_approve": None if auto_approve is None else bool(auto_approve),
     }
     async with httpx.AsyncClient(base_url=_api_base(), timeout=httpx.Timeout(None)) as c:
         async with c.stream("POST", "/api/chat/stream", json=payload) as r:
@@ -717,7 +735,7 @@ def _add_approve_msg(history):
     return (history or []) + [{"role": "user", "content": APPROVE_MSG}]
 
 
-async def _run_turn(history, conversation_id, workspace, approve):
+async def _run_turn(history, conversation_id, workspace, approve, auto_approve=None):
     """Stream one assistant turn, updating the last message as text arrives.
 
     A consequential turn ends with an approval interaction (spec 008 FR-17); the card owns
@@ -730,7 +748,7 @@ async def _run_turn(history, conversation_id, workspace, approve):
     reply, cid = "", conversation_id
     citations, pending, interaction = [], None, None
     try:
-        async for data in _stream_chat(workspace, user_msg, conversation_id, approve):
+        async for data in _stream_chat(workspace, user_msg, conversation_id, approve, auto_approve):
             if "error" in data:
                 history[-1]["content"] = f"⚠️ {data['error']}"
                 yield (history, cid, gr.update(visible=False), None)
@@ -758,13 +776,13 @@ async def _run_turn(history, conversation_id, workspace, approve):
     yield (history, cid, gr.update(visible=show_approve), interaction)
 
 
-async def _respond(history, conversation_id, workspace):
-    async for out in _run_turn(history, conversation_id, workspace, approve=False):
+async def _respond(history, conversation_id, workspace, auto_approve=None):
+    async for out in _run_turn(history, conversation_id, workspace, False, auto_approve):
         yield out
 
 
-async def _approve(history, conversation_id, workspace):
-    async for out in _run_turn(history, conversation_id, workspace, approve=True):
+async def _approve(history, conversation_id, workspace, auto_approve=None):
+    async for out in _run_turn(history, conversation_id, workspace, True, auto_approve):
         yield out
 
 
@@ -975,6 +993,38 @@ def _pick_model(model, current):
     except Exception as e:
         return gr.update(value=current), current, f"<em>Could not set model: {html.escape(str(e))}</em>"
     return gr.update(value=data.get("current")), data.get("current"), _model_hint(data.get("source", ""))
+
+
+# --- auto-approve / trust mode (feature 009 FR-10) -------------------------
+
+
+def _trust_hint(enabled: bool) -> str:
+    """The always-visible state line, so the operator knows whether trust mode is on (FR-10)."""
+    if enabled:
+        return (
+            "<span class='model-src'>⚡ Trust mode ON — consequential actions run without asking "
+            "(still logged & git-committed)</span>"
+        )
+    return "<span class='model-src'>Trust mode off — I ask before consequential actions</span>"
+
+
+def _trust_initial():
+    """Load the persisted trust setting into the quick-menu toggle (spec 009 FR-8/FR-10)."""
+    try:
+        enabled = bool(_get_settings().get("auto_approve"))
+    except Exception as e:
+        return gr.update(value=False), f"<em>Settings unavailable: {html.escape(str(e))}</em>", False
+    return gr.update(value=enabled), _trust_hint(enabled), enabled
+
+
+def _pick_trust(enabled):
+    """Toggling Auto-approve persists it over /api/settings; on failure, revert the checkbox."""
+    try:
+        data = _set_auto_approve(bool(enabled))
+    except Exception as e:
+        return gr.update(value=not bool(enabled)), f"<em>Could not save: {html.escape(str(e))}</em>", not bool(enabled)
+    now = bool(data.get("auto_approve"))
+    return gr.update(value=now), _trust_hint(now), now
 
 
 def _toggle_settings(is_open: bool):
@@ -1228,6 +1278,7 @@ def build_demo() -> gr.Blocks:
         active_vault = gr.State(None)
         interaction = gr.State(None)  # spec 008: the pending interaction dict, or None
         active_model = gr.State(None)  # spec 004 FR-28: the active agent model selector
+        trust_state = gr.State(False)  # spec 009 FR-10: persisted auto-approve (trust mode)
         settings_open = gr.State(False)  # spec 004 FR-35: settings quick-menu open/closed
 
         with gr.Sidebar(open=False, width=340) as sidebar:
@@ -1310,6 +1361,13 @@ def build_demo() -> gr.Blocks:
                     interactive=True, filterable=True, elem_id="model-picker",
                 )
                 model_source = gr.HTML("")
+                # spec 009 FR-10: the Auto-approve (trust mode) sub-panel — reads/writes the
+                # persisted setting over /api/settings only (P9) and rides every request.
+                auto_approve_box = gr.Checkbox(
+                    label="Auto-approve (trust mode)", value=False,
+                    interactive=True, elem_id="auto-approve",
+                )
+                auto_approve_hint = gr.HTML("")
             with gr.Row(elem_id="chat-input-row"):
                 # spec 004 FR-36: grow upward past one line (bottom edge fixed) up to max_lines,
                 # then scroll internally, so the chat area above shrinks instead of the input drifting.
@@ -1337,6 +1395,8 @@ def build_demo() -> gr.Blocks:
         demo.load(_model_initial, None, [model_picker, model_source]).then(
             lambda d=None: d, [model_picker], [active_model]
         )
+        # spec 009 FR-10: reflect the persisted trust setting in the quick menu on load.
+        demo.load(_trust_initial, None, [auto_approve_box, auto_approve_hint, trust_state])
         demo.load(None, None, None, js=_TOOLTIP_JS)
         demo.load(None, None, None, js=_WIKI_TIP_JS)
         demo.load(None, None, None, js=_SESSION_JS)
@@ -1369,6 +1429,10 @@ def build_demo() -> gr.Blocks:
         # dismisses; _SETTINGS_DISMISS_JS also closes on click-away).
         settings_btn.click(_toggle_settings, [settings_open], [settings_open, settings_menu])
         # spec 004 FR-28: choosing a model persists it process-wide; revert on failure.
+        # spec 009 FR-8/FR-10: toggling Auto-approve persists it; the hint keeps the state visible.
+        auto_approve_box.change(
+            _pick_trust, [auto_approve_box], [auto_approve_box, auto_approve_hint, trust_state]
+        )
         model_picker.change(
             _pick_model, [model_picker, active_model], [model_picker, active_model, model_source]
         )
@@ -1406,14 +1470,14 @@ def build_demo() -> gr.Blocks:
         # hidden #conv-url box, then _CONV_SYNC_JS syncs ?conversation so the thread is bookmarkable.
         turn_out = [chat, conversation, approve_btn, interaction]
         box.submit(_user_submit, [box, chat], [box, chat]).then(
-            _respond, [chat, conversation, active_vault], turn_out
+            _respond, [chat, conversation, active_vault, auto_approve_box], turn_out
         ).then(None, None, None, js=_COUNTDOWN_JS).then(
             lambda cid: cid or "", [conversation], [conv_url]
         ).then(_conv_title_md, [conversation, active_vault], [conv_title]).then(
             None, None, None, js=_CONV_SYNC_JS
         )
         approve_btn.click(_add_approve_msg, [chat], [chat]).then(
-            _approve, [chat, conversation, active_vault], turn_out
+            _approve, [chat, conversation, active_vault, auto_approve_box], turn_out
         ).then(None, None, None, js=_COUNTDOWN_JS).then(
             lambda cid: cid or "", [conversation], [conv_url]
         ).then(_conv_title_md, [conversation, active_vault], [conv_title]).then(

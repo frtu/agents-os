@@ -23,9 +23,11 @@ app = FastAPI(
     version="0.1.0",
     description=(
         "Machine-facing surface over the shared capability layer.\n\n"
-        "Every capability is a plain function in `app.capabilities`; "
-        "consequential requests return a **plan** for approval rather than executing "
-        "silently (spec 13-api AC2). Interactive docs: **/api/**; the web UI is at **/**."
+        "Every capability is a plain function in `app.capabilities`. Gating is **effect-based** "
+        "(spec 009): `auto`/`reversible` capabilities run immediately (reversible ones are "
+        "git-committed, so they are undoable), while an executable `approval`-tier action returns "
+        "a **plan** for approval instead of executing — unless trust mode grants standing consent "
+        "(`auto_approve`, `/api/settings`). Interactive docs: **/api/**; the web UI is at **/**."
     ),
     contact={"name": "Leader Assistant", "url": "https://example.local"},
     docs_url="/api",  # Swagger UI at /api/ — the web UI owns / (spec 003 D4/FR-2)
@@ -90,6 +92,19 @@ def set_model(req: models.SetModelRequest) -> models.AvailableModels:
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.get("/api/settings", response_model=models.Settings, tags=["ops"], summary="Read operator settings")
+def get_settings() -> models.Settings:
+    """The persisted operator settings, incl. trust mode (spec 009 FR-8)."""
+    return capabilities.get_settings()
+
+
+@app.post("/api/settings", response_model=models.Settings, tags=["ops"], summary="Update operator settings")
+def update_settings(req: models.SettingsUpdate) -> models.Settings:
+    """Persist operator settings (spec 009 FR-8). Trust mode is operator-only — the agent has no
+    tool for this route (FR-11)."""
+    return capabilities.update_settings(req.auto_approve)
+
+
 @app.get("/api/spec", tags=["knowledge"], summary="Read a page's raw Markdown")
 def spec_read(path: str, workspace: str | None = None) -> dict[str, str]:
     try:
@@ -150,12 +165,13 @@ def chat_status(conversation_id: str, workspace: str | None = None) -> models.Ch
 async def chat(req: models.ChatRequest) -> models.ChatAnswer:
     """Hold a durable, resumable conversation with the assistant (spec 14-chat).
 
-    Same capability layer as REST (P9): consequential requests return a
-    `pending_plan` for approval and mutate nothing this turn (FR-5).
+    Same capability layer as REST (P9). A turn is gated only when an executable
+    `approval`-tier capability is about to run (spec 009 FR-3); `auto_approve` grants
+    standing consent for this turn (FR-7/FR-9).
     """
     try:
         return await capabilities.ask(
-            req.workspace, req.message, req.conversation_id, req.approve
+            req.workspace, req.message, req.conversation_id, req.approve, req.auto_approve
         )
     except WorkspaceError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -168,7 +184,7 @@ async def chat_stream(req: models.ChatRequest) -> StreamingResponse:
     async def events():
         try:
             async for delta in capabilities.ask_stream(
-                req.workspace, req.message, req.conversation_id, req.approve
+                req.workspace, req.message, req.conversation_id, req.approve, req.auto_approve
             ):
                 yield f"data: {delta.model_dump_json()}\n\n"
         except WorkspaceError as e:

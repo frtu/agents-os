@@ -60,6 +60,28 @@ The rule set MUST be extensible **without redesigning the ingestion engine** ([[
 
 Future candidates: modification of many interconnected concepts, changes affecting many Areas, conflicting sources, potentially destructive changes, semantic uncertainty.
 
+## 3.1 Implemented Rule Set — capability effect tiers ([[009-approval-optimization]])
+
+The rule set this build actually evaluates is the **effect table**: every capability invokable from a
+chat turn declares, as data, whether it is **executable** here and its **effect tier**. That table
+*is* the risk rules (satisfying §4's "declared as data" requirement); it replaced a hard-coded regex
+over the user's message, which classified intent-words rather than effects.
+
+| Tier | Meaning | Routing |
+|------|---------|---------|
+| `auto` | reads and bookkeeping (`query`, `lint`, `spec_read`, settings toggles) | run silently, nothing to undo |
+| `reversible` | mutations fully recoverable via git (`ingest`, `capture`, `upload_and_ingest`, wiki-page writes) | run **unprompted**, always logged in `log.md` + committed so one revert undoes them |
+| `approval` | destructive, irreversible-outside-git, or privilege-granting (`import_skill`, `create_workspace`) | **gated** — a real plan naming capability/target/tier/undo path, executed only on approval |
+
+Evaluation happens **at the capability boundary**, at the moment of execution, on the resolved
+action — never on the phrasing of the request. A request resolving to no executable capability is
+not a mutation and is therefore never routed through risk at all.
+
+**`auto_approve` bypass:** the operator may grant standing consent (trust mode), which skips the
+`approval`-tier prompt only. It does **not** disable logging, committing, or branch policy — so AC5
+(auditability) and AC4 (no unapproved risky merge) still hold, and the agent can never grant it
+itself (009 FR-11).
+
 ## 4. Extensibility Requirements
 
 - Rules are declared as data (config/domain objects), loadable without code changes to engines.

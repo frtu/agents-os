@@ -143,6 +143,26 @@ def set_agent_model(value: str) -> str:
     return value
 
 
+_SETTINGS_AUTO_APPROVE_KEY = "auto_approve"
+
+
+def auto_approve() -> bool:
+    """Persisted trust mode — standing consent for approval-tier actions (spec 009 FR-8).
+
+    Read fresh each call so a toggle applies process-wide immediately; off unless the operator
+    turned it on. Writable only through ``set_auto_approve`` (REST/UI), never by the agent (FR-11).
+    """
+    return _read_settings().get(_SETTINGS_AUTO_APPROVE_KEY) is True
+
+
+def set_auto_approve(value: bool) -> bool:
+    """Persist the operator's trust-mode preference (spec 009 FR-8); returns the stored value."""
+    data = _read_settings()
+    data[_SETTINGS_AUTO_APPROVE_KEY] = bool(value)
+    _write_settings(data)
+    return bool(value)
+
+
 DEFAULT_INTERACTION_TIMEOUT = 30
 
 

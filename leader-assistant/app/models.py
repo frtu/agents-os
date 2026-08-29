@@ -109,6 +109,13 @@ class PlanStep(BaseModel):
 
 
 class Plan(BaseModel):
+    """What will actually happen, so a review is informative (spec 009 FR-5).
+
+    The effect fields name the real capability an approval authorizes; they are empty/`auto`
+    when the request maps to no executable action, in which case `requires_approval` is false
+    and no approval is ever raised (spec 009 FR-4).
+    """
+
     workspace: str
     request: str
     steps: list[PlanStep]
@@ -116,6 +123,10 @@ class Plan(BaseModel):
     requires_approval: bool = Field(
         ..., description="Consequential work returns a plan for approval, never silent execution (spec 13-api AC2)"
     )
+    capability: str = Field("", description="Executable capability this plan runs; empty = none (spec 009 FR-5)")
+    target: str = Field("", description="What the capability acts on (workspace/skill/page)")
+    effect_tier: str = Field("auto", description="Declared effect tier: auto | reversible | approval (FR-1)")
+    reversibility: str = Field("", description="How the effect can be undone")
 
 
 class LintFinding(BaseModel):
@@ -143,6 +154,13 @@ class ChatRequest(BaseModel):
     )
     approve: bool = Field(
         False, description="Approve the conversation's pending plan and execute it (FR-5, D2)"
+    )
+    auto_approve: bool | None = Field(
+        None,
+        description=(
+            "Per-turn trust-mode override (spec 009 FR-7/FR-9): true runs an approval-tier action "
+            "without prompting, false forces a prompt, omitted uses the persisted setting"
+        ),
     )
 
 
@@ -375,6 +393,21 @@ class SetModelRequest(BaseModel):
     """Select the process-wide agent model (spec 004 FR-28)."""
 
     model: str = Field(..., description="Model selector to activate", examples=["opus"])
+
+
+class Settings(BaseModel):
+    """Operator-owned runtime settings, persisted across restarts (spec 009 FR-8)."""
+
+    auto_approve: bool = Field(
+        False, description="Trust mode: approval-tier actions run without a per-action prompt (FR-7/FR-8)"
+    )
+    agent_model: str = Field(..., description="The active agent model selector (spec 004 FR-28)")
+
+
+class SettingsUpdate(BaseModel):
+    """Update operator settings; omitted fields are left unchanged (spec 009 FR-8)."""
+
+    auto_approve: bool | None = Field(None, description="New trust-mode value", examples=[True])
 
 
 # ChatAnswer/ChatDelta forward-reference Interaction (defined below them); resolve now.

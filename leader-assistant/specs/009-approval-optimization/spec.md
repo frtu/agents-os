@@ -1,7 +1,7 @@
 # Feature Specification: Approval & Clarification Optimization (low-friction, effect-based gating)
 
 **Feature ID:** `009-approval-optimization`
-**Status:** Draft
+**Status:** Implemented
 **Created:** 2026-08-27 · **Last Updated:** 2026-08-27
 
 > Describes **what** and **why**. Reworks the human-in-the-loop model so the assistant is **fast and
@@ -183,25 +183,25 @@ Replace message-keyword gating with **effect-based gating at the capability boun
 
 ## Acceptance Criteria
 
-- [ ] **AC-1:** A message containing a former trigger word but no real effect (e.g. "create a
+- [x] **AC-1:** A message containing a former trigger word but no real effect (e.g. "create a
   summary", "merge these ideas", "rename this concept") produces **no approval prompt**. (FR-2, FR-3)
-- [ ] **AC-2:** `auto`/`reversible` capabilities run **without a prompt**; a `reversible` mutation is
+- [x] **AC-2:** `auto`/`reversible` capabilities run **without a prompt**; a `reversible` mutation is
   **git-committed** and appears in `log.md`. (FR-1, FR-6)
-- [ ] **AC-3:** An **executable** `approval`-tier action (trust off) raises a **real** plan naming the
+- [x] **AC-3:** An **executable** `approval`-tier action (trust off) raises a **real** plan naming the
   action + target + reversibility, and approving it executes that exact action. (FR-3, FR-5, FR-13)
-- [ ] **AC-4:** A request with **no executable capability** returns a normal answer — **no plan, no
+- [x] **AC-4:** A request with **no executable capability** returns a normal answer — **no plan, no
   approval, and the string "isn't automatable yet" never appears**. (FR-4)
-- [ ] **AC-5:** With `auto_approve: true` (per request), an `approval`-tier action executes without a
+- [x] **AC-5:** With `auto_approve: true` (per request), an `approval`-tier action executes without a
   prompt and is logged + committed. (FR-7, FR-6)
-- [ ] **AC-6:** The persisted trust setting is readable/updatable over REST and survives a restart;
+- [x] **AC-6:** The persisted trust setting is readable/updatable over REST and survives a restart;
   when on, requests without an explicit override are auto-approved. (FR-8)
-- [ ] **AC-7:** Per-request `auto_approve` overrides the persisted default both ways (true forces
+- [x] **AC-7:** Per-request `auto_approve` overrides the persisted default both ways (true forces
   auto; false forces a prompt). (FR-9)
-- [ ] **AC-8:** The UI settings quick menu shows and toggles Auto-approve, reads/writes it only over
+- [x] **AC-8:** The UI settings quick menu shows and toggles Auto-approve, reads/writes it only over
   `/api/*`, and reflects the persisted state. (FR-10, P9)
-- [ ] **AC-9:** The agent cannot set or bypass `auto_approve`, and cannot raise an approval card; it
+- [x] **AC-9:** The agent cannot set or bypass `auto_approve`, and cannot raise an approval card; it
   can still raise clarification/notification cards. (FR-11, FR-12)
-- [ ] **AC-10:** The `_CONSEQUENTIAL` message regex is gone; risk is decided from data-declared
+- [x] **AC-10:** The `_CONSEQUENTIAL` message regex is gone; risk is decided from data-declared
   capability tiers. (FR-1, FR-2, P12)
 
 ## Key Decisions

@@ -11,6 +11,10 @@ the agent scoped to its active workspace (spec 006 D2/D3). Every tool is **works
 — the workspace argument is injected from the run context, not from tool args (spec 006
 FR-6). ``query`` remains the cited way to browse knowledge (FR-5).
 
+``get_settings``/``update_settings`` are **structurally excluded** like ``chat``: trust mode
+(``auto_approve``) is standing consent the operator alone grants, so the agent gets no tool to
+set it, read it, or bypass the approval gate with it (spec 009 FR-11/FR-12).
+
 **Skill execution (feature 005) deliberately expands the tool set.** To let the agent
 discover and run installed skills, it is granted real ``Skill``/``Bash``/``Read``/
 ``Write``/``Edit``/``Glob``/``Grep`` tools, scoped to the active workspace via ``cwd``
@@ -171,7 +175,7 @@ def _capability_tool_specs(
     return [
         ToolSpec("query", "Search the workspace and return an answer with citations. The primary way to browse project knowledge.", {"question": str}, query_h),
         ToolSpec("spec_read", "Read the raw Markdown of a known workspace page by its relative path.", {"path": str}, spec_read_h),
-        ToolSpec("plan", "Produce a step-by-step plan for a work request; consequential work is flagged for approval.", {"request": str}, plan_h),
+        ToolSpec("plan", "Describe what a work request would actually do — the capability it runs, its target, effect tier and undo path. Only an executable, approval-tier effect is flagged for approval.", {"request": str}, plan_h),
         ToolSpec("list_workspaces", "List known workspaces (names, root, default).", {}, list_workspaces_h),
         ToolSpec("get_workspace_info", "Inspect the active workspace: name, path, whether scaffolded, and page count.", {}, get_workspace_info_h),
         ToolSpec("lint", "Run hygiene checks (orphan/short pages) on the active workspace.", {}, lint_h),

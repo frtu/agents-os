@@ -58,13 +58,17 @@ def test_ac2_followup_resumes_conversation(client, offline_agent, isolated_works
 
 
 def test_ac3_consequential_returns_pending_plan_no_mutation(client, offline_agent, isolated_workspace_root):
-    # AC-3 / FR-5: consequential request returns a plan and mutates nothing.
-    r = client.post("/api/chat", json={"message": "delete the onboarding spec"})
+    # AC-3 / FR-5: an approval-tier request returns a plan and mutates nothing.
+    # Superseded by spec 009 FR-3: the gate now fires on a resolved approval-tier
+    # capability, not on risky-sounding words, so this uses a real one.
+    r = client.post("/api/chat", json={"message": "create a workspace named archive"})
     assert r.status_code == 200
     body = r.json()
     assert body["pending_plan"] is not None
     assert body["pending_plan"]["requires_approval"] is True
+    assert body["pending_plan"]["capability"] == "create_workspace"
     assert body["executed"] is False
+    assert not (isolated_workspace_root / "archive").exists()
 
     # No wiki page was created by this turn. (portal/log/tbd are scaffold control files,
     # spec 03-workspace §5 / spec 007 FR-14 — not created by this turn.)
@@ -90,8 +94,8 @@ def test_ac5_session_record_exists(client, offline_agent, isolated_workspace_roo
 
 def test_ac6_stream_and_full_converge(client, offline_agent):
     # AC-6 / FR-4: streamed and full-reply modes converge to identical content.
-    # A consequential turn is fully deterministic (no LLM), so both surfaces match.
-    payload = {"message": "delete the temporary notes"}
+    # An approval-tier turn is fully deterministic (no LLM), so both surfaces match.
+    payload = {"message": "create a workspace named converge"}
     full = client.post("/api/chat", json=payload).json()
 
     streamed = client.post("/api/chat/stream", json=payload)

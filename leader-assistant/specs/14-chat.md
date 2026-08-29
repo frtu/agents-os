@@ -43,10 +43,31 @@ User message → (ingest/query/plan) → assistant response
 
 Routine autonomous operations (ingest, lint, dreaming) may run without interrupting the chat, with results reflected in portal/log and Git.
 
+### 3.1 Low-friction turn flow ([[009-approval-optimization]])
+
+A turn interrupts the user **only** when an executable `approval`-tier capability is about to run:
+
+```text
+User message → resolve the action this turn would execute
+  ├── no executable action ──► normal answer (explain/advise) — no plan, ever
+  ├── tier auto / reversible ──► run now; log + commit (undo = one git revert)
+  └── tier approval ──► trust mode on?  ── yes ──► run now; log + commit
+                                          └─ no ──► real plan (capability, target, tier, undo)
+                                                     → approve → execute exactly that action
+```
+
+`ChatRequest` gains **`auto_approve: bool | null`** — `true`/`false` override the persisted trust
+setting for that turn only, omitted uses the persisted default (009 FR-7/FR-9). The assistant never
+raises an approval it cannot execute (009 FR-4), so AC3 below applies to executable approval-tier
+work; the approval gate is produced **only** by the capability layer, while the agent may raise
+clarification/notification cards ([[008-agent-user-interaction]] FR-18) but never approval.
+
 ## 4. Acceptance Criteria
 
 - AC1: Every chat exchange is persisted to `sessions/`.
 - AC2: Chat exposes no capability absent from the API.
-- AC3: Consequential requests show a plan before execution.
+- AC3: Consequential requests show a plan before execution — refined by [[009-approval-optimization]]
+  to *executable `approval`-tier* actions, and satisfiable instead by explicit operator standing
+  consent (`auto_approve`), which keeps the action logged and revertible.
 - AC4: Human judgments captured in chat influence knowledge maturity via dreaming/ingestion.
 - AC5: Draft specs and alternatives are presented for feedback before finalization.

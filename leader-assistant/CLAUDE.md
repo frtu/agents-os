@@ -108,6 +108,8 @@ AC2). The human web UI (Gradio, spec 003) owns `/`, so Swagger is relocated to *
 | `GET`  | `/api/lint` | `?workspace=` | `LintReport` |
 | `GET`  | `/api/models` | — | `AvailableModels` (models, current, source) |
 | `POST` | `/api/models` | `{model}` | `AvailableModels` (spec 004 FR-28) |
+| `GET`  | `/api/settings` | — | `Settings` (auto_approve, agent_model) — spec 009 FR-8 |
+| `POST` | `/api/settings` | `{auto_approve?}` | `Settings` (spec 009 FR-8) |
 | `GET`  | `/api/spec` | `?path=&workspace=` | `{path, content}` |
 | `POST` | `/api/chat` | `ChatRequest` | `ChatAnswer` |
 | `POST` | `/api/chat/stream` | `ChatRequest` | SSE stream of `ChatDelta` |
@@ -119,7 +121,8 @@ AC2). The human web UI (Gradio, spec 003) owns `/`, so Swagger is relocated to *
 (Target contract; code still serves the `/api/vaults` + `vault` variants — see the
 divergence note above.)
 
-`ChatRequest`: `{message, workspace?, conversation_id?, approve=false}`.
+`ChatRequest`: `{message, workspace?, conversation_id?, approve=false, auto_approve?}`
+(`auto_approve` is a tri-state per-turn override of persisted trust mode — spec 009 FR-7/FR-9).
 `ChatAnswer`: `{workspace, conversation_id, reply, citations[], pending_plan?, executed}`.
 `ChatDelta` (SSE, one `data:` line each; final has `done=true`): same fields as
 `ChatAnswer` plus `done`. Resend `conversation_id` to continue a thread; set
@@ -185,7 +188,7 @@ curl -s -X POST localhost:8000/api/query  -H 'content-type: application/json' \
 | `LEADER_DEFAULT_WORKSPACE` | default workspace selector | `_default_` |
 | `LEADER_HOST` / `LEADER_PORT` | server bind | `127.0.0.1` / `8000` |
 | `LEADER_AGENT_MODEL` | Claude Agent SDK model (chat + ingest activity); a UI/persisted selection overrides this | `sonnet` |
-| `LEADER_SETTINGS_PATH` | runtime settings file (holds the selected model) | `<workspace root>/.leader-settings.json` |
+| `LEADER_SETTINGS_PATH` | runtime settings file (selected model + trust mode) | `<workspace root>/.leader-settings.json` |
 
 (Target names; code still reads `LEADER_VAULT_ROOT` / `LEADER_VAULT_PATH` /
 `LEADER_DEFAULT_VAULT` with default `default` — see the divergence note above.)
@@ -204,8 +207,18 @@ endpoint still works offline. All non-chat capabilities run without any credenti
   (`capabilities.deposit_raw`, feature 004).
 - **`log.md` is append-only** — use `vault.append_log`, never edit existing lines.
 - **Only the capability layer reaches the workspace** — keep `api.py` thin.
-- **Consequential requests return a plan, not silent execution** (spec 13-api AC2). See
-  `capabilities.plan`; `_CONSEQUENTIAL` classifies risky verbs.
+- **Gating is effect-based, at the capability boundary** (spec 009). `capabilities.EFFECTS` is a
+  data table declaring each capability's effect tier: `auto` (reads) and `reversible` (git-recoverable
+  mutations) run immediately; only an **executable** `approval`-tier action (`import_skill`,
+  `create_workspace`) returns a plan for approval. A request that resolves to no executable action
+  (`capabilities._resolve_action`) gets a normal answer — never a plan, never a "not automatable"
+  dead-end. Never gate on words in the message; add a capability to `EFFECTS` (and a resolver, if it
+  should be chat-invokable) instead.
+- **Reversible means recoverable** — anything a turn writes under `vault/` is appended to `log.md`
+  and committed (`capabilities._record_turn_effects`), which is what makes running it unprompted safe
+  (spec 009 FR-6). This holds for approved and auto-approved actions too.
+- **Trust mode (`auto_approve`) is operator-only** — settable per request or persisted via
+  `/api/settings`; the agent has **no** tool to read, set, or bypass it (spec 009 FR-11).
 - **Portal is updated on every ingest** (`_update_portal`).
 - **No DB / vector store** as canonical storage (P1/P10). Markdown + YAML + git only.
 - Keep new capabilities mirrored 1:1 across REST and chat (P9 parity; parity test is
