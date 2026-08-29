@@ -1,13 +1,17 @@
 {
-  "version": 1,
+  "version": 2,
   "description": "Entity correction dictionary for auto-generated transcripts (Whisper/Zoom/xxx). Maps each canonical entity to (a) 'variants' = genuine mis-spellings safe to auto-fix to the correct PLAIN-TEXT name, and (b) 'ambiguous_variants' = risky tokens that must only be FLAGGED for human confirmation. Grow this file as new mangling patterns are observed.",
   "rules": {
     "correct": "Canonical plain-text spelling. Confident replacements rewrite a variant to THIS string. Never list the correct spelling itself as a variant (it needs no fixing and would re-match).",
     "variants": "Distinctive mis-spellings that are NOT real English words, do not collide with any other entity, and are unambiguously this entity. Auto-replaced with 'correct' on --write, matched case-insensitively on whole-word boundaries. Leave empty when no safe garble exists.",
     "ambiguous_variants": "Risky tokens that MIGHT be this entity: single letters, real English words, first-names shared by several people, common pronouns/nouns. NEVER auto-replaced — only reported with file:line so a human decides. Never seed a common word (e.g. 'you').",
-    "wikilink": "The exact resolved [[slug|Display]] form. Shown in the report so the ingest step (or reviewer) can link the confirmed mention. Reuse the form that already exists in the wiki; never invent a slug.",
-    "type": "person | product | system | team — informational."
+    "wikilink": "The exact resolved [[slug|Display]] form. Shown in the report so the ingest step (or reviewer) can link the confirmed mention. Reuse the form that already exists in the wiki; never invent a slug. Leave EMPTY when the vault has no page for the entity — an empty wikilink means 'correct the spelling, keep it plain text'.",
+    "type": "person | product | system | team | term — informational. 'term' covers domain vocabulary that is not a proper noun but is still mangled in a load-bearing way (e.g. 'hard delay' -> 'hard delete').",
+    "note": "Free text. Record confirmed-but-not-auto-replaceable resolutions here.",
+    "known_noise": "Top-level list of name-shaped tokens confirmed to mean nobody. The script ignores this key; it exists so the skill's manual sweep does not re-ask about them. Only add a token the user has confirmed is noise — a merely UNRESOLVED name stays out, so it gets surfaced again next time."
   },
+  "known_noise": [
+  ],
   "corrections": [
   ]
 }

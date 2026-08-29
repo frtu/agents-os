@@ -39,7 +39,7 @@ so the reviewer / ingest can link confirmed mentions.
 
 ## Procedure
 
-### 1. Dry-run against the transcript
+### 1. Run the report against the transcript
 
 ```bash
 python3 .claude/commands/lint-transcript-normalise/scripts/normalise_transcript.py \
@@ -54,36 +54,70 @@ This prints two sections and writes **nothing**:
 
 ### 2. Confirm the ambiguous mentions with the user
 
-Present the **"Entities to confirm"** list to the user. For each line, they decide:
+Present the **"Entities to confirm"** list to the user. For each candidate, they decide:
 this is entity X / this is someone else / leave it. Do **not** guess. Common judgment
 calls: Is `Mac` the person Mark, or "Mac UI"?
 
-### 3. Apply confident fixes
+**Always pass the sentences the term was used in.** A bare list of tokens is not
+answerable — the user cannot resolve `Julie` without seeing that the line reads
+*"Julie, we can… I can discuss with Zolly."* For each candidate, quote **every**
+occurrence as `Lnn: "<full sentence>"` (cap at ~5 lines, then say "+N more"). The
+sentence is the evidence; the token alone is not.
 
-Once the confident list looks right, write them in place:
+**The dictionary is not the whole picture.** The script only flags tokens already listed
+under `ambiguous_variants`, so a garble for an entity that isn't in `corrections.json`
+yet produces **no output at all** — silence from the script is not a clean bill of
+health. After the dry-run, read the transcript yourself and add to the confirm list any:
 
-```bash
-python3 .claude/commands/lint-transcript-normalise/scripts/normalise_transcript.py \
-    "raw/.../transcript.md" --write
-```
+- name-shaped token that resolves to nothing in `wiki/**/members/`, `raw/People/**`, or `wiki/portal.md`
+- lone initial or one-letter "name"
+- near-miss of a known entity (`Flint`/`Flick` → Flink, `Chain Data Capture` → Change Data Capture)
+- product/system/team name that appears once and matches nothing
 
-### 4. Apply confirmed ambiguous fixes by hand
+Merge these with the script's hits into a single list so the user answers once.
 
-For each ambiguous mention the user confirmed, fix that specific occurrence with the
-Edit tool (targeted, line-by-line — never a blanket replace of a single letter or
-common word). Leave unconfirmed ones as-is.
+### 3. Carry the resolutions forward — do not edit the transcript
 
-### 5. Grow the dictionary
+There is no "apply" step. The raw transcript keeps its garbles; the **report plus the
+user's confirmations** are what ingest consumes. Hold on to, and hand to ingest:
 
-When the user confirms a **new** mapping (a garble not yet in the dictionary, or a new
-entity), add it to `config/corrections.json`:
+- the confident `variant → correct` map (so ingest writes `Flink`, never `Flint`)
+- each confirmed ambiguous occurrence as `Lnn → entity` (resolves *that* line only)
+- the tokens the user declined to resolve — these stay **plain text**, never a wikilink
+
+The reason not to rewrite the source: a corrected transcript silently loses the evidence
+of what the recording actually said, and a wrong "correction" then becomes unfalsifiable.
+Correct at the wiki-page boundary instead, where a `> **Caveat:**` note can travel with it.
+
+### 5. Grow the dictionary — every time, without being asked
+
+**Every user confirmation is a dictionary write.** The moment the user resolves a
+mention, update `config/corrections.json` in the same turn. Do not defer it, do not
+batch it to "later", and do not ask permission — the whole point of the dictionary is
+that the same garble is never asked about twice. A confirmation that isn't persisted is
+a question you will ask again next transcript.
+
+Three cases, all of which write:
+
+| The user said | Write |
+| ------------- | ----- |
+| "`Flint` is Flink" — garble not in the dictionary | New `variants` entry (or a new `corrections` entry if the entity is new) |
+| "`Julie` here is Zolly" — risky token, this occurrence resolved | Add the token to that entity's `ambiguous_variants` so it keeps being flagged, and record the resolution in `note` |
+| "`Baba` is nobody / leave it" — dead end | Add to the top-level `known_noise` list so the step-2 manual sweep stops re-surfacing it |
+
+Field rules when writing:
 
 - Put genuine, distinctive, unambiguous garbles under `variants`.
 - Put anything risky (single letters, real words, shared first names, cross-entity
-  collisions) under `ambiguous_variants`.
+  collisions) under `ambiguous_variants` — a confirmation resolves *this occurrence*,
+  it does not make the token globally safe to auto-replace.
 - Resolve the `wikilink` against `wiki/**/members/`, `raw/People/**`,
   and `wiki/portal.md`; reuse the **exact** existing slug/display. Never invent a slug.
 - Never seed a common English word (e.g. `you`, `the`) as any kind of variant.
+- Bump `version` when the schema changes, not on every entry.
+
+Then tell the user what you added, in one line per entry, so the dictionary's growth is
+visible and correctable.
 
 ### 6. Hand off to ingest
 
@@ -96,6 +130,7 @@ not resolve them from scratch.
 ```json
 {
   "version": 1,
+  "known_noise": ["Toto"],
   "corrections": [
     {
       "correct": "Frederic T",
@@ -116,6 +151,8 @@ not resolve them from scratch.
 | `ambiguous_variants` | Case-sensitive, whole-word, **flag only**. Single letters, real words, shared names. |
 | `wikilink` | Exact resolved `[[slug\|Display]]`. Reuse existing; never invent. |
 | `type` | `person` / `product` / `system` / `team` — informational. |
+| `note` | Free text. Record confirmed-but-not-auto-replaceable resolutions here. |
+| `known_noise` | Top-level list of name-shaped tokens confirmed to mean nobody. The script ignores this key; it exists so the step-2 manual sweep doesn't re-ask. |
 
 ## Matching Rules (implemented by the script)
 
