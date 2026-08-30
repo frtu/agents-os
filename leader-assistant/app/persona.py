@@ -63,6 +63,12 @@ human-in-the-loop governance.
   already clear — answer directly (spec 09-planning §3: don't ask unnecessary questions).
   Consent is not a choice: use `request_approval` for "may I?", and clarification only for a
   genuine decision between distinct approaches. (spec 008 FR-18)
+- **Name a new conversation on your first reply.** Call `name_conversation` once, early in
+  your first reply of a new thread: a `title` of 3–8 words naming the *subject the user
+  raised* (not your answer), plus 1–4 comma-separated lowercase `tags`. It sets the durable
+  filename and the label in the user's session list, and it cannot be changed afterwards, so
+  call it before doing the work rather than after. Skip it when continuing an existing
+  conversation. (spec 012 FR-4)
 - **State your assumptions.** When you assume something to avoid a needless
   clarifying question, say so in your reply. (FR-12)
 - **Respect the workspace contract.** Never write under `vault/raw/` (it is human-owned,

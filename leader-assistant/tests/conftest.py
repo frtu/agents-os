@@ -81,6 +81,23 @@ def offline_judge(monkeypatch):
 
 
 @pytest.fixture
+def session_file():
+    """Resolve a conversation's file by id, whatever the naming scheme (spec 012 FR-7).
+
+    Tests assert on session *content*, not on the filename; going through the store's own resolver
+    keeps them from encoding the layout a second time.
+    """
+    from app import conversation
+
+    def resolve(workspace, conversation_id):
+        path = conversation.path_for(workspace, conversation_id)
+        assert path is not None, f"no session file for {conversation_id}"
+        return path
+
+    return resolve
+
+
+@pytest.fixture
 def client() -> TestClient:
     from app.api import app
 

@@ -30,7 +30,7 @@ All storage paths below are relative to a selected workspace `Workspaces/<name>/
 | Entity | Location | Mutability | Description |
 |--------|----------|------------|-------------|
 | **Raw Document** | `vault/raw/{provenance}/{file}` | immutable | Original captured input (clipping, doc, note, transcript, asset). Never modified. |
-| **Session** | `sessions/YYYY-MM-DD-*.md` | ephemeral | Operational conversation log (short-term memory), at the workspace level. Not part of the wiki. |
+| **Session** | `sessions/YYYY-MM-DD-<conversation-id>-<slug>.md` | ephemeral | Operational conversation log (short-term memory), at the workspace level. Not part of the wiki. Created **lazily**, on the first user message ([[012-conversation-naming]] FR-1/FR-2). |
 | **Daily Digest** | `vault/wiki/sources/_daily_/YYYY-MM-DD.md` | append-per-day | Compacted session insights produced by dreaming. |
 | **Source Summary** | `vault/wiki/sources/{provenance}/{source}.md` | maintained | One factual summary page per ingested source, mirroring `vault/raw/` for provenance. |
 | **Wiki Page** | `vault/wiki/{category}/...` | maintained | Standalone durable knowledge (concept/product/people/resource/project/synthesis). |

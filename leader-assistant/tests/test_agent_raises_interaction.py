@@ -81,7 +81,8 @@ def test_routine_turn_surfaces_agent_raised_clarification(isolated_workspace_roo
     capabilities.create_workspace("demo")
 
     async def fake_run_stream(system_prompt, message, selector, wpath, resume_sid,
-                              citations, conversation_id=None, interactions=None, trust=False):
+                              citations, conversation_id=None, interactions=None, trust=False,
+                              naming=None):
         # Mimic the model calling request_interaction (append the raised card), then answering.
         itx = capabilities.create_interaction(
             selector, conversation_id, "clarification", "Pick an approach", ["A", "B"]

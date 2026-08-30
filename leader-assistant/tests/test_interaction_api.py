@@ -283,14 +283,14 @@ def test_ac9_interaction_protocol_present_on_rest(client):
 # --- AC-10: capture into the sessions record ----------------------------------
 
 
-def test_ac10_interaction_captured_in_sessions_record(client, isolated_workspace_root):
+def test_ac10_interaction_captured_in_sessions_record(client, isolated_workspace_root, session_file):
     # AC-10 (FR-13/P6): the request, its options, and the resolution are all recorded in sessions/.
     first = _consequential_chat(client, "create a workspace named ac10ws")
     cid, itx_id = first["conversation_id"], first["interaction"]["interaction_id"]
     client.post("/api/chat/interaction", json={
         "conversation_id": cid, "interaction_id": itx_id, "choice": "approve",
     })
-    text = (isolated_workspace_root / "_default_" / "sessions" / f"{cid}.md").read_text(encoding="utf-8")
+    text = session_file(isolated_workspace_root / "_default_", cid).read_text(encoding="utf-8")
     assert "[approval]" in text            # request captured with its kind
     assert "[resolved]" in text            # resolution captured
     assert "approve" in text

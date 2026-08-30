@@ -49,7 +49,7 @@ def asking_agent(monkeypatch):
 
     async def fake_run_stream(
         _prompt, _message, selector, _wpath, resume_sid, citations,
-        conversation_id=None, interactions=None, trust=False,
+        conversation_id=None, interactions=None, trust=False, naming=None,
     ):
         if interactions is None:
             # No card-raising context: this is a resumed or 'chat about it' turn, so the model
@@ -186,7 +186,7 @@ def test_ac3_auto_approved_card_is_never_the_awaiting_state(client, asking_agent
 
 
 def test_ac4_auto_granted_consent_is_logged_and_recorded(
-    client, asking_agent, isolated_workspace_root
+    client, asking_agent, isolated_workspace_root, session_file
 ):
     # AC-4 / FR-6: standing consent replaces the prompt, never the audit trail (P8 v1.2.0, P12).
     capabilities.create_workspace("demo")
@@ -201,7 +201,7 @@ def test_ac4_auto_granted_consent_is_logged_and_recorded(
     assert "auto-approved" in log
     assert APPROVAL_PROMPT in log
 
-    session = (workspace / "sessions" / f"{cid}.md").read_text(encoding="utf-8")
+    session = session_file(workspace, cid).read_text(encoding="utf-8")
     assert "[auto-approved]" in session
     assert APPROVAL_PROMPT in session
 
@@ -211,7 +211,7 @@ def test_ac4_auto_granted_consent_is_logged_and_recorded(
 
 @pytest.mark.parametrize("choice,expected", [("approve", "resolved"), ("decline", "declined")])
 def test_ac4_human_outcomes_are_recorded(
-    client, asking_agent, isolated_workspace_root, choice, expected
+    client, asking_agent, isolated_workspace_root, session_file, choice, expected
 ):
     # AC-4 / FR-6: a human-granted or declined outcome is recorded in the session record.
     capabilities.create_workspace("demo")
@@ -223,12 +223,12 @@ def test_ac4_human_outcomes_are_recorded(
         "interaction_id": itx["interaction_id"], "choice": choice,
     })
 
-    session = (isolated_workspace_root / "demo" / "sessions" / f"{cid}.md").read_text(encoding="utf-8")
+    session = session_file(isolated_workspace_root / "demo", cid).read_text(encoding="utf-8")
     assert f"[resolved] {itx['interaction_id']} → {choice}" in session
     assert expected  # names the outcome under test
 
 
-def test_ac4_expiry_is_recorded(client, asking_agent, isolated_workspace_root):
+def test_ac4_expiry_is_recorded(client, asking_agent, isolated_workspace_root, session_file):
     # AC-4 / FR-6: a timeout is an outcome too, and lands in the session record.
     capabilities.create_workspace("demo")
     body = client.post("/api/chat", json={"workspace": "demo", "message": ASK_MESSAGE}).json()
@@ -237,14 +237,14 @@ def test_ac4_expiry_is_recorded(client, asking_agent, isolated_workspace_root):
 
     client.get("/api/chat/interaction", params={"workspace": "demo", "conversation_id": cid})
 
-    session = (isolated_workspace_root / "demo" / "sessions" / f"{cid}.md").read_text(encoding="utf-8")
+    session = session_file(isolated_workspace_root / "demo", cid).read_text(encoding="utf-8")
     assert "[timeout]" in session
 
 
 # --- AC-5: answering resumes the work -------------------------------------
 
 
-def test_ac5_approving_resumes_the_turn(client, asking_agent, isolated_workspace_root):
+def test_ac5_approving_resumes_the_turn(client, asking_agent, isolated_workspace_root, session_file):
     # AC-5 / FR-7: the reply is the resumed work, not an acknowledgement of the click.
     capabilities.create_workspace("demo")
     body = client.post("/api/chat", json={"workspace": "demo", "message": ASK_MESSAGE}).json()
@@ -257,7 +257,7 @@ def test_ac5_approving_resumes_the_turn(client, asking_agent, isolated_workspace
 
     assert answered["reply"]
     assert "Proceeding with your choice" not in answered["reply"]
-    session = (isolated_workspace_root / "demo" / "sessions" / f"{cid}.md").read_text(encoding="utf-8")
+    session = session_file(isolated_workspace_root / "demo", cid).read_text(encoding="utf-8")
     assert "(selected)" in session
 
 
@@ -313,7 +313,7 @@ def test_ac7_trust_mode_does_not_auto_answer_a_clarification(client, monkeypatch
 
     async def asks_a_clarification(
         _prompt, _message, selector, _wpath, resume_sid, citations,
-        conversation_id=None, interactions=None, trust=False,
+        conversation_id=None, interactions=None, trust=False, naming=None,
     ):
         specs = agent._capability_tool_specs(selector, citations, conversation_id, interactions, trust)
         handler = next(s for s in specs if s.name == "request_interaction").handler
@@ -379,7 +379,7 @@ def test_ac8_a_granted_verdict_cannot_be_forged_through_tool_args(client, monkey
 
     async def tries_to_self_approve(
         _prompt, _message, selector, _wpath, resume_sid, citations,
-        conversation_id=None, interactions=None, trust=False,
+        conversation_id=None, interactions=None, trust=False, naming=None,
     ):
         specs = agent._capability_tool_specs(selector, citations, conversation_id, interactions, trust)
         handler = next(s for s in specs if s.name == "request_approval").handler

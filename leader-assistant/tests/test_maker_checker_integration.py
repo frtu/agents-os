@@ -283,7 +283,8 @@ def test_fr26_approve_true_executes_the_plan_when_the_card_is_gone(
     assert first["pending_plan"] is not None
 
     _name, wpath = capabilities.resolve_for_chat(None)
-    conv = convo.load_or_create(wpath, cid)
+    conv = convo.load(wpath, cid)
+    assert conv is not None
     convo.clear_pending_interaction(conv)  # the card is gone; the plan is not
 
     again = client.post(

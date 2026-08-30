@@ -37,7 +37,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import AsyncIterator, Awaitable, Callable
 
-from . import execution_gate, models, vault
+from . import conversation, execution_gate, models, vault
 from .execution_gate import Operation
 
 _SERVER = "leader"
@@ -75,6 +75,7 @@ def _capability_tool_specs(
     conversation_id: str | None = None,
     interactions: list[models.Interaction] | None = None,
     trust: bool = False,
+    naming: list[tuple[str, list[str]]] | None = None,
 ) -> list[ToolSpec]:
     """Build an agent tool for every exposable capability (spec 006 FR-3/FR-4).
 
@@ -90,6 +91,9 @@ def _capability_tool_specs(
     ``trust`` is the effective trust mode, closed over from the capability layer and absent from
     every tool schema — the agent can neither read nor set it, and so can never grant its own
     request (spec 010 FR-2, spec 009 FR-11).
+
+    ``name_conversation`` is turn-local (spec 012 FR-4): it reaches no workspace, only appending the
+    agent's proposed title to ``naming`` for the capability layer to apply at materialization.
     """
     from . import capabilities  # lazy import to avoid an agent<->capabilities cycle
 
@@ -156,6 +160,15 @@ def _capability_tool_specs(
             return _ok(f"error: {e}")
         return _ok(report.model_dump_json(indent=2))
 
+    def best_name() -> str:
+        """The best conversation name known right now (spec 012 FR-5).
+
+        ``naming`` is seeded with the fallback and appended to by ``name_conversation``, so the last
+        entry is always the best title available — which a card that materializes the record
+        mid-turn needs, since it may write the file before the turn's first ``append_turn``.
+        """
+        return naming[-1][0] if naming else ""
+
     async def request_interaction_h(args: dict) -> dict:
         # spec 008 FR-18: the agent raises its own clarification/notification card. Approval is
         # deliberately not offered here — it stays with the plan-first path (FR-14/FR-17).
@@ -174,7 +187,8 @@ def _capability_tool_specs(
             options = parsed if isinstance(parsed, list) else [parsed]
         try:
             itx = capabilities.create_interaction(
-                workspace_selector, conversation_id, kind, args.get("prompt", ""), options
+                workspace_selector, conversation_id, kind, args.get("prompt", ""), options,
+                name_hint=best_name(),
             )
         except Exception as e:  # noqa: BLE001 — surface as tool text so the model can adjust (FR-15/FR-6)
             return _ok(f"error: {e}")
@@ -190,7 +204,8 @@ def _capability_tool_specs(
             return _ok("error: prompt is required — state exactly what you intend to do")
         try:
             itx, granted = capabilities.request_approval(
-                workspace_selector, conversation_id, prompt, args.get("detail", ""), trust=trust
+                workspace_selector, conversation_id, prompt, args.get("detail", ""), trust=trust,
+                name_hint=best_name(),
             )
         except Exception as e:  # noqa: BLE001 — surface as tool text so the model can adjust
             return _ok(f"error: {e}")
@@ -208,6 +223,18 @@ def _capability_tool_specs(
             "and do not use any mutating tool. End your turn by stating that you are waiting for "
             "their decision; the turn resumes automatically once they answer."
         )
+
+    async def name_conversation_h(args: dict) -> dict:
+        # spec 012 FR-4: the proposal is collected, not written. The store applies the last one at
+        # materialization, so this tool touches no workspace and needs no capability function.
+        title = (args.get("title") or "").strip()
+        if not title:
+            return _ok("error: title is required — a short descriptive name for this conversation")
+        raw = args.get("tags") or ""
+        tags = [t for t in (part.strip().lower() for part in raw.split(",")) if t][:4]
+        if naming is not None:
+            naming.append((title, tags))
+        return _ok(f"named: {conversation.slugify(title)}")
 
     return [
         ToolSpec("query", "Search the workspace and return an answer with citations. The primary way to browse project knowledge.", {"question": str}, query_h),
@@ -247,6 +274,16 @@ def _capability_tool_specs(
             {"prompt": str, "detail": str},
             request_approval_h,
         ),
+        ToolSpec(
+            "name_conversation",
+            "Give this conversation a short descriptive title (3-8 words) plus 1-4 comma-separated "
+            "lowercase tags. Call this ONCE, early in your first reply of a new conversation. The "
+            "title becomes the conversation's durable filename and the label the user sees in their "
+            "session list, and it CANNOT be changed later — so name the subject of the request, not "
+            "your answer. Skip it when continuing an existing conversation.",
+            {"title": str, "tags": str},
+            name_conversation_h,
+        ),
     ]
 
 
@@ -257,9 +294,12 @@ def _selected_specs(
     conversation_id: str | None = None,
     interactions: list[models.Interaction] | None = None,
     trust: bool = False,
+    naming: list[tuple[str, list[str]]] | None = None,
 ) -> list[ToolSpec]:
     """Capability tools minus the blacklist (spec 006 FR-2). Chat is already absent (D4)."""
-    specs = _capability_tool_specs(workspace_selector, citations, conversation_id, interactions, trust)
+    specs = _capability_tool_specs(
+        workspace_selector, citations, conversation_id, interactions, trust, naming
+    )
     return [s for s in specs if s.name not in blacklist]
 
 
@@ -456,6 +496,7 @@ async def run_stream(
     conversation_id: str | None = None,
     interactions: list[models.Interaction] | None = None,
     trust: bool = False,
+    naming: list[tuple[str, list[str]]] | None = None,
 ) -> AsyncIterator[tuple[str, str | None]]:
     """Stream (accumulated_reply, sdk_session_id) as the agent produces text.
 
@@ -483,7 +524,7 @@ async def run_stream(
     # (spec 006 FR-3/FR-8). Chat is never in the set (structural exclusion, D4).
     specs = _selected_specs(
         workspace_selector, citations, config.mcp_tool_blacklist(), conversation_id, interactions,
-        trust,
+        trust, naming,
     )
     server = _build_server(specs)
     opts = ClaudeAgentOptions(

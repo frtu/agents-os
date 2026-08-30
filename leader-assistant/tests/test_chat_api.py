@@ -86,12 +86,12 @@ def test_ac4_routine_answers_without_plan(client, offline_agent):
     assert r.json()["pending_plan"] is None
 
 
-def test_ac5_session_record_exists(client, offline_agent, isolated_workspace_root):
-    # AC-5 / FR-7: a sessions/ record exists after any turn.
+def test_ac5_session_record_exists(client, offline_agent, isolated_workspace_root, session_file):
+    # AC-5 / FR-7: a sessions/ record exists after any turn, found by id (spec 012 FR-1/FR-7).
     cid = client.post("/api/chat", json={"message": "hello"}).json()["conversation_id"]
-    session_file = isolated_workspace_root / "_default_" / "sessions" / f"{cid}.md"
-    assert session_file.is_file()
-    assert "## [" in session_file.read_text(encoding="utf-8")
+    path = session_file(isolated_workspace_root / "_default_", cid)
+    assert path.is_file()
+    assert "## [" in path.read_text(encoding="utf-8")
 
 
 def test_ac6_stream_and_full_converge(client, offline_agent):
@@ -182,23 +182,26 @@ def test_ac11_status_unknown_conversation_absent_and_not_running(client, isolate
     body = r.json()
     assert body["conversation_id"] == "does-not-exist"
     assert body["running"] is False and body["exists"] is False
-    # The probe is read-only: it must not have written a session file for that id.
-    assert not (isolated_workspace_root / "demo" / "sessions" / "does-not-exist.md").exists()
+    # The probe is read-only: it must leave sessions/ empty entirely, not merely avoid one
+    # filename (spec 012 FR-2).
+    assert not list((isolated_workspace_root / "demo" / "sessions").glob("*.md"))
 
 
-def test_ac11_status_after_completed_turn_not_running_but_exists(client, offline_agent, isolated_workspace_root):
+def test_ac11_status_after_completed_turn_not_running_but_exists(
+    client, offline_agent, isolated_workspace_root, session_file
+):
     # AC-11 / FR-14: once a turn finishes, the same conversation exists but is not running,
     # and the status probe neither adds a turn nor mutates the record.
     cid = client.post("/api/chat", json={"message": "hello there"}).json()["conversation_id"]
-    session_file = isolated_workspace_root / "_default_" / "sessions" / f"{cid}.md"
-    before = session_file.read_text(encoding="utf-8")
+    path = session_file(isolated_workspace_root / "_default_", cid)
+    before = path.read_text(encoding="utf-8")
 
     r = client.get("/api/chat/status", params={"conversation_id": cid})
     assert r.status_code == 200
     body = r.json()
     assert body["exists"] is True and body["running"] is False
     # Read-only: the probe did not append a turn.
-    assert session_file.read_text(encoding="utf-8") == before
+    assert path.read_text(encoding="utf-8") == before
 
 
 def test_fr14_running_registry_counts_and_clears():

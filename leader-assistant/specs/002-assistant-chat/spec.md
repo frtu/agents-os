@@ -95,7 +95,8 @@ Numbered, testable, unambiguous.
 - **FR-6:** For **routine** requests (question answering, retrieval, drafting a
   suggestion), the assistant MAY respond directly without a plan (P8 autonomy boundary).
 - **FR-7:** Every chat turn (user message and assistant reply) MUST be persisted to the
-  selected workspace's `sessions/` automatically ([[06-conversations]] AC1).
+  selected workspace's `sessions/` automatically ([[06-conversations]] AC1), in a file named per
+  [[012-conversation-naming]] FR-1 and created **lazily** on that first message (012 FR-2).
 - **FR-8:** The assistant MUST present a consistent **Product Owner** persona: its
   behavior is governed by the constitution and the numbered specs, and it speaks about the
   project as its owner (prioritizing specifications, knowledge compounding, and
@@ -118,8 +119,10 @@ Numbered, testable, unambiguous.
 - **FR-13:** Every chat MUST belong to a **durable conversation** identified by a
   conversation id: the full turn history is stored under `sessions/` and a conversation MUST
   be **resumable by id even after a service restart** (the `sessions/` record, not in-memory
-  state, is the source of truth per P1). A pending plan awaiting approval (FR-5) MUST be
-  recoverable from the conversation so the user can approve it in a later turn.
+  state, is the source of truth per P1). The record is located by **scanning `sessions/` for the
+  id**, not by assuming the filename is the id ([[012-conversation-naming]] FR-7). A pending plan
+  awaiting approval (FR-5) MUST be recoverable from the conversation so the user can approve it in
+  a later turn.
 - **FR-14 (running status):** The system MUST expose a capability that, given a conversation
   id (and optional workspace selector), reports whether that conversation currently has a
   **turn in progress on the server** — i.e. a chat request is actively being processed for
@@ -172,7 +175,8 @@ Numbered, testable, unambiguous.
   with trust mode off.*
 - [ ] **AC-4:** A routine question answers directly without forcing a plan step. (FR-6)
 - [ ] **AC-5:** After any chat turn, a corresponding record exists under the workspace's
-  `sessions/`. (FR-7, [[06-conversations]] AC1)
+  `sessions/`, named `YYYY-MM-DD-<conversation-id>-<slug>.md`. (FR-7, [[06-conversations]] AC1,
+  [[012-conversation-naming]] FR-1)
 - [ ] **AC-6:** Streaming and full-reply modes both return the same final content. (FR-4)
 - [ ] **AC-7:** For every chat ability there is an equivalent API capability, verified by
   a parity check. (FR-9, P9; mirrors [[20-testing]] parity invariant)
@@ -181,7 +185,9 @@ Numbered, testable, unambiguous.
   reported, not silently created; an explicit "create workspace X" request creates it via the
   capability. (FR-10, P13)
 - [ ] **AC-10:** A conversation resumed by id **after a service restart** continues in
-  context, and a plan left pending before the restart can still be approved. (FR-13, P1)
+  context — the record being found by an id scan of `sessions/`, not by filename
+  ([[012-conversation-naming]] FR-7) — and a plan left pending before the restart can still be
+  approved. (FR-13, P1)
 - [ ] **AC-11:** Querying a conversation's status while a turn is being processed reports
   `running=true`; once the turn finishes (normally or via error/disconnect) the same query
   reports `running=false`. An unknown conversation id reports `running=false, exists=false`,

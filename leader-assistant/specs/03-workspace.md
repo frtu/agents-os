@@ -197,6 +197,9 @@ vault/docs/
 Ephemeral operational conversation logs at the **workspace level** (a sibling of `vault/`, not
 inside it). Not part of the wiki. Feed the dreaming pipeline. See [[06-conversations]].
 
+One file per thread, named `YYYY-MM-DD-<conversation-id>-<slug>.md` and created only on the first
+user message ([[012-conversation-naming]] FR-1/FR-2).
+
 ## 5. Special Files
 
 - `vault/wiki/portal.md` — one line per page (`- [[page|Page]] — summary`, <120 chars), grouped

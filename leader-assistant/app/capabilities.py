@@ -68,6 +68,10 @@ EFFECTS: dict[str, Effect] = {
     "list_installed_skills": _READ_ONLY,
     "available_models": _READ_ONLY,
     "get_settings": _READ_ONLY,
+    # Turn-local (spec 012 FR-4 / 006 FR-5a): it names a record that does not exist yet, reaching no
+    # workspace. Declared anyway because an *undeclared* capability defaults to the `reversible` tier
+    # (agent._operation_for_capability_tool), which would put naming under the risk gate.
+    "name_conversation": Effect("auto", "names a record not yet written — nothing to undo"),
     "set_active_model": Effect("auto", "re-select the previous model"),
     "update_settings": Effect("auto", "toggle the setting back"),
     "ingest": Effect("reversible", "`git revert` the ingest commit in the workspace repo"),
@@ -820,7 +824,13 @@ def upload_and_ingest(
 
 
 def _derive_conversation_title(conv) -> str:
-    """First user line, truncated — the shared label for Sessions list + chat header (spec 004 FR-33)."""
+    """The conversation's name — the shared label for Sessions list + chat header (spec 004 FR-33).
+
+    Prefers the name the assistant gave the record (spec 012 FR-10); the first user line remains the
+    fallback for a pre-012 file that carries no name heading.
+    """
+    if conv.name:
+        return conv.name
     first_user = next((t.text for t in conv.turns if t.role == "user"), "").strip()
     return first_user.splitlines()[0][:60] if first_user else "New conversation"
 
@@ -835,7 +845,9 @@ def list_conversations(selector: str | None = None) -> models.ConversationList:
     if sessions.is_dir():
         files = sorted(sessions.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
         for p in files:
-            conv = convo.load(workspace, p.stem)
+            # Parse the file we found rather than re-resolving its id (spec 012 FR-9): the filename
+            # no longer *is* the id, and a stray .md here must be skipped, not crash the listing.
+            conv = convo.load_path(workspace, p)
             if conv is None:
                 continue
             title = _derive_conversation_title(conv)
@@ -996,7 +1008,7 @@ async def ask_stream(
     # Resolve/create up front so we have a stable id to track; pass it through to the impl
     # (as a concrete id, never None) so it loads this same record instead of creating another.
     _name, wpath = resolve_for_chat(workspace)
-    cid = conversation.load_or_create(wpath, conversation_id).conversation_id
+    cid = conversation.load_or_new(wpath, conversation_id).conversation_id
     _mark_running(cid)
     try:
         async for delta_out in _ask_stream_impl(workspace, message, cid, approve, auto_approve):
@@ -1017,8 +1029,13 @@ async def _ask_stream_impl(
 
     selector = workspace
     name, wpath = resolve_for_chat(selector)
-    conv = conversation.load_or_create(wpath, conversation_id)
+    conv = conversation.load_or_new(wpath, conversation_id)
     cid = conv.conversation_id
+    # Name the record *before* anything can write it (spec 012 FR-5). Every branch below — approval,
+    # a resolved action, a pause raised mid-stream — can be the first durable write, so the fallback
+    # has to be in place already; the agent's better title replaces it after the stream, before the
+    # turn is appended. A no-op on an existing record (FR-6).
+    conversation.set_name(conv, conversation.fallback_name(message))
 
     def delta(reply: str, *, done: bool, citations=None, pending=None, executed=False, interaction=None) -> models.ChatDelta:
         return models.ChatDelta(
@@ -1064,16 +1081,25 @@ async def _ask_stream_impl(
     system_prompt = persona.build_system_prompt()
     citations: list[models.Citation] = []
     raised: list[models.Interaction] = []  # cards the agent raises on its own (spec 008 FR-18)
+    # Seeded with the fallback, appended to by the agent's `name_conversation` (spec 012 FR-4/FR-5):
+    # the last entry is always the best name known, which is what a card raised mid-stream reads to
+    # name the record it materializes.
+    naming: list[tuple[str, list[str]]] = [(conversation.fallback_name(message), [])]
     final_reply, final_sid, agent_ok = "", conv.sdk_session_id, True
     try:
         async for reply, sid in agent.run_stream(
             system_prompt, message, selector, wpath, conv.sdk_session_id, citations,
-            conv.conversation_id, raised, _trust_mode(auto_approve),
+            conv.conversation_id, raised, _trust_mode(auto_approve), naming,
         ):
             final_reply, final_sid = reply, sid
             yield delta(reply, done=False)
     except agent.AgentUnavailable:
         agent_ok = False
+
+    # Before any write below (spec 012 FR-4/FR-6): `set_sdk_session_id` and `append_turn` both
+    # materialize, and the name is fixed by whichever lands first. Last proposal wins; a no-op if a
+    # card raised mid-stream already created the record.
+    conversation.set_name(conv, naming[-1][0], naming[-1][1])
 
     if agent_ok:
         conversation.set_sdk_session_id(conv, final_sid)
@@ -1215,6 +1241,7 @@ def create_interaction(
     options: list | None = None,
     timeout: int | None = None,
     *,
+    name_hint: str = "",
     _extra: dict | None = None,
 ) -> models.Interaction:
     """Raise a mid-task interaction request, persisting blocking ones durably (spec 008 FR-1/2/6/13/15).
@@ -1223,6 +1250,11 @@ def create_interaction(
     blocking interaction per conversation (FR-15); captures the request into the sessions record
     (FR-13). Notifications are non-blocking and not persisted (FR-3); approval/clarification are
     persisted as the durable `pending-interaction` (FR-11).
+
+    A blocking card is durable state, so raising one **materializes** the session record — possibly
+    before the turn's first ``append_turn``. ``name_hint`` is the best name the caller knows at that
+    instant, so the record that appears is named rather than anonymous (spec 012 FR-5); it is ignored
+    once the file exists (FR-6).
 
     ``_extra`` is merged into the persisted record but never into the wire model: the caller parks
     whatever it needs to honour the answer later — a `plan` to execute (FR-17), or spec 011's
@@ -1241,7 +1273,8 @@ def create_interaction(
         raise WorkspaceError(f"{kind} requires {lo}..{hi} options, got {len(opts)}")
 
     name, workspace = resolve_for_chat(selector)
-    conv = convo.load_or_create(workspace, conversation_id)
+    conv = convo.load_or_new(workspace, conversation_id)
+    convo.set_name(conv, name_hint)
 
     blocking = kind in ("approval", "clarification")
     if blocking and conv.pending_interaction:
@@ -1275,6 +1308,7 @@ def request_approval(
     detail: str = "",
     *,
     trust: bool = False,
+    name_hint: str = "",
 ) -> tuple[models.Interaction, bool]:
     """Ask for consent on the agent's behalf; the *outcome* is decided here (spec 010 FR-1/FR-2).
 
@@ -1296,11 +1330,13 @@ def request_approval(
         itx = create_interaction(
             selector, conversation_id, "approval", prompt,
             [{"id": "approve", "label": "Approve and continue", "detail": detail or prompt}],
+            name_hint=name_hint,
         )
         return itx, False
 
     _name, workspace = resolve_for_chat(selector)
-    conv = convo.load_or_create(workspace, conversation_id)
+    conv = convo.load_or_new(workspace, conversation_id)
+    convo.set_name(conv, name_hint)  # the auto-grant is appended, which materializes (spec 012 FR-5)
     itx = models.Interaction(
         interaction_id=_new_interaction_id(),
         conversation_id=conv.conversation_id,
@@ -1358,7 +1394,7 @@ async def respond_to_interaction_stream(
     from . import conversation as convo
 
     name, wpath = resolve_for_chat(selector)
-    conv = convo.load_or_create(wpath, conversation_id)
+    conv = convo.load_or_new(wpath, conversation_id)
     cid = conv.conversation_id
 
     def delta(reply, *, done, citations=None, pending=None, executed=False, interaction=None):

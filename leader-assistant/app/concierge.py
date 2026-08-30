@@ -385,6 +385,7 @@ def _ask_card(
     decision with a different one, so the pause is reported in prose and the existing card stands.
     """
     from . import capabilities
+    from . import conversation as convo
 
     gating = assessment.gating
     prompt = (
@@ -399,6 +400,7 @@ def _ask_card(
             "approval",
             prompt,
             [{"id": "approve", "label": "Approve and continue", "detail": assessment.reasoning or prompt}],
+            name_hint=convo.fallback_name(run.objective),
             _extra=_card_extra(run, assessment, plan),
         )
     except Exception:  # noqa: BLE001 — a card we cannot raise must not lose the operator's turn
@@ -423,7 +425,10 @@ def _persist_pending_plan(
         from . import capabilities
 
         _name, wpath = capabilities.resolve_for_chat(selector)
-        conv = convo.load_or_create(wpath, conversation_id)
+        conv = convo.load_or_new(wpath, conversation_id)
+        # A REST pause has no chat turn to name the record, so the objective is the best name
+        # available (spec 012 FR-5). A no-op if the chat turn already named it.
+        convo.set_name(conv, convo.fallback_name(run.objective))
         convo.set_pending_plan(conv, run.objective, plan.model_dump())
     except Exception:  # noqa: BLE001 — a record we cannot persist must not lose the operator's turn
         return
@@ -539,23 +544,31 @@ def _answer(delta: models.ChatDelta) -> models.ChatAnswer:
 
 
 def _pending_record(workspace: str | None, conversation_id: str | None) -> tuple[str, dict]:
-    """The conversation's durable pending-interaction record, or ``("", {})``."""
+    """The conversation's durable pending-interaction record, or ``("", {})``.
+
+    A pure read (spec 012 FR-2): asking "is anything pending?" about an id that never had a message
+    must not leave an empty record behind for the Sessions panel to list.
+    """
     from . import capabilities
     from . import conversation as convo
 
+    if not conversation_id:
+        return "", {}
     _name, wpath = capabilities.resolve_for_chat(workspace)
-    conv = convo.load_or_create(wpath, conversation_id)
-    return conv.conversation_id, conv.pending_interaction or {}
+    conv = convo.load(wpath, conversation_id)
+    return (conv.conversation_id, conv.pending_interaction or {}) if conv else ("", {})
 
 
 def _pending_plan_record(workspace: str | None, conversation_id: str | None) -> dict:
-    """The conversation's durable pending-plan record, or ``{}``."""
+    """The conversation's durable pending-plan record, or ``{}`` — a pure read (spec 012 FR-2)."""
     from . import capabilities
     from . import conversation as convo
 
+    if not conversation_id:
+        return {}
     _name, wpath = capabilities.resolve_for_chat(workspace)
-    conv = convo.load_or_create(wpath, conversation_id)
-    return conv.pending_plan or {}
+    conv = convo.load(wpath, conversation_id)
+    return (conv.pending_plan or {}) if conv else {}
 
 
 async def _approve_plan(

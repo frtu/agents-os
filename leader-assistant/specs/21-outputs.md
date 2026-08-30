@@ -48,6 +48,8 @@ The catalog is extensible; new types add a template (Constitution P7).
 
 Templates live outside the workspace so humans review and evolve them ([[03-workspace]] §Templates, [`templates/README`](../templates/README.md)). "Closest match" scoring is open — [[001-leader-assistant/plan-tbd|plan-tbd]] TBD-4.
 
+**`templates/template-conversation.md` has a code consumer.** Unlike the artifact templates above (chosen per request), it is rendered by `app/conversation.py` for every session record ([[012-conversation-naming]] FR-3). Editing it therefore changes app output directly: the frontmatter keys, their order, and the conversation heading. Placeholders are substituted and any line whose placeholder has no value is dropped, so a field may be added or removed without touching code — but renaming a placeholder the code does not know will silently drop that line.
+
 ## 4. Grounding, Traceability & Promotion (Constitution P5/P6)
 
 - Every artifact is written to `vault/output/` as Markdown with frontmatter.

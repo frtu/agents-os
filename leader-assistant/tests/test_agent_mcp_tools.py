@@ -24,6 +24,7 @@ EXPECTED_DEFAULT = {
     "import_skill",
     "request_interaction",  # spec 008 FR-18: agent-initiated clarification/notification
     "request_approval",  # spec 010 FR-1: the agent may *request* consent, never grant it
+    "name_conversation",  # spec 012 FR-4: turn-local, names the record before it is written
 }
 
 

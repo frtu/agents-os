@@ -120,6 +120,12 @@ Numbered, testable, unambiguous.
   [[007-knowledge-activities]] FR-12; ingest is now a workflow, not a narrow MCP tool.
 - **FR-5:** The `query` tool MUST preserve its citation-surfacing behaviour (citations returned
   by the capability are surfaced to the chat reply, as in feature 002).
+- **FR-5a:** The server MAY also register **turn-local** tools that reach no workspace and whose
+  result is consumed by the running turn rather than persisted by the tool itself. `name_conversation`
+  ([[012-conversation-naming]] FR-4) is one: it records the title/tags proposal for the conversation
+  currently being answered. Such a tool MUST still declare an effect tier in `capabilities.EFFECTS`
+  (`auto`), because the risk layer reads that table for every tool call ([[011-maker-checker-approval]]
+  FR-5) and an undeclared capability defaults to the `reversible` tier.
 
 ### Workspace sandbox
 

@@ -374,7 +374,10 @@ class ConversationSummary(BaseModel):
 
     conversation_id: str
     created: str
-    title: str = Field(..., description="Derived label (first user message, truncated)")
+    title: str = Field(
+        ...,
+        description="The conversation's name, falling back to the first user line (spec 012 FR-10)",
+    )
     turn_count: int = Field(0, description="Number of user turns")
 
 
@@ -389,7 +392,11 @@ class ConversationDetail(BaseModel):
     workspace: str
     conversation_id: str
     created: str
-    title: str = Field("", description="Derived label (first user message, truncated) — spec 004 FR-33")
+    title: str = Field(
+        "",
+        description="The conversation's name, falling back to the first user line "
+        "(spec 004 FR-33, spec 012 FR-10)",
+    )
     messages: list[ConversationMessage] = Field(default_factory=list)
 
 
