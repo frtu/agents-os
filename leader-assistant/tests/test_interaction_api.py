@@ -164,9 +164,19 @@ def test_ac5_new_task_does_not_answer_pending_interaction(client, offline_agent,
 
 
 def test_ac6_timeout_default_30s(client, isolated_workspace_root):
-    # AC-6 (FR-9): every request carries a timeout defaulting to 30s.
+    # AC-6 (FR-9): every request carries a timeout, 30s for an approval.
     first = _consequential_chat(client, "create a workspace named ac6def")
     assert first["interaction"]["timeout_seconds"] == 30
+
+
+def test_ac6_clarification_default_is_two_minutes(isolated_workspace_root):
+    # AC-6 (FR-9/D5): a clarification asks the user to read proposals and choose, so its default is
+    # 120s while the other kinds stay at 30s.
+    capabilities.create_workspace("ac6kind")
+    clarify = capabilities.create_interaction("ac6kind", None, "clarification", "which?", ["A", "B"])
+    assert clarify.timeout_seconds == 120
+    note = capabilities.create_interaction("ac6kind", clarify.conversation_id, "notification", "fyi")
+    assert note.timeout_seconds == 30
 
 
 def test_ac6_timeout_configurable(client, isolated_workspace_root, monkeypatch):
@@ -174,6 +184,16 @@ def test_ac6_timeout_configurable(client, isolated_workspace_root, monkeypatch):
     monkeypatch.setenv("LEADER_INTERACTION_TIMEOUT", "5")
     first = _consequential_chat(client, "create a workspace named ac6cfg")
     assert first["interaction"]["timeout_seconds"] == 5
+
+
+def test_ac6_configured_timeout_overrides_the_clarification_default(
+    isolated_workspace_root, monkeypatch
+):
+    # AC-6 (FR-9/D5): an explicit operator instruction outranks the per-kind default.
+    monkeypatch.setenv("LEADER_INTERACTION_TIMEOUT", "7")
+    capabilities.create_workspace("ac6ovr")
+    clarify = capabilities.create_interaction("ac6ovr", None, "clarification", "which?", ["A", "B"])
+    assert clarify.timeout_seconds == 7
 
 
 def test_ac6_expiry_aborts_with_fixed_message_no_action(client, isolated_workspace_root):

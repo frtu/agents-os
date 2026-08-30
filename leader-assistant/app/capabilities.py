@@ -1282,7 +1282,7 @@ def create_interaction(
         if prev.get("status") == "pending" and not _is_expired(prev):
             raise WorkspaceError("a blocking interaction is already pending for this conversation (FR-15)")
 
-    timeout_s = int(timeout) if timeout and int(timeout) > 0 else config.interaction_timeout_seconds()
+    timeout_s = int(timeout) if timeout and int(timeout) > 0 else config.interaction_timeout_seconds(kind)
     itx = models.Interaction(
         interaction_id=_new_interaction_id(),
         conversation_id=conv.conversation_id,
@@ -1343,7 +1343,7 @@ def request_approval(
         kind="approval",
         prompt=prompt,
         options=[],  # already decided: nothing to select (FR-5)
-        timeout_seconds=config.interaction_timeout_seconds(),
+        timeout_seconds=config.interaction_timeout_seconds("approval"),
         created=_now_iso(),
         status="resolved",
         resolution="auto-approved",
@@ -1508,7 +1508,7 @@ def _represent_interaction(conv, itx: models.Interaction) -> models.Interaction:
         kind=itx.kind,
         prompt=itx.prompt,
         options=itx.options,
-        timeout_seconds=itx.timeout_seconds or config.interaction_timeout_seconds(),
+        timeout_seconds=itx.timeout_seconds or config.interaction_timeout_seconds(itx.kind),
         created=_now_iso(),  # fresh countdown after the discussion (D8)
         status="pending",
     )

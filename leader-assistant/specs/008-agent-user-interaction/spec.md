@@ -148,8 +148,11 @@ Numbered, testable, unambiguous.
 
 ### Feedback, timing & presentation
 
-- **FR-9 (timeout, configurable, default 30s):** Every Interaction Request MUST carry a **timeout**.
-  The system default MUST be **30 seconds**, MUST be **configurable** (system-wide default with an
+- **FR-9 (timeout, configurable, per-kind defaults):** Every Interaction Request MUST carry a
+  **timeout**. The system default MUST be **30 seconds**, except a **clarification**, whose default
+  MUST be **120 seconds** — it asks the user to read several proposals and choose between them, which
+  takes longer than dismissing a notification or answering an approval already framed as a yes/no.
+  Defaults MUST be **configurable** (a system-wide override applying to every kind, plus an
   optional per-request override), and the **remaining time SHOULD be visible** (an animated wheel /
   countdown). On expiry: a **notification** auto-dismisses; a **blocking** request (approval,
   clarification) resolves to its **safe default = no proposal selected / not approved**, so gated work
@@ -294,7 +297,8 @@ Numbered, testable, unambiguous.
   interaction. (FR-7)
 - [x] **AC-5:** Typing in the **bottom chat box** while an interaction is pending starts a **new task**
   and does **not** answer the pending interaction, which remains answerable. (FR-8)
-- [x] **AC-6:** Every request carries a timeout defaulting to **30s** and configurable; on expiry a
+- [x] **AC-6:** Every request carries a timeout, defaulting to **120s** for a clarification and **30s**
+  for every other kind, and configurable; on expiry a
   notification auto-dismisses and a blocking request resolves to **no authorization** (nothing
   consequential runs) and reports **"Something goes wrong, please retry later"**; remaining time is
   visible and the countdown pauses during "chat about it". (FR-9, FR-14, D6, D8)
@@ -332,7 +336,11 @@ Numbered, testable, unambiguous.
   the pending interaction; it never resolves the interaction by itself. *(User decision.)*
 - **D4 — Bottom chat box = new task.** The global chat box always starts a new top-level turn; deep
   context for a pending decision is entered only via the card. *(User decision.)*
-- **D5 — Default timeout 30s, configurable**, with a visible animated countdown. *(User decision.)*
+- **D5 — Default timeout 30s, 120s for a clarification, configurable**, with a visible animated
+  countdown. The default was a flat 30s until it proved too short to read a set of proposals and
+  decide; the timeout is now a property of the **kind**, because how long an answer takes depends on
+  what is being asked, not on who is asking. A system-wide override still applies to every kind — an
+  explicit operator instruction outranks a per-kind guess. *(User decision.)*
 - **D6 — Timeout/decline is never authorization; timeout aborts with a fixed message.** A blocking
   interaction that times out or is declined performs no consequential action (safe default), preserving
   P8. On timeout the interaction **aborts** (no auto-select of any option) and the user is told

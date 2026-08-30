@@ -165,22 +165,29 @@ def set_auto_approve(value: bool) -> bool:
 
 DEFAULT_INTERACTION_TIMEOUT = 30
 
+# spec 008 FR-9/D5: how long an answer takes depends on what is being asked. A clarification asks the
+# user to read several proposals and choose between them; a notification only needs dismissing and an
+# approval is already framed as a yes/no.
+INTERACTION_TIMEOUT_BY_KIND = {"clarification": 120}
 
-def interaction_timeout_seconds() -> int:
+
+def interaction_timeout_seconds(kind: str | None = None) -> int:
     """Default countdown for an agent→user interaction card (spec 008 FR-9, D5).
 
-    System-wide default is **30 seconds**, overridable via ``LEADER_INTERACTION_TIMEOUT``.
-    A per-request override is applied at ``create_interaction`` time; this is the fallback.
-    A non-positive or unparseable value falls back to the 30s default.
+    **30 seconds**, or **120** for a ``clarification``. ``LEADER_INTERACTION_TIMEOUT`` overrides every
+    kind — an explicit operator instruction outranks a per-kind default. A per-request override is
+    applied at ``create_interaction`` time; this is the fallback. A non-positive or unparseable env
+    value falls back to the per-kind default.
     """
+    fallback = INTERACTION_TIMEOUT_BY_KIND.get(kind or "", DEFAULT_INTERACTION_TIMEOUT)
     raw = os.getenv("LEADER_INTERACTION_TIMEOUT")
     if raw is None:
-        return DEFAULT_INTERACTION_TIMEOUT
+        return fallback
     try:
         value = int(raw)
     except ValueError:
-        return DEFAULT_INTERACTION_TIMEOUT
-    return value if value > 0 else DEFAULT_INTERACTION_TIMEOUT
+        return fallback
+    return value if value > 0 else fallback
 
 
 # --- maker-checker approval: paths, weights, thresholds (spec 011 FR-28/FR-32) ---------
