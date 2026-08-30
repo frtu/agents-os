@@ -13,10 +13,25 @@ import os
 
 import pytest
 
+from app import capabilities
+
 
 def _make_workspace(client, name="demo"):
-    assert client.post("/api/workspaces", json={"name": name}).status_code == 200
+    assert capabilities.create_workspace(name).scaffolded
     return name
+
+
+def _approve(client, risk):
+    """Answer a 409's approval card on the existing 008 route (spec 011 FR-25)."""
+    return client.post(
+        "/api/chat/interaction",
+        json={
+            "workspace": risk.get("workspace") or None,
+            "conversation_id": risk["conversation_id"],
+            "interaction_id": risk["interaction_id"],
+            "choice": "approve",
+        },
+    ).json()
 
 
 def test_catalog_lists_library_skills(client):
@@ -31,16 +46,34 @@ def test_catalog_lists_library_skills(client):
     assert by_name["weekly-digest"]["installed"] is False
 
 
-def test_rest_import_creates_both_symlinks_and_commits(client, isolated_workspace_root):
-    # FR-5/FR-7: import creates skills/<name> AND .claude/skills/<name> links to the source,
-    # commits to git, and the skill then appears in the installed list.
+def test_rest_import_asks_before_installing(client, isolated_workspace_root):
+    # spec 011 AC-9/AC-17: installing a skill is approval-tier, so at cold start REST asks rather
+    # than installing — and nothing is on disk while the question is outstanding.
     v = _make_workspace(client)
     r = client.post("/api/skills/import", json={"workspace": v, "name": "weekly-digest"})
-    assert r.status_code == 200
-    report = r.json()
-    assert report["name"] == "weekly-digest"
-    assert report["link_path"] == "skills/weekly-digest"
-    assert report["committed"] is True
+    assert r.status_code == 409
+    risk = r.json()
+    assert risk["gating"]["name"] == "import_skill"
+    assert risk["gating"]["target"] == "weekly-digest"
+    assert "PRIVILEGE_GRANTING" in risk["gating"]["modifiers"]  # spec 011 FR-8
+    assert not (isolated_workspace_root / v / "skills" / "weekly-digest").exists()
+
+
+def test_import_report_shape(client):
+    # FR-5/FR-7: the report names the created reference-link and records the commit.
+    v = _make_workspace(client)
+    report = capabilities.import_skill(v, "weekly-digest")
+    assert report.name == "weekly-digest"
+    assert report.link_path == "skills/weekly-digest"
+    assert report.committed is True
+
+
+def test_rest_import_creates_both_symlinks_and_commits(client, isolated_workspace_root):
+    # FR-5/FR-7: an approved import creates skills/<name> AND .claude/skills/<name> links to the
+    # source, and the skill then appears in the installed list.
+    v = _make_workspace(client)
+    risk = client.post("/api/skills/import", json={"workspace": v, "name": "weekly-digest"}).json()
+    assert _approve(client, risk)["executed"] is True
 
     ws = isolated_workspace_root / v
     canonical = ws / "skills" / "weekly-digest"
@@ -58,11 +91,11 @@ def test_rest_import_creates_both_symlinks_and_commits(client, isolated_workspac
 
 
 def test_import_is_idempotent(client):
-    # FR-5: re-importing an installed skill succeeds without error or duplication.
+    # FR-5: re-importing an installed skill succeeds without error or duplication. Idempotence is a
+    # property of the capability, so it is exercised there rather than through two approval rounds.
     v = _make_workspace(client)
-    assert client.post("/api/skills/import", json={"workspace": v, "name": "triage"}).status_code == 200
-    again = client.post("/api/skills/import", json={"workspace": v, "name": "triage"})
-    assert again.status_code == 200
+    capabilities.import_skill(v, "triage")
+    capabilities.import_skill(v, "triage")
     installed = client.get("/api/skills/installed", params={"workspace": v}).json()["skills"]
     assert installed.count("triage") == 1
 

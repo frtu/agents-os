@@ -14,6 +14,8 @@ import os
 
 import pytest
 
+from app import capabilities
+
 
 def sse_events(text: str) -> list[dict]:
     """Parse an SSE body into the list of JSON payloads it carried."""
@@ -21,7 +23,7 @@ def sse_events(text: str) -> list[dict]:
 
 
 def _ingest(client, workspace, title, content, provenance="notes"):
-    client.post("/api/workspaces", json={"name": workspace})
+    capabilities.create_workspace(workspace)
     return client.post(
         "/api/ingest",
         json={"workspace": workspace, "title": title, "provenance": provenance, "content": content},
@@ -109,7 +111,7 @@ def test_ac6_stream_and_full_converge(client, offline_agent):
 
 def test_ac8_no_raw_writes_or_log_edits(client, offline_agent, isolated_workspace_root):
     # AC-8 / FR-11: a chat turn never writes raw/ nor edits log.md.
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     log_path = isolated_workspace_root / "demo" / "vault" / "wiki" / "log.md"
     log_before = log_path.read_text(encoding="utf-8")
 

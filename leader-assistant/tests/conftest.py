@@ -50,6 +50,36 @@ def skills_library(tmp_path, monkeypatch):
     return lib
 
 
+JUDGE_STUB_REASONING = "stubbed judge recommendation for tests"
+
+
+@pytest.fixture(autouse=True)
+def offline_judge(monkeypatch):
+    """Replace the risk agent's model call with one canned recommendation (spec 011 FR-15).
+
+    The checker is an LLM, so left live it makes the suite non-deterministic and
+    credential-dependent — two identical requests pause with differently-worded reasoning, and
+    ``/api/chat`` and ``/api/chat/stream`` stop converging. Pinning the recommendation to a
+    permissive ``approve`` keeps the *deterministic filter* as the thing under test: whether a turn
+    runs or asks then depends only on cold start, the ceiling, precedent and trust mode (FR-17..
+    FR-20), never on the model's mood. Permissive is the demanding choice — a stub that asked would
+    pass the gating tests for the wrong reason.
+
+    ``tests/test_judge.py`` injects its own ``ask_model``, so the real parse/fail-closed paths
+    (FR-21) are still covered there.
+    """
+    import json
+
+    from app import judge
+
+    async def _canned(*_args, **_kwargs) -> str:
+        return json.dumps(
+            {"decision": "approve", "reasoning": JUDGE_STUB_REASONING, "confidence": 0.9}
+        )
+
+    monkeypatch.setattr(judge, "sdk_ask_model", _canned)
+
+
 @pytest.fixture
 def client() -> TestClient:
     from app.api import app

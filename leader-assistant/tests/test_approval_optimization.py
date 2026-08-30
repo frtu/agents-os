@@ -12,6 +12,8 @@ import subprocess
 
 import pytest
 
+from app import capabilities
+
 
 def sse_events(text: str) -> list[dict]:
     return [json.loads(line[6:]) for line in text.splitlines() if line.startswith("data: ")]
@@ -67,7 +69,7 @@ def test_ac2_effect_tiers_are_data_declared():
 
 def test_ac2_reversible_ingest_runs_unprompted_and_is_committed(client, isolated_workspace_root):
     # AC-2 / FR-6: a reversible mutation happens immediately, is logged, and is git-committed.
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     workspace = isolated_workspace_root / "demo"
 
     r = client.post(
@@ -88,7 +90,7 @@ def test_ac2_turn_writes_are_logged_and_committed(client, isolated_workspace_roo
     # entry and a commit, which is what makes running them unprompted safe.
     from app import agent
 
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     workspace = isolated_workspace_root / "demo"
     log_path = workspace / "vault" / "wiki" / "log.md"
     commits_before = len(_git(workspace, "log", "--oneline").strip().splitlines())
@@ -136,13 +138,18 @@ def test_ac3_real_plan_and_approve_executes(client, offline_agent, isolated_work
 
 def test_ac3_approving_clears_the_pending_plan(client, offline_agent):
     # AC-3 / FR-13: the stored plan is cleared, so a second approve finds nothing pending.
+    # spec 011 FR-25 rewords the refusal — `approve=true` is now sugar for answering the card, so
+    # "nothing awaiting your approval" is the same fact stated in the card's vocabulary.
     cid = client.post("/api/chat", json={"message": "create a workspace named once"}).json()[
         "conversation_id"
     ]
-    client.post("/api/chat", json={"message": "", "conversation_id": cid, "approve": True})
+    first = client.post(
+        "/api/chat", json={"message": "", "conversation_id": cid, "approve": True}
+    ).json()
+    assert first["executed"] is True
     again = client.post("/api/chat", json={"message": "", "conversation_id": cid, "approve": True}).json()
     assert again["executed"] is False
-    assert "no pending plan" in again["reply"].lower()
+    assert "nothing awaiting your approval" in again["reply"].lower()
 
 
 # --- AC-4: no dead-ends ----------------------------------------------------
@@ -213,14 +220,74 @@ def test_ac4_stale_pending_plan_is_dropped_on_the_next_turn(client, offline_agen
 # --- AC-5 / AC-6 / AC-7: the escape hatch ---------------------------------
 
 
-def test_ac5_per_request_auto_approve_executes_without_prompt(client, offline_agent, isolated_workspace_root):
-    # AC-5 / FR-7: standing consent on a single request runs the action straight away.
+def _seed_experience(operation_name: str = "seeded", samples: int = 1) -> None:
+    """Put prior decisions in the experience store so a turn is no longer cold start (011 FR-20).
+
+    Cold start is checked before anything else in the grant filter, so without this **every** gated
+    turn asks and trust mode is unobservable. The seeded fingerprint is deliberately unrelated to the
+    operation under test, so the store is non-empty without conferring precedent on it.
+    """
+    from app import experience
+    from app.execution_gate import Operation
+
+    for i in range(samples):
+        assert experience.record(
+            run_id=f"seed-{operation_name}-{i}",
+            operation=Operation(
+                kind="capability",
+                name=operation_name,
+                target="somewhere",
+                tier="approval",
+                reversibility="git revert",
+            ),
+            decision="approve",
+            source="user",
+            score=4,
+        )
+
+
+def test_ac5_trust_mode_grants_a_gated_action_without_prompting(
+    client, offline_agent, isolated_workspace_root, monkeypatch
+):
+    # AC-5 / FR-7, as bounded by spec 011 FR-17: standing consent is what lets the judge's `approve`
+    # be honoured, so the action runs with no card. Cold start and the precedent-free ceiling are
+    # lifted here so trust mode is the only thing deciding — they get their own tests below.
+    monkeypatch.setenv("LEADER_PRECEDENT_FREE_CEILING", "5")
+    _seed_experience()
+
     body = client.post(
         "/api/chat", json={"message": "create a workspace named fast", "auto_approve": True}
     ).json()
     assert body["pending_plan"] is None
     assert body["executed"] is True
     assert (isolated_workspace_root / "fast").is_dir()
+
+
+def test_ac5_trust_mode_does_not_bypass_novel_high_risk_work(
+    client, offline_agent, isolated_workspace_root, monkeypatch
+):
+    # spec 011 FR-18 / scenario 4 (supersedes 009 FR-7's unconditional bypass): standing consent is
+    # consent, not carte blanche. An operation above the precedent-free ceiling with no matching
+    # precedent still asks, and still creates nothing.
+    _seed_experience()
+    body = client.post(
+        "/api/chat", json={"message": "create a workspace named novel", "auto_approve": True}
+    ).json()
+    assert body["pending_plan"] is not None
+    assert body["executed"] is False
+    assert not (isolated_workspace_root / "novel").exists()
+
+
+def test_ac5_cold_start_asks_even_in_trust_mode(client, offline_agent, isolated_workspace_root, monkeypatch):
+    # spec 011 FR-20 / AC-9: with nothing recorded, nothing is delegable — the scope of standing
+    # consent is what experience defines, and a fresh install has defined none.
+    monkeypatch.setenv("LEADER_PRECEDENT_FREE_CEILING", "5")
+    body = client.post(
+        "/api/chat", json={"message": "create a workspace named coldstart", "auto_approve": True}
+    ).json()
+    assert body["pending_plan"] is not None
+    assert body["executed"] is False
+    assert not (isolated_workspace_root / "coldstart").exists()
 
 
 def test_ac6_settings_are_readable_and_updatable_over_rest(client):
@@ -232,9 +299,13 @@ def test_ac6_settings_are_readable_and_updatable_over_rest(client):
     assert client.get("/api/settings").json()["auto_approve"] is True
 
 
-def test_ac6_persisted_trust_mode_survives_restart_and_applies(client, offline_agent, isolated_workspace_root):
+def test_ac6_persisted_trust_mode_survives_restart_and_applies(
+    client, offline_agent, isolated_workspace_root, monkeypatch
+):
     # AC-6 / FR-8: the setting lives in the runtime settings file, so a fresh process picks it
     # up and requests without an override are auto-approved.
+    monkeypatch.setenv("LEADER_PRECEDENT_FREE_CEILING", "5")
+    _seed_experience()
     client.post("/api/settings", json={"auto_approve": True})
 
     from fastapi.testclient import TestClient
@@ -252,9 +323,13 @@ def test_ac6_persisted_trust_mode_survives_restart_and_applies(client, offline_a
     assert (isolated_workspace_root / "trusted").is_dir()
 
 
-def test_ac7_per_request_override_wins_both_ways(client, offline_agent, isolated_workspace_root):
-    # AC-7 / FR-9: explicit false forces a prompt with trust on; explicit true bypasses with
+def test_ac7_per_request_override_wins_both_ways(
+    client, offline_agent, isolated_workspace_root, monkeypatch
+):
+    # AC-7 / FR-9: explicit false forces a prompt with trust on; explicit true grants with
     # trust off. Precedence is per-turn only.
+    monkeypatch.setenv("LEADER_PRECEDENT_FREE_CEILING", "5")
+    _seed_experience()
     client.post("/api/settings", json={"auto_approve": True})
     gated = client.post(
         "/api/chat", json={"message": "create a workspace named forced", "auto_approve": False}
@@ -270,8 +345,10 @@ def test_ac7_per_request_override_wins_both_ways(client, offline_agent, isolated
     assert (isolated_workspace_root / "waved").is_dir()
 
 
-def test_ac7_omitted_auto_approve_uses_the_persisted_default(client, offline_agent):
+def test_ac7_omitted_auto_approve_uses_the_persisted_default(client, offline_agent, monkeypatch):
     # AC-7 / FR-9: absent the per-request value, the stored setting decides.
+    monkeypatch.setenv("LEADER_PRECEDENT_FREE_CEILING", "5")
+    _seed_experience()
     off = client.post("/api/chat", json={"message": "create a workspace named prompted"}).json()
     assert off["pending_plan"] is not None
 
@@ -280,8 +357,12 @@ def test_ac7_omitted_auto_approve_uses_the_persisted_default(client, offline_age
     assert on["executed"] is True
 
 
-def test_ac5_auto_approved_action_stays_auditable(client, offline_agent, isolated_workspace_root):
+def test_ac5_auto_approved_action_stays_auditable(
+    client, offline_agent, isolated_workspace_root, monkeypatch
+):
     # AC-5 / FR-6: trust mode grants approval, it does not disable the audit trail.
+    monkeypatch.setenv("LEADER_PRECEDENT_FREE_CEILING", "5")
+    _seed_experience()
     client.post("/api/chat", json={"message": "create a workspace named audited", "auto_approve": True})
     workspace = isolated_workspace_root / "audited"
     assert (workspace / "vault" / "wiki" / "log.md").is_file()
@@ -340,7 +421,7 @@ def test_ac9_agent_cannot_raise_an_approval_card(client):
 
     from app import agent, capabilities
 
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     cid = "conv-ac9"
     raised: list = []
     specs = {s.name: s for s in agent._capability_tool_specs("demo", [], cid, raised)}

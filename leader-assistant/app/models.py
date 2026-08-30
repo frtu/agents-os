@@ -258,6 +258,59 @@ class Interaction(BaseModel):
     )
 
 
+# --- maker-checker risk contracts (feature 011-maker-checker-approval) --------
+#
+# The wire form of the layer-2 report. An approval card carries the whole accumulated list, not a
+# single opaque action, so the operator sees the blast radius before consenting (FR-11, AC-5).
+
+
+class RiskOperation(BaseModel):
+    """One scored operation on a workflow run (spec 011 FR-7)."""
+
+    op_id: str
+    kind: str = Field(..., description="'capability' | 'tool'")
+    name: str = Field(..., description="Capability name or tool name")
+    target: str = Field("", description="Resolved target: path, workspace, skill, or command")
+    tier: str = Field("auto", description="Declared effect tier: auto | reversible | approval")
+    reversibility: str = Field("", description="How the effect can be undone")
+    external: bool = Field(False, description="True when the effect leaves this machine")
+    score: int = Field(1, ge=1, le=5, description="Risk score 1–5 = tier base + modifiers (FR-8)")
+    modifiers: list[str] = Field(default_factory=list, description="Data-declared modifiers that fired (FR-8)")
+    justification: str = Field("", description="One line: concrete effect + undo path (FR-10)")
+    status: str = Field("pending", description="pending | executed | declined | not-reached")
+
+
+class RiskAssessment(BaseModel):
+    """Why a turn paused, and everything the operator needs to judge it (spec 011 FR-11/FR-14).
+
+    `accumulated` is the gating operation **plus** every operation already executed in the run —
+    the point being that approving is never a decision about one action in isolation.
+    """
+
+    run_id: str
+    objective: str = Field("", description="The user request this run is executing")
+    workspace: str = Field("", description="Workspace the run targets; empty = the default")
+    gating: RiskOperation | None = Field(None, description="The operation that reached the threshold (FR-12)")
+    accumulated: list[RiskOperation] = Field(default_factory=list, description="Blast radius (FR-11)")
+    decision: str = Field("ask", description="approve | decline | ask (FR-15)")
+    reasoning: str = Field("", description="The checker's reasoning, recorded verbatim (FR-16)")
+    source: str = Field(
+        "default",
+        description="Which party decided: judge | trust | precedent | filter | default | user (P8 v2.0.0)",
+    )
+    matched_precedent: str | None = Field(None, description="Precedent id that unlocked a skip (FR-17)")
+    # Spec 011 FR-25 adds no new asking surface: an ask reaches the operator as the existing 008
+    # approval card, answered on the existing POST /api/chat/interaction. These two ids are what
+    # make that route reachable from a 409 — without them a machine caller would have a refusal and
+    # no way to answer it.
+    interaction_id: str | None = Field(
+        None, description="The 008 approval card raised for this ask, if one could be raised (FR-25)"
+    )
+    conversation_id: str | None = Field(
+        None, description="Conversation the card belongs to; answer it on /api/chat/interaction"
+    )
+
+
 class InteractionResponse(BaseModel):
     """The user's (or machine caller's) answer to a pending interaction (spec 008 FR-12/FR-16)."""
 

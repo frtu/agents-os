@@ -1,0 +1,323 @@
+"""Cross-layer tests for maker-checker approval (spec 011).
+
+The per-layer suites already cover each layer in isolation:
+``test_workflow_reporting.py`` (layer 2), ``test_judge.py`` (layer 3),
+``test_experience.py`` (the store). What none of them can show is the properties that only exist
+*between* layers — that the layers stay unaware of each other (AC-2), that the agent's **native**
+tools land on the same gate as its capability tools (AC-3), that REST and chat converge because
+they share one entry point (AC-17), and that the raw guard sits in front of all of it (AC-20).
+"""
+
+from __future__ import annotations
+
+import ast
+import asyncio
+from pathlib import Path
+
+import pytest
+
+APP = Path(__file__).resolve().parent.parent / "app"
+
+
+# --- AC-2: the layers do not import each other (FR-34) -------------------------
+
+
+def _imported_app_modules(path: Path) -> set[str]:
+    """Every sibling `app.*` module a file imports, including function-local imports.
+
+    Local imports matter more than top-level ones here: the layers break their cycles with
+    deferred imports, so a scan that only walked module-level `import` statements would report a
+    clean boundary that the code does not actually keep.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.level:  # `from . import x` / `from .x import y`
+                if node.module:
+                    found.add(node.module.split(".")[0])
+                found.update(a.name for a in node.names)
+            elif node.module and node.module.startswith("app."):
+                found.add(node.module.split(".")[1])
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.startswith("app."):
+                    found.add(alias.name.split(".")[1])
+    return found
+
+
+@pytest.mark.parametrize("module", ["capabilities.py", "agent.py", "execution_gate.py"])
+def test_ac2_layer_1_does_not_import_layers_2_or_3(module):
+    # AC-2 (FR-34): layer 1 announces to a protocol, so it must not know who implements it. If it
+    # imported workflow or judge it could reach past the gate — read a score, inspect a verdict —
+    # and the "independently evolvable, layer 1 runs correctly alone" property (AC-1) would be a
+    # claim rather than a fact.
+    imported = _imported_app_modules(APP / module)
+    assert "workflow" not in imported, f"{module} imports layer 2"
+    assert "judge" not in imported, f"{module} imports layer 3"
+
+
+def test_ac2_layer_2_does_not_import_layer_3():
+    # AC-2 (FR-34): layer 2 scores and reports; whether a verdict comes from an LLM, a stub or
+    # nothing at all is the caller's choice, injected as a `Checker`.
+    imported = _imported_app_modules(APP / "workflow.py")
+    assert "judge" not in imported
+    assert "capabilities" not in imported, "layer 2 must not reach back into layer 1 either"
+
+
+def test_ac2_the_gate_contract_depends_on_no_layer():
+    # `execution_gate` is the shared vocabulary all three layers speak. It stays a leaf.
+    imported = _imported_app_modules(APP / "execution_gate.py")
+    assert imported <= {"config"}, f"the contract module grew dependencies: {imported}"
+
+
+# --- AC-3: a native tool write is announced, scored and recorded (FR-4/6/7) ----
+
+
+def _hook_verdict(workspace_path: Path, tool_name: str, tool_input: dict) -> dict:
+    """Drive the PreToolUse hook the way the SDK does — the only enforcement point (spec 011 D2)."""
+    from app import agent
+
+    hook = agent._pretooluse_hook(workspace_path)
+    return asyncio.run(hook({"tool_name": tool_name, "tool_input": tool_input}, "tool-1", None))
+
+
+def test_ac3_native_write_to_wiki_is_announced_and_scored(isolated_workspace_root):
+    # AC-3 (FR-4/FR-6/FR-7): the gate used to be derived from the words in the user's message, so a
+    # native `Write` was invisible to it. Now the PreToolUse hook announces it, layer 2 scores it
+    # from its declared tier, and it lands on the run's report — which is what makes the report a
+    # record of the *whole* execution rather than of the capability calls only.
+    from app import capabilities, concierge, execution_gate
+
+    _name, wpath = capabilities.resolve_for_chat(None)
+    run = concierge.build_run("write a wiki note", "_default_")
+    target = wpath / "vault" / "wiki" / "note.md"
+
+    with execution_gate.use_gate(run):
+        verdict = _hook_verdict(wpath, "Write", {"file_path": str(target)})
+
+    assert verdict == {}, "a reversible write inside the workspace should not be denied"
+    assert len(run.operations) == 1
+    scored = run.operations[0]
+    assert scored.operation.kind == "tool"
+    assert scored.operation.name == "Write"
+    assert scored.operation.target == str(target)
+    assert 1 <= scored.score <= 5
+    assert scored.status == "executed"
+    # Reconstructable after the fact (FR-14): the record carries the modifiers that produced it.
+    assert "modifiers" in scored.as_dict()
+
+
+def test_ac3_a_write_outside_the_workspace_is_escalated(isolated_workspace_root, tmp_path):
+    # AC-3 + FR-8: the same tool, scored differently because the *effect* differs. The workspace git
+    # repo is what makes a write reversible, and it does not reach outside its own root, so an
+    # outside write is approval-tier and gates where an inside one runs.
+    from app import capabilities, concierge, execution_gate
+
+    _name, wpath = capabilities.resolve_for_chat(None)
+    run = concierge.build_run("write somewhere else", "_default_")
+    outside = tmp_path / "elsewhere.md"
+
+    with execution_gate.use_gate(run):
+        inside_verdict = _hook_verdict(
+            wpath, "Write", {"file_path": str(wpath / "vault" / "wiki" / "ok.md")}
+        )
+        outside_verdict = _hook_verdict(wpath, "Write", {"file_path": str(outside)})
+
+    assert inside_verdict == {}
+    assert outside_verdict.get("hookSpecificOutput", {}).get("permissionDecision") == "deny"
+    assert run.awaiting is True
+    scores = {op.operation.target: op.score for op in run.operations}
+    assert scores[str(outside)] > scores[str(wpath / "vault" / "wiki" / "ok.md")]
+
+
+# --- AC-20: vault/raw/ is refused irrespective of score, verdict or trust ------
+
+
+@pytest.mark.parametrize("trust", [True, False])
+def test_ac20_raw_is_refused_under_any_gate_and_any_trust_mode(isolated_workspace_root, trust):
+    # AC-20 (P2): the raw guard is checked *before* layer 2 is consulted, so there is no score to
+    # fall under a threshold, no verdict to approve it and no trust mode to wave it through. Running
+    # this under an allow-everything gate is the point: even a gate that permits all cannot permit
+    # this one.
+    from app import capabilities, execution_gate
+
+    _name, wpath = capabilities.resolve_for_chat(None)
+    raw_target = wpath / "vault" / "raw" / "source.md"
+
+    with execution_gate.use_gate(execution_gate.AllowAllGate()):
+        verdict = _hook_verdict(wpath, "Write", {"file_path": str(raw_target)})
+
+    decision = verdict.get("hookSpecificOutput", {}).get("permissionDecision")
+    assert decision == "deny", f"trust={trust}: vault/raw/ must stay refused"
+    assert not raw_target.exists()
+
+
+def test_ac20_raw_denial_never_reaches_layer_2(isolated_workspace_root):
+    # AC-20: an absolute rule that consulted the risk layers would be negotiable in principle, and
+    # would also pollute the run's report with an operation that was never a candidate. Nothing is
+    # announced, so nothing is scored.
+    from app import capabilities, concierge, execution_gate
+
+    _name, wpath = capabilities.resolve_for_chat(None)
+    run = concierge.build_run("overwrite a raw source", "_default_", trust=True)
+
+    with execution_gate.use_gate(run):
+        verdict = _hook_verdict(
+            wpath, "Write", {"file_path": str(wpath / "vault" / "raw" / "x.md")}
+        )
+
+    assert verdict.get("hookSpecificOutput", {}).get("permissionDecision") == "deny"
+    assert run.operations == ()
+    assert run.state == "running"
+
+
+# --- AC-17: REST and chat reach execution only via the concierge (FR-23) ------
+
+
+def test_ac17_every_api_route_reaches_capabilities_through_the_concierge():
+    """AC-17 (FR-23): parity is structural, not a promise.
+
+    A route that awaited a capability itself would execute with no gate installed — the exact hole
+    the concierge closes. So the check is on the *callee* of every ``await`` in a route body: it must
+    be a ``concierge.*`` function. Capabilities may still appear as arguments (they are passed in as
+    the thunk the concierge runs behind the gate), which is why matching on the callee rather than on
+    the text of the expression is what makes this test mean anything.
+    """
+    tree = ast.parse((APP / "api.py").read_text(encoding="utf-8"), filename="api.py")
+    routes, offenders = 0, []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        decorators = ast.unparse(ast.Module(body=list(node.decorator_list), type_ignores=[]))
+        if "app.get" not in decorators and "app.post" not in decorators:
+            continue
+        routes += 1
+        for inner in ast.walk(node):
+            callee = ""
+            if isinstance(inner, ast.Await) and isinstance(inner.value, ast.Call):
+                callee = ast.unparse(inner.value.func)
+            elif isinstance(inner, ast.AsyncFor) and isinstance(inner.iter, ast.Call):
+                callee = ast.unparse(inner.iter.func)
+            if callee.startswith("capabilities."):
+                offenders.append(f"{node.name} -> {callee}")
+    assert routes > 10, f"the route scan found only {routes} routes; the detector is broken"
+    assert not offenders, f"routes bypassing the concierge: {offenders}"
+
+
+def test_ac17_rest_and_chat_reach_the_same_verdict_for_the_same_request(
+    client, isolated_workspace_root
+):
+    # AC-17 (FR-23, P9): the same consequential request, asked two ways. One entry point means one
+    # verdict — REST pauses with 409 + the assessment, chat pauses with the 008 card, and neither
+    # creates anything. If the surfaces had their own gating these would drift.
+    rest = client.post("/api/workspaces", json={"name": "parity-rest"})
+    assert rest.status_code == 409
+    assessment = rest.json()
+    assert assessment["decision"] == "ask"
+    assert assessment["gating"]["name"] == "create_workspace"
+    assert not (isolated_workspace_root / "parity-rest").exists()
+
+    chat = client.post("/api/chat", json={"message": "create a workspace named parity-chat"}).json()
+    assert chat["executed"] is False
+    assert chat["interaction"]["kind"] == "approval"
+    assert not (isolated_workspace_root / "parity-chat").exists()
+
+
+def test_ac17_a_rest_pause_is_answerable_on_the_chat_interaction_route(
+    client, isolated_workspace_root
+):
+    # AC-17 + FR-25: identical treatment means a REST pause is answered on the *same* route a chat
+    # pause is — the 409 carries the card's address precisely so a machine caller has somewhere to
+    # answer, instead of a refusal it can only retry.
+    assessment = client.post("/api/workspaces", json={"name": "answerable"}).json()
+    assert assessment["interaction_id"] and assessment["conversation_id"]
+
+    answered = client.post("/api/chat/interaction", json={
+        "workspace": assessment["workspace"] or None,
+        "conversation_id": assessment["conversation_id"],
+        "interaction_id": assessment["interaction_id"],
+        "choice": "approve",
+    })
+    assert answered.status_code == 200
+    assert answered.json()["executed"] is True
+    assert (isolated_workspace_root / "answerable" / "vault" / "wiki").is_dir()
+
+
+def test_ac17_a_read_runs_identically_on_both_surfaces(
+    client, offline_agent, isolated_workspace_root
+):
+    # AC-17: parity has to hold for the *un*gated case too, or the concierge would be a gate that
+    # only happens to sit in front of REST. An `auto`-tier read runs immediately on both surfaces —
+    # 200 with no assessment, and a chat turn with no card — because the same effect declaration
+    # scores below the threshold whichever door it came through.
+    rest = client.get("/api/workspaces")
+    assert rest.status_code == 200  # not 409: a listing is never an ask
+    assert isinstance(rest.json()["workspaces"], list)
+
+    chat = client.post("/api/chat", json={"message": "which workspaces exist?"}).json()
+    assert chat["pending_plan"] is None
+    assert chat.get("interaction") is None
+
+
+# --- FR-26: a pause is answerable even after its card is gone -----------------
+
+
+def test_fr26_approve_true_executes_the_plan_when_the_card_is_gone(
+    client, isolated_workspace_root
+):
+    """FR-26: the card is the question; the durable plan is the answerable work behind it.
+
+    A card can be resolved, superseded or expire, and none of those should strand work the operator
+    already saw and still wants. Dropping the card and resending the turn with ``approve=true`` must
+    therefore still execute — through a run pre-granted for *that plan's* operation only, which is
+    why this also proves the fallback builds a well-formed announcement (it reads the tier from
+    ``EFFECTS``, not from the stored plan).
+    """
+    from app import capabilities
+    from app import conversation as convo
+
+    first = client.post("/api/chat", json={"message": "create a workspace named fr26"}).json()
+    cid = first["conversation_id"]
+    assert first["executed"] is False
+    assert first["pending_plan"] is not None
+
+    _name, wpath = capabilities.resolve_for_chat(None)
+    conv = convo.load_or_create(wpath, cid)
+    convo.clear_pending_interaction(conv)  # the card is gone; the plan is not
+
+    again = client.post(
+        "/api/chat", json={"message": "approve", "conversation_id": cid, "approve": True}
+    ).json()
+    assert again["executed"] is True
+    assert (isolated_workspace_root / "fr26" / "vault" / "wiki").is_dir()
+
+
+def test_ac17_a_pause_in_a_non_default_workspace_reports_where_its_card_lives(
+    client, isolated_workspace_root
+):
+    """AC-17 + FR-25: the 409 must be an *address*, not just two ids.
+
+    Cards live in a specific workspace's sessions, and the workspace a card lives in is not always
+    the one the operation targets. A caller that answered `interaction_id` + `conversation_id`
+    against the default workspace would silently miss a card raised in another one — the pause would
+    look answered and nothing would run. So the assessment names the workspace too.
+    """
+    from app import capabilities
+
+    capabilities.create_workspace("elsewhere")
+    paused = client.post(
+        "/api/skills/import", json={"workspace": "elsewhere", "name": "weekly-digest"}
+    )
+    assert paused.status_code == 409
+    assessment = paused.json()
+    assert assessment["workspace"] == "elsewhere"
+
+    answered = client.post("/api/chat/interaction", json={
+        "workspace": assessment["workspace"],
+        "conversation_id": assessment["conversation_id"],
+        "interaction_id": assessment["interaction_id"],
+        "choice": "approve",
+    }).json()
+    assert answered["executed"] is True
+    assert (isolated_workspace_root / "elsewhere" / "skills" / "weekly-digest").exists()

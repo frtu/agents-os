@@ -1,7 +1,8 @@
 # Feature Specification: Maker–Checker Approval (three independent layers: execute, report, judge)
 
 **Feature ID:** `011-maker-checker-approval`
-**Status:** Draft — governance amendments applied, implementation not started
+**Status:** Implemented — governance amendments applied; three layers, concierge and experience store
+landed, AC-1…AC-20 covered by tests (see *Deviations recorded during implementation*)
 **Created:** 2026-08-29 · **Last Updated:** 2026-08-29
 
 > Describes **what** and **why**. Replaces the single-function approval gate with a **maker–checker**
@@ -15,7 +16,8 @@
 > [[14-chat]], [[18-security]], and features [[008-agent-user-interaction]],
 > [[009-approval-optimization]], [[010-agent-approval-channel]].
 > Amends Constitution **P8** (MAJOR — bounded delegation to a non-human checker), **P12**
-> (rules-as-data extended to scoring modifiers), and supersedes 009 **FR-3** and 010 **FR-2**.
+> (rules-as-data extended to scoring modifiers), and supersedes 009 **FR-3**, 009 **FR-7** and
+> 010 **FR-2**.
 
 ## Problem (why this feature exists)
 
@@ -318,6 +320,15 @@ only the effect table.
 - **[[009-approval-optimization]] FR-3** — gating on a resolved action from the message is
   **superseded** by 011 FR-2/FR-6: gating moves to announced operations. 009's effect table (FR-1)
   and reversibility rule (FR-6) survive unchanged.
+- **[[009-approval-optimization]] FR-7** — trust mode as an *unconditional* bypass of every
+  approval-tier action is **superseded** by 011 FR-17/FR-18/FR-20. Trust mode remains the operator's
+  standing consent and remains the only thing that can grant one (009 FR-11 and 010's operator-only
+  rule stand), but it is now consent **bounded by** the precedent-free ceiling and by cold start: it
+  authorises a judge `approve` rather than skipping the judge. Consequence worth stating plainly —
+  on a fresh install, and for any novel operation scoring above the ceiling, trust mode does **not**
+  stop the ask. That is scenario 4, not a regression. 009 FR-8 (persistence) and FR-9 (per-request
+  override precedence) survive unchanged: the hint still reaches the judge from the same two places
+  with the same precedence.
 - **[[010-agent-approval-channel]] FR-2** — "the capability layer decides" is **superseded** by the
   judge plus the FR-17 filter. 010's *ask structurally* half stands; its *grant deterministically*
   half is preserved by FR-17 rather than abandoned.
@@ -335,44 +346,44 @@ only the effect table.
 
 ## Acceptance Criteria
 
-- [ ] **AC-1:** Layer 1 executes correctly with layers 2 and 3 absent, using the default allow-all
+- [x] **AC-1:** Layer 1 executes correctly with layers 2 and 3 absent, using the default allow-all
   permit and default ask-checker. (FR-3, FR-13, FR-35)
-- [ ] **AC-2:** No layer imports another's internals; a static check confirms layer 1 does not import
+- [x] **AC-2:** No layer imports another's internals; a static check confirms layer 1 does not import
   layers 2 or 3, and layer 2 does not import layer 3. (FR-34)
-- [ ] **AC-3:** A `Write` to `vault/wiki/` by the agent's native tool is announced, scored and
+- [x] **AC-3:** A `Write` to `vault/wiki/` by the agent's native tool is announced, scored and
   recorded on the run — proving the gate is no longer message-derived. (FR-4, FR-6, FR-7)
-- [ ] **AC-4:** An operation reaching the threshold **pauses** execution; nothing after it runs until
+- [x] **AC-4:** An operation reaching the threshold **pauses** execution; nothing after it runs until
   a verdict arrives, and denial is enforced by the hook rather than by prose. (FR-4, FR-12)
-- [ ] **AC-5:** The card presented to the operator lists the gating operation **and** the already-
+- [x] **AC-5:** The card presented to the operator lists the gating operation **and** the already-
   executed operations, each with a 1–5 score and a one-line justification. (FR-10, FR-11, FR-25)
-- [ ] **AC-6:** Scores derive from tier + data-declared modifiers, clamped 1–5; adding a modifier
+- [x] **AC-6:** Scores derive from tier + data-declared modifiers, clamped 1–5; adding a modifier
   requires no change to the effect table, and adding a capability requires no change to modifiers.
   (FR-8, FR-36)
-- [ ] **AC-7:** No modifier references trust mode, precedent or request wording. (FR-9)
-- [ ] **AC-8:** A judge `approve` with neither standing consent nor matching precedent is downgraded
+- [x] **AC-7:** No modifier references trust mode, precedent or request wording. (FR-9)
+- [x] **AC-8:** A judge `approve` with neither standing consent nor matching precedent is downgraded
   to `ask` by deterministic code. (FR-17)
-- [ ] **AC-9:** With an empty experience store every gated operation asks, regardless of judge
+- [x] **AC-9:** With an empty experience store every gated operation asks, regardless of judge
   output. (FR-20)
-- [ ] **AC-10:** An unavailable or malformed judge response resolves to `ask`. (FR-21)
-- [ ] **AC-11:** The judge cannot execute: it has no capability or tool access, and writes only the
+- [x] **AC-10:** An unavailable or malformed judge response resolves to `ask`. (FR-21)
+- [x] **AC-11:** The judge cannot execute: it has no capability or tool access, and writes only the
   experience store. (FR-22)
-- [ ] **AC-12:** After a repeated approval reaches the minimum sample count, the same shape completes
+- [x] **AC-12:** After a repeated approval reaches the minimum sample count, the same shape completes
   without a card, and the reply says it was auto-approved on precedent. (FR-17, FR-29)
-- [ ] **AC-13:** A judge `decline` is only possible on recorded operator-decline precedent; otherwise
+- [x] **AC-13:** A judge `decline` is only possible on recorded operator-decline precedent; otherwise
   it asks. (FR-19)
-- [ ] **AC-14:** An operator decline stops the operation, ends the run, and is not re-asked in that
+- [x] **AC-14:** An operator decline stops the operation, ends the run, and is not re-asked in that
   run. (FR-27)
-- [ ] **AC-15:** Approval resumes execution synchronously and the paused operation completes in the
+- [x] **AC-15:** Approval resumes execution synchronously and the paused operation completes in the
   same turn. (FR-26)
-- [ ] **AC-16:** Every decision appends exactly one experience record with its `source`, written
+- [x] **AC-16:** Every decision appends exactly one experience record with its `source`, written
   asynchronously; a failure to write does not fail the response. (FR-30)
-- [ ] **AC-17:** Both REST and chat reach execution only via the concierge, and behave identically
+- [x] **AC-17:** Both REST and chat reach execution only via the concierge, and behave identically
   for the same request (P9 parity). (FR-23)
-- [ ] **AC-18:** Weights are read fresh from the JSON file; the analysis routine suggests changes and
+- [x] **AC-18:** Weights are read fresh from the JSON file; the analysis routine suggests changes and
   never writes them back. (FR-32)
-- [ ] **AC-19:** The run record is reconstructable after the fact: each operation, its modifiers, the
+- [x] **AC-19:** The run record is reconstructable after the fact: each operation, its modifiers, the
   verdict, the judge's reasoning, who decided, and the commit. (FR-14, FR-16)
-- [ ] **AC-20:** `vault/raw/` remains refused irrespective of score, verdict or trust mode. (P2)
+- [x] **AC-20:** `vault/raw/` remains refused irrespective of score, verdict or trust mode. (P2)
 
 ## Implementation note (follow-up, not this document)
 
@@ -383,13 +394,42 @@ risk agent, the FR-17 deterministic filter), `app/experience.py` (JSONL store, f
 precedent lookup, the suggest-only analysis), `app/concierge.py` (the single entry point).
 
 Changes to existing files: `app/agent.py` — wire the PreToolUse hook to the gate (D2) and demote
-`request_approval` to an early-ask; `app/capabilities.py` — remove `_resolve_action` /
-`_ACTION_RESOLVERS` message matching and the inline gate from `ask_stream`, announce operations
-instead; `app/api.py` and `app/ui.py` — route through the concierge; `app/models.py` — the
-`Operation` / `RiskReport` / `Verdict` / `Permit` contracts; `app/config.py` — experience and weights
-paths, thresholds, precedent-free ceiling, minimum sample count.
+`request_approval` to an early-ask; `app/capabilities.py` — remove the inline gate from `ask_stream`
+and announce operations instead; `app/api.py` and `app/ui.py` — route through the concierge;
+`app/models.py` — the `Operation` / `RiskReport` / `Verdict` / `Permit` contracts; `app/config.py` —
+experience and weights paths, thresholds, precedent-free ceiling, minimum sample count.
 
 `memory/constitution.md` is at **2.0.0** and the specs listed above carry their amendments, so the
 governance gate is cleared and code may now land. Land tests mapping to AC-1…AC-20 in the same change, and keep the existing
 `tests/test_approval_optimization.py` and `tests/test_agent_approval_channel.py` green except where
-009 FR-3 and 010 FR-2 are deliberately superseded — those assertions must be rewritten, not deleted.
+009 FR-3, 009 FR-7 and 010 FR-2 are deliberately superseded — those assertions must be rewritten,
+not deleted.
+
+### Deviations recorded during implementation
+
+- **`_resolve_action` / `_ACTION_RESOLVERS` are kept**, contrary to the note above. They are demoted
+  from *gatekeeper* to *dispatcher*: they answer "which capability does this message invoke", and the
+  announced operation they produce is what faces the gate. FR-2 is satisfied because the **decision**
+  moved behind `execution_gate.announce()`, not because the dispatch table was deleted. Removing it
+  would leave chat with no route to `create_workspace` (deliberately absent from the agent's MCP
+  tools) and no gating at all on the offline path.
+- **A capability pause is recorded twice**: as the 008 card (FR-25) *and* as the durable
+  `pending_plan` 009 already used. `approve=true` and a card click therefore both resolve the same
+  paused operation (`concierge._approve_plan` pre-grants exactly the plan's operation key), and either
+  survives a restart.
+- **`RiskAssessment` gained `workspace` / `interaction_id` / `conversation_id`.** FR-25 forbids a new
+  asking surface, which left a REST `409` unanswerable — a refusal with no address. These three fields
+  are that address: they name the card raised for the ask and the existing
+  `POST /api/chat/interaction` route that answers it. No new route, no new surface. All three are
+  needed: cards live in one workspace's `sessions/`, and that is not always the workspace the
+  operation targets (a card about *creating* a workspace is hung on the default), so the id pair
+  alone resolves to the wrong conversation for any pause outside the default workspace.
+- **The judge is stubbed in the test suite**, not disabled (`tests/conftest.py::offline_judge` returns
+  a fixed `approve`). Determinism has to come from somewhere, and pinning the *recommendation* leaves
+  the FR-17…FR-20 filter as the thing under test; the parse and fail-closed paths keep their unit
+  coverage in `tests/test_judge.py`.
+- **AC-2's static check inspects the callee, not the source text.** A route legitimately *mentions* a
+  capability — it passes one in as the thunk the concierge runs behind the gate — so a text match
+  flags every route. `tests/test_maker_checker_integration.py` unparses the callee of each `await` /
+  `async for` instead, and the import scan walks function-local imports too, since that is where the
+  layers break their cycles.

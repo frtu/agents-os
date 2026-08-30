@@ -4,10 +4,12 @@ Both the REST surface (api.py) and any future chat surface call these
 functions; neither talks to the filesystem directly.
 
 Gating is **effect-based** (spec 009): each capability declares its effect tier as data in
-``EFFECTS``, and a turn is interrupted for approval only when an **executable**
-``approval``-tier capability is about to run and the operator has not granted standing consent
-(``auto_approve``). Requests that map to no executable action are answered, never planned
-(spec 009 FR-4) — so the layer never asks for an approval it cannot honor.
+``EFFECTS``. This module is **layer 1** of the maker–checker architecture (spec 011): it performs
+work and *announces* each operation it is about to attempt through ``execution_gate``, then honours
+the permit it gets back. It does not score, does not consult trust mode, and does not decide — those
+are layers 2 and 3, reached only through the FR-3 contract, and this module imports neither
+(spec 011 FR-34). With no run installed the default gate allows everything, so every capability here
+remains runnable and testable on its own (FR-35).
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import AsyncIterator, Callable
 
-from . import config, models, vault
+from . import config, execution_gate, models, vault
 from .agent import AgentUnavailable
 from .vault import WorkspaceError
 
@@ -59,6 +61,9 @@ EFFECTS: dict[str, Effect] = {
     "list_conversations": _READ_ONLY,
     "get_conversation": _READ_ONLY,
     "conversation_status": _READ_ONLY,
+    # Reads the outstanding card. It may auto-resolve an elapsed one to its safe default (008 FR-9),
+    # which resolves *towards* refusal — nothing an operator needs to authorise.
+    "get_pending_interaction": _READ_ONLY,
     "list_available_skills": _READ_ONLY,
     "list_installed_skills": _READ_ONLY,
     "available_models": _READ_ONLY,
@@ -105,16 +110,17 @@ def _create_workspace_name(text: str) -> str | None:
 
 @dataclass(frozen=True)
 class ResolvedAction:
-    """The executable capability a chat message resolves to (spec 009 FR-3)."""
+    """The capability a chat message dispatches to (spec 009 FR-3, narrowed by spec 011 FR-2)."""
 
     capability: str
     target: str
 
 
-# The catalog of actions a chat turn can actually perform, declared as data alongside the effect
-# table. A message that matches none of them has NO executable effect: it is answered, never
-# planned or gated (spec 009 FR-4) — which is what keeps "create a summary" from asking to be
-# approved and stops the build from prompting for actions it cannot honor.
+# A **dispatcher**, not a gate (spec 011 FR-2). It answers "which capability does this message
+# invoke, with what target" — the same question a REST route answers by existing. It no longer
+# answers "may that run": that verdict now comes from announcing the resolved operation to the
+# execution gate, where layer 2 scores it and layer 3 judges it alongside everything else the
+# request has already done. A message matching nothing dispatches nothing and is simply answered.
 _ACTION_RESOLVERS: tuple[tuple[str, Callable[[str], str | None]], ...] = (
     ("create_workspace", _create_workspace_name),
     ("import_skill", _import_skill_name),
@@ -122,12 +128,29 @@ _ACTION_RESOLVERS: tuple[tuple[str, Callable[[str], str | None]], ...] = (
 
 
 def _resolve_action(request: str) -> ResolvedAction | None:
-    """Resolve a request to the executable capability it would run, or None (spec 009 FR-3/FR-4)."""
+    """Dispatch a request to the capability it invokes, or None (spec 009 FR-3, 011 FR-2)."""
     for capability, extract in _ACTION_RESOLVERS:
         target = extract(request)
         if target and EFFECTS[capability].executable:
             return ResolvedAction(capability=capability, target=target)
     return None
+
+
+def _operation_for(action: ResolvedAction, detail: str = "") -> execution_gate.Operation:
+    """The layer-1 announcement for a dispatched capability (spec 011 FR-5).
+
+    Built from ``EFFECTS`` — the same declaration the agent's tool path and the REST path read — so
+    one capability carries one declared effect no matter which door it came through (P9).
+    """
+    effect = EFFECTS[action.capability]
+    return execution_gate.Operation(
+        kind="capability",
+        name=action.capability,
+        target=action.target,
+        tier=effect.tier,
+        reversibility=effect.reversibility,
+        detail=detail,
+    )
 
 
 def _run_action(selector: str | None, action: ResolvedAction) -> str:
@@ -138,6 +161,22 @@ def _run_action(selector: str | None, action: ResolvedAction) -> str:
     if action.capability == "import_skill":
         return import_skill(selector, action.target).message
     raise WorkspaceError(f"no executor for capability {action.capability!r}")  # unreachable (FR-4)
+
+
+async def _announce_and_run(
+    selector: str | None, action: ResolvedAction, detail: str = ""
+) -> tuple[str, bool]:
+    """Announce a dispatched capability, then run it iff permitted (spec 011 FR-3/FR-4).
+
+    The single place layer 1 turns an intent into an effect, so *every* route to that effect — a
+    first attempt and the resumption of an approved one — passes the same declared operation through
+    the same gate. Announcing on resume is what lets the operator's grant be honoured as a grant of
+    one specific operation rather than as an unguarded second path to it.
+    """
+    permit = await execution_gate.announce(_operation_for(action, detail=detail))
+    if not permit.allow:
+        return permit.reason or "not permitted", False
+    return _run_action(selector, action), True
 
 
 def _trust_mode(per_request: bool | None) -> bool:
@@ -553,8 +592,13 @@ def list_installed_skills(selector: str | None = None) -> models.InstalledSkills
     return models.InstalledSkills(workspace=name, skills=vault.list_installed_skill_names(workspace))
 
 
-def import_skill(selector: str | None, name: str) -> models.ImportSkillReport:
-    """Reference-link a shared skill into the workspace, then commit (spec 005 FR-5/6/7)."""
+def resolve_skill_source(name: str) -> Path:
+    """Validate a skill name and return its library folder, or raise (spec 005 FR-6).
+
+    Separate from ``import_skill`` so a caller can establish that the request is even *possible*
+    before it is announced for approval: a malformed or unknown name is bad input, not a risky
+    operation, and asking an operator to authorise an install that cannot happen is noise.
+    """
     from . import config
 
     safe = _safe_name(name)
@@ -563,6 +607,13 @@ def import_skill(selector: str | None, name: str) -> models.ImportSkillReport:
     source = config.skills_library_root() / safe
     if not (source / "SKILL.md").is_file():
         raise WorkspaceError(f"no such skill in library: {safe}")
+    return source
+
+
+def import_skill(selector: str | None, name: str) -> models.ImportSkillReport:
+    """Reference-link a shared skill into the workspace, then commit (spec 005 FR-5/6/7)."""
+    source = resolve_skill_source(name)
+    safe = source.name
 
     ws_name, workspace = _resolve_scaffolded(selector)
     link = vault.install_skill_link(workspace, safe, source)
@@ -864,7 +915,7 @@ def conversation_status(selector: str | None, conversation_id: str) -> models.Ch
     )
 
 
-def _resolve_for_chat(selector: str | None) -> tuple[str, Path]:
+def resolve_for_chat(selector: str | None) -> tuple[str, Path]:
     """Resolve a workspace for a conversation (FR-10, D1).
 
     Default workspace is scaffolded on demand; a *named* selector that does not
@@ -881,35 +932,29 @@ def _resolve_for_chat(selector: str | None) -> tuple[str, Path]:
     return workspace.name, workspace
 
 
-def _plan_for(request: str, selector: str | None) -> models.Plan:
-    return plan(models.PlanRequest(workspace=selector, request=request))
+async def _execute_pending(selector: str | None, pending: dict) -> tuple[str, bool]:
+    """Execute an approved plan's exact stored action (spec 009 FR-13, re-announced per 011 FR-4).
 
-
-def _consequential_reply(p: models.Plan) -> str:
-    steps = "\n".join(f"{s.order}. {s.action} — {s.rationale}" for s in p.steps)
-    return (
-        f"This would run `{p.capability}` on '{p.target}' — an {p.effect_tier}-tier effect, "
-        "so I need your go-ahead first. Here is exactly what I would do:\n\n"
-        f"{steps}\n\n"
-        "No changes have been made this turn (human-in-the-loop, P8)."
-    )
-
-
-def _execute_pending(selector: str | None, pending: dict) -> tuple[str, bool]:
-    """Execute an approved plan's exact stored action (spec 009 FR-13).
-
-    FR-4 guarantees an approval is only ever raised for a resolvable executable action, so the
-    unresolvable branch below can only be reached by a stale record written before feature 009;
-    it is cleared rather than left pending forever.
+    The plan's own `capability`/`target` are authoritative: they are what the operator was shown and
+    consented to. Re-deriving them from the request text is only a fallback for a record written
+    before those fields existed; a record naming nothing executable is cleared rather than left
+    pending forever.
     """
-    action = _resolve_action(pending.get("request", ""))
+    plan_data = pending.get("plan") or {}
+    capability, target = plan_data.get("capability", ""), plan_data.get("target", "")
+    action = (
+        ResolvedAction(capability=capability, target=target)
+        if capability in EFFECTS and EFFECTS[capability].executable and target
+        else _resolve_action(pending.get("request", ""))
+    )
     if action is None:
         return (
             "That request needs no action from me — I've cleared the stale approval. "
             "Ask me again and I'll answer directly.",
             True,
         )
-    return (f"Approved. {_run_action(selector, action)}", True)
+    reply, ran = await _announce_and_run(selector, action, detail=pending.get("request", ""))
+    return (f"Approved. {reply}" if ran else reply, ran)
 
 
 def _record_turn_effects(workspace: Path, message: str) -> None:
@@ -950,7 +995,7 @@ async def ask_stream(
 
     # Resolve/create up front so we have a stable id to track; pass it through to the impl
     # (as a concrete id, never None) so it loads this same record instead of creating another.
-    _name, wpath = _resolve_for_chat(workspace)
+    _name, wpath = resolve_for_chat(workspace)
     cid = conversation.load_or_create(wpath, conversation_id).conversation_id
     _mark_running(cid)
     try:
@@ -971,7 +1016,7 @@ async def _ask_stream_impl(
     from . import agent, conversation, persona
 
     selector = workspace
-    name, wpath = _resolve_for_chat(selector)
+    name, wpath = resolve_for_chat(selector)
     conv = conversation.load_or_create(wpath, conversation_id)
     cid = conv.conversation_id
 
@@ -984,7 +1029,7 @@ async def _ask_stream_impl(
     # --- approval turn (D2) ---
     if approve:
         if conv.pending_plan:
-            reply, executed = _execute_pending(selector, conv.pending_plan)
+            reply, executed = await _execute_pending(selector, conv.pending_plan)
             pending_model = models.Plan(**conv.pending_plan["plan"]) if not executed else None
             if executed:
                 conversation.clear_pending_plan(conv)
@@ -1003,24 +1048,16 @@ async def _ask_stream_impl(
         conversation.clear_pending_plan(conv)
         conversation.clear_pending_interaction(conv)
 
-    # --- effect-based gate at the capability boundary (spec 009 FR-1..FR-3, D1) ---
-    # Only a real, executable action can gate a turn. `auto`/`reversible` tiers run immediately;
-    # `approval` tier asks once, unless the operator granted standing consent (FR-7/FR-9).
+    # --- announce, then act (spec 011 FR-2/FR-3) ---
+    # A dispatched capability is announced before it runs and the permit is honoured. No tier check,
+    # no trust check, no plan built here: whether an `approval`-tier effect may proceed is decided
+    # behind the gate, against the whole run, by parties this module cannot see. A denial ends the
+    # turn quietly — the concierge replaces this delta with the accumulated report and the card.
     action = _resolve_action(message)
     if action is not None:
-        effect = EFFECTS[action.capability]
-        if effect.tier == "approval" and not _trust_mode(auto_approve):
-            p = _plan_for(message, selector)
-            conversation.set_pending_plan(conv, message, p.model_dump())
-            reply = _consequential_reply(p)
-            itx = _approval_interaction_for_plan(conv, message, p)  # deliver approval as an interaction (FR-17)
-            conversation.append_turn(conv, message, reply)
-            yield delta(reply, done=True, pending=p, interaction=itx)
-            return
-        prefix = "Auto-approved (trust mode is on). " if effect.tier == "approval" else ""
-        reply = prefix + _run_action(selector, action)
+        reply, ran = await _announce_and_run(selector, action, detail=message)
         conversation.append_turn(conv, message, reply)
-        yield delta(reply, done=True, executed=True)
+        yield delta(reply, done=True, executed=ran)
         return
 
     # --- no executable action → a normal answer, never a plan (FR-4) ---
@@ -1178,16 +1215,20 @@ def create_interaction(
     options: list | None = None,
     timeout: int | None = None,
     *,
-    _plan: dict | None = None,
-    _request: str | None = None,
+    _extra: dict | None = None,
 ) -> models.Interaction:
     """Raise a mid-task interaction request, persisting blocking ones durably (spec 008 FR-1/2/6/13/15).
 
     Validates the kind and the option-count bounds (FR-6); enforces at most one outstanding
     blocking interaction per conversation (FR-15); captures the request into the sessions record
     (FR-13). Notifications are non-blocking and not persisted (FR-3); approval/clarification are
-    persisted as the durable `pending-interaction` (FR-11). The `_plan`/`_request` payload lets an
-    approval wrap a plan-first plan (FR-17).
+    persisted as the durable `pending-interaction` (FR-11).
+
+    ``_extra`` is merged into the persisted record but never into the wire model: the caller parks
+    whatever it needs to honour the answer later — a `plan` to execute (FR-17), or spec 011's
+    `granted_key` / `risk` / `fingerprint` resume payload (011 FR-26). It stays off ``Interaction``
+    because the card is sent to the client, and the key that unlocks a gated operation is not the
+    client's to hold.
     """
     from . import config
     from . import conversation as convo
@@ -1199,7 +1240,7 @@ def create_interaction(
     if not (lo <= len(opts) <= hi):
         raise WorkspaceError(f"{kind} requires {lo}..{hi} options, got {len(opts)}")
 
-    name, workspace = _resolve_for_chat(selector)
+    name, workspace = resolve_for_chat(selector)
     conv = convo.load_or_create(workspace, conversation_id)
 
     blocking = kind in ("approval", "clarification")
@@ -1222,38 +1263,8 @@ def create_interaction(
     convo.append_event(conv, "interaction", _describe_interaction(itx))
     if blocking:
         record = itx.model_dump()
-        if _plan is not None:
-            record["plan"] = _plan
-            record["request"] = _request or ""
+        record.update(_extra or {})
         convo.set_pending_interaction(conv, record)
-    return itx
-
-
-def _approval_interaction_for_plan(conv, request: str, p: models.Plan) -> models.Interaction:
-    """Deliver a plan-first plan as an approval interaction wrapping the plan (spec 008 FR-17).
-
-    The single proposal is "Proceed with this plan"; accepting it executes the stored plan via
-    the same path as the legacy approve-to-execute turn. Persisted as the durable pending
-    interaction so a reloaded UI can re-render the approval card (FR-11).
-    """
-    from . import config
-    from . import conversation as convo
-
-    itx = models.Interaction(
-        interaction_id=_new_interaction_id(),
-        conversation_id=conv.conversation_id,
-        kind="approval",
-        prompt=f"Approve this plan (risk={p.risk})? {request}",
-        options=[models.InteractionOption(id="approve", label="Proceed with this plan", detail=p.request)],
-        timeout_seconds=config.interaction_timeout_seconds(),
-        created=_now_iso(),
-        status="pending",
-    )
-    record = itx.model_dump()
-    record["plan"] = p.model_dump()
-    record["request"] = request
-    convo.append_event(conv, "interaction", _describe_interaction(itx))
-    convo.set_pending_interaction(conv, record)
     return itx
 
 
@@ -1288,7 +1299,7 @@ def request_approval(
         )
         return itx, False
 
-    _name, workspace = _resolve_for_chat(selector)
+    _name, workspace = resolve_for_chat(selector)
     conv = convo.load_or_create(workspace, conversation_id)
     itx = models.Interaction(
         interaction_id=_new_interaction_id(),
@@ -1346,7 +1357,7 @@ async def respond_to_interaction_stream(
     """
     from . import conversation as convo
 
-    name, wpath = _resolve_for_chat(selector)
+    name, wpath = resolve_for_chat(selector)
     conv = convo.load_or_create(wpath, conversation_id)
     cid = conv.conversation_id
 
@@ -1404,7 +1415,9 @@ async def respond_to_interaction_stream(
 
     # --- approval wrapping a plan-first plan (FR-17) → execute it now ---
     if "plan" in record:
-        reply, executed = _execute_pending(selector, {"request": record.get("request", ""), "plan": record["plan"]})
+        reply, executed = await _execute_pending(
+            selector, {"request": record.get("request", ""), "plan": record["plan"]}
+        )
         if executed and conv.pending_plan:
             convo.clear_pending_plan(conv)
         pending_model = None if executed else models.Plan(**record["plan"])
@@ -1464,10 +1477,12 @@ def _represent_interaction(conv, itx: models.Interaction) -> models.Interaction:
         status="pending",
     )
     record = fresh.model_dump()
-    # Preserve any plan payload so the re-presented approval still executes on accept (FR-17).
-    if conv.pending_interaction and "plan" in conv.pending_interaction:
-        record["plan"] = conv.pending_interaction["plan"]
-        record["request"] = conv.pending_interaction.get("request", "")
+    # Carry the whole resume payload across: the `plan` that makes the approval executable (FR-17)
+    # and spec 011's `granted_key` / `risk` / `fingerprint` (011 FR-26). Copying by "everything the
+    # wire model does not own" means a future payload key survives re-presentation by default —
+    # the alternative silently turns a discussed card into one that can no longer be honoured.
+    previous = conv.pending_interaction or {}
+    record.update({k: v for k, v in previous.items() if k not in record})
     convo.append_event(conv, "interaction", _describe_interaction(fresh))
     convo.set_pending_interaction(conv, record)
     return fresh

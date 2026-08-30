@@ -138,7 +138,7 @@ def test_rest_surface_unchanged(client):
 )
 def test_live_chat_lists_available_skills(client):
     # AC-6: a chat turn asking to list installable skills reaches list_available_skills.
-    v = client.post("/api/workspaces", json={"name": "live"}).json()["name"]
+    v = capabilities.create_workspace("live").name
     r = client.post("/api/chat", json={"workspace": v, "message": "what skills can I install?"})
     assert r.status_code == 200
     assert "weekly-digest" in r.json()["reply"].lower()

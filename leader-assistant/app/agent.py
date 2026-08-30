@@ -22,9 +22,12 @@ and ``add_dirs`` and run under ``bypassPermissions``. This reverses the citation
 browse boundary of feature 002 D3 *for skill execution* (spec 005 D3). Skill discovery
 requires ``setting_sources=["project"]`` (an empty list disables skills entirely).
 
-Because ``can_use_tool`` is not consulted under ``bypassPermissions``, ``vault/raw/``
-immutability (P2) is enforced for the agent by a **PreToolUse raw-guard hook**
-(``_raw_guard_decision``); the per-workspace git repo is the backstop for the residual
+Because ``can_use_tool`` is not consulted under ``bypassPermissions``, the **PreToolUse hook** is
+the only mechanism that can actually deny a tool call, which makes it the enforcement point for
+everything the agent does (spec 011 FR-4, D2). ``_pretooluse_hook`` applies two gates in order:
+``vault/raw/`` immutability (P2, spec 005 FR-10), which is absolute and consults nothing; then the
+announce/permit contract of spec 011 FR-3, which puts every native tool call under the same risk
+gate as a capability call. The per-workspace git repo remains the backstop for the residual
 Bash-write risk (spec 005 D3).
 """
 
@@ -34,7 +37,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import AsyncIterator, Awaitable, Callable
 
-from . import models, vault
+from . import execution_gate, models, vault
+from .execution_gate import Operation
 
 _SERVER = "leader"
 
@@ -292,24 +296,146 @@ def _raw_guard_decision(workspace_path: Path, tool_name: str, tool_input: dict) 
     return None
 
 
-def _raw_guard_hook(workspace_path: Path):
-    """Build the PreToolUse hook callback that applies ``_raw_guard_decision``."""
+# --- native tool → Operation mapping (spec 011 FR-5, D2) ------------------------------
+#
+# The effect metadata for the agent's OWN tools, declared as data exactly as `capabilities.EFFECTS`
+# is for capability calls. This is what puts native tool calls under the same gate as capabilities
+# (FR-4/FR-6, AC-3) — previously every Write and Bash outside vault/raw/ ran unobserved.
+#
+# Tiers stay deliberately coarse; the fine-grained judgment is layer 2's scoring modifiers (D3).
+# Bash is the interesting case: it is declared `reversible` because its usual effect is on
+# workspace files, and the DESTRUCTIVE_SHELL modifier is what lifts `rm -rf` to a gating score.
+_TOOL_EFFECTS: dict[str, tuple[str, str]] = {
+    "Read": ("auto", "read-only — nothing to undo"),
+    "Glob": ("auto", "read-only — nothing to undo"),
+    "Grep": ("auto", "read-only — nothing to undo"),
+    "Skill": ("auto", "loads instructions; any work it performs is announced as its own operations"),
+    "Write": ("reversible", "`git revert` the turn's commit in the workspace repo"),
+    "Edit": ("reversible", "`git revert` the turn's commit in the workspace repo"),
+    "NotebookEdit": ("reversible", "`git revert` the turn's commit in the workspace repo"),
+    "Bash": ("reversible", "`git revert` covers workspace files; effects outside the repo are not undone"),
+}
+
+# Shell tokens whose effect leaves this machine, so it cannot be reverted at all (FR-5 `external`).
+_EXTERNAL_SHELL_TOKENS = ("curl ", "wget ", "git push", "gh ", "ssh ", "scp ", "npm publish", "pip upload")
+
+_FILE_PATH_KEYS = ("file_path", "notebook_path", "path")
+
+
+def _tool_target(tool_name: str, tool_input: dict) -> str:
+    """Best available resolved target for a tool call (spec 011 FR-5)."""
+    for key in _FILE_PATH_KEYS:
+        if tool_input.get(key):
+            return str(tool_input[key])
+    if tool_name == "Bash":
+        return str(tool_input.get("command", ""))
+    return str(tool_input.get("pattern") or tool_input.get("command") or "")
+
+
+# The argument that names what a capability tool acts on, per capability. Used to give the
+# announcement a real target instead of an opaque tool name (spec 011 FR-5).
+_CAPABILITY_TARGET_ARGS = ("name", "title", "path", "question", "request", "prompt")
+
+_MCP_PREFIX = f"mcp__{_SERVER}__"
+
+
+def _operation_for_capability_tool(capability: str, tool_input: dict) -> Operation:
+    """Describe an MCP capability tool call as an Operation (spec 011 FR-5/FR-6).
+
+    Reads the tier straight from ``capabilities.EFFECTS`` — the same declared effect metadata the
+    REST path uses — so a capability is scored identically however it was reached (P9 parity).
+    """
+    from . import capabilities
+
+    effect = capabilities.EFFECTS.get(capability)
+    tier = effect.tier if effect else "reversible"
+    reversibility = effect.reversibility if effect else "unknown undo path"
+    target = next((str(tool_input[k]) for k in _CAPABILITY_TARGET_ARGS if tool_input.get(k)), "")
+    return Operation(
+        kind="capability", name=capability, target=target, tier=tier, reversibility=reversibility
+    )
+
+
+def _operation_for_tool(workspace_path: Path, tool_name: str, tool_input: dict) -> Operation:
+    """Describe a tool call as an announceable Operation (spec 011 FR-5).
+
+    Covers both surfaces the agent has: its **native** tools and its **MCP capability** tools. Both
+    arrive at the same PreToolUse hook, so one enforcement point serves both and there is no second
+    mechanism to keep in sync (FR-4, D2).
+
+    A write whose target resolves **outside** the workspace is escalated to the `approval` tier: the
+    workspace git repo is what makes a mutation reversible (P8), and it does not reach beyond its own
+    root, so no revert here can undo that write.
+    """
+    if tool_name.startswith(_MCP_PREFIX):
+        return _operation_for_capability_tool(tool_name[len(_MCP_PREFIX):], tool_input)
+
+    tier, reversibility = _TOOL_EFFECTS.get(tool_name, ("reversible", "unknown undo path"))
+    target = _tool_target(tool_name, tool_input)
+    external = tool_name == "Bash" and any(tok in target for tok in _EXTERNAL_SHELL_TOKENS)
+
+    if tier == "reversible" and tool_name in ("Write", "Edit", "NotebookEdit") and target:
+        resolved = Path(target)
+        if not resolved.is_absolute():
+            resolved = workspace_path / resolved
+        try:
+            inside = resolved.resolve().is_relative_to(workspace_path.resolve())
+        except (OSError, ValueError):  # unresolvable path — treat as outside, the safer reading
+            inside = False
+        if not inside:
+            tier = "approval"
+            reversibility = "outside the workspace repo; no git revert here covers it"
+
+    return Operation(
+        kind="tool",
+        name=tool_name,
+        target=target,
+        tier=tier,
+        reversibility=reversibility,
+        external=external,
+    )
+
+
+def _pretooluse_hook(workspace_path: Path):
+    """The PreToolUse hook — the enforcement point for the agent's native tools (spec 011 FR-4, D2).
+
+    Two gates, in this order:
+
+    1. **The raw guard (P2).** Absolute and unconditional: no score, verdict or trust setting can
+       satisfy it (spec 011 AC-20), so it is checked before anything else and never consults layer 2.
+    2. **The announce/permit contract (FR-2/FR-3).** Every other tool call is announced to whatever
+       gate is installed and denied if the permit says so.
+
+    ``deny`` here is what makes a pause *enforced* rather than advised. The prose channel of spec 010
+    asked the model to stop and could not make it; this can (FR-4). Being `async` is what lets the
+    permit await a verdict at all (D2).
+    """
 
     async def hook(input_data: dict, tool_use_id: str | None, context) -> dict:  # noqa: ANN001
-        reason = _raw_guard_decision(
-            workspace_path, input_data.get("tool_name", ""), input_data.get("tool_input", {}) or {}
-        )
+        tool_name = input_data.get("tool_name", "")
+        tool_input = input_data.get("tool_input", {}) or {}
+
+        reason = _raw_guard_decision(workspace_path, tool_name, tool_input)
         if reason:
-            return {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": reason,
-                }
-            }
+            return _deny(reason)
+
+        operation = _operation_for_tool(workspace_path, tool_name, tool_input)
+        permit = await execution_gate.announce(operation)
+        if not permit.allow:
+            return _deny(execution_gate.deny_message(operation, permit))
         return {}
 
     return hook
+
+
+def _deny(reason: str) -> dict:
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }
 
 
 def _build_server(specs: list[ToolSpec]):
@@ -370,7 +496,7 @@ async def run_stream(
         skills="all",
         cwd=str(workspace_path),
         add_dirs=[str(workspace_path), str(config.skills_library_root())],
-        hooks={"PreToolUse": [HookMatcher(hooks=[_raw_guard_hook(workspace_path)])]},
+        hooks={"PreToolUse": [HookMatcher(hooks=[_pretooluse_hook(workspace_path)])]},
         include_partial_messages=True,
         resume=resume_sid,
     )

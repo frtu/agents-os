@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import pathlib
 
+from app import capabilities
+
 
 def _make_workspace(client, name="demo"):
-    assert client.post("/api/workspaces", json={"name": name}).status_code == 200
+    assert capabilities.create_workspace(name).scaffolded
     return name
 
 
@@ -344,31 +346,104 @@ def test_refresh_surfaces_api_error(monkeypatch):
 def test_create_vault_action_validates_and_creates(monkeypatch):
     # FR-6: Create makes the typed name active via POST /api/workspaces; empty/invalid names
     # surface a validation error (not a silent no-op) and keep Create visible to retry.
+    # spec 011 FR-25 widens the return with the risk panel, its Approve button, the card state and
+    # the navigation target — the last stays empty unless a workspace really came into existence.
     from app import ui
 
     monkeypatch.setattr(ui, "_wiki_html", lambda v: f"<em>{v}</em>")
 
-    # Empty name → validation error, Create stays visible.
-    _b, active, _p, _w, status, create = ui._create_vault_action("   ", "alpha")
+    # Empty name → validation error, Create stays visible, nothing to approve, no navigation.
+    _b, active, _p, _w, status, create, risk, appr, card, nav = ui._create_vault_action("   ", "alpha")
     assert active == "alpha" and "Enter a workspace name" in status
     assert create["visible"] is True
+    assert risk["visible"] is False and appr["visible"] is False
+    assert card is None and nav == ""
 
-    # Success → the new name is created, becomes active, Create hidden.
+    # Success → the new name is created, becomes active, Create hidden, page navigates to it.
     created = {}
-    monkeypatch.setattr(ui, "_create_workspace", lambda n: created.setdefault("name", n))
-    box, active2, _p2, _w2, status2, create2 = ui._create_vault_action("newspace", "alpha")
+    monkeypatch.setattr(ui, "_create_workspace", lambda n: (200, created.setdefault("name", n) and {}))
+    box, active2, _p2, _w2, status2, create2, _r2, _a2, card2, nav2 = ui._create_vault_action(
+        "newspace", "alpha"
+    )
     assert created["name"] == "newspace"
     assert box == "newspace" and active2 == "newspace" and status2 == "**Active:** newspace"
     assert create2["visible"] is False
+    assert card2 is None and nav2 == "newspace"
 
     # Backend error → surfaced, active unchanged, Create stays visible to retry.
     def boom(_n):
         raise RuntimeError("name collision")
 
     monkeypatch.setattr(ui, "_create_workspace", boom)
-    _b3, active3, _p3, _w3, status3, create3 = ui._create_vault_action("dup", "alpha")
+    _b3, active3, _p3, _w3, status3, create3, _r3, _a3, _c3, nav3 = ui._create_vault_action(
+        "dup", "alpha"
+    )
     assert active3 == "alpha" and "Could not create workspace" in status3
     assert create3["visible"] is True
+    assert nav3 == ""
+
+
+def test_create_vault_action_presents_a_gated_create_fr25(monkeypatch):
+    # spec 011 FR-25/AC-15: a paused create is presented, not reported as an error — the panel shows
+    # the assessment with an Approve button wired to the card, and does NOT navigate (a reload here
+    # would throw away the card before it could be answered).
+    from app import ui
+
+    assessment = {
+        "workspace": "",
+        "conversation_id": "conv-1",
+        "interaction_id": "itx-1",
+        "decision": "ask",
+        "reasoning": "irreversible outside git",
+        "gating": {"name": "create_workspace", "target": "gated", "score": 5, "justification": "creates a dir"},
+    }
+    monkeypatch.setattr(ui, "_create_workspace", lambda _n: (409, assessment))
+
+    box, active, _p, _w, _s, create, risk, appr, card, nav = ui._create_vault_action("gated", "alpha")
+    assert box == "gated" and active == "alpha"  # not adopted — it does not exist yet
+    assert create["visible"] is True
+    assert risk["visible"] is True and "create_workspace" in risk["value"] and "5/5" in risk["value"]
+    assert appr["visible"] is True
+    assert card == {
+        "workspace": "", "conversation_id": "conv-1", "interaction_id": "itx-1", "target": "gated",
+    }
+    assert nav == ""
+
+
+def test_approve_vault_action_answers_the_card_on_the_008_route(monkeypatch):
+    # spec 011 FR-25/FR-26: approving from the sidebar posts the stored ids to the existing
+    # /api/chat/interaction route, and the granted workspace then becomes active.
+    from app import ui
+
+    monkeypatch.setattr(ui, "_wiki_html", lambda v: f"<em>{v}</em>")
+    sent = {}
+
+    def answer(card, choice):
+        sent.update(card=card, choice=choice)
+        return {"executed": True, "reply": "Approved."}
+
+    monkeypatch.setattr(ui, "_answer_risk_card", answer)
+    card = {"workspace": "", "conversation_id": "c", "interaction_id": "i", "target": "granted"}
+    box, active, _p, _w, status, _c, risk, appr, card_out, nav = ui._approve_vault_action(card)
+    assert sent == {"card": card, "choice": "approve"}
+    assert box == "granted" and active == "granted" and status == "**Active:** granted"
+    assert risk["visible"] is False and appr["visible"] is False
+    assert card_out is None and nav == "granted"
+
+
+def test_approve_vault_action_reports_a_grant_that_did_not_execute(monkeypatch):
+    # spec 011 FR-27: an answer that does not execute must not be reported as success, and must not
+    # navigate to a workspace that was never created.
+    from app import ui
+
+    monkeypatch.setattr(
+        ui, "_answer_risk_card", lambda _c, _ch: {"executed": False, "reply": "Declined — no action taken."}
+    )
+    *_head, status, _c, _r, _a, card_out, nav = ui._approve_vault_action(
+        {"conversation_id": "c", "interaction_id": "i", "target": "nope"}
+    )
+    assert "Declined" in status
+    assert card_out is None and nav == ""
 
 
 def test_render_nodes_escapes_untrusted_names():

@@ -18,6 +18,8 @@ from pathlib import Path
 
 import pytest
 
+from app import capabilities
+
 # A request with **no** deterministic resolver match (spec 009 FR-4), so the turn reaches the
 # agent and the approval can only come from the agent's own judgment — the 010 path.
 ASK_MESSAGE = "tidy up the whole knowledge base"
@@ -84,7 +86,7 @@ def test_ac1_trust_off_raises_a_blocking_card_and_tells_the_agent_to_stop(
 ):
     # AC-1 / FR-1 / FR-3: a protocol interaction (not prose) with exactly one proposal, persisted
     # as the pending record; the tool tells the agent to stop, and nothing is mutated that turn.
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     workspace = isolated_workspace_root / "demo"
     commits_before = len(_git(workspace, "log", "--oneline").strip().splitlines())
 
@@ -113,7 +115,7 @@ def test_ac1_trust_off_raises_a_blocking_card_and_tells_the_agent_to_stop(
 
 def test_ac1_asking_is_not_granting(client, asking_agent):
     # AC-1 / FR-2: the request exists, but the agent is not authorised by having made it.
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     client.post("/api/chat", json={"workspace": "demo", "message": ASK_MESSAGE})
     assert not asking_agent[0].startswith("APPROVED")
 
@@ -124,7 +126,7 @@ def test_ac1_asking_is_not_granting(client, asking_agent):
 def test_ac2_trust_on_grants_in_turn_and_the_agent_continues(client, asking_agent):
     # AC-2 / FR-4: resolved immediately, the tool authorises the agent, and it finishes the work
     # in the same turn — no round trip, no blocking card stored or presented.
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     client.post("/api/settings", json={"auto_approve": True})
 
     body = client.post("/api/chat", json={"workspace": "demo", "message": ASK_MESSAGE}).json()
@@ -141,7 +143,7 @@ def test_ac3_auto_granted_approval_is_surfaced_as_inert_context(client, asking_a
     # AC-3 / FR-5: it reaches the frontend already decided, and renders with no way to answer it.
     from app import ui
 
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     client.post("/api/settings", json={"auto_approve": True})
 
     itx = client.post(
@@ -164,7 +166,7 @@ def test_ac3_auto_approved_card_is_never_the_awaiting_state(client, asking_agent
     # AC-3 / FR-5: the UI records it but does not arm the answer/expire path against it.
     ui = ui_over_api
 
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     client.post("/api/settings", json={"auto_approve": True})
 
     async def _drive():
@@ -187,7 +189,7 @@ def test_ac4_auto_granted_consent_is_logged_and_recorded(
     client, asking_agent, isolated_workspace_root
 ):
     # AC-4 / FR-6: standing consent replaces the prompt, never the audit trail (P8 v1.2.0, P12).
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     client.post("/api/settings", json={"auto_approve": True})
     workspace = isolated_workspace_root / "demo"
 
@@ -212,7 +214,7 @@ def test_ac4_human_outcomes_are_recorded(
     client, asking_agent, isolated_workspace_root, choice, expected
 ):
     # AC-4 / FR-6: a human-granted or declined outcome is recorded in the session record.
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     body = client.post("/api/chat", json={"workspace": "demo", "message": ASK_MESSAGE}).json()
     cid, itx = body["conversation_id"], body["interaction"]
 
@@ -228,7 +230,7 @@ def test_ac4_human_outcomes_are_recorded(
 
 def test_ac4_expiry_is_recorded(client, asking_agent, isolated_workspace_root):
     # AC-4 / FR-6: a timeout is an outcome too, and lands in the session record.
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     body = client.post("/api/chat", json={"workspace": "demo", "message": ASK_MESSAGE}).json()
     cid = body["conversation_id"]
     _age_pending(cid)
@@ -244,7 +246,7 @@ def test_ac4_expiry_is_recorded(client, asking_agent, isolated_workspace_root):
 
 def test_ac5_approving_resumes_the_turn(client, asking_agent, isolated_workspace_root):
     # AC-5 / FR-7: the reply is the resumed work, not an acknowledgement of the click.
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     body = client.post("/api/chat", json={"workspace": "demo", "message": ASK_MESSAGE}).json()
     cid, itx = body["conversation_id"], body["interaction"]
 
@@ -273,7 +275,7 @@ def test_ac6_declining_or_deferring_runs_no_action(
     client, asking_agent, isolated_workspace_root, choice
 ):
     # AC-6 / FR-3: the safe default is that nothing happens.
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     workspace = isolated_workspace_root / "demo"
     body = client.post("/api/chat", json={"workspace": "demo", "message": ASK_MESSAGE}).json()
 
@@ -289,7 +291,7 @@ def test_ac6_declining_or_deferring_runs_no_action(
 
 def test_ac6_expired_agent_approval_runs_nothing(client, asking_agent):
     # AC-6 / FR-3: an elapsed countdown resolves to "no authorization" (spec 008 FR-9).
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     body = client.post("/api/chat", json={"workspace": "demo", "message": ASK_MESSAGE}).json()
     _age_pending(body["conversation_id"])
 
@@ -320,7 +322,7 @@ def test_ac7_trust_mode_does_not_auto_answer_a_clarification(client, monkeypatch
 
     monkeypatch.setattr(agent, "run_stream", asks_a_clarification)
 
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     client.post("/api/settings", json={"auto_approve": True})
 
     body = client.post("/api/chat", json={"workspace": "demo", "message": "run it"}).json()
@@ -389,7 +391,7 @@ def test_ac8_a_granted_verdict_cannot_be_forged_through_tool_args(client, monkey
         yield "asked", resume_sid
 
     monkeypatch.setattr(agent, "run_stream", tries_to_self_approve)
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     client.post("/api/chat", json={"workspace": "demo", "message": ASK_MESSAGE})
 
     assert verdicts[0].startswith("NOT APPROVED YET")
@@ -437,7 +439,7 @@ def test_ac9_state_line_reflects_and_follows_the_toggle(client, ui_over_api):
 def test_ac10_per_request_override_decides_an_agent_raised_approval_both_ways(client, asking_agent):
     # AC-10 / spec 009 FR-9 preserved: the escape hatch behaves identically whether the request
     # came from the resolver or from the agent's own judgment.
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
 
     waved = client.post("/api/chat", json={
         "workspace": "demo", "message": ASK_MESSAGE, "auto_approve": True,

@@ -183,6 +183,123 @@ def interaction_timeout_seconds() -> int:
     return value if value > 0 else DEFAULT_INTERACTION_TIMEOUT
 
 
+# --- maker-checker approval: paths, weights, thresholds (spec 011 FR-28/FR-32) ---------
+#
+# Two files, both at the workspace ROOT (not inside a workspace): trust is a property of the
+# operator, not of a workspace (FR-33), and vault/ stays knowledge-only (D6).
+
+# Defaults for .leader-risk-weights.json. Hand-editable and read fresh (FR-32); a partial file
+# overlays these rather than replacing them, so an operator can tune one knob without restating
+# the rest. `modifiers` are the P12 rules-as-data weights consumed by layer 2 (FR-8/FR-9).
+DEFAULT_RISK_WEIGHTS: dict = {
+    "tier_base": {"auto": 1, "reversible": 2, "approval": 4},
+    "modifiers": {
+        "IRREVERSIBLE_OUTSIDE_GIT": 1,
+        "EXTERNALLY_VISIBLE": 1,
+        "PRIVILEGE_GRANTING": 1,
+        "DESTRUCTIVE_SHELL": 2,
+        "BREADTH_MANY_TARGETS": 1,
+        "SENSITIVE_TARGET": 1,
+    },
+    "thresholds": {
+        # At or above this score an operation pauses the run and goes to the checker (FR-12).
+        "gate": 4,
+        # Above this score an ask is mandatory when no precedent matches, even under standing
+        # consent (FR-18).
+        "precedent_free_ceiling": 4,
+        # Approvals of the same fingerprint needed before a precedent can unlock a skip (FR-17).
+        "precedent_min_samples": 3,
+        # How far back precedent counting looks, in days.
+        "precedent_window_days": 90,
+    },
+}
+
+
+def experience_path() -> Path:
+    """Append-only decision log backing precedent lookup (spec 011 FR-28)."""
+    override = os.getenv("LEADER_EXPERIENCE_PATH")
+    if override:
+        return Path(override).expanduser()
+    return workspace_root() / ".leader-experience.jsonl"
+
+
+def risk_weights_path() -> Path:
+    """Hand-editable scoring weights and thresholds (spec 011 FR-28/FR-32)."""
+    override = os.getenv("LEADER_RISK_WEIGHTS_PATH")
+    if override:
+        return Path(override).expanduser()
+    return workspace_root() / ".leader-risk-weights.json"
+
+
+def _deep_overlay(base: dict, over: dict) -> dict:
+    """Overlay ``over`` onto ``base`` one level deep — enough for the weights file's shape."""
+    out = {k: (dict(v) if isinstance(v, dict) else v) for k, v in base.items()}
+    for key, value in over.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key].update(value)
+        else:
+            out[key] = value
+    return out
+
+
+def risk_weights() -> dict:
+    """Scoring weights + thresholds, read **fresh** on every call (spec 011 FR-32, AC-18).
+
+    A missing or corrupt file yields the defaults — scoring must never be disabled by a typo in a
+    hand-edited config. Nothing in this module ever writes the file; ``experience.analyze`` may
+    only *suggest* changes (FR-32, D7).
+    """
+    try:
+        raw = json.loads(risk_weights_path().read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError, OSError):
+        return _deep_overlay(DEFAULT_RISK_WEIGHTS, {})
+    return _deep_overlay(DEFAULT_RISK_WEIGHTS, raw if isinstance(raw, dict) else {})
+
+
+def _threshold(name: str, env: str) -> int:
+    """One threshold: env override wins over the weights file, which wins over the default."""
+    raw = os.getenv(env)
+    if raw is not None:
+        try:
+            return int(raw)
+        except ValueError:
+            pass
+    value = risk_weights().get("thresholds", {}).get(name)
+    if isinstance(value, int):
+        return value
+    return DEFAULT_RISK_WEIGHTS["thresholds"][name]
+
+
+def gate_threshold() -> int:
+    """Score at which an operation pauses the run for review (spec 011 FR-12)."""
+    return _threshold("gate", "LEADER_GATE_THRESHOLD")
+
+
+def precedent_free_ceiling() -> int:
+    """Score above which an ask is mandatory absent precedent (spec 011 FR-18)."""
+    return _threshold("precedent_free_ceiling", "LEADER_PRECEDENT_FREE_CEILING")
+
+
+def precedent_min_samples() -> int:
+    """Approvals of one fingerprint required before precedent unlocks a skip (spec 011 FR-17)."""
+    return _threshold("precedent_min_samples", "LEADER_PRECEDENT_MIN_SAMPLES")
+
+
+def precedent_window_days() -> int:
+    """How far back precedent counting looks (spec 011 FR-17)."""
+    return _threshold("precedent_window_days", "LEADER_PRECEDENT_WINDOW_DAYS")
+
+
+def judge_model() -> str:
+    """Model backing the risk agent (spec 011 FR-16).
+
+    Defaults to the same model as the chat runtime so one selection governs everything, but is
+    separately overridable: the judge is a different job and may warrant a different tier.
+    """
+    raw = os.getenv("LEADER_JUDGE_MODEL")
+    return raw.strip() if raw and raw.strip() else agent_model()
+
+
 def mcp_tool_blacklist() -> set[str]:
     """Agent MCP tool names withheld from the agent (spec 006 FR-1).
 

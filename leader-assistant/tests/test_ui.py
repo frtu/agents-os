@@ -40,8 +40,10 @@ def test_swagger_relocated_to_api(client):
 def test_api_endpoints_still_resolve(client):
     # AC-2: ... and the /api/<resource> endpoints are not shadowed by the docs route.
     assert client.get("/api/workspaces").status_code == 200
+    # 409 is the gated-but-routed answer (spec 011 AC-9); what this test cares about is that the
+    # route was reached at all rather than shadowed by the docs mount.
     created = client.post("/api/workspaces", json={"name": "demo"})
-    assert created.status_code == 200
+    assert created.status_code == 409
     # chat endpoint exists (unprocessable without a body proves it is routed, not 404)
     assert client.post("/api/chat", json={}).status_code == 422
 

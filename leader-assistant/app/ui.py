@@ -502,8 +502,35 @@ def _set_auto_approve(enabled: bool) -> dict:
     return r.json()
 
 
-def _create_workspace(name: str) -> dict:
+def _create_workspace(name: str) -> tuple[int, dict]:
+    """Ask for a workspace; 409/403 are answers, not transport failures (spec 011 FR-25/FR-27).
+
+    Creating a workspace is approval-tier, so the honest outcomes are three: it ran (200), it is
+    awaiting the operator (409 + a `RiskAssessment`), or it was refused (403). Raising on the last
+    two would turn a decision the operator still has to make into an HTTP error string.
+    """
     r = httpx.post(f"{_api_base()}/api/workspaces", json={"name": name}, timeout=30.0)
+    if r.status_code not in (200, 409, 403):
+        r.raise_for_status()
+    return r.status_code, r.json()
+
+
+def _answer_risk_card(card: dict, choice: str) -> dict:
+    """Answer a 409's approval card on the existing 008 route (spec 011 FR-25).
+
+    The 409 body carries the card's address precisely so no second asking surface is needed: this
+    is the same route and the same payload the in-chat card uses.
+    """
+    r = httpx.post(
+        f"{_api_base()}/api/chat/interaction",
+        json={
+            "workspace": card.get("workspace") or None,
+            "conversation_id": card.get("conversation_id"),
+            "interaction_id": card.get("interaction_id"),
+            "choice": choice,
+        },
+        timeout=60.0,
+    )
     r.raise_for_status()
     return r.json()
 
@@ -1203,19 +1230,98 @@ def _refresh(active):
     )
 
 
+def _risk_md(assessment: dict) -> str:
+    """The paused run rendered for the sidebar: what it would do, and at what score (011 FR-11)."""
+    gating = assessment.get("gating") or {}
+    lines = [
+        f"**Awaiting your approval** — `{gating.get('name', '?')}` on "
+        f"`{gating.get('target') or '(no target)'}` (risk {gating.get('score', '?')}/5)",
+    ]
+    if gating.get("justification"):
+        lines.append(f"\n{gating['justification']}")
+    if assessment.get("reasoning"):
+        lines.append(f"\n_Why you are being asked:_ {assessment['reasoning']}")
+    return "\n".join(lines)
+
+
+def _vault_gated(name, active, assessment: dict):
+    """Sidebar state for a paused create: show the assessment and an Approve button, navigate nowhere."""
+    card = {
+        "workspace": assessment.get("workspace") or "",
+        "conversation_id": assessment.get("conversation_id"),
+        "interaction_id": assessment.get("interaction_id"),
+        # The name the grant will produce, kept so the approving click can adopt it without
+        # guessing from the reply prose.
+        "target": (assessment.get("gating") or {}).get("target") or "",
+    }
+    answerable = bool(card["conversation_id"] and card["interaction_id"])
+    return (
+        name, active, gr.update(visible=False), gr.update(), _status(active),
+        gr.update(visible=True),
+        gr.update(value=_risk_md(assessment), visible=True),
+        gr.update(visible=answerable),
+        card if answerable else None,
+        "",
+    )
+
+
+def _vault_msg(name, active, message, *, show_create):
+    """Sidebar state for an outcome with nothing to approve and nowhere to navigate."""
+    return (
+        name, active, gr.update(visible=False), gr.update(), message,
+        gr.update(visible=show_create),
+        gr.update(value="", visible=False), gr.update(visible=False), None, "",
+    )
+
+
+def _vault_created(name):
+    """Sidebar state for a workspace that now exists: it becomes active and the page navigates."""
+    return (
+        name, name, gr.update(visible=False), _wiki_html(name), _status(name),
+        gr.update(visible=False),
+        gr.update(value="", visible=False), gr.update(visible=False), None, name,
+    )
+
+
 def _create_vault_action(name, active):
-    """Create-new-workspace icon button: create the typed name, make it active (FR-6)."""
+    """Create-new-workspace icon button: create the typed name, make it active (FR-6).
+
+    Creating a workspace is approval-tier, so a `409` is a normal outcome, not a failure: the run is
+    paused and the operator has a card to answer (spec 011 FR-25). Rendering it in place is what
+    keeps the button from being a dead end.
+    """
     name = (name or "").strip()
     if not name:
-        return (gr.update(), active, gr.update(visible=False), gr.update(),
-                "Enter a workspace name to create.", gr.update(visible=True))
+        return _vault_msg(gr.update(), active, "Enter a workspace name to create.", show_create=True)
     try:
-        _create_workspace(name)
+        status, body = _create_workspace(name)
     except Exception as e:
-        return (name, active, gr.update(visible=False), gr.update(),
-                f"Could not create workspace: {e}", gr.update(visible=True))
-    return (name, name, gr.update(visible=False), _wiki_html(name),
-            _status(name), gr.update(visible=False))
+        return _vault_msg(name, active, f"Could not create workspace: {e}", show_create=True)
+    if status == 409:
+        return _vault_gated(name, active, body)
+    if status == 403:
+        return _vault_msg(
+            name, active,
+            f"Declined — the workspace was not created. {body.get('reasoning', '')}".strip(),
+            show_create=True,
+        )
+    return _vault_created(name)
+
+
+def _approve_vault_action(card):
+    """Approve the paused create from the sidebar, then adopt the workspace it produced."""
+    if not card:
+        return _vault_msg(gr.update(), None, "There is nothing awaiting approval.", show_create=False)
+    try:
+        answer = _answer_risk_card(card, "approve")
+    except Exception as e:
+        return _vault_msg(gr.update(), None, f"Could not approve: {e}", show_create=False)
+    if not answer.get("executed"):
+        return _vault_msg(gr.update(), None, answer.get("reply") or "Not executed.", show_create=False)
+    created = card.get("target") or ""
+    return _vault_created(created) if created else _vault_msg(
+        gr.update(), None, answer.get("reply") or "Approved.", show_create=False
+    )
 
 
 def _do_upload(files, provenance, vault, progress=gr.Progress()):
@@ -1310,6 +1416,8 @@ def build_demo() -> gr.Blocks:
         active_model = gr.State(None)  # spec 004 FR-28: the active agent model selector
         trust_state = gr.State(False)  # spec 009 FR-10: persisted auto-approve (trust mode)
         settings_open = gr.State(False)  # spec 004 FR-35: settings quick-menu open/closed
+        vault_card = gr.State(None)  # spec 011 FR-25: the 409's card address, pending an answer
+        vault_nav = gr.Textbox(visible=False)  # navigate only when a workspace really was created
 
         with gr.Sidebar(open=False, width=340) as sidebar:
             # spec 004 FR-2a: advanced surface — collapsed by default; FR-2b tooltip via _PANEL_TIP_JS.
@@ -1329,6 +1437,13 @@ def build_demo() -> gr.Blocks:
                 vault_suggest = gr.Dropdown(
                     choices=[], show_label=False, container=False, visible=False,
                     interactive=True, filterable=True,
+                )
+                # spec 011 FR-25: creating a workspace is approval-tier, so the request can come
+                # back paused. The assessment and its Approve button live here so the panel can
+                # present the ask rather than report an HTTP error.
+                vault_risk = gr.Markdown("", visible=False, elem_id="vault-risk")
+                vault_approve_btn = gr.Button(
+                    "✅ Approve", variant="primary", visible=False, elem_id="vault-approve",
                 )
 
             # spec 004 FR-2a: advanced surface — collapsed by default; FR-2b tooltip via _PANEL_TIP_JS.
@@ -1447,8 +1562,16 @@ def build_demo() -> gr.Blocks:
             None, [vault_box], None, js=_NAV_WORKSPACE_JS
         )
         refresh_btn.click(_refresh, [active_vault], sidebar_out)
-        create_btn.click(_create_vault_action, [vault_box, active_vault], sidebar_out).then(
-            None, [vault_box], None, js=_NAV_WORKSPACE_JS
+        # spec 011 FR-25: the create path has three outcomes, so it drives the risk panel and the
+        # card state too, and navigates only via `vault_nav` — which stays empty unless a workspace
+        # actually came into existence. A paused create must leave the page where it is, or the card
+        # it just raised would be reloaded away before the operator could answer it.
+        create_out = sidebar_out + [vault_risk, vault_approve_btn, vault_card, vault_nav]
+        create_btn.click(_create_vault_action, [vault_box, active_vault], create_out).then(
+            None, [vault_nav], None, js=_NAV_WORKSPACE_JS
+        )
+        vault_approve_btn.click(_approve_vault_action, [vault_card], create_out).then(
+            None, [vault_nav], None, js=_NAV_WORKSPACE_JS
         )
 
         # spec 004 FR-31: toggling the whole sidebar updates ?sidebar silently (no reload).

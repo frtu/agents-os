@@ -82,7 +82,7 @@ def test_ac3_clarification_selection_continues_and_bounds_enforced(
     # AC-3 (FR-5/FR-6): a 2–4-option clarification is valid and one selection continues; 0/1/>4 and a
     # wrong approval count are rejected as malformed and never rendered. Selecting **resumes the
     # turn** rather than acknowledging the choice (spec 010 FR-7 / AC-5).
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     itx = capabilities.create_interaction(
         "demo", None, "clarification", "Pick an approach",
         ["Refactor now", "Ship then refactor"],
@@ -329,7 +329,7 @@ def test_ac11_unknown_and_double_response_rejected_no_side_effects(client, isola
 def test_ac12_one_blocking_interaction_outstanding(client, isolated_workspace_root):
     # AC-12 (FR-15): a second blocking interaction is refused while one is pending; a non-blocking
     # notification may still be raised and does not displace the pending blocking one.
-    client.post("/api/workspaces", json={"name": "demo"})
+    capabilities.create_workspace("demo")
     first = capabilities.create_interaction("demo", None, "approval", "Do it?", ["Yes"])
 
     with pytest.raises(WorkspaceError):

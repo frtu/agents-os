@@ -41,7 +41,9 @@
       "Bash(chmod +x *)",
       "Bash(awk '{print $1\" \"$2}')",
       "Bash(git --no-pager diff --stat HEAD)",
-      "Bash(git --no-pager diff HEAD -- app/capabilities.py)"
+      "Bash(git --no-pager diff HEAD -- app/capabilities.py)",
+      "Bash(git checkout *)",
+      "Bash(xargs -I{} basename {} .py)"
     ]
   }
 }
