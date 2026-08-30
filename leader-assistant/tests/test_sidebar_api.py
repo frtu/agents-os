@@ -583,6 +583,55 @@ def test_sessions_render_escapes_untrusted_text(monkeypatch):
     assert "&lt;img src=x onerror=alert(1)&gt;" in out
 
 
+def test_sessions_mark_the_active_conversation_fr37(monkeypatch):
+    # spec 004 FR-37 / AC-20: the row for the conversation the chat is in is marked, so the panel
+    # answers "which of these am I reading?". Exactly one row carries the mark.
+    from datetime import date
+
+    from app import ui
+
+    sample = [
+        {"conversation_id": "c1", "created": date.today().isoformat(),
+         "title": "Ship it", "turn_count": 2},
+        {"conversation_id": "c2", "created": date.today().isoformat(),
+         "title": "Retro", "turn_count": 1},
+    ]
+    monkeypatch.setattr(ui, "_get_sessions", lambda _v: {"conversations": sample})
+
+    out = ui._sessions_html("demo", "c2")
+    assert out.count("class='session active'") == 1
+    assert '<div class=\'session active\' data-cid="c2"' in out
+    assert '<div class=\'session\' data-cid="c1"' in out
+    # No active conversation (a fresh thread, or New conversation) leaves every row unmarked.
+    assert "active" not in ui._sessions_html("demo", None)
+    # The mark is styled, not just a class name nobody renders.
+    assert ".session-tree .session.active {" in ui._CSS
+
+
+def test_sessions_after_turn_uses_the_turn_workspace_fr37(monkeypatch):
+    # spec 004 FR-37 + FR-38: the post-turn re-read is scoped the way the turn itself was — the
+    # ?workspace param wins over gr.State — so the list cannot be re-read against another workspace.
+    from datetime import date
+
+    from app import ui
+
+    asked: list[str | None] = []
+
+    def fake_get_sessions(workspace):
+        asked.append(workspace)
+        return {"conversations": [{"conversation_id": "c9", "created": date.today().isoformat(),
+                                   "title": "Fresh thread", "turn_count": 1}]}
+
+    monkeypatch.setattr(ui, "_get_sessions", fake_get_sessions)
+
+    out = ui._sessions_after_turn("stale-state", "c9", "from-url")
+    assert asked == ["from-url"]
+    assert '<div class=\'session active\' data-cid="c9"' in out
+    # State is still the fallback when the URL carries no workspace (FR-38).
+    ui._sessions_after_turn("stale-state", "c9", "")
+    assert asked[-1] == "stale-state"
+
+
 def test_sessions_empty_state(monkeypatch):
     # FR-23: an empty Sessions list shows a "nothing yet" message rather than failing.
     from app import ui

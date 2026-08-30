@@ -55,6 +55,13 @@ INTERACTION_TIMEOUT_MSG = "Something goes wrong, please retry later."
 # record was resolved elsewhere. Mirrors the backend's wording for a stale interaction id. Saying
 # nothing is worse than saying this: a card that swallows clicks silently reads as a frozen UI.
 STALE_CARD_MSG = "That request is no longer awaiting a response — send a new message to continue."
+# spec 004 FR-39: a turn with no resolvable workspace is refused, not sent. The backend would resolve
+# the missing workspace to the default one, so sending it would silently write the thread and its
+# effects into a workspace the operator is not looking at.
+NO_WORKSPACE_MSG = (
+    "⚠️ No workspace is active, so I did not run this — it would have gone to the default "
+    "workspace. Reload the page (or pick a workspace in the sidebar) and send it again."
+)
 
 # Tooltip labels for the icon-only vault buttons, applied on load (spec 004 FR-5).
 _TOOLTIP_JS = """
@@ -265,6 +272,31 @@ _NAV_WORKSPACE_JS = """
 }
 """
 
+# spec 004 FR-38: re-read the workspace from the URL at send time, into the hidden #ws-url mirror.
+# A js-only event's *output* does reach the backend (unlike a JS-mutated Textbox value — see the
+# _SESSION_JS note), so this is prepended to each turn chain to give the handler the URL's workspace
+# alongside the gr.State one. gr.State is reset on every page reload (new session) and is expired by
+# Gradio's StateHolder on its own schedule, so it cannot be the only pointer to the active workspace.
+_WS_FROM_URL_JS = "() => new URL(window.location).searchParams.get('workspace') || ''"
+
+# spec 004 FR-29/FR-38: on load, write the *resolved* active workspace back into ?workspace (silently,
+# via replaceState). This makes the URL always carry the workspace — including on a bare `/` visit —
+# so the URL, not gr.State, is the pointer a turn resolves from and a reload can never land on a page
+# whose workspace lives only in expired session state.
+# The name arrives as a js *input* (the _NAV_WORKSPACE_JS shim style), not by reading the hidden
+# mirror out of the DOM: Gradio does not render `visible=False` components, so a querySelector for
+# one finds nothing.
+_WS_SYNC_JS = """
+(ws) => {
+  const name = (ws || '').trim();
+  if (!name) return;
+  const u = new URL(window.location);
+  if (u.searchParams.get('workspace') === name) return;
+  u.searchParams.set('workspace', name);
+  history.replaceState(null, '', u.toString());
+}
+"""
+
 # spec 004 FR-31: toggling the whole sidebar updates ?sidebar in place (no reload) so the chat and
 # transient state survive; the URL stays bookmarkable.
 _SIDEBAR_OPEN_JS = """
@@ -374,6 +406,12 @@ main.contain > .column { display: flex; flex-direction: column; }
 .session-tree .session .ico { flex: none; opacity: 0.7; }
 .session-tree .session .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-tree .session:hover { background: var(--background-fill-secondary); }
+/* spec 004 FR-37: the conversation the operator is actually in, marked so the panel answers
+   "which of these am I reading?" without a guess. */
+.session-tree .session.active {
+  background: var(--background-fill-secondary); font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--color-accent, #f97316);
+}
 /* The JS click bridge needs its target textbox in the DOM, so hide it with CSS rather than
    `visible=False` (Gradio removes invisible components from the DOM entirely). */
 .session-bridge { display: none !important; }
@@ -729,12 +767,16 @@ def _grouped_sessions(
     return [(b, items) for b in _SESSION_BUCKETS if (items := grouped[b])]
 
 
-def _sessions_html(workspace: str | None) -> str:
+def _sessions_html(workspace: str | None, active_cid: str | None = None) -> str:
     """Render prior conversations as collapsible date sections of clickable text (FR-19/FR-25).
 
     Each conversation is a `.session` row (💬 icon + label) carrying its id in `data-cid`; a
     delegated JS listener (_SESSION_JS) turns a click into the resume handler. Date groups are
     native `<details open>` so each is independently collapsible (expanded by default).
+
+    ``active_cid`` marks the conversation the chat is currently in (spec 004 FR-37). Re-rendering is
+    also how a brand-new thread first appears here at all — its record does not exist until its first
+    turn lands (spec 012 FR-2).
     """
     groups = _grouped_sessions(workspace)
     if not groups:
@@ -742,13 +784,23 @@ def _sessions_html(workspace: str | None) -> str:
     parts: list[str] = []
     for header, items in groups:
         rows = "".join(
-            f"<div class='session' data-cid=\"{html.escape(cid, quote=True)}\" "
+            f"<div class='session{' active' if cid == active_cid else ''}' "
+            f"data-cid=\"{html.escape(cid, quote=True)}\" "
             f"title=\"{html.escape(label, quote=True)}\">"
             f"<span class='ico'>💬</span><span class='label'>{html.escape(label)}</span></div>"
             for label, cid in items
         )
         parts.append(f"<details open><summary>{html.escape(header)}</summary>{rows}</details>")
     return f"<div class='session-tree'>{''.join(parts)}</div>"
+
+
+def _sessions_after_turn(workspace, conversation_id, ws_from_url="") -> str:
+    """Re-render Sessions once a turn has landed, scoped like the turn itself (FR-37, FR-38).
+
+    Resolving the workspace the same way the turn did keeps the list from being re-read against a
+    different workspace than the one the conversation was just written into.
+    """
+    return _sessions_html(_turn_workspace(ws_from_url, workspace), conversation_id)
 
 
 # --- Gradio event handlers --------------------------------------------------
@@ -772,12 +824,28 @@ def _add_approve_msg(history):
     return (history or []) + [{"role": "user", "content": APPROVE_MSG}]
 
 
+def _turn_workspace(from_url, from_state):
+    """The workspace a turn targets (spec 004 FR-38).
+
+    The URL param wins; the gr.State value is only the fallback. State is reset on every page
+    reload and expired by Gradio's StateHolder on its own schedule, so it cannot be the sole
+    pointer — a turn read only from it can be sent with no workspace at all.
+    """
+    return (from_url or "").strip() or (from_state or "").strip() or None
+
+
 async def _run_turn(history, conversation_id, workspace, approve, auto_approve=None):
     """Stream one assistant turn, updating the last message as text arrives.
 
     A consequential turn ends with an approval interaction (spec 008 FR-17); the card owns
     approval, so the legacy Approve button only shows for the rare plan without an interaction.
     """
+    # spec 004 FR-39: refuse rather than send a workspace-less turn, which the backend would resolve
+    # to LEADER_DEFAULT_WORKSPACE — writing the thread and its effects into the wrong workspace.
+    if not workspace:
+        yield ((history or []) + [{"role": "assistant", "content": NO_WORKSPACE_MSG}],
+               conversation_id, gr.update(visible=False), None)
+        return
     user_msg = _text(history[-1]["content"]) if history else ""
     history = history + [{"role": "assistant", "content": THINKING}]
     yield (history, conversation_id, gr.update(visible=False), None)
@@ -816,13 +884,15 @@ async def _run_turn(history, conversation_id, workspace, approve, auto_approve=N
     yield (history, cid, gr.update(visible=show_approve), awaiting)
 
 
-async def _respond(history, conversation_id, workspace, auto_approve=None):
-    async for out in _run_turn(history, conversation_id, workspace, False, auto_approve):
+async def _respond(history, conversation_id, workspace, auto_approve=None, ws_from_url=""):
+    target = _turn_workspace(ws_from_url, workspace)  # spec 004 FR-38
+    async for out in _run_turn(history, conversation_id, target, False, auto_approve):
         yield out
 
 
-async def _approve(history, conversation_id, workspace, auto_approve=None):
-    async for out in _run_turn(history, conversation_id, workspace, True, auto_approve):
+async def _approve(history, conversation_id, workspace, auto_approve=None, ws_from_url=""):
+    target = _turn_workspace(ws_from_url, workspace)  # spec 004 FR-38
+    async for out in _run_turn(history, conversation_id, target, True, auto_approve):
         yield out
 
 
@@ -982,6 +1052,12 @@ async def _run_interaction(history, conversation_id, workspace, interaction, cho
         history = history + [{"role": "assistant", "content": STALE_CARD_MSG}]
         yield (history, conversation_id, gr.update(visible=False), None)
         return
+    # spec 004 FR-39: with no workspace the resumed turn would run in the default one. Refuse, and
+    # leave the card live so it can be answered again once a workspace is resolved.
+    if not workspace:
+        history = history + [{"role": "assistant", "content": NO_WORKSPACE_MSG}]
+        yield (history, conversation_id, gr.update(visible=False), interaction)
+        return
     interaction_id = interaction.get("interaction_id")
     label = _choice_label(interaction, choice)
     history = _neutralize_card(history, interaction_id, label) + [
@@ -1016,14 +1092,15 @@ async def _run_interaction(history, conversation_id, workspace, interaction, cho
     yield (history, cid, gr.update(visible=False), fresh)
 
 
-async def _submit_interaction(history, conversation_id, workspace, interaction, choice):
+async def _submit_interaction(history, conversation_id, workspace, interaction, choice, ws_from_url=""):
     """Answer the pending card from the JS bridge (spec 008 FR-7/FR-12/FR-16). `choice` is the
     clicked option id, "chat", or "decline"; empty means no click reached us — keep the card up."""
     choice = (choice or "").strip()
     if not choice:
         yield (history, conversation_id, gr.update(visible=False), interaction)
         return
-    async for out in _run_interaction(history, conversation_id, workspace, interaction, choice):
+    target = _turn_workspace(ws_from_url, workspace)  # spec 004 FR-38
+    async for out in _run_interaction(history, conversation_id, target, interaction, choice):
         yield out
 
 
@@ -1175,6 +1252,9 @@ def _initial(request: gr.Request = None):
     workspace becomes active when known (else the default), the sidebar opens only when
     ``sidebar=open`` (absent ⇒ the FR-1 default of closed/hidden), and the named conversation is
     restored into the chat scoped to that workspace (unknown/absent ⇒ a fresh thread).
+
+    Also returns the resolved workspace as the last value, for the #ws-url mirror that _WS_SYNC_JS
+    writes back into ?workspace and that every turn resolves from (FR-38).
     """
     params = dict(request.query_params) if request is not None else {}
     want_ws = params.get("workspace") or None
@@ -1187,7 +1267,7 @@ def _initial(request: gr.Request = None):
         return (
             "", None, gr.update(choices=[], visible=False),
             f"<em>API not reachable: {html.escape(str(e))}</em>",
-            f"API error: {e}", gr.update(visible=False), sidebar_open, greeting, None,
+            f"API error: {e}", gr.update(visible=False), sidebar_open, greeting, None, "",
         )
     vaults = info.get("workspaces", [])
     default = info.get("default", "default")
@@ -1202,6 +1282,7 @@ def _initial(request: gr.Request = None):
         active or "", active,
         _picker_update(_others(vaults, active), visible=False),
         wiki, _status(active), gr.update(visible=False), sidebar_open, chat_msgs, conv,
+        active or "",
     )
 
 
@@ -1560,17 +1641,29 @@ def build_demo() -> gr.Blocks:
         # spec 004 FR-32: a hidden mirror of the active conversation id that _CONV_SYNC_JS reads from
         # the DOM to keep ?conversation in sync (js-only listeners can't read gr.State inputs).
         conv_url = gr.Textbox(visible=False, elem_id="conv-url")
+        # spec 004 FR-38: a hidden mirror of the URL's ?workspace, refilled by _WS_FROM_URL_JS at the
+        # start of every turn so the turn targets the URL's workspace even when gr.State was lost.
+        # Hidden components are not in the DOM, so this is only ever passed as an event input/output —
+        # never read back with querySelector.
+        ws_url = gr.Textbox(visible=False, elem_id="ws-url")
 
         # --- wiring ---
         sidebar_out = [vault_box, active_vault, vault_suggest, wiki_view, vault_status, create_btn]
         # spec 004 FR-29/FR-32: _initial also restores the sidebar open/closed state from ?sidebar and
         # the deep-linked conversation from ?conversation (into chat + conversation state).
-        demo.load(_initial, None, sidebar_out + [sidebar, chat, conversation]).then(
+        # spec 004 FR-38: _initial also fills the #ws-url mirror, which _WS_SYNC_JS writes back into
+        # ?workspace so the URL always names the active workspace.
+        demo.load(_initial, None, sidebar_out + [sidebar, chat, conversation, ws_url]).then(
+            None, [ws_url], None, js=_WS_SYNC_JS
+        ).then(
             _recover_card, [chat, conversation, active_vault], [chat, interaction]
         ).then(_conv_title_md, [conversation, active_vault], [conv_title]).then(
             None, None, None, js=_COUNTDOWN_JS
+        ).then(
+            # spec 004 FR-37: chained (not a separate load) so the deep-linked conversation is known
+            # by the time the list renders, and can be marked as the active one.
+            _sessions_html, [active_vault, conversation], [sessions_view]
         )
-        demo.load(_sessions_html, [active_vault], [sessions_view])
         # spec 004 FR-26/FR-27: populate the quick-menu Model picker; FR-28: selecting persists.
         demo.load(_model_initial, None, [model_picker, model_source]).then(
             lambda d=None: d, [model_picker], [active_model]
@@ -1625,9 +1718,10 @@ def build_demo() -> gr.Blocks:
             _pick_model, [model_picker, active_model], [model_picker, active_model, model_source]
         )
 
-        # Re-scope Sessions when the active workspace changes (FR-21) and on explicit refresh.
-        active_vault.change(_sessions_html, [active_vault], [sessions_view])
-        refresh_btn.click(_sessions_html, [active_vault], [sessions_view])
+        # Re-scope Sessions when the active workspace changes (FR-21) and on explicit refresh,
+        # keeping the active conversation marked (FR-37).
+        active_vault.change(_sessions_html, [active_vault, conversation], [sessions_view])
+        refresh_btn.click(_sessions_html, [active_vault, conversation], [sessions_view])
         # Clicking a session row (JS) clicks session_go; the js shim injects the clicked id so
         # _open_session resumes that conversation in the chat (FR-19/FR-20). On resume, recover any
         # still-pending interaction card (spec 008 FR-11) and (re)start its countdown. The URL's
@@ -1637,7 +1731,10 @@ def build_demo() -> gr.Blocks:
             js=_SESSION_PICK_JS,
         ).then(_recover_card, [chat, conversation, active_vault], [chat, interaction]).then(
             _conv_title_md, [conversation, active_vault], [conv_title]
-        ).then(None, None, None, js=_COUNTDOWN_JS)
+        ).then(None, None, None, js=_COUNTDOWN_JS).then(
+            # spec 004 FR-37: move the active mark onto the conversation just resumed.
+            _sessions_html, [active_vault, conversation], [sessions_view]
+        )
 
         upload_btn.click(
             _do_upload,
@@ -1651,40 +1748,55 @@ def build_demo() -> gr.Blocks:
             lambda: None, None, [interaction]
         ).then(lambda: "### New conversation", None, [conv_title]).then(
             lambda: "", None, [conv_url]
-        ).then(None, None, None, js=_CONV_SYNC_JS)
+        ).then(None, None, None, js=_CONV_SYNC_JS).then(
+            # spec 004 FR-37: no thread is active yet, so the mark clears.
+            _sessions_html, [active_vault, conversation], [sessions_view]
+        )
 
         # spec 008 FR-8: the bottom chat box always starts a NEW task; it never answers the card.
         # spec 004 FR-32: after a turn, mirror the (possibly newly created) conversation id into the
         # hidden #conv-url box, then _CONV_SYNC_JS syncs ?conversation so the thread is bookmarkable.
+        # spec 004 FR-38: every turn chain re-reads ?workspace into the #ws-url mirror first, so the
+        # handler resolves the target workspace from the URL rather than from gr.State alone.
         turn_out = [chat, conversation, approve_btn, interaction]
         box.submit(_user_submit, [box, chat], [box, chat]).then(
-            _respond, [chat, conversation, active_vault, auto_approve_box], turn_out
+            None, None, [ws_url], js=_WS_FROM_URL_JS
+        ).then(
+            _respond, [chat, conversation, active_vault, auto_approve_box, ws_url], turn_out
         ).then(None, None, None, js=_COUNTDOWN_JS).then(
             lambda cid: cid or "", [conversation], [conv_url]
         ).then(_conv_title_md, [conversation, active_vault], [conv_title]).then(
             None, None, None, js=_CONV_SYNC_JS
+        ).then(
+            # spec 004 FR-37: the first turn is when the record comes into existence (spec 012
+            # FR-2), so without this the operator's own conversation is missing from the list.
+            _sessions_after_turn, [active_vault, conversation, ws_url], [sessions_view]
         )
         approve_btn.click(_add_approve_msg, [chat], [chat]).then(
-            _approve, [chat, conversation, active_vault, auto_approve_box], turn_out
+            None, None, [ws_url], js=_WS_FROM_URL_JS
+        ).then(
+            _approve, [chat, conversation, active_vault, auto_approve_box, ws_url], turn_out
         ).then(None, None, None, js=_COUNTDOWN_JS).then(
             lambda cid: cid or "", [conversation], [conv_url]
         ).then(_conv_title_md, [conversation, active_vault], [conv_title]).then(
             None, None, None, js=_CONV_SYNC_JS
-        )
+        ).then(_sessions_after_turn, [active_vault, conversation, ws_url], [sessions_view])
 
         # spec 008 FR-7/FR-12/FR-16: the in-chat card answers via the JS bridge. Clicking an option
         # (proposal, "chat about it", or the ✕ decline) sets window.__itxChoice and clicks #itx-go;
         # its js-only click mirrors the choice into itx_choice (updating the store), then
         # _submit_interaction answers the pending interaction and streams the resumed turn.
         itx_go.click(None, None, [itx_choice], js="() => window.__itxChoice || ''").then(
+            None, None, [ws_url], js=_WS_FROM_URL_JS
+        ).then(
             _submit_interaction,
-            [chat, conversation, active_vault, interaction, itx_choice],
+            [chat, conversation, active_vault, interaction, itx_choice, ws_url],
             turn_out,
         ).then(None, None, None, js=_COUNTDOWN_JS).then(
             lambda cid: cid or "", [conversation], [conv_url]
         ).then(_conv_title_md, [conversation, active_vault], [conv_title]).then(
             None, None, None, js=_CONV_SYNC_JS
-        )
+        ).then(_sessions_after_turn, [active_vault, conversation, ws_url], [sessions_view])
         # spec 008 D6: the countdown JS clicks #itx-expire at zero → neutralize the card + timeout msg.
         itx_expire.click(_expire_interaction, [chat, interaction], [chat, interaction]).then(
             None, None, None, js=_COUNTDOWN_JS

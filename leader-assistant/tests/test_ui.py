@@ -9,6 +9,7 @@ never imports the capability/vault layer (spec 003 FR-3/FR-10/AC-8, P9).
 from __future__ import annotations
 
 import ast
+import asyncio
 import pathlib
 import types
 
@@ -343,3 +344,113 @@ def test_live_card_id_ignores_retired_cards():
     assert ui._live_card_id(history) == "itx-live"
     assert ui._live_card_id([{"role": "assistant", "content": resolved}]) == ""
     assert ui._live_card_id([]) == ""
+
+
+# --- spec 004 FR-38/FR-39: the URL is the workspace pointer a turn resolves from (AC-19) ------
+
+
+def _drain(agen):
+    """Collect every yield of an async generator (the turn handlers stream their updates)."""
+    async def run():
+        return [out async for out in agen]
+
+    return asyncio.run(run())
+
+
+def test_turn_workspace_prefers_url_over_state_fr38():
+    # FR-38: the URL param wins; gr.State is only the fallback; neither ⇒ None (FR-39 refuses).
+    assert ui._turn_workspace("interviews", "alpha") == "interviews"
+    assert ui._turn_workspace("interviews", None) == "interviews"   # state lost on reload
+    assert ui._turn_workspace("", "alpha") == "alpha"               # no param ⇒ fall back
+    assert ui._turn_workspace("  ", None) is None
+
+
+def test_respond_targets_url_workspace_when_state_lost_fr38(monkeypatch):
+    # FR-38: a turn sent while gr.State is unset (as it is on every reload until _initial resolves)
+    # must still go to the workspace named in the URL, not to the backend default.
+    sent = {}
+
+    async def fake_stream(workspace, message, cid, approve, auto_approve=None):
+        sent["workspace"] = workspace
+        yield {"reply": "ok", "conversation_id": "c1"}
+
+    monkeypatch.setattr(ui, "_stream_chat", fake_stream)
+    _drain(ui._respond([{"role": "user", "content": "run it"}], None, None, False, "interviews"))
+    assert sent["workspace"] == "interviews"
+
+
+def test_approve_targets_url_workspace_when_state_lost_fr38(monkeypatch):
+    # FR-38: the approve path resolves the workspace the same way as a fresh turn.
+    sent = {}
+
+    async def fake_stream(workspace, message, cid, approve, auto_approve=None):
+        sent["workspace"] = workspace
+        yield {"reply": "done", "conversation_id": "c1"}
+
+    monkeypatch.setattr(ui, "_stream_chat", fake_stream)
+    _drain(ui._approve([{"role": "user", "content": ui.APPROVE_MSG}], "c1", None, False, "interviews"))
+    assert sent["workspace"] == "interviews"
+
+
+def test_respond_refuses_turn_with_no_workspace_fr39(monkeypatch):
+    # FR-39: with neither a URL param nor state, the turn is refused — never sent workspace-less,
+    # which the backend would resolve to LEADER_DEFAULT_WORKSPACE.
+    def never(*a, **k):
+        raise AssertionError("must not send a workspace-less turn")
+
+    monkeypatch.setattr(ui, "_stream_chat", never)
+    outs = _drain(ui._respond([{"role": "user", "content": "run it"}], None, None, False, ""))
+    assert outs[-1][0][-1]["content"] == ui.NO_WORKSPACE_MSG
+
+
+def test_submit_interaction_targets_url_workspace_fr38(monkeypatch):
+    # FR-38: answering a card resumes the turn in the URL's workspace even with state lost.
+    sent = {}
+
+    async def fake_stream(workspace, cid, iid, choice):
+        sent["workspace"] = workspace
+        yield {"reply": "resumed", "conversation_id": cid}
+
+    monkeypatch.setattr(ui, "_stream_interaction", fake_stream)
+    itx = {"interaction_id": "itx-1", "kind": "clarification", "prompt": "?",
+           "options": [{"id": "opt-1", "label": "A"}], "timeout_seconds": 120}
+    _drain(ui._submit_interaction([], "c1", None, itx, "opt-1", "interviews"))
+    assert sent["workspace"] == "interviews"
+
+
+def test_submit_interaction_refuses_with_no_workspace_and_keeps_card_fr39(monkeypatch):
+    # FR-39: refuse the resumed turn, and leave the card live so it can be answered once a
+    # workspace is resolved rather than being consumed by the failed attempt.
+    def never(*a, **k):
+        raise AssertionError("must not resume a turn without a workspace")
+
+    monkeypatch.setattr(ui, "_stream_interaction", never)
+    itx = {"interaction_id": "itx-1", "kind": "clarification", "prompt": "?",
+           "options": [{"id": "opt-1", "label": "A"}], "timeout_seconds": 120}
+    outs = _drain(ui._submit_interaction([], "c1", None, itx, "opt-1", ""))
+    history, _cid, _approve, awaiting = outs[-1]
+    assert history[-1]["content"] == ui.NO_WORKSPACE_MSG
+    assert awaiting == itx      # the card is still answerable
+
+
+def test_initial_fills_ws_url_mirror_fr38(monkeypatch):
+    # FR-38: _initial publishes the resolved workspace into the #ws-url mirror, which _WS_SYNC_JS
+    # writes back into ?workspace — so a bare `/` visit still leaves the URL naming the workspace.
+    monkeypatch.setattr(ui, "_list_workspaces",
+                        lambda: {"workspaces": ["alpha", "beta"], "default": "alpha"})
+    monkeypatch.setattr(ui, "_wiki_html", lambda ws: "")
+    assert ui._initial(_req(workspace="beta"))[9] == "beta"
+    assert ui._initial(_req())[9] == "alpha"
+
+
+def test_ui_wires_url_workspace_into_every_turn_fr38():
+    # FR-38: each of the three turn chains re-reads ?workspace into #ws-url before the handler runs,
+    # and passes that mirror alongside the gr.State one. A chain that omits it can send a turn with
+    # no workspace after a reload — the regression this guards.
+    src = UI_PATH.read_text()
+    assert 'elem_id="ws-url"' in src
+    assert "_WS_FROM_URL_JS" in src
+    assert "_WS_SYNC_JS" in src                     # load-time URL healing
+    assert src.count("js=_WS_FROM_URL_JS") == 3     # submit, approve, interaction answer
+    assert "[chat, conversation, active_vault, auto_approve_box, ws_url]" in src
+    assert "[chat, conversation, active_vault, interaction, itx_choice, ws_url]" in src

@@ -162,6 +162,18 @@ Numbered, testable, unambiguous.
   `?conversation` **in place via `history.replaceState`** (no reload — the chat already loads the
   thread in-page). **New conversation** MUST **clear** the param. Switching workspace (FR-30) reloads
   onto the new deep link and MUST NOT carry a stale `conversation` from the previous workspace.
+- **FR-38 (the URL is authoritative for a turn's workspace):** Every request the UI sends on behalf
+  of a chat turn — a new turn, an approve, or an interaction answer — MUST resolve its target
+  workspace from the `?workspace=` URL param **at send time**, preferring it over any transient
+  client/session state. Transient state MAY serve only as the fallback when the param is absent.
+  The URL is the only workspace pointer that survives a page reload; UI framework session state is
+  reset on every reload and is expired/evicted by the framework on its own schedule, so a turn read
+  solely from session state can be sent with **no** workspace.
+- **FR-39 (no silent workspace fallback for a turn):** When the UI cannot resolve a workspace for a
+  turn (neither the URL param nor session state yields one), it MUST **refuse to send the turn** and
+  report that in the chat. It MUST NOT send a turn with an absent/empty workspace, because the
+  backend resolves that to `LEADER_DEFAULT_WORKSPACE` — writing the conversation and any of its
+  effects into the **wrong workspace**, silently and unrecoverably from the operator's point of view.
 
 ### Workspaces panel (selector + create)
 
@@ -272,6 +284,14 @@ Numbered, testable, unambiguous.
   conversation's `created` date. Each listed conversation MUST render as **clickable text**
   (per FR-19), not as an action button. Each relative-date group MUST be an **independently
   collapsible section** (its conversations expand/collapse) and MUST be **expanded by default**.
+- **FR-37 (the list follows the live conversation):** The Sessions list MUST be **re-read after any
+  turn that can change it** — in particular the **first** turn of a fresh thread, which is when the
+  conversation's record comes into existence ([[012-conversation-naming]] FR-2). Until it is
+  re-read, the operator's current conversation is missing from the panel that is supposed to list
+  every conversation, and the only way to see it is a full page reload. The **active** conversation
+  MUST additionally be **visually marked** in the list — on a new turn, on resume (FR-20), and on
+  deep-link restore (FR-32) — and the mark MUST clear when a **New conversation** is started
+  (FR-24), so the panel always answers "which of these am I in?" without the operator guessing.
 
 ### Conversation header (chat panel title + copy id)
 
@@ -435,6 +455,12 @@ Numbered, testable, unambiguous.
   **toggling the whole sidebar** updates the `sidebar` param silently via `history.replaceState`
   (no reload, chat preserved). (FR-29, FR-30, FR-31)
 
+- [ ] **AC-19:** A chat turn, an approve, and an interaction answer each target the workspace named
+  by `?workspace=` in the URL, even when the UI's session state has been lost (as it is on every
+  page reload until the load handler resolves, and whenever the framework expires it). When no
+  workspace can be resolved at all, the turn is **refused** with a message in the chat rather than
+  sent without one — it is never quietly routed to the default workspace. (FR-38, FR-39)
+
 - [ ] **AC-15:** The URL carries `?conversation=<id>`; loading such a URL restores that thread in the
   chat (unknown/absent ⇒ fresh thread), scoped to the active workspace. Selecting a session, a new
   thread acquiring an id on its first turn, or starting **New conversation** updates `?conversation`
@@ -449,6 +475,9 @@ Numbered, testable, unambiguous.
 - [ ] **AC-19:** The conversation transcript fills the remaining vertical space and anchors its
   messages to the **bottom** (short threads sit flush at the bottom; overflow scrolls with the latest
   turn visible), and the input grows **upward** past one line while its bottom edge stays fixed. (FR-36)
+- [ ] **AC-20:** The **first** turn of a fresh thread makes that conversation appear in the Sessions
+  list without a page reload, and the row for the **active** conversation is marked as such; the mark
+  moves on resume and clears on **New conversation**. (FR-37)
 
 ## Resolved Decisions
 
