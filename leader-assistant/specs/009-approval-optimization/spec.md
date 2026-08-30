@@ -137,6 +137,14 @@ Replace message-keyword gating with **effect-based gating at the capability boun
 - **FR-3 (gate only executable approval-tier actions):** An approval prompt MUST be raised **only**
   when an **executable** capability of tier `approval` is about to run (and trust mode is off — FR-7).
   No other condition raises an approval prompt.
+  > **SUPERSEDED by [[011-maker-checker-approval]] FR-2/FR-6/FR-12 (2026-08-29).** This requirement
+  > was implemented as a resolver over the **request text** (`_resolve_action(message)` against a
+  > closed tuple of two action names), which is the defect FR-2 above set out to remove — narrowed
+  > from risky *verbs* to two *action names*, but still a decision taken on wording before any work
+  > happens. Under 011 the gate moves to the operation each layer **announces as it attempts it**,
+  > covering the agent's native tools too, and the trigger becomes an accumulated **1–5 score**
+  > reaching a threshold rather than a single resolved tier. FR-1 (the effect table), FR-4 (never gate
+  > a non-executable action), FR-5 (real plans) and FR-6 (reversibility) all survive **unchanged**.
 - **FR-4 (never gate a non-executable action):** If a request maps to **no executable capability**,
   the turn MUST proceed as a **normal answer** (explain/advise). It MUST NOT produce a plan, an
   approval prompt, or the "not automatable yet" message. The dead-end branch in `_execute_pending`
@@ -154,6 +162,11 @@ Replace message-keyword gating with **effect-based gating at the capability boun
   chat request (`ChatRequest`) and on the REST surface for consequential work. When true, an action
   that would otherwise be gated at tier `approval` (FR-3) MUST execute **without prompting**, still
   honoring FR-6 (log + commit).
+  > **Superseded by [[011-maker-checker-approval]] FR-17/FR-18/FR-20.** Trust mode is no longer an
+  > unconditional bypass. It is still the operator's standing consent, and still the only thing that
+  > can grant one, but it now *authorises the judge's `approve`* rather than skipping the judge — so
+  > it does not run an operation scoring above the precedent-free ceiling with no matching precedent,
+  > and it does not run anything at cold start. FR-8 through FR-11 are unaffected.
 - **FR-8 (persisted trust mode):** The operator's `auto_approve` preference MUST be **persistable**
   (stored in the runtime settings file, alongside the selected model — `LEADER_SETTINGS_PATH`) and
   MUST be exposed over REST for read and update (parity with the model endpoints, **P9**). Once set,

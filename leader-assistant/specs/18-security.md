@@ -33,6 +33,30 @@ Files under `vault/raw/` are never modified or deleted by the assistant (wiki-sc
 - External actions occur only on explicit user demand ([[15-integrations]]).
 - No autonomous execution of arbitrary external actions ([[01-principles]] Non-Goals).
 
+### 2.1 Bounded delegation — blast radius of a compromised checker ([[011-maker-checker-approval]])
+
+Constitution P8 v2.0.0 admits a **non-human checker** that can answer an approval on the operator's
+behalf. That is a new trust boundary, so its failure modes are stated explicitly:
+
+- The checker **cannot execute anything** (011 FR-22): no capability access, no tools, no filesystem
+  writes except appending to the experience store. A compromised checker cannot perform an action; it
+  can only influence whether the operator is asked.
+- The checker **cannot widen its own authority**. Its `approve` passes through a **deterministic
+  post-filter** (011 FR-17) that honours it only under the operator's standing consent or a matching
+  recorded precedent, and refuses it above the precedent-free ceiling (FR-18). The filter is code the
+  checker cannot reach.
+- The checker **fails closed**: unavailable, timed out, malformed, or precedent-free resolves to
+  **ask** (011 FR-20/FR-21). Its worst realistic outcome is therefore **asking more often**, which is
+  a usability regression, not a security one.
+- The checker **may not learn to refuse**. An autonomous `decline` is permitted only on the precedent
+  of a prior operator decline for the same fingerprint (011 FR-19), so a compromised checker cannot be
+  used to deny the operator service by fabricating refusals.
+- **§1 is unconditional.** The `vault/raw/` prohibition is not a scored decision and no verdict, score
+  or trust setting can satisfy it (011 AC-20).
+- The experience store is **append-only and human-auditable**, and weights are hand-edited: a
+  precedent match must be explainable without re-running the checker (011 FR-31), and no routine
+  auto-applies a threshold change (011 FR-32).
+
 ## 3. Risk Gating
 
 Potentially destructive or high-impact mutations are caught by the risk engine ([[10-risk-engine]]) and routed to feature branches for review; risky branches never auto-merge.
@@ -54,7 +78,9 @@ Every mutation is a Git commit with an operation-typed message ([[11-git-workflo
 ## 7. Acceptance Criteria
 
 - AC1: No code path writes to `vault/raw/`.
-- AC2: Destructive/consequential actions require explicit approval.
+- AC2: Destructive/consequential actions require explicit approval — from the operator, from their
+  standing consent, or from a bounded checker within the limits of §2.1; every such decision records
+  **which party decided**.
 - AC3: External actions never fire autonomously.
 - AC4: Secrets in raw material are never propagated into wiki pages or commits.
 - AC5: Every mutation is attributable via Git + log.

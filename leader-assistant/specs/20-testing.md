@@ -45,14 +45,24 @@ Verification is anchored to the **Core Invariants** ([[01-principles]] §2) and 
 | Chat/API parity | capability parity holds both ways | [[13-api]], [[14-chat]] |
 | External on demand only | no autonomous external actions | [[15-integrations]] |
 | Plan-first | consequential work presents a plan | [[09-planning]] |
+| Layers stay independent | layer 1 imports neither 2 nor 3; layer 2 does not import 3 | [[011-maker-checker-approval]] |
+| Gate is not message-derived | an agent native-tool write is announced, scored, recorded | [[011-maker-checker-approval]] |
+| Pause is enforced, not advised | denial comes from the hook; nothing runs past the gate | [[011-maker-checker-approval]] |
+| Checker cannot widen authority | `approve` without consent or precedent downgrades to `ask` | [[011-maker-checker-approval]] |
+| Checker fails closed | unavailable/malformed/cold-start resolves to `ask` | [[011-maker-checker-approval]] |
+| Decline is final | declined operation never runs and is not re-asked in the run | [[011-maker-checker-approval]] |
 
 ## 2. Test Levels
 
-- **Unit**: risk rule predicates; frontmatter/ID validation; wikilink formatting (incl. table-escaped `\|`).
+- **Unit**: risk rule predicates; **scoring modifiers (base + weights, clamped 1–5)**; frontmatter/ID validation; wikilink formatting (incl. table-escaped `\|`).
 - **Integration**: ingest pipeline end-to-end; dreaming→ingest promotion; spec-generation pipeline.
 - **Operation**: query returns cited answers; lint detects seeded contradictions/orphans.
 - **Governance**: risky change routes to branch; approved-spec edit opens a revision.
 - **Parity**: each capability exercised via both Chat and API produces identical effects.
+- **Layers in isolation** ([[011-maker-checker-approval]] FR-35): each of the three approval layers is
+  tested with the other two replaced by their **default stubs** — allow-all permit (FR-3) and
+  ask-checker (FR-13). A test that needs all three wired to exercise one of them is a coupling defect,
+  not a test.
 
 ## 3. Acceptance Gate
 
@@ -65,3 +75,5 @@ A build is acceptable when: every Core Invariant test passes; each spec's own ac
 - AC3: Governance (risk/branching/approval) is covered by tests.
 - AC4: Parity tests assert identical Chat/API effects.
 - AC5: CI runs the full matrix and blocks merges on failure.
+- AC6: Each approval layer has tests that pass with the other two stubbed, and a static check asserts
+  the import boundary ([[011-maker-checker-approval]] AC-1/AC-2).

@@ -115,6 +115,19 @@ Split *asking* from *granting*:
   capability layer alone — from the human's answer or the operator's persisted/per-request trust mode.
   The agent MUST NOT be able to answer its own request, and MUST have no tool to read, set, or bypass
   trust mode ([[009-approval-optimization]] FR-11 unchanged).
+  > **SUPERSEDED in part by [[011-maker-checker-approval]] FR-15/FR-17 (2026-08-29).** "The
+  > capability layer decides" no longer holds: deciding moves to a separate **checker** layer, which
+  > may be an LLM risk agent and which has **no execution capability** at all (011 FR-22). The half of
+  > this requirement that *matters* is preserved and strengthened — the **agent that does the work
+  > still never grants its own approval**, and the grant is issued by **deterministic code** after the
+  > checker speaks, honoured only under standing consent or recorded precedent and failing closed to
+  > asking (011 FR-17/FR-21). The prohibition on the executing agent reading, setting or bypassing
+  > trust mode stands unchanged.
+  >
+  > **FR-3's advisory tool result is likewise superseded by 011 FR-4/D2:** instructing the model to
+  > "stop and take no action" is not enforcement. The **PreToolUse hook's `deny` becomes the
+  > enforcement point**, and this channel is demoted to a way for the agent to *ask early* rather than
+  > the thing that stops it.
 - **FR-3 (trust OFF → block and ask):** With trust mode off, an approval request MUST raise a
   **blocking approval card** and the tool result MUST instruct the agent to **stop and take no
   action** until answered. The full 008 protocol applies: the constant "chat about it" affordance

@@ -126,7 +126,13 @@ interaction, or reads/sets trust mode (010 FR-2; §3.1's structural exclusions s
 ## 4. Acceptance Criteria
 
 - AC1: Every Chat capability has an API equivalent.
-- AC2: API calls for consequential work return a plan for approval rather than executing immediately.
+- AC2: A call for consequential work never executes silently. It resolves to **one of three**
+  outcomes ([[011-maker-checker-approval]] FR-15): it **asks** (returning the accumulated, scored
+  operation list for approval), it is **auto-approved** under standing consent or recorded precedent
+  (and says so in the reply), or it is **declined**. Executing without one of these having been
+  satisfied is a defect.
+- AC2b: Every surface — REST and chat alike — reaches execution **only** through the concierge
+  ([[011-maker-checker-approval]] FR-23), and the same request behaves identically on both (P9).
 - AC3: API-initiated mutations pass through the risk engine and produce Git commits.
 - AC4: External PM actions via API occur only when explicitly requested.
 - AC5: The API cannot reach storage except through the shared capability layer.

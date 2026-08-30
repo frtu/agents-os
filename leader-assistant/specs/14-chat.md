@@ -43,24 +43,45 @@ User message → (ingest/query/plan) → assistant response
 
 Routine autonomous operations (ingest, lint, dreaming) may run without interrupting the chat, with results reflected in portal/log and Git.
 
-### 3.1 Low-friction turn flow ([[009-approval-optimization]])
+### 3.1 Low-friction turn flow ([[011-maker-checker-approval]], superseding [[009-approval-optimization]])
 
-A turn interrupts the user **only** when an executable `approval`-tier capability is about to run:
+A turn interrupts the user **only** when an operation actually being attempted reaches the gate
+threshold. The turn is not classified up front from the message; it is **observed as it runs**:
 
 ```text
-User message → resolve the action this turn would execute
-  ├── no executable action ──► normal answer (explain/advise) — no plan, ever
-  ├── tier auto / reversible ──► run now; log + commit (undo = one git revert)
-  └── tier approval ──► trust mode on?  ── yes ──► run now; log + commit
-                                          └─ no ──► real plan (capability, target, tier, undo)
-                                                     → approve → execute exactly that action
+User message ──► CONCIERGE (single entry point, REST and chat alike — FR-23)
+   └─► opens one workflow RUN, invokes EXECUTION
+         EXECUTION (layer 1: capabilities + agent native tools)
+           announces each operation before attempting it (FR-2/FR-5)
+              │
+              ▼
+         REPORTING (layer 2: scores 1–5 = tier base + data modifiers, FR-8)
+           ├── below threshold ──► permit; execute; record on the run; keep going
+           └── at threshold ────► PAUSE at the first such operation (FR-12)
+                                   hand over gating op + everything already
+                                   executed in this run (FR-11)
+              │
+              ▼
+         CHECKER (layer 3: LLM risk agent + deterministic filter)
+           inputs: objective · accumulated scored list · operator hint (trust) · precedent
+           ├── approve ──► honoured ONLY under standing consent OR matching precedent,
+           │               and only below the precedent-free ceiling; else downgraded
+           │               to ask (FR-17/FR-18) ──► resume; reply says why no card
+           ├── decline ──► only on recorded operator-decline precedent (FR-19)
+           └── ask ─────► 008 approval card showing every scored operation + justification
+                            ├── approve ──► execution RESUMES synchronously (FR-26)
+                            └── decline ──► operation never runs, run ends, not re-asked (FR-27)
+   (any outcome) ──► async: append one experience record with its source (FR-30)
+   (unavailable / malformed checker, or empty experience store) ──► ask (FR-20/FR-21)
 ```
 
-`ChatRequest` gains **`auto_approve: bool | null`** — `true`/`false` override the persisted trust
-setting for that turn only, omitted uses the persisted default (009 FR-7/FR-9). The assistant never
-raises an approval it cannot execute (009 FR-4), so AC3 below applies to executable approval-tier
-work; the approval gate is produced **only** by the capability layer, while the agent may raise
-clarification/notification cards ([[008-agent-user-interaction]] FR-18) but never approval.
+`ChatRequest` keeps **`auto_approve: bool | null`** — `true`/`false` override the persisted trust
+setting for that turn only, omitted uses the persisted default (009 FR-7/FR-9). It is now an **input
+to the checker** (the "operator hint") rather than a branch in the turn flow. The assistant still
+never raises an approval it cannot execute (009 FR-4), so AC3 below applies to gated operations. The
+approval card is raised by the **concierge** on the checker's verdict — not by the capability layer
+and not by the agent, which may still raise clarification/notification cards
+([[008-agent-user-interaction]] FR-18) but never approval.
 
 ### 3.2 In-turn grant for agent-raised approvals ([[010-agent-approval-channel]])
 

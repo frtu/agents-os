@@ -82,6 +82,39 @@ not a mutation and is therefore never routed through risk at all.
 (auditability) and AC4 (no unapproved risky merge) still hold, and the agent can never grant it
 itself (009 FR-11).
 
+## 3.2 Scoring Modifiers — the graded layer ([[011-maker-checker-approval]])
+
+§3.1's tier table stays exactly as it is: the tier is the **coarse invariant** the execution layer
+declares, and it remains the input to routing. §3.2 adds a **second, finer rule form** on top of it —
+a **1–5 risk score** per operation — because a binary `approval`/not-approval verdict cannot express
+the difference between rewriting one page and deleting thirty, and cannot be **accumulated** across
+an execution. Adding a modifier MUST NOT require an effect-table change, and adding a capability MUST
+NOT require a modifier change (011 FR-36).
+
+```text
+ScoringModifier
+├── name         # e.g. BREADTH_MANY_TARGETS
+├── description  # human-readable reason, shown to the operator verbatim
+├── condition    # predicate over the announced operation
+└── weight       # signed integer added to the base score
+```
+
+- **Score = base + modifiers, clamped 1–5.** Base comes from the declared tier: `auto` = 1,
+  `reversible` = 2, `approval` = 4 (011 FR-8).
+- Modifiers are **declared as data** (Constitution P12 v2.0.0), exactly as RiskRules are.
+- A modifier MUST describe only the operation's **effect** — irreversibility outside git, breadth of
+  change, external visibility, privilege granting, target sensitivity. It MUST NOT reference trust
+  mode, precedent, operator identity, or the request's wording; those are the **checker's** inputs,
+  not the scorer's (011 FR-9).
+- Every scored operation carries a **one-line justification** naming the concrete effect and its undo
+  path, so the score is never an unexplained number (011 FR-10).
+
+**`require-approval` is no longer terminal.** In §2 it was a final routing action; under 011 it is a
+**request to the checker**, which returns `approve` / `decline` / `ask`. The checker cannot widen its
+own authority: an `approve` is honoured only under standing consent or recorded precedent, and any
+failure resolves to `ask` (011 FR-17/FR-21). Scoring and routing therefore stay in this engine;
+**granting** moves to the checker plus its deterministic filter.
+
 ## 4. Extensibility Requirements
 
 - Rules are declared as data (config/domain objects), loadable without code changes to engines.

@@ -17,11 +17,20 @@ specs/
 ├── 00–20 *.md                    # PRIMARY spec (the 21 numbered docs) — authoritative
 ├── 21-outputs.md                 # extension: secondary PO/PM output capability
 ├── _templates/                   # adopted spec-kit meta-templates (spec/plan/tasks)
-└── 001-leader-assistant/         # buildable layer
-    ├── plan.md                   # decided tech stack + architecture; Constitution Check
-    ├── plan-tbd.md               # open implementation choices (not decided)
-    └── tasks.md                  # ordered build steps tied to the local spec
+├── 001-leader-assistant/         # buildable layer
+│   ├── plan.md                   # decided tech stack + architecture; Constitution Check
+│   ├── plan-tbd.md               # open implementation choices (not decided)
+│   └── tasks.md                  # ordered build steps tied to the local spec
+└── NNN-<feature>/spec.md         # feature specs; each amends the numbered MOCs it touches
 ```
+
+Feature specs (002 onward) refine the numbered MOCs; where they disagree, the **later feature wins**
+and the MOC carries an in-place amendment note. The approval model has been revised three times —
+read them in order: [`009-approval-optimization`](009-approval-optimization/spec.md) (effect tiers) →
+[`010-agent-approval-channel`](010-agent-approval-channel/spec.md) (the agent's ask channel) →
+[`011-maker-checker-approval`](011-maker-checker-approval/spec.md) (**current**: three independent
+layers + concierge + learning checker; supersedes 009 FR-3 and 010 FR-2, and drove Constitution
+2.0.0).
 
 ## Sources of Truth
 

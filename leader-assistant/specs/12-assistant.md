@@ -61,4 +61,11 @@ Chat must not implement capabilities that cannot be invoked through the API. The
 - AC2: No capability is Chat-only or API-only.
 - AC3: Engines interact only through defined capabilities (no direct interface-to-storage shortcuts).
 - AC4: Each engine's responsibilities from README §19-22 are covered by its detailed spec.
-- AC5: The Planning and Risk engines gate all consequential executions.
+- AC5: All consequential executions are gated by the **maker–checker** stack of
+  [[011-maker-checker-approval]], not by a two-engine check: every request enters through the
+  **concierge** (FR-23), the **execution** layer announces each operation it attempts (FR-2), the
+  **workflow reporting** layer scores and accumulates them and pauses at the first gate (FR-11/FR-12),
+  and the **checker** returns approve / decline / ask under a deterministic filter (FR-17). Planning
+  and Risk remain the engines that *describe* the work and *score* it; they no longer *grant* it.
+- AC6: The three layers are independent — no layer imports another's internals, and each is testable
+  with the other two replaced by default stubs ([[011-maker-checker-approval]] FR-34/FR-35).

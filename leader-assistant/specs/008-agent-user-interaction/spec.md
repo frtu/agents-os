@@ -229,6 +229,12 @@ Numbered, testable, unambiguous.
     own *consent* — and strengthened, because forbidding the *structured* request only pushed the model
     into an ungoverned **prose** approval that trust mode cannot skip, the UI cannot re-present, and the
     audit trail cannot record.
+  - **Amended by [[011-maker-checker-approval]] (who raises the card):** unchanged in substance — the
+    agent still may ask and may never grant — but the **approval** card is now raised by the
+    **concierge** on the **checker's** verdict (011 FR-25), not by the capability layer. Its body
+    carries the accumulated, scored operation list (011 FR-11: the gating operation *plus* everything
+    already executed in the run), each item with a 1–5 score and a one-line justification of its effect
+    and undo path. Clarification and notification cards remain agent-raised and unaffected.
 
 ## Key Entities & Concepts
 

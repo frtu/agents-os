@@ -64,14 +64,16 @@ The boundary is drawn by the **effect the capability about to run declares**, no
 - A plan is produced **only** for an **executable** capability of effect tier `approval` (destructive, irreversible-outside-git, or external). `auto` and `reversible` tiers proceed unprompted — reversible work is git-committed, so review happens after the fact by revert.
 - A request that maps to **no executable capability** gets a **direct answer**, never a plan. The assistant never asks for an approval it cannot honor (009 FR-4).
 - A plan names the **actual** capability, its target, effect tier, and undo path (009 FR-5); boilerplate plans are non-conforming.
-- The operator may grant **standing consent** (trust mode / `auto_approve`), which replaces per-action review while keeping every action logged and revertible (Constitution P8 v1.2.0). AC1/AC5 below are satisfied by either per-action review **or** standing consent.
+- The operator may grant **standing consent** (trust mode / `auto_approve`), which replaces per-action review while keeping every action logged and revertible (Constitution P8). AC1/AC5 below are satisfied by per-action review, standing consent, **or** the bounded checker of §4.3.
+- **Superseded in part by [[011-maker-checker-approval]]:** the "capability about to run" is no longer resolved from the **request text**. 011 FR-2/FR-6 moves the boundary to the operation each layer **announces as it attempts it** — including the agent's native tools — so the executable-only and no-dead-end rules above still hold, but the resolution step they were built on is gone.
 
 ### 4.2 The agent's own judgment has a channel ([[010-agent-approval-channel]])
 
 §4.1 draws the boundary for the **deterministic** resolver. The assistant also forms its own view of what deserves consent — for work no resolver flags — and that judgment now has a governed home:
 
 - It **requests** approval through a tool; the request becomes a real interaction (id, one proposal, countdown, durable record, resolution event), never a prose "reply approve" (010 FR-1). Asking in prose is a defect, because such an approval is invisible to trust mode, the UI and the audit trail.
-- It never **grants**: the outcome comes from the human or from the operator's standing consent (010 FR-2). With trust on the grant is issued in-turn so the work completes without a round trip (010 FR-4); with trust off nothing runs until the human answers, and answering **resumes** the work (010 FR-7).
+- It never **grants for itself**: the outcome comes from the human, from the operator's standing consent, or from the **bounded checker** of [[011-maker-checker-approval]] (FR-17) — a separate party with no execution capability, whose `approve` is honoured only by deterministic code and only under standing consent or recorded precedent, and which fails closed to asking (Constitution P8 v2.0.0). With trust on the grant is issued in-turn so the work completes without a round trip (010 FR-4); with trust off nothing runs until the human answers, and answering **resumes** the work (010 FR-7).
+- The judgment is formed over the **whole execution** a request causes, not one resolved action: the accumulated, scored operation list of 011 FR-11 is what the checker weighs and what the operator is shown.
 - §3 still governs restraint. This channel is for **consent**, not for questions the assistant could answer itself — an unnecessary approval card is the same defect as an unnecessary clarifying question (AC3 below). A genuine choice between distinct approaches remains a **clarification**, which standing consent can never answer (010 FR-8).
 
 ## 5. Acceptance Criteria
