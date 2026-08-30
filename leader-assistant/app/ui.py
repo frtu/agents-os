@@ -51,6 +51,10 @@ APPROVE_MSG = "Approve the pending plan and execute it."
 RAW_SUBDIRS = ["notes", "clippings", "docs", "transcripts", "assets"]
 # spec 008 D6: on timeout the card is dismissed and the user is told exactly this.
 INTERACTION_TIMEOUT_MSG = "Something goes wrong, please retry later."
+# spec 008 FR-16: a click that arrives with no live card behind it — the countdown expired, or the
+# record was resolved elsewhere. Mirrors the backend's wording for a stale interaction id. Saying
+# nothing is worse than saying this: a card that swallows clicks silently reads as a frozen UI.
+STALE_CARD_MSG = "That request is no longer awaiting a response — send a new message to continue."
 
 # Tooltip labels for the icon-only vault buttons, applied on load (spec 004 FR-5).
 _TOOLTIP_JS = """
@@ -940,6 +944,25 @@ def _neutralize_card(history, interaction_id: str, label: str):
     return out
 
 
+_LIVE_CARD = "<div class='itx-card' data-itx-id='"
+
+
+def _live_card_id(history) -> str:
+    """The id of the newest still-answerable card in the transcript, or "".
+
+    Needed when a click arrives without the state that names its card. A resolved card's div carries
+    `itx-card itx-resolved`, so matching the live form exactly skips the retired ones.
+    """
+    for message in reversed(list(history or [])):
+        content = message.get("content") if isinstance(message, dict) else None
+        if isinstance(content, str) and _LIVE_CARD in content:
+            start = content.find(_LIVE_CARD) + len(_LIVE_CARD)
+            end = content.find("'", start)
+            if end != -1:
+                return content[start:end]
+    return ""
+
+
 async def _run_interaction(history, conversation_id, workspace, interaction, choice):
     """Answer a pending interaction and stream the resumed turn (spec 008 FR-12/FR-16).
 
@@ -948,6 +971,11 @@ async def _run_interaction(history, conversation_id, workspace, interaction, cho
     FR-7); otherwise the card stays resolved.
     """
     if not interaction:
+        # The click reached us but there is no live card behind it. Retire the card in the transcript
+        # and say so — returning the history untouched leaves a card that looks answerable and isn't,
+        # which is indistinguishable from the UI having frozen (spec 008 FR-16).
+        history = _neutralize_card(history, _live_card_id(history), "⚠ No longer answerable")
+        history = history + [{"role": "assistant", "content": STALE_CARD_MSG}]
         yield (history, conversation_id, gr.update(visible=False), None)
         return
     interaction_id = interaction.get("interaction_id")

@@ -177,7 +177,9 @@ Numbered, testable, unambiguous.
   disconnect, page reload, or service restart, so the user can still answer it (the durable record,
   not in-memory state, is the source of truth — P1; builds on [[002-assistant-chat]] FR-13). On
   reconnect the frontend MUST be able to re-render any still-pending interaction for the active
-  conversation.
+  conversation. A pending record MUST survive **every other write the same turn makes** — a card is
+  raised mid-turn, so the turn goes on to persist its own session id and its turn block afterwards,
+  and none of those may drop the record the card depends on.
 - **FR-12 (parity, P9):** The interaction request/response protocol MUST be available on **both** the
   chat/UI surface and the **REST API**. A machine caller MUST be able to receive a structured
   Interaction Request (kind, prompt, options, interaction id, timeout) and submit a structured
@@ -325,6 +327,9 @@ Numbered, testable, unambiguous.
   agent cannot self-**grant** an **approval** — it may request one through the governed channel, but the
   outcome comes only from the human or the operator's trust mode. (FR-18 as amended by
   [[010-agent-approval-channel]] FR-1/FR-2)
+- [x] **AC-15:** A card the agent raises mid-turn is still answerable **after the turn finishes**: the
+  turn's own subsequent writes (session id, turn block) leave the pending record intact, and selecting
+  an option resolves it rather than being rejected as no longer awaiting a response. (FR-11)
 
 ## Resolved Decisions
 

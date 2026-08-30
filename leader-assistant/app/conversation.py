@@ -455,39 +455,61 @@ def append_event(conv: Conversation, label: str, text: str) -> None:
     conv.turns.append(Turn(label, stamp, text.strip()))
 
 
-def _rewrite_frontmatter(conv: Conversation) -> None:
-    """Replace only the frontmatter block; leave turn body bytes untouched."""
+def _maybe_json(raw: str):
+    return json.loads(raw) if raw else None
+
+
+# The frontmatter fields that change over a thread's life, and how to read one back off disk. Name,
+# tags, id and created date are fixed at materialization (FR-6), so only these three can be clobbered.
+_MUTABLE_FIELDS = {
+    "sdk_session_id": ("sdk-session-id", lambda raw: raw or None),
+    "pending_plan": ("pending-plan", _maybe_json),
+    "pending_interaction": ("pending-interaction", _maybe_json),
+}
+
+
+def _set_front_field(conv: Conversation, attr: str, value) -> None:
+    """Persist one durable frontmatter field, leaving the others as they are **on disk**.
+
+    Two in-memory `Conversation` objects routinely describe one thread: a chat turn holds one loaded
+    before the stream, while `capabilities.create_interaction` loads another mid-stream to persist a
+    card. Rendering the whole frontmatter block from a single instance let it erase fields it had
+    never seen — an agent-raised clarification was written, then wiped by the same turn's
+    `set_sdk_session_id`, so the card on screen had no durable record behind it and answering it was
+    rejected as "no longer awaiting a response" (spec 008 FR-11).
+
+    Re-reading also refreshes `conv`, so the caller's own view stops being stale.
+    """
+    if attr not in _MUTABLE_FIELDS:
+        raise KeyError(f"not a durable frontmatter field: {attr!r}")
     path = _ensure_materialized(conv)
     vault_mod.guard_write_path(conv.workspace, path)
-    _, body = _parse(path.read_text(encoding="utf-8"))
+    front, body = _parse(path.read_text(encoding="utf-8"))
+    for other, (key, read) in _MUTABLE_FIELDS.items():
+        setattr(conv, other, value if other == attr else read(front.get(key, "")))
     path.write_text(_render_frontmatter(conv) + body, encoding="utf-8")
 
 
 def set_pending_plan(conv: Conversation, request: str, plan: dict) -> None:
-    conv.pending_plan = {"request": request, "plan": plan}
-    _rewrite_frontmatter(conv)
+    _set_front_field(conv, "pending_plan", {"request": request, "plan": plan})
 
 
 def clear_pending_plan(conv: Conversation) -> None:
-    conv.pending_plan = None
-    _rewrite_frontmatter(conv)
+    _set_front_field(conv, "pending_plan", None)
 
 
 def set_pending_interaction(conv: Conversation, interaction: dict) -> None:
     """Persist a blocking interaction as the durable source of truth (spec 008 FR-11, P1)."""
-    conv.pending_interaction = interaction
-    _rewrite_frontmatter(conv)
+    _set_front_field(conv, "pending_interaction", interaction)
 
 
 def clear_pending_interaction(conv: Conversation) -> None:
-    conv.pending_interaction = None
-    _rewrite_frontmatter(conv)
+    _set_front_field(conv, "pending_interaction", None)
 
 
 def set_sdk_session_id(conv: Conversation, sdk_session_id: str | None) -> None:
     if sdk_session_id and sdk_session_id != conv.sdk_session_id:
-        conv.sdk_session_id = sdk_session_id
-        _rewrite_frontmatter(conv)
+        _set_front_field(conv, "sdk_session_id", sdk_session_id)
 
 
 def replay_history(conv: Conversation, max_turns: int = 12) -> str:

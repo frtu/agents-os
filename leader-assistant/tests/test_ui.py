@@ -294,3 +294,52 @@ def test_countdown_js_is_loop_safe():
     # which is exactly what fired the spurious join. It must only schedule the interval.
     assert "tick();\n  s.iv" not in js
     assert "s.iv = setInterval(tick, 1000);" in js
+
+
+def test_click_without_a_live_card_reports_instead_of_going_silent():
+    # spec 008 FR-16/AC-15: a click can arrive after the state that named its card is gone (the
+    # countdown expired, or the record was resolved elsewhere). The handler used to yield the history
+    # unchanged, leaving a card that looks answerable and isn't — a frozen UI. It must retire the card
+    # and say why.
+    import asyncio
+
+    from app import ui
+
+    card = ui._card_html(
+        {"interaction_id": "itx-abc123", "kind": "clarification", "prompt": "Which scope?",
+         "options": [{"id": "opt-1", "label": "Regenerate at P5"}], "timeout_seconds": 120}
+    )
+    history = [{"role": "user", "content": "re-run it"}, {"role": "assistant", "content": card}]
+
+    async def _drive():
+        out = []
+        async for step in ui._run_interaction(history, "cid-1", "demo", None, "opt-1"):
+            out.append(step)
+        return out
+
+    steps = asyncio.run(_drive())
+    assert steps, "the click must produce at least one UI update"
+    new_history = steps[-1][0]
+    assert new_history[-1]["content"] == ui.STALE_CARD_MSG
+    # The card itself is retired, so a second click cannot vanish the same way (_ITX_JS skips
+    # `.itx-resolved`).
+    assert "itx-resolved" in new_history[1]["content"]
+    assert "itx-opt-opt-1" not in new_history[1]["content"]
+
+
+def test_live_card_id_ignores_retired_cards():
+    # The id lookup backing the above must pick the answerable card, not an already-resolved one.
+    from app import ui
+
+    live = ui._card_html(
+        {"interaction_id": "itx-live", "kind": "clarification", "prompt": "p",
+         "options": [{"id": "opt-1", "label": "A"}], "timeout_seconds": 120}
+    )
+    resolved = ui._resolved_card_html("itx-old", {"prompt": "p", "resolution": "declined"})
+    history = [
+        {"role": "assistant", "content": resolved},
+        {"role": "assistant", "content": live},
+    ]
+    assert ui._live_card_id(history) == "itx-live"
+    assert ui._live_card_id([{"role": "assistant", "content": resolved}]) == ""
+    assert ui._live_card_id([]) == ""
