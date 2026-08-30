@@ -4,8 +4,8 @@
 **Status:** Implemented
 **Created:** 2026-08-30 · **Last Updated:** 2026-08-30
 
-> Describes **what** and **why**. A session file becomes a **named, dated, human-readable record**
-> (`YYYY-MM-DD-<conversation-id>-<slug>.md`) that comes into existence **only once the user has
+> Describes **what** and **why**. A session file becomes a **named, timestamped, human-readable
+> record** (`YYYY-MM-DD-HH-MM-SS-<conversation-id>-<slug>.md`) that comes into existence **only once the user has
 > actually said something**, with its header rendered from the human-owned
 > `templates/template-conversation.md` and its title chosen by the assistant **during the turn that
 > was already running** — no extra model round trip, no added latency.
@@ -49,8 +49,9 @@
 ## User Scenarios
 
 **S1 — a browsable session folder.** A product owner opens `Workspaces/interviews/sessions/` in
-Finder and sees `2026-08-28-9b200915379e-onboarding-interview-questions.md`. They know what it is
-without opening it, and files sort chronologically.
+Finder and sees `2026-08-28-09-12-04-9b200915379e-onboarding-interview-questions.md`. They know what
+it is without opening it, and the three conversations they held that day sort in the order they
+happened, not arbitrarily.
 
 **S2 — an abandoned draft leaves nothing.** The operator opens the chat panel, the UI polls
 `/api/chat/status` and refreshes the Sessions list, and then the operator closes the tab without
@@ -58,8 +59,8 @@ typing. `sessions/` is unchanged — no empty record, nothing in the Sessions pa
 
 **S3 — the assistant titles the conversation it is already answering.** The user asks "how should we
 price the search catalog?". While composing its first reply the assistant calls `name_conversation`
-with a title and tags; the record lands as `2026-08-30-<id>-search-catalog-pricing.md`, tagged
-`[pricing, catalog]`. The reply arrives no later than it otherwise would.
+with a title and tags; the record lands as `2026-08-30-14-23-05-<id>-search-catalog-pricing.md`,
+tagged `[pricing, catalog]`. The reply arrives no later than it otherwise would.
 
 **S4 — offline, the name is still meaningful.** With no agent runtime reachable, chat falls back to
 its deterministic cited answer. The record is named from a slug of the first message, not from a hex
@@ -73,9 +74,12 @@ to the same file — the name never changes.
 
 ### Naming and creation
 
-- **FR-1:** A session file MUST be named `YYYY-MM-DD-<conversation-id>-<slug>.md` under
-  `<workspace>/sessions/`, where the date is the conversation's `Created` date and `<slug>` is the
-  slugified conversation name. (Restores [[02-domain-model]], [[06-conversations]] §1.)
+- **FR-1:** A session file MUST be named `YYYY-MM-DD-HH-MM-SS-<conversation-id>-<slug>.md` under
+  `<workspace>/sessions/`, where the date-time is the conversation's `Created` timestamp to
+  **second** precision and `<slug>` is the slugified conversation name. Second precision (rather
+  than the date alone) is what makes a day's worth of conversations sort and read in the order they
+  happened. The separator MUST stay filesystem-safe: hyphens throughout, never `:`.
+  (Restores [[02-domain-model]], [[06-conversations]] §1.)
 - **FR-2:** A session file MUST NOT exist until the user's first message is durably recorded.
   Reads, status probes, conversation listings and pending-plan/pending-interaction lookups MUST
   create nothing.
@@ -92,12 +96,20 @@ to the same file — the name never changes.
   `conversation`.
 - **FR-6:** A conversation's name is fixed at the moment its file is created. The file MUST NEVER be
   renamed afterwards — a durable record's path is a stable address (P1).
+- **FR-12:** The record's `Created:` frontmatter field MUST carry a full ISO-8601 local timestamp
+  (`YYYY-MM-DDTHH:MM:SS`) and MUST be the **single** value the FR-1 filename prefix is derived from,
+  so the name and the record can never disagree about when the conversation started. A record whose
+  `Created:` carries only a date (hand-written, or written before this requirement) MUST still load,
+  and its date MUST still bucket correctly wherever `created` is consumed as a date
+  ([[004-assistant-sidebar]] FR-25).
 
 ### Reading and resolution
 
 - **FR-7:** `load(workspace, conversation_id)` MUST resolve the record by scanning `sessions/` for
-  `*-<conversation-id>-*.md`, never by assuming the filename equals the id. A legacy flat
-  `<conversation-id>.md` MUST still load. Where several files match, the `Id:` frontmatter field is
+  `*-<conversation-id>-*.md`, never by assuming the filename equals the id **or that the id sits at
+  a fixed offset within it** — the prefix's segment count is a naming detail and has already
+  changed once. A legacy flat `<conversation-id>.md` and a date-only
+  `YYYY-MM-DD-<conversation-id>-<slug>.md` MUST both still load. Where several files match, the `Id:` frontmatter field is
   authoritative; resolution MUST be deterministic and MUST NOT raise (a chat turn must not die on a
   duplicate).
 - **FR-8:** Frontmatter parsing MUST be case-insensitive over keys and MUST accept both the
@@ -112,13 +124,18 @@ to the same file — the name never changes.
 
 - **FR-11:** Existing session files MUST be migrated to the FR-1 name by a one-off, **idempotent**
   operation that preserves turn bodies **byte-for-byte** and commits in each workspace's own git
-  repo.
+  repo. Both prior shapes MUST be handled: the pre-012 flat `<id>.md` and the date-only
+  `YYYY-MM-DD-<id>-<slug>.md`. A record that carries no time of its own MUST take it from its
+  **first turn's timestamp** (that is when the conversation started), falling back to the file's
+  modification time when it has no turns — never from the clock at migration time, so a dry run and
+  the apply that follows it agree and a re-run is a no-op.
 
 ## Key Entities
 
 | Entity | Where | Notes |
 |--------|-------|-------|
-| **Session record** | `<workspace>/sessions/YYYY-MM-DD-<id>-<slug>.md` | The durable conversation (P1). Header rendered from the template; turn blocks append-only. |
+| **Session record** | `<workspace>/sessions/YYYY-MM-DD-HH-MM-SS-<id>-<slug>.md` | The durable conversation (P1). Header rendered from the template; turn blocks append-only. |
+| **Created timestamp** | the `Created:` frontmatter line | ISO-8601 local, second precision. Authoritative for both the filename prefix and date bucketing (FR-12). |
 | **Conversation name** | the `# Conversation — <name>` H1 | Authoritative. Lives in the body, which frontmatter rewrites never touch, so it cannot be clobbered mid-conversation. The filename slug is *derived* from it. |
 | **Tags** | the `Tags: [...]` frontmatter line | 1–4 short lowercase topic tags, agent-supplied. Descriptive only in this feature; no behaviour keys off them yet. |
 | **`name_conversation`** | agent MCP tool | Turn-local: it records a *proposal* in the running turn's context. It touches no workspace and has no effect to undo (`EFFECTS` tier `auto`). |
@@ -143,6 +160,12 @@ to the same file — the name never changes.
   collisions are structurally impossible, so no disambiguating suffix and no uniqueness check is
   needed. The cost is a less pretty filename; the benefit is that FR-6 (never rename) and FR-7
   (resolve by id) are both cheap.
+- **D7 — the timestamp is hyphenated, not literal ISO.** `2026-08-30-14-23-05` rather than
+  `2026-08-30T14:23:05`: a `:` is not portable in a filename (and macOS Finder renders it as `/`),
+  and the frontmatter already carries the exact ISO form for machines to read. One separator
+  throughout also means the prefix has no special characters for `slugify`, the glob, or a shell to
+  mishandle. The consequence is that the id is no longer at a fixed hyphen offset, which is why FR-7
+  forbids positional parsing.
 - **D5 — the name is resolved before the file, never after.** The fallback name is set before the
   agent runs; the agent's better title overwrites it after the stream and before the first
   `append_turn`. Because the only writer of the name runs before the only writer of the file, no
@@ -154,7 +177,7 @@ to the same file — the name never changes.
 ## Acceptance Criteria
 
 - [x] **AC-1:** After one chat turn, the workspace's `sessions/` holds exactly one `*.md`, and its
-  name matches `^\d{4}-\d{2}-\d{2}-[0-9a-f]{12}-[a-z0-9-]+\.md$`. (FR-1)
+  name matches `^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-[0-9a-f]{12}-[a-z0-9-]+\.md$`. (FR-1)
 - [x] **AC-2:** A `/api/chat/status` probe plus a `/api/sessions` listing against a never-used id
   leave `sessions/` with **zero** `*.md` files; and a pending-plan/pending-interaction lookup for an
   unknown id creates nothing. (FR-2)
@@ -181,7 +204,14 @@ to the same file — the name never changes.
 - [x] **AC-11:** The Sessions panel title for a named conversation is its name, not its raw first
   message. (FR-10)
 - [x] **AC-12:** Migration renames a legacy record to the FR-1 form with an unchanged turn count and
-  unchanged turn text; running it a second time changes nothing. (FR-11)
+  unchanged turn text; running it a second time changes nothing. A date-only 012-era name is
+  migrated too, taking its time from its first turn. (FR-11)
+- [x] **AC-13:** A freshly written record's `Created:` is a full `YYYY-MM-DDTHH:MM:SS` timestamp, and
+  its filename prefix is exactly that timestamp with `T`/`:` replaced by `-`. (FR-12)
+- [x] **AC-14:** Two conversations started on the same day in a known order produce filenames that
+  sort in that order. (FR-1)
+- [x] **AC-15:** A record whose `Created:` is a bare date loads, resolves by id, and buckets under
+  the correct relative-date header. (FR-12, FR-7)
 
 ## Deviations recorded during implementation
 

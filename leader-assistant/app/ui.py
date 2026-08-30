@@ -686,9 +686,13 @@ _SESSION_BUCKETS = ("Today", "Yesterday", "This Week", "This Month", "Older")
 
 
 def _bucket_for(created: str, today: date) -> str:
-    """Map a conversation's ``created`` date to a relative time bucket (spec 004 FR-25)."""
+    """Map a conversation's ``created`` value to a relative time bucket (spec 004 FR-25).
+
+    ``created`` is an ISO timestamp since spec 012 FR-12 but may still be a bare date on an older
+    record, so only its date part is read.
+    """
     try:
-        d = date.fromisoformat(created)
+        d = date.fromisoformat(created[:10])
     except (ValueError, TypeError):
         return "Today"
     delta = (today - d).days

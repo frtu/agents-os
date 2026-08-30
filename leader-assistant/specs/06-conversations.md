@@ -25,9 +25,9 @@ Every application conversation is captured automatically. Conversations are an i
 
 ## 1. Sessions (short-term memory)
 
-Conversation threads are stored under `sessions/` (e.g. `sessions/2026-08-12-a1b2c3d4e5f6-project-spec.md`). They hold: instructions for specific tasks, human decisions/judgments (upvotes/downvotes), and complements/corrections that could improve knowledge maturity. Sessions are **ephemeral operational capture**, not durable knowledge, and are **not** part of the wiki.
+Conversation threads are stored under `sessions/` (e.g. `sessions/2026-08-12-14-23-05-a1b2c3d4e5f6-project-spec.md`). They hold: instructions for specific tasks, human decisions/judgments (upvotes/downvotes), and complements/corrections that could improve knowledge maturity. Sessions are **ephemeral operational capture**, not durable knowledge, and are **not** part of the wiki.
 
-A thread's file is created **lazily** — only once the user's first message is durably recorded, never by a status probe or a listing — and its header is rendered from the human-owned `templates/template-conversation.md`. The name is chosen during the turn that is already running, and the file is never renamed afterwards. See [[012-conversation-naming]].
+A thread's file is created **lazily** — only once the user's first message is durably recorded, never by a status probe or a listing — and its header is rendered from the human-owned `templates/template-conversation.md`. The name is chosen during the turn that is already running, and the file is never renamed afterwards. Its `YYYY-MM-DD-HH-MM-SS` prefix is the `Created` timestamp to the second, so a day's conversations sort in the order they happened. See [[012-conversation-naming]].
 
 ## 2. Two-Stage Knowledge Promotion
 

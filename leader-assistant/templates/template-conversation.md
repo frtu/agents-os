@@ -1,7 +1,7 @@
 ---
 Category: session
 Id: {{conversation-id}}
-Created: {{YYYY-MM-DD}}
+Created: {{created}}
 Tags: [{{tag-list}}]
 Sdk-session-id: {{sdk-session-id}}
 Pending-plan: {{plan}}

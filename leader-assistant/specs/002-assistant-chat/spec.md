@@ -175,7 +175,7 @@ Numbered, testable, unambiguous.
   with trust mode off.*
 - [ ] **AC-4:** A routine question answers directly without forcing a plan step. (FR-6)
 - [ ] **AC-5:** After any chat turn, a corresponding record exists under the workspace's
-  `sessions/`, named `YYYY-MM-DD-<conversation-id>-<slug>.md`. (FR-7, [[06-conversations]] AC1,
+  `sessions/`, named `YYYY-MM-DD-HH-MM-SS-<conversation-id>-<slug>.md`. (FR-7, [[06-conversations]] AC1,
   [[012-conversation-naming]] FR-1)
 - [ ] **AC-6:** Streaming and full-reply modes both return the same final content. (FR-4)
 - [ ] **AC-7:** For every chat ability there is an equivalent API capability, verified by

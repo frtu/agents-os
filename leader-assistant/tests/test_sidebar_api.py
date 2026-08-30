@@ -144,8 +144,8 @@ def test_upload_filename_traversal_is_neutralised(client):
 def test_sessions_list_and_resume(client, offline_agent):
     # FR-17/FR-19/FR-20: two chat turns create resumable sessions, listed and fetchable.
     # FR-25 contract: the list is newest-first and every summary carries an ISO `created`
-    # date — the two inputs the sidebar's date-bucketed Sessions panel groups on.
-    from datetime import date
+    # timestamp — the two inputs the sidebar's date-bucketed Sessions panel groups on.
+    from datetime import datetime
 
     v = _make_workspace(client)
     first = client.post("/api/chat", json={"workspace": v, "message": "what did we decide?"})
@@ -160,8 +160,8 @@ def test_sessions_list_and_resume(client, offline_agent):
     ids = [c["conversation_id"] for c in convos]
     assert set(ids) == {cid1, cid2}
     assert ids[0] == cid2  # newest first (FR-25 reverse-chronological)
-    for c in convos:  # every summary is bucketable: an ISO date + a title
-        date.fromisoformat(c["created"])
+    for c in convos:  # every summary is bucketable: an ISO timestamp (spec 012 FR-12) + a title
+        assert datetime.fromisoformat(c["created"]).isoformat(timespec="seconds") == c["created"]
         assert c["title"]
 
     detail = client.get(f"/api/sessions/{cid1}", params={"workspace": v})
@@ -196,12 +196,12 @@ def test_session_date_bucketing(monkeypatch):
 
     ref = date(2026, 8, 16)
     cases = {
-        "2026-08-16": "Today",
-        "2026-08-15": "Yesterday",
-        "2026-08-12": "This Week",   # 4 days back
+        "2026-08-16T09:12:04": "Today",       # spec 012 FR-12: created is a timestamp now
+        "2026-08-15T23:59:59": "Yesterday",
+        "2026-08-12": "This Week",   # 4 days back; a bare date still buckets (FR-12)
         "2026-08-06": "This Month",  # >7 days but same calendar month
         "2026-07-20": "Older",       # previous month
-        "not-a-date": "Today",       # malformed dates degrade to Today, never crash
+        "not-a-date": "Today",       # malformed values degrade to Today, never crash
     }
     for created, bucket in cases.items():
         assert ui._bucket_for(created, ref) == bucket

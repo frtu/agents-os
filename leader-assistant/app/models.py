@@ -373,7 +373,12 @@ class ConversationSummary(BaseModel):
     """A prior conversation for the Sessions panel (FR-17/FR-19)."""
 
     conversation_id: str
-    created: str
+    created: str = Field(
+        ...,
+        description="ISO-8601 local timestamp the conversation started; a pre-FR-12 record may "
+        "carry a bare date, so consumers that need a date take the first 10 characters "
+        "(spec 012 FR-12)",
+    )
     title: str = Field(
         ...,
         description="The conversation's name, falling back to the first user line (spec 012 FR-10)",

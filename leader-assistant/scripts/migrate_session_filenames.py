@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 """One-off migration of session filenames to the spec 012 FR-1 form.
 
-Renames `<workspace>/sessions/<conversation-id>.md` to
-`<workspace>/sessions/YYYY-MM-DD-<conversation-id>-<slug>.md` and rewrites the header from
+Renames a legacy `<workspace>/sessions/<conversation-id>.md` — or a date-only
+`YYYY-MM-DD-<conversation-id>-<slug>.md` from before FR-12 — to
+`<workspace>/sessions/YYYY-MM-DD-HH-MM-SS-<conversation-id>-<slug>.md` and rewrites the header from
 `templates/template-conversation.md`, leaving the turn blocks **byte-for-byte** unchanged.
 
 A script rather than a capability (spec 012 FR-11): it operates on git-ignored `Workspaces/`, is run
@@ -18,17 +19,21 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app import conversation  # noqa: E402
 
-# Already migrated: `YYYY-MM-DD-<12 hex>-…`. Matching on the shape (not on a manifest) is what makes
-# a second run a no-op.
-MIGRATED = re.compile(r"^\d{4}-\d{2}-\d{2}-[0-9a-f]{12}-")
+# Already migrated: `YYYY-MM-DD-HH-MM-SS-<12 hex>-…`. Matching on the shape (not on a manifest) is
+# what makes a second run a no-op — and what makes the date-only names written before FR-12 eligible.
+MIGRATED = re.compile(r"^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-[0-9a-f]{12}-")
 
-_COMMIT_MESSAGE = "migrate: session filenames to YYYY-MM-DD-<id>-<slug> (spec 012 FR-11)"
+# `## [YYYY-MM-DD HH:MM] role` — a turn header, i.e. the earliest time the record itself knows.
+_TURN_STAMP = re.compile(r"^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})$")
+
+_COMMIT_MESSAGE = "migrate: session filenames to YYYY-MM-DD-HH-MM-SS-<id>-<slug> (spec 012 FR-11)"
 
 
 def _split_frontmatter(text: str) -> str:
@@ -37,6 +42,21 @@ def _split_frontmatter(text: str) -> str:
         return text
     end = text.find("\n---", 3)
     return text if end == -1 else text[end + 4:]
+
+
+def _created_at(conv: conversation.Conversation, path: Path) -> str:
+    """The conversation's start time to the second, for FR-12's `Created` and the FR-1 prefix.
+
+    Taken from the record itself — its first turn's stamp, else the file's mtime — never from the
+    clock at migration time, so a dry run agrees with the apply that follows it (FR-11).
+    """
+    if "T" in conv.created:  # already a full timestamp; only the filename is behind
+        return conv.created
+    for turn in conv.turns:
+        m = _TURN_STAMP.match(turn.timestamp)
+        if m:
+            return f"{m.group(1)}T{m.group(2)}:00"
+    return datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds")
 
 
 def _prepare(workspace: Path, path: Path) -> conversation.Conversation | None:
@@ -53,12 +73,8 @@ def _prepare(workspace: Path, path: Path) -> conversation.Conversation | None:
         # human opened, any role for one an agent card opened.
         first = next((t.text for t in conv.turns if t.role == "user"), "")
         conv.name = conversation.fallback_name(first or (conv.turns[0].text if conv.turns else ""))
+    conv.created = _created_at(conv, path)
     return conv
-
-
-def _target_for(conv: conversation.Conversation, sessions: Path) -> Path:
-    slug = conversation.slugify(conv.name)
-    return sessions / f"{conv.created}-{conv.conversation_id}-{slug}.md"
 
 
 def plan_migration(workspace: Path) -> list[tuple[Path, Path]]:
@@ -73,7 +89,8 @@ def plan_migration(workspace: Path) -> list[tuple[Path, Path]]:
         conv = _prepare(workspace, path)
         if conv is None:
             continue
-        target = _target_for(conv, sessions)
+        # The store owns the naming rule; the migration must not grow a second one.
+        target = conversation._target_path(conv)
         if target != path:
             pairs.append((path, target))
     return pairs

@@ -1,7 +1,7 @@
 """Durable conversation store (spec 002 T015/T016; FR-3, FR-7, FR-13; spec 012).
 
 One Markdown file per conversation at
-``<workspace>/sessions/YYYY-MM-DD-<conversation-id>-<slug>.md`` (spec 012 FR-1). The file *is* the
+``<workspace>/sessions/YYYY-MM-DD-HH-MM-SS-<conversation-id>-<slug>.md`` (spec 012 FR-1). The file *is* the
 source of truth (Constitution P1): a conversation is resumable by id even after a service restart,
 since context is reconstructed from disk, not memory.
 
@@ -19,7 +19,7 @@ Layout::
     ---
     Category: session
     Id: <id>
-    Created: YYYY-MM-DD
+    Created: YYYY-MM-DDTHH:MM:SS
     Tags: [a, b]
     Sdk-session-id: <disposable cache, optional>
     Pending-plan: {json}          # present only while a plan awaits approval
@@ -36,7 +36,9 @@ Layout::
 
 Turn blocks are strictly append-only (never rewritten). The name lives in the H1 — in the body,
 which frontmatter rewrites never touch — so it cannot be clobbered mid-conversation, and the
-filename slug is *derived* from it (spec 012 FR-6: never renamed).
+filename slug is *derived* from it (spec 012 FR-6: never renamed). The filename's timestamp prefix
+is likewise derived from ``Created`` (spec 012 FR-12), so name and record cannot disagree about when
+the conversation started.
 """
 
 from __future__ import annotations
@@ -46,7 +48,7 @@ import re
 import unicodedata
 import uuid
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
@@ -62,7 +64,7 @@ _TEMPLATE_FALLBACK = """\
 ---
 Category: session
 Id: {{conversation-id}}
-Created: {{YYYY-MM-DD}}
+Created: {{created}}
 Tags: [{{tag-list}}]
 Sdk-session-id: {{sdk-session-id}}
 Pending-plan: {{plan}}
@@ -75,6 +77,8 @@ Pending-interaction: {{interaction}}
 """
 
 _NAME_HEADING = re.compile(r"^#\s+Conversation\s+—\s*(.+)$", re.MULTILINE)
+# The id inside a dated filename, with the time part optional so a pre-FR-12 name still reads.
+_FILENAME_ID = re.compile(r"^\d{4}-\d{2}-\d{2}(?:-\d{2}-\d{2}-\d{2})?-([^-]+)-")
 _PLACEHOLDER = re.compile(r"\{\{[^}]*\}\}")
 # A frontmatter line left with a key and nothing after it — i.e. a field this conversation has no
 # value for. `Tags: []` is deliberately *not* matched: an empty list is a value.
@@ -112,6 +116,21 @@ class Conversation:
 
 def new_id() -> str:
     return uuid.uuid4().hex[:12]
+
+
+def now_created() -> str:
+    """A `Created` value: ISO-8601 local time, second precision (spec 012 FR-12)."""
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def filename_stamp(created: str) -> str:
+    """The FR-1 filename prefix for a `Created` value: ISO with `T` and `:` turned into hyphens.
+
+    A `:` is not portable in a filename, and the frontmatter already carries the exact ISO form for
+    machines (spec 012 D7). A date-only `Created` — hand-written, or pre-FR-12 — keeps its shape
+    rather than gaining a fabricated midnight.
+    """
+    return created.replace("T", "-").replace(":", "-")
 
 
 def materialized(conv: Conversation) -> bool:
@@ -202,7 +221,7 @@ def _template_parts() -> tuple[list[str], list[str]]:
 def _substitutions(conv: Conversation) -> dict[str, str]:
     return {
         "{{conversation-id}}": conv.conversation_id,
-        "{{YYYY-MM-DD}}": conv.created,
+        "{{created}}": conv.created,
         "{{tag-list}}": ", ".join(conv.tags),
         "{{conversation-name}}": conv.name,
         "{{sdk-session-id}}": conv.sdk_session_id or "",
@@ -320,9 +339,13 @@ def _sessions_dir(workspace: Path) -> Path:
 
 
 def _file_id(path: Path) -> str:
-    """The id segment of a `YYYY-MM-DD-<id>-<slug>.md` name, or the whole stem for a legacy file."""
-    parts = path.stem.split("-")
-    return parts[3] if len(parts) >= 4 and parts[0].isdigit() else path.stem
+    """The id segment of a dated filename, or the whole stem for a pre-012 flat file.
+
+    Matched rather than counted to: the prefix carries a time now and did not before (spec 012
+    FR-7/D7), so both `YYYY-MM-DD-HH-MM-SS-<id>-<slug>` and `YYYY-MM-DD-<id>-<slug>` must read.
+    """
+    m = _FILENAME_ID.match(path.stem)
+    return m.group(1) if m else path.stem
 
 
 def path_for(workspace: Path, conversation_id: str) -> Path | None:
@@ -369,7 +392,7 @@ def load_path(workspace: Path, path: Path) -> Conversation | None:
         conversation_id=front_id or _file_id(path),
         path=path,
         workspace=workspace,
-        created=front.get("created", date.today().isoformat()),
+        created=front.get("created") or now_created(),
         name=_parse_name(body),
         tags=_parse_tags(front.get("tags", "")),
         sdk_session_id=front.get("sdk-session-id") or None,
@@ -393,13 +416,14 @@ def load_or_new(workspace: Path, conversation_id: str | None) -> Conversation:
     return Conversation(
         conversation_id=conversation_id or new_id(),
         workspace=workspace,
-        created=date.today().isoformat(),
+        created=now_created(),
     )
 
 
 def _target_path(conv: Conversation) -> Path:
     slug = slugify(conv.name) if conv.name else _UNNAMED
-    return _sessions_dir(conv.workspace) / f"{conv.created}-{conv.conversation_id}-{slug}.md"
+    stamp = filename_stamp(conv.created)
+    return _sessions_dir(conv.workspace) / f"{stamp}-{conv.conversation_id}-{slug}.md"
 
 
 def _ensure_materialized(conv: Conversation) -> Path:

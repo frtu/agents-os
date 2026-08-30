@@ -2,8 +2,8 @@
 
 Two properties are under test, and they pull against each other:
 
-* a session record is **named and dated** (`YYYY-MM-DD-<id>-<slug>.md`), with the name chosen by the
-  assistant during the turn that was already running; and
+* a session record is **named and timestamped** (`YYYY-MM-DD-HH-MM-SS-<id>-<slug>.md`), with the name
+  chosen by the assistant during the turn that was already running; and
 * the record **does not exist** until the user's first message is durably recorded — so no read,
   probe or listing may create one.
 
@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
@@ -22,7 +23,7 @@ import pytest
 from app import capabilities, conversation
 
 # AC-1: the shape a record's filename must have once a turn has landed.
-FILENAME = re.compile(r"^\d{4}-\d{2}-\d{2}-[0-9a-f]{12}-[a-z0-9-]+\.md$")
+FILENAME = re.compile(r"^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-[0-9a-f]{12}-[a-z0-9-]+\.md$")
 
 TEMPLATE = Path(__file__).resolve().parents[1] / "templates" / "template-conversation.md"
 
@@ -75,8 +76,9 @@ def _naming_agent(monkeypatch, title: str, tags: str = "pricing, catalog"):
 # --- FR-1: the filename ------------------------------------------------------
 
 
-def test_fr1_session_filename_is_date_id_slug(client, offline_agent, isolated_workspace_root):
-    # AC-1: one turn leaves exactly one record, dated, carrying the id, with a readable slug.
+def test_fr1_session_filename_is_timestamp_id_slug(client, offline_agent, isolated_workspace_root):
+    # AC-1: one turn leaves exactly one record, timestamped to the second, carrying the id, with a
+    # readable slug.
     cid = client.post("/api/chat", json={"message": "How do we price the catalog?"}).json()[
         "conversation_id"
     ]
@@ -84,6 +86,39 @@ def test_fr1_session_filename_is_date_id_slug(client, offline_agent, isolated_wo
     assert len(files) == 1
     assert FILENAME.match(files[0].name), files[0].name
     assert cid in files[0].name
+
+
+def test_fr12_created_timestamp_is_the_filename_prefix(client, offline_agent, isolated_workspace_root):
+    # AC-13: `Created` is a full ISO timestamp and is the SINGLE value the prefix derives from, so
+    # the name and the record cannot disagree about when the conversation started.
+    client.post("/api/chat", json={"message": "when did this start?"})
+    path = _sessions(isolated_workspace_root / "_default_")[0]
+
+    created = next(
+        line.split(":", 1)[1].strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("Created:")
+    )
+    # A full second-precision timestamp, not a bare date: it round-trips through datetime unchanged.
+    assert datetime.fromisoformat(created).isoformat(timespec="seconds") == created
+    assert path.name.startswith(created.replace("T", "-").replace(":", "-") + "-")
+
+
+def test_fr1_same_day_conversations_sort_by_start_time(isolated_workspace_root):
+    # AC-14: second precision exists so a day's conversations read in the order they happened —
+    # the property the date-only name could not give.
+    capabilities.create_workspace("demo")
+    workspace = isolated_workspace_root / "demo"
+    for stamp, name in (("2026-08-30T09:12:04", "Earlier talk"), ("2026-08-30T14:23:05", "Later talk")):
+        conv = conversation.Conversation(
+            conversation_id=conversation.new_id(), workspace=workspace, created=stamp, name=name
+        )
+        conversation.append_turn(conv, "q", "a")
+
+    assert [conversation.load_path(workspace, p).name for p in _sessions(workspace)] == [
+        "Earlier talk",
+        "Later talk",
+    ]
 
 
 # --- FR-2: nothing is created by reading ------------------------------------
@@ -341,6 +376,28 @@ def test_fr7_legacy_flat_file_still_loads(isolated_workspace_root):
     assert [t.text for t in conv.turns] == ["old question", "old answer"]
 
 
+def test_fr7_date_only_name_and_created_still_load(isolated_workspace_root):
+    # AC-15 / FR-7/FR-12: a record written before the timestamp requirement resolves by id, keeps
+    # its bare `Created` date, and still buckets — the id is matched in the name, never counted to.
+    from app import ui
+
+    capabilities.create_workspace("demo")
+    workspace = isolated_workspace_root / "demo"
+    sessions = workspace / "sessions"
+    sessions.mkdir(exist_ok=True)
+    (sessions / "2026-08-01-aabbccddeeff-pricing-the-catalog.md").write_text(
+        "---\nId: aabbccddeeff\nCreated: 2026-08-01\n---\n\n"
+        "# Conversation — Pricing the catalog\n\n"
+        "## [2026-08-01 09:00] user\nold question\n",
+        encoding="utf-8",
+    )
+
+    conv = conversation.load(workspace, "aabbccddeeff")
+    assert conv is not None and conv.conversation_id == "aabbccddeeff"
+    assert conv.created == "2026-08-01"
+    assert ui._bucket_for(conv.created, date(2026, 8, 1)) == "Today"
+
+
 def test_fr7_duplicate_matches_resolve_by_frontmatter_id(isolated_workspace_root):
     # AC-8: two files can glob one id; the `Id:` field breaks the tie and nothing raises — a chat
     # turn must not die on a duplicate.
@@ -443,21 +500,54 @@ def test_fr11_migration_is_idempotent_and_preserves_turns(isolated_workspace_roo
     )
     before = conversation.load(workspace, "aabbccddeeff")
 
+    # The time comes from the record's own first turn (09:00), never from the clock at migration
+    # time — that is what lets the dry run predict the apply and a re-run find nothing.
+    expected = "2026-08-01-09-00-00-aabbccddeeff-how-should-we-price-the-search-catalog.md"
     assert [(o.name, n.name) for o, n in migrate.plan_migration(workspace)] == [
-        ("aabbccddeeff.md", "2026-08-01-aabbccddeeff-how-should-we-price-the-search-catalog.md")
+        ("aabbccddeeff.md", expected)
     ]
     assert legacy.exists(), "a dry run must not move anything"
 
     migrated = migrate.migrate_workspace(workspace, dry_run=False)
     assert len(migrated) == 1
     assert not legacy.exists()
-    new = sessions / "2026-08-01-aabbccddeeff-how-should-we-price-the-search-catalog.md"
+    new = sessions / expected
     assert FILENAME.match(new.name)
     assert body in new.read_text(encoding="utf-8"), "turn blocks must survive byte-for-byte"
 
     after = conversation.load(workspace, "aabbccddeeff")
     assert [(t.role, t.text) for t in after.turns] == [(t.role, t.text) for t in before.turns]
-    assert after.created == "2026-08-01"
+    assert after.created == "2026-08-01T09:00:00"
     assert after.name == "how should we price the search catalog?"
 
+    assert migrate.plan_migration(workspace) == [], "a second run is a no-op"
+
+
+def test_fr11_migration_upgrades_a_date_only_name(isolated_workspace_root):
+    # AC-12: the earlier date-only name is a migration input too — it keeps its slug and gains the
+    # time of its first turn, so the whole sessions/ folder ends up in one shape.
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from scripts import migrate_session_filenames as migrate
+
+    capabilities.create_workspace("demo")
+    workspace = isolated_workspace_root / "demo"
+    sessions = workspace / "sessions"
+    sessions.mkdir(exist_ok=True)
+    body = "## [2026-08-02 16:45] user\nwhat next?\n\n## [2026-08-02 16:45] assistant\nShip it.\n"
+    (sessions / "2026-08-02-aabbccddeeff-pricing-the-catalog.md").write_text(
+        f"---\nId: aabbccddeeff\nCreated: 2026-08-02\n---\n\n"
+        f"# Conversation — Pricing the catalog\n\n{body}",
+        encoding="utf-8",
+    )
+
+    migrated = migrate.migrate_workspace(workspace, dry_run=False)
+    assert [n.name for _o, n in migrated] == [
+        "2026-08-02-16-45-00-aabbccddeeff-pricing-the-catalog.md"
+    ]
+    after = conversation.load(workspace, "aabbccddeeff")
+    assert after.created == "2026-08-02T16:45:00"
+    assert after.name == "Pricing the catalog"
+    assert body in after.path.read_text(encoding="utf-8")
     assert migrate.plan_migration(workspace) == [], "a second run is a no-op"

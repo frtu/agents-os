@@ -197,8 +197,9 @@ vault/docs/
 Ephemeral operational conversation logs at the **workspace level** (a sibling of `vault/`, not
 inside it). Not part of the wiki. Feed the dreaming pipeline. See [[06-conversations]].
 
-One file per thread, named `YYYY-MM-DD-<conversation-id>-<slug>.md` and created only on the first
-user message ([[012-conversation-naming]] FR-1/FR-2).
+One file per thread, named `YYYY-MM-DD-HH-MM-SS-<conversation-id>-<slug>.md` (the `Created`
+timestamp, to the second) and created only on the first user message
+([[012-conversation-naming]] FR-1/FR-2/FR-12).
 
 ## 5. Special Files
 
