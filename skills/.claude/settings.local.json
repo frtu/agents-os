@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x */skills/link-skills.sh)",
+      "Bash(./link-skills.sh)",
+      "mcp__ide__getDiagnostics"
+    ]
+  }
+}
