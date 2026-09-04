@@ -208,6 +208,11 @@ DEFAULT_RISK_WEIGHTS: dict = {
         "BREADTH_MANY_TARGETS": 1,
         "SENSITIVE_TARGET": 1,
     },
+    # A skill's declared danger → risk score, authoritative for skill imports (spec 011 FR-37).
+    # Scored from the skill's own `risk-level` rather than from the reversibility of the symlink, so
+    # a harmless-to-unlink install of a dangerous skill is not pinned at the ceiling, and a benign
+    # one runs without a gate. With gate=4 below: low/medium auto-run, high/critical pause.
+    "skill_risk_level": {"low": 2, "medium": 3, "high": 4, "critical": 5},
     "thresholds": {
         # At or above this score an operation pauses the run and goes to the checker (FR-12).
         "gate": 4,

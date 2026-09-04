@@ -211,12 +211,14 @@ def build_run(
     *,
     trust: bool | None = None,
     granted_key: str = "",
+    granted_shape: str = "",
     checker: workflow.Checker | None = None,
 ) -> WorkflowRun:
     """Open a run wired to the real judge (spec 011 FR-6/FR-13/FR-24).
 
     ``checker`` is injectable so a test — or a build with layer 3 removed — can substitute the
-    default ask-checker and still exercise everything else (FR-35).
+    default ask-checker and still exercise everything else (FR-35). ``granted_shape`` seeds a
+    standing "approve all similar" grant for the resumed run (FR-38).
     """
     resolved = trust_mode(trust)
     inner = checker or judge.Judge(
@@ -227,6 +229,8 @@ def build_run(
     run = WorkflowRun(objective=objective, workspace=workspace, checker=_RecordingChecker(inner))
     if granted_key:
         run.pre_grant(granted_key)
+    if granted_shape:
+        run.pre_grant_shape(granted_shape)
     return run
 
 
@@ -257,6 +261,9 @@ async def invoke(
         # effect table is the declaration, and an absent declaration is not a claim of safety.
         tier=effect.tier if effect else "approval",
         reversibility=effect.reversibility if effect else "no declared undo path",
+        # Same declared-risk resolution the chat door uses, so a skill import scores identically
+        # whichever surface reached it (spec 011 FR-37, P9).
+        declared_risk=capabilities.declared_risk_for(capability, target),
         detail=detail,
     )
     run = build_run(objective or f"{capability} {target}".strip(), workspace, trust=trust)
@@ -362,6 +369,7 @@ def _card_extra(run: WorkflowRun, assessment: models.RiskAssessment, plan: model
         "objective": run.objective,
         "score": gating.score if gating else 1,
     }
+    extra["granted_shape"] = run.awaiting_shape or ""
     report = run.pending_report
     if report is not None:
         extra["fingerprint"] = experience.operation_fingerprint(report.gating.operation)
@@ -393,13 +401,25 @@ def _ask_card(
         if gating
         else f"Approve this work? {run.objective}"
     )
+    options = [{"id": "approve", "label": "Approve and continue", "detail": assessment.reasoning or prompt}]
+    # FR-38: offer to authorise the whole shape for this request, so a bulk of similar operations
+    # (e.g. installing several skills) is answered once instead of a card per target. Only offered
+    # when the pause has a named operation to generalise from.
+    if gating is not None and gating.name:
+        options.append(
+            {
+                "id": "approve_all",
+                "label": f"Approve all `{gating.name}` in this request",
+                "detail": f"Runs every `{gating.name}` this request reaches without asking again.",
+            }
+        )
     try:
         return capabilities.create_interaction(
             selector,
             conversation_id,
             "approval",
             prompt,
-            [{"id": "approve", "label": "Approve and continue", "detail": assessment.reasoning or prompt}],
+            options,
             name_hint=convo.fallback_name(run.objective),
             _extra=_card_extra(run, assessment, plan),
         )
@@ -683,11 +703,16 @@ async def respond_stream(
     if risk is not None and choice != "chat":
         _record_operator_decision(record, approved=not declined, workspace=name)
 
+    affirmative = not declined and choice != "chat" and risk is not None
+    # FR-38: "approve all similar" seeds a standing shape grant so every same-shape operation the
+    # resumed turn reaches runs without re-asking. A plain approve seeds only the one paused op's key.
+    batch = choice == "approve_all"
     run = build_run(
         (record.get("objective") if matched else "") or "(resumed)",
         name,
         trust=auto_approve,
-        granted_key="" if declined or risk is None else str(record.get("granted_key") or ""),
+        granted_key="" if not affirmative else str(record.get("granted_key") or ""),
+        granted_shape=str(record.get("granted_shape") or "") if batch else "",
     )
     stream = capabilities.respond_to_interaction_stream(workspace, cid, interaction_id, choice)
     async for delta in _gated(stream, run, workspace):

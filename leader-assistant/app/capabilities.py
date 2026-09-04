@@ -153,8 +153,20 @@ def _operation_for(action: ResolvedAction, detail: str = "") -> execution_gate.O
         target=action.target,
         tier=effect.tier,
         reversibility=effect.reversibility,
+        declared_risk=declared_risk_for(action.capability, action.target),
         detail=detail,
     )
+
+
+def declared_risk_for(capability: str, target: str) -> str:
+    """The declared risk level an operation should carry, if any (spec 011 FR-37).
+
+    One source of truth for both doors to a capability — the chat dispatcher (``_operation_for``)
+    and the REST entry (``concierge.run_capability``) — so a skill import is scored from its declared
+    danger no matter which surface reached it (P9). Every non-skill capability carries no level and
+    scores by tier + modifiers (FR-8).
+    """
+    return skill_declared_risk(target) if capability == "import_skill" else ""
 
 
 def _run_action(selector: str | None, action: ResolvedAction) -> str:
@@ -566,6 +578,63 @@ def _parse_skill_frontmatter(skill_md: Path) -> dict[str, str]:
     return out
 
 
+# Declared skill danger (spec 005 FR-12/FR-13, spec 011 FR-37). Named levels a skill author may put
+# in SKILL.md frontmatter as `risk-level:`; the score each maps to lives in config as rules-as-data
+# (`skill_risk_level`), so the assessment is retunable without touching code.
+SKILL_RISK_LEVELS: tuple[str, ...] = ("low", "medium", "high", "critical")
+# Defaults when a skill declares no level, chosen by *source* (FR-13): the curated library — whatever
+# the operator has placed there, including reference-links to other repos — is trusted and defaults to
+# `low`; a source outside that curation is not, and defaults to `high`.
+DEFAULT_INTERNAL_SKILL_RISK = "low"
+DEFAULT_EXTERNAL_SKILL_RISK = "medium"
+
+
+def _within(path: Path, root: Path) -> bool:
+    """Is ``path`` **placed** under ``root``, judged by location and not by symlink target?
+
+    The library curates by reference-link: a skill folder may itself be a symlink into another repo
+    (spec 005 D4). Following the entry's own link would resolve it outside the library and misread a
+    curated, deliberately-linked-in skill as an untrusted external one — which is what pinned an
+    in-library reference-link at the external `high` default. Resolving only the *parent* (a real
+    directory) and re-anchoring the entry name keeps membership meaning "the operator placed this in
+    the library", so a reference-linked skill is still internal (FR-13).
+    """
+    try:
+        anchored = path.parent.resolve() / path.name
+        return anchored.is_relative_to(root.resolve())
+    except (OSError, ValueError):
+        return False
+
+
+def _normalize_risk_level(value: str, default: str) -> str:
+    """A frontmatter `risk-level` value → a canonical level, or the source default (FR-13).
+
+    An unrecognised value is treated as *unset* rather than as an error: a typo in a hand-edited
+    skill must not block the install, only miss the chance to lower its score below the gate.
+    """
+    level = value.strip().lower()
+    return level if level in SKILL_RISK_LEVELS else default
+
+
+def skill_declared_risk(name: str) -> str:
+    """The effective risk level of a skill: its declared `risk-level`, else the source default.
+
+    Read from the skill's SKILL.md frontmatter (spec 005 FR-12). An unknown or malformed skill name
+    is not a risk decision — it is bad input caught at install time by ``resolve_skill_source`` — so
+    this falls back to the internal default rather than raising, keeping scoring robust (FR-37).
+    """
+    from . import config
+
+    try:
+        source = resolve_skill_source(name)
+    except WorkspaceError:
+        return DEFAULT_INTERNAL_SKILL_RISK
+    is_external = not _within(source, config.skills_library_root())
+    default = DEFAULT_EXTERNAL_SKILL_RISK if is_external else DEFAULT_INTERNAL_SKILL_RISK
+    meta = _parse_skill_frontmatter(source / "SKILL.md")
+    return _normalize_risk_level(meta.get("risk-level", ""), default)
+
+
 def list_available_skills(selector: str | None = None) -> models.SkillCatalog:
     """Catalog the shared skill library, marking which are installed (spec 005 FR-2)."""
     from . import config
@@ -585,6 +654,9 @@ def list_available_skills(selector: str | None = None) -> models.SkillCatalog:
                     name=entry.name,
                     description=meta.get("description", ""),
                     installed=entry.name in installed,
+                    risk_level=_normalize_risk_level(
+                        meta.get("risk-level", ""), DEFAULT_INTERNAL_SKILL_RISK
+                    ),
                 )
             )
     return models.SkillCatalog(source_root=str(root), skills=skills)
@@ -1163,7 +1235,10 @@ def _answer_from_delta(d: models.ChatDelta) -> models.ChatAnswer:
 INTERACTION_TIMEOUT_MSG = "Something goes wrong, please retry later."  # spec 008 D6
 
 # Option-count bounds per kind (spec 008 FR-6): notification=0, approval=1, clarification=2–4.
-_KIND_BOUNDS = {"notification": (0, 0), "approval": (1, 1), "clarification": (2, 4)}
+# approval allows an optional second affirmative option: "approve all similar in this request"
+# (spec 011 FR-38). decline/chat are built-in choices, not options, so the list holds only the
+# affirmative one(s).
+_KIND_BOUNDS = {"notification": (0, 0), "approval": (1, 2), "clarification": (2, 4)}
 
 
 def _new_interaction_id() -> str:

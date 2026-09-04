@@ -6,6 +6,7 @@ description: >
   "ingest this article", "I added something to raw/", or wants to
   incorporate new material into their knowledge base.
 allowed-tools: Bash Read Write Edit Glob Grep
+risk-level: low
 ---
 
 # Second Brain — Ingest

@@ -201,11 +201,53 @@ def test_fingerprints_are_human_readable_fr31():
     assert "Write" in tool_fp  # the SDK tool name survives verbatim
     assert tool_fp == "tool:Write:vault/wiki/concepts/*"
 
+    # FR-41 supersedes the earlier "first three program names in order" rule: the class is the
+    # effect-bearing programs only, so the read-only `git status` helper drops out.
     bash_fp = experience.operation_fingerprint(
         _op(kind="tool", name="Bash", target="rm -rf build && git status", tier="approval")
     )
     assert "Bash" in bash_fp
-    assert bash_fp == "tool:Bash:rm+git"
+    assert bash_fp == "tool:Bash:rm"
+
+
+def test_read_only_commands_share_one_fingerprint_fr41_ac24():
+    """spec 011 FR-41 / AC-24: slight variations of one read must canonicalise to one shape.
+
+    The earlier rule keyed on the ordered first three program names, so every phrasing of an
+    inventory was a new shape at zero approvals and precedent could never reach FR-17's sample count.
+    """
+    variants = [
+        'echo "=== tree ==="; find vault/raw -type f | head -200; wc -l',
+        'pwd; ls -la | head -30; find vault -maxdepth 3 2>/dev/null | sort',
+        "tail -20 vault/wiki/log.md 2>/dev/null",
+        "git status --short && git log --oneline | head -5",
+        "cat vault/wiki/portal.md 2>&1 | grep -i concept",
+    ]
+    fingerprints = {
+        experience.operation_fingerprint(
+            _op(kind="tool", name="Bash", target=command, tier="auto")
+        )
+        for command in variants
+    }
+    assert fingerprints == {"tool:Bash:read-only"}
+
+
+def test_mutating_commands_fingerprint_on_their_effect_fr41_ac24():
+    """spec 011 FR-41 / AC-24: order and read-only helpers are not part of a mutating identity."""
+    fp = lambda command: experience.operation_fingerprint(  # noqa: E731
+        _op(kind="tool", name="Bash", target=command, tier="reversible")
+    )
+    # Order-independent, and the `ls`/`find` helpers drop out.
+    assert fp("ls -la && rm -rf vault/wiki/x") == fp("rm vault/wiki/x; ls") == "tool:Bash:rm"
+    # A wrapper is unwrapped, so the deletion is named rather than hidden behind `xargs`.
+    assert fp("find vault -type f | xargs rm") == "tool:Bash:rm+xargs"
+    # Conditionally read-only programs are judged on how they were called, not by name.
+    assert fp("git push origin master") == "tool:Bash:git"
+    assert fp('sed -i "s/a/b/" vault/wiki/portal.md') == "tool:Bash:sed"
+    # Only read programs, yet writing: no program name names the effect, so the class does.
+    assert fp("echo hi > vault/wiki/note.md") == "tool:Bash:write"
+    # No mutating command may collide with the read-only class.
+    assert experience.READ_ONLY_COMMAND_CLASS not in fp("rm -rf vault")
 
 
 def test_volatile_parts_collapse_so_precedent_can_form_fr31():

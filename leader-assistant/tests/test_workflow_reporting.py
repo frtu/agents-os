@@ -87,6 +87,46 @@ def test_score_clamps_to_five_fr8():
     assert scored.score == 5
 
 
+def test_declared_risk_level_is_authoritative_fr37():
+    # FR-37: an operation carrying a declared risk level is scored from that level, not from its
+    # tier base + reversibility modifiers. import_skill is approval-tier with "not undone" wording,
+    # which alone would fire IRREVERSIBLE + PRIVILEGE and pin it at 5 — the declared level overrides.
+    def imported(level):
+        return score_operation(
+            op(
+                name="import_skill",
+                target="weekly-digest",
+                tier="approval",
+                reversibility="unlink skills/<name> — but any run it enabled is not undone",
+                declared_risk=level,
+            )
+        )
+
+    assert imported("low").score == 2
+    assert imported("medium").score == 3
+    assert imported("high").score == 4
+    assert imported("critical").score == 5
+    # the reversibility modifiers are NOT applied when a level drives the score
+    high = imported("high")
+    assert high.modifiers == ("SKILL_RISK_HIGH",)
+    assert "IRREVERSIBLE_OUTSIDE_GIT" not in high.modifiers
+    assert "declared risk: high" in high.justification
+
+
+def test_declared_risk_unknown_level_falls_back_to_medium_fr37():
+    # FR-37: an unrecognised level is treated as unset and scores at the medium default (3), never
+    # raising — a typo in a skill's frontmatter must not break scoring.
+    scored = score_operation(op(name="import_skill", tier="approval", declared_risk="spicy"))
+    assert scored.score == 3
+
+
+def test_declared_risk_level_map_is_data_driven_fr37(tmp_path, monkeypatch):
+    # FR-37 / FR-32: the level→score table is hand-editable and read fresh, like every other weight.
+    weights_file(tmp_path, monkeypatch, {"skill_risk_level": {"low": 5}})
+    scored = score_operation(op(name="import_skill", tier="approval", declared_risk="low"))
+    assert scored.score == 5
+
+
 def test_score_clamps_to_one_fr8(tmp_path, monkeypatch):
     # FR-8: a hand-edited base below the scale cannot drive a score under 1.
     weights_file(tmp_path, monkeypatch, {"tier_base": {"auto": -4}})
@@ -243,6 +283,31 @@ def test_sensitive_targets_fire_fr9():
     assert "SENSITIVE_TARGET" not in score_operation(
         op(kind="tool", name="Write", target=".gitignore", tier="reversible")
     ).modifiers
+
+
+# --- FR-40 / FR-39: extent is only extent when something changes -----------
+
+
+@pytest.mark.parametrize("modifier", ["BREADTH_MANY_TARGETS", "SENSITIVE_TARGET"])
+def test_blast_radius_modifiers_do_not_fire_on_a_read_fr40_ac23(modifier):
+    """spec 011 FR-40 / AC-23: both modifiers match target *text*, which cannot tell read from write.
+
+    Without the tier guard, `tail vault/wiki/log.md` scored as if it were rewriting the ledger and an
+    inventory naming three paths scored as a sweep — together enough to push a pure read to 5, past
+    the FR-18 ceiling where no trust mode can clear it.
+    """
+    targets = {
+        "BREADTH_MANY_TARGETS": "vault/wiki/a.md vault/wiki/b.md vault/wiki/c.md",
+        "SENSITIVE_TARGET": "vault/wiki/log.md",
+    }
+    target = targets[modifier]
+    reading = op(kind="tool", name="Grep", target=target, tier="auto")
+    assert modifier not in score_operation(reading).modifiers
+    # …and still fires on the writing equivalent of the very same target.
+    writing = op(
+        kind="tool", name="Write", target=target, tier="reversible", reversibility="`git revert` it"
+    )
+    assert modifier in score_operation(writing).modifiers
 
 
 # --- FR-36 / FR-32: separate evolution, fresh weights ----------------------
@@ -453,6 +518,62 @@ def test_approval_resumes_the_same_operation_once_fr26():
     assert [s.status for s in run.operations] == ["executed"]
     # the grant was one-shot: the same shape gates again if attempted a second time
     assert drive_sync(lambda: run.permit(gating_delete())).allow is False
+
+
+def gating_import(target: str) -> Operation:
+    return op(
+        kind="capability",
+        name="import_skill",
+        target=target,
+        tier="approval",
+        reversibility="unlink skills/<name> — but any run it enabled is not undone",
+    )
+
+
+def test_shape_grant_lets_all_same_shape_ops_through_fr38():
+    # FR-38: a standing shape grant covers every same-shape op for the run and is not spent, so a
+    # bulk install of many skills completes on one decision — while a different shape still gates.
+    run = WorkflowRun(objective="install the change-management skills", workspace="demo")
+    run.pre_grant_shape(workflow.shape_key(gating_import("anything")))
+
+    for target in ("cm-1-stage", "cm-2-refactor", "cm-9-log"):
+        assert drive_sync(lambda t=target: run.permit(gating_import(t))).allow is True
+    assert [s.status for s in run.operations] == ["executed", "executed", "executed"]
+    assert run.state == "running"
+
+    # A different shape is untouched by the import_skill grant and still pauses.
+    other = op(name="create_workspace", target="new", tier="approval", reversibility="rm -rf the dir")
+    assert drive_sync(lambda: run.permit(other)).allow is False
+    assert run.awaiting is True
+
+
+def test_resume_scope_shape_authorises_the_whole_shape_fr38():
+    # FR-38: answering the pause with scope="shape" widens the approval to every same-shape op, so
+    # the next distinct target does not gate again — unlike the one-shot scope="one" default.
+    run = WorkflowRun(objective="install skills", workspace="demo")
+    assert drive_sync(lambda: run.permit(gating_import("cm-1-stage"))).allow is False
+    assert run.awaiting_shape == "capability:import_skill"
+
+    run.resume(approved=True, scope="shape")
+    assert drive_sync(lambda: run.permit(gating_import("cm-1-stage"))).allow is True
+    assert drive_sync(lambda: run.permit(gating_import("cm-2-refactor"))).allow is True
+
+    # Contrast: a one-shot approval clears only the paused target; the next one gates.
+    one = WorkflowRun(objective="install skills", workspace="demo")
+    assert drive_sync(lambda: one.permit(gating_import("cm-1-stage"))).allow is False
+    one.resume(approved=True)  # scope defaults to "one"
+    assert drive_sync(lambda: one.permit(gating_import("cm-1-stage"))).allow is True
+    assert drive_sync(lambda: one.permit(gating_import("cm-2-refactor"))).allow is False
+
+
+def test_decline_ignores_shape_scope_fr38_d8():
+    # D8/FR-27: a decline never generalises to a shape, even if scope="shape" is passed — the run
+    # ends and no same-shape op is admitted afterwards.
+    run = WorkflowRun(objective="install skills", workspace="demo")
+    assert drive_sync(lambda: run.permit(gating_import("cm-1-stage"))).allow is False
+    run.resume(approved=False, scope="shape")
+    assert run.state == "declined"
+    assert drive_sync(lambda: run.permit(gating_import("cm-2-refactor"))).allow is False
 
 
 def test_declined_operation_is_not_re_asked_in_the_run_fr27_ac14():

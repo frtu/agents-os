@@ -414,6 +414,11 @@ class SkillSummary(BaseModel):
     name: str
     description: str = Field("", description="Short description parsed from SKILL.md frontmatter")
     installed: bool = Field(False, description="Whether it is reference-linked into the target workspace")
+    risk_level: str = Field(
+        "medium",
+        description="Declared danger of running the skill (low|medium|high|critical); the effective "
+        "level after applying the source default when unset (spec 005 FR-12/FR-13)",
+    )
 
 
 class SkillCatalog(BaseModel):

@@ -91,9 +91,14 @@ Numbered, testable, unambiguous.
 
 ### Plan-first import as reference-link
 
-- **FR-4:** A chat request to **install / import / add a named skill** MUST be treated as
-  **consequential**: it MUST return a **pending plan** and MUST NOT create anything until the
-  operator approves (P8, [[09-planning]]).
+- **FR-4:** A chat request to **install / import / add a named skill** MUST be gated by the skill's
+  **declared risk level** (FR-12/FR-13, scored per [[011-maker-checker-approval]] FR-37): a skill
+  whose level reaches the gate threshold (default `high`/`critical`) MUST return a **pending plan**
+  and MUST NOT create anything until the operator approves (P8, [[09-planning]]); a skill below the
+  threshold (default `low`/`medium`) installs like any reversible action — recorded in the git
+  ledger (FR-7) so it stays recoverable — without an approval pause. The gate threshold and the
+  level→score mapping are operator-tunable, so an operator who wants *every* install to pause may
+  lower the threshold.
 - **FR-5:** On approval, the system MUST **install the skill as a reference-link**: create a
   symlink `<workspace>/skills/<name>` pointing to the skill's folder in the library, and a
   discovery mirror `<workspace>/.claude/skills/<name>` pointing to the same folder. The install
@@ -128,6 +133,21 @@ Numbered, testable, unambiguous.
   endpoint (FR-2), an installed-list endpoint (FR-3), and an import endpoint (FR-4/FR-5). Chat
   import stays plan-first; the REST import endpoint performs the install directly for machine
   callers. New endpoints MUST live under `/api/*`.
+
+### Declared risk level (how dangerous a skill is)
+
+- **FR-12:** A skill MAY declare its own **risk level** in its `SKILL.md` frontmatter under the
+  key `risk-level`, with one of the values `low` / `medium` / `high` / `critical` (case-insensitive).
+  The value describes how consequential *running that skill* is — not how hard the reference-link
+  is to remove — so it can be assessed by the operator and by the risk engine ([[011-maker-checker-approval]]).
+- **FR-13:** When a skill does **not** declare a `risk-level`, the system MUST supply a default by
+  **source of the skill**: a skill from the **internal** shared library (FR-1) defaults to `low`; a
+  skill from an **external** source defaults to `medium`. Library membership is judged by **placement**,
+  not by link target: the library curates by reference-link (D4), so a skill folder that is itself a
+  symlink into another repo is still *internal* because the operator deliberately curated it in —
+  following the entry's own symlink and classing it external is a defect. An unrecognised declared
+  value MUST fall back to the same source default rather than failing the install. The catalog (FR-2)
+  MUST expose the effective `risk_level` for each skill so an operator can see it before installing.
 
 ## Key Entities & Concepts
 
@@ -180,6 +200,13 @@ Numbered, testable, unambiguous.
   writes under `vault/wiki/`. (FR-10, P2)
 - [ ] **AC-7:** The catalog, installed-list, and import capabilities are each reachable via a
   `/api/*` REST endpoint as well as via chat. (FR-11, P9)
+- [ ] **AC-8:** The catalog reports each skill's effective `risk_level`; a skill with no
+  `risk-level` frontmatter reports `low` (internal-library default), **including** an in-library
+  skill whose folder is a reference-link into another repo. A chat request to install a skill
+  declaring `risk-level: low`/`medium` (or unset internal → `low`) installs **without** an approval
+  pause, while one declaring `risk-level: high`/`critical` **pauses for approval** — because the
+  score comes from the declared level, not from the reference-link mechanics.
+  (FR-12, FR-13, [[011-maker-checker-approval]] FR-37)
 
 ## Resolved Decisions
 

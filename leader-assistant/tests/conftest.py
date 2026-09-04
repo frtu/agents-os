@@ -30,11 +30,19 @@ def skills_library(tmp_path, monkeypatch):
     Keeps the skill catalog/import tests independent of the real shared library.
     """
     lib = tmp_path / "skills"
-    for name, desc in (("weekly-digest", "Summarise the week"), ("triage", "Triage incoming items")):
+    # `risk-level` is the declared danger of running the skill (spec 005 FR-12). weekly-digest
+    # declares `high` so it stays above the gate (the plan-first/approve tests need a gating skill);
+    # triage declares nothing, exercising the internal-library `low` default (FR-13), which sits
+    # below the gate and installs without approval.
+    for name, desc, risk in (
+        ("weekly-digest", "Summarise the week", "high"),
+        ("triage", "Triage incoming items", ""),
+    ):
         d = lib / name
         d.mkdir(parents=True)
+        risk_line = f"risk-level: {risk}\n" if risk else ""
         (d / "SKILL.md").write_text(
-            f"---\nname: {name}\ndescription: {desc}\n---\n\n# {name}\n\nDo the thing.\n",
+            f"---\nname: {name}\ndescription: {desc}\n{risk_line}---\n\n# {name}\n\nDo the thing.\n",
             encoding="utf-8",
         )
     # The real shared library ships second-brain/references/{wiki-schema,wiki-architecture}.md —

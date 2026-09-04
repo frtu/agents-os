@@ -193,14 +193,15 @@ SHELL_TOOL_NAMES: tuple[str, ...] = ("Bash",)
 
 # Coarse destructive-shell detection. `Bash` is not statically analysable and this does not pretend
 # otherwise (011 Non-Goals, 010 D3): it over-fires rather than under-fires, and git remains the
-# backstop. Requiring trailing whitespace after the short verbs keeps quoted mentions
-# (`grep -rn "rm" .`) from matching.
+# backstop. Requiring whitespace-or-end-of-command after the short verbs keeps quoted mentions
+# (`grep -rn "rm" .`) from matching, while still catching a verb a wrapper leaves last
+# (`find … | xargs rm`).
 DESTRUCTIVE_SHELL_PATTERNS: tuple[str, ...] = (
-    r"\brm\s",
+    r"\brm(?=\s|$)",
     r"\brmdir\b",
-    r"\bmv\s",
+    r"\bmv(?=\s|$)",
     r"\btruncate\b",
-    r"\bdd\s",
+    r"\bdd(?=\s|$)",
     r"\bshred\b",
     r"\bgit\s+reset\s+--hard\b",
     r"\bgit\s+push\s+(?:--force\b|-f\b)",
@@ -266,7 +267,20 @@ def _destructive_shell(operation: Operation) -> bool:
     return _is_shell(operation) and bool(_DESTRUCTIVE_SHELL_RE.search(operation.target))
 
 
+def _changes_something(operation: Operation) -> bool:
+    """Does this operation alter state at all (spec 011 FR-40)?
+
+    The guard the two blast-radius modifiers share. Both match the target *text*, which cannot tell
+    reading a path from writing it — so without this, `tail vault/wiki/log.md` scores as if it were
+    rewriting the ledger, and listing three directories scores as a sweep. Extent is only extent
+    when there is a change to be extensive about.
+    """
+    return operation.tier != "auto"
+
+
 def _many_targets(operation: Operation) -> bool:
+    if not _changes_something(operation):
+        return False
     target = _normalized_target(operation)
     if _GLOB_RE.search(target):
         return True
@@ -274,6 +288,8 @@ def _many_targets(operation: Operation) -> bool:
 
 
 def _sensitive_target(operation: Operation) -> bool:
+    if not _changes_something(operation):
+        return False
     target = _normalized_target(operation)
     return any(marker in target for marker in SENSITIVE_TARGET_MARKERS)
 
@@ -301,12 +317,12 @@ MODIFIERS: tuple[ScoringModifier, ...] = (
     ),
     ScoringModifier(
         name="BREADTH_MANY_TARGETS",
-        description=f"touches {BREADTH_TARGET_THRESHOLD} or more targets, or a glob of them",
+        description=f"changes {BREADTH_TARGET_THRESHOLD} or more targets, or a glob of them",
         condition=_many_targets,
     ),
     ScoringModifier(
         name="SENSITIVE_TARGET",
-        description="touches state whose corruption is not a normal revert",
+        description="changes state whose corruption is not a normal revert",
         condition=_sensitive_target,
     ),
 )
@@ -337,6 +353,28 @@ def justify(operation: Operation, fired: tuple[ScoringModifier, ...]) -> str:
     return _one_line(line)
 
 
+def _score_declared_risk(operation: Operation, weights: dict) -> ScoredOperation:
+    """Score an operation from its declared risk level, not tier + modifiers (spec 011 FR-37).
+
+    The first user is skill import: a symlink is trivially reversible, so the FR-8 reversibility
+    modifiers would pin every install at the ceiling and hide the real signal — how dangerous the
+    *skill* is. When the operation carries a level, that level (mapped through the hand-editable
+    `skill_risk_level` table) is the whole score. An unrecognised level falls back to `medium`.
+    """
+    level = operation.declared_risk.strip().lower()
+    level_map = weights.get("skill_risk_level") or config.DEFAULT_RISK_WEIGHTS["skill_risk_level"]
+    default_map = config.DEFAULT_RISK_WEIGHTS["skill_risk_level"]
+    raw = level_map.get(level, default_map.get(level, default_map["medium"]))
+    what = f"{operation.name} on {operation.target or '(no target)'}"
+    undo = operation.reversibility.strip() or "no declared undo path"
+    return ScoredOperation(
+        operation=operation,
+        score=max(SCORE_MIN, min(SCORE_MAX, int(raw))),
+        modifiers=(f"SKILL_RISK_{level.upper()}",),
+        justification=_one_line(f"{what}; {undo} — declared risk: {level}"),
+    )
+
+
 def score_operation(operation: Operation) -> ScoredOperation:
     """Score one announced operation: tier base + fired modifier weights, clamped 1–5 (FR-8).
 
@@ -344,8 +382,13 @@ def score_operation(operation: Operation) -> ScoredOperation:
     effect on the next operation without a restart. An unknown tier or a modifier missing from the
     file contributes its default rather than raising: a typo in a hand-edited config must not be
     able to switch scoring off.
+
+    An operation carrying a **declared risk level** (spec 011 FR-37) is scored from that level
+    instead — see ``_score_declared_risk``.
     """
     weights = config.risk_weights()
+    if operation.declared_risk:
+        return _score_declared_risk(operation, weights)
     bases = weights.get("tier_base") or {}
     defaults = config.DEFAULT_RISK_WEIGHTS["tier_base"]
     base = bases.get(operation.tier, defaults.get(operation.tier, SCORE_MAX))
@@ -385,6 +428,16 @@ def operation_key(operation: Operation) -> str:
     return f"{operation.kind}:{operation.name}:{operation.target}"
 
 
+def shape_key(operation: Operation) -> str:
+    """Target-independent identity of an operation: what it is, not what it touches (spec 011 FR-38).
+
+    The unit of batch consent. `operation_key` gates each distinct target on its own; this collapses
+    every same-capability call — `import_skill` on any skill — to one shape, so approving one skill
+    install can authorise the rest of a bulk install for the run without a card per skill.
+    """
+    return f"{operation.kind}:{operation.name}"
+
+
 class WorkflowRun:
     """One run per user request — scores, accumulates, pauses (spec 011 FR-6).
 
@@ -417,10 +470,14 @@ class WorkflowRun:
         self._report: RiskReport | None = None
         self._verdict: Verdict | None = None
         self._awaiting_key: str | None = None
+        self._awaiting_shape: str | None = None
         # Keys the operator (or checker) has permanently refused, and keys cleared for exactly one
         # retry. Two sets rather than one flag because a run may gate on several distinct shapes.
         self._refused: set[str] = set()
         self._granted: set[str] = set()
+        # Shapes (kind:name) the operator cleared for the whole run — "approve all similar" (FR-38).
+        # Unlike `_granted`, a shape grant is *not* spent by the first match: it stands for the run.
+        self._granted_shapes: set[str] = set()
 
     # --- read-only state the concierge needs ------------------------------------------
 
@@ -459,6 +516,21 @@ class WorkflowRun:
         """
         if key:
             self._granted.add(key)
+
+    @property
+    def awaiting_shape(self) -> str | None:
+        """Shape of the paused operation, for the caller to persist as the batch-consent target (FR-38)."""
+        return self._awaiting_shape
+
+    def pre_grant_shape(self, shape: str) -> None:
+        """Seed a standing shape grant before execution starts — "approve all similar" (spec 011 FR-38).
+
+        Unlike ``pre_grant``, this is not spent by the first match: every same-shape operation the
+        resumed run announces is let through, so a bulk install of many skills completes on one
+        approval. Scoped to this run only; a new request builds a fresh run with no grants (D9).
+        """
+        if shape:
+            self._granted_shapes.add(shape)
 
     @property
     def pending_report(self) -> RiskReport | None:
@@ -503,6 +575,13 @@ class WorkflowRun:
             self._settle(key, scored, "executed")
             return ALLOW
 
+        # A standing "approve all similar" grant covers every same-shape operation for the run and is
+        # not spent — it is what turns a bulk of gating operations into one decision (FR-38). On a
+        # resumed run these are freshly announced (no pending entry), so they append as executed.
+        if shape_key(operation) in self._granted_shapes:
+            self._operations.append(scored.with_status("executed"))
+            return ALLOW
+
         if scored.score < self.threshold:
             self._operations.append(scored.with_status("executed"))
             return ALLOW
@@ -527,25 +606,32 @@ class WorkflowRun:
         self._state = "awaiting"
         self._report = report
         self._awaiting_key = key
+        self._awaiting_shape = shape_key(operation)
         return Permit(allow=False, reason=verdict.reasoning or _AWAITING_REASON)
 
     # --- resumption -------------------------------------------------------------------
 
-    def resume(self, approved: bool, reasoning: str = "", source: str = "user") -> Verdict:
-        """Apply the operator's answer to the outstanding ask (spec 011 FR-26/FR-27).
+    def resume(self, approved: bool, reasoning: str = "", source: str = "user", scope: str = "one") -> Verdict:
+        """Apply the operator's answer to the outstanding ask (spec 011 FR-26/FR-27/FR-38).
 
         ``approved`` clears the run for exactly one retry of the paused operation, so execution can
-        complete it in the same turn without the gate firing a second time. A refusal is final for
-        the run: the same operation is never re-asked (FR-27), and nothing after it runs.
+        complete it in the same turn without the gate firing a second time. ``scope="shape"`` widens
+        an approval to every same-shape operation for the run — "approve all similar" (FR-38). A
+        refusal is final for the run: the same operation is never re-asked (FR-27), and nothing after
+        it runs; ``scope`` is ignored on a decline (D8 — a decline never generalises).
         """
         if self._state != "awaiting" or self._awaiting_key is None:
             raise ValueError("run is not awaiting a decision")
 
         key = self._awaiting_key
+        shape = self._awaiting_shape
         self._awaiting_key = None
+        self._awaiting_shape = None
         if approved:
             self._state = "running"
             self._granted.add(key)
+            if scope == "shape" and shape:
+                self._granted_shapes.add(shape)
             self._report = None
             verdict = Verdict(
                 decision="approve",

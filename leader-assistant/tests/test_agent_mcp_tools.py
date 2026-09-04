@@ -108,6 +108,22 @@ def test_import_skill_handler_creates_reference_link(isolated_workspace_root):
     assert (isolated_workspace_root / "demo" / "skills" / "weekly-digest").is_symlink()
 
 
+def test_agent_import_tool_carries_declared_risk_and_scores_by_level(isolated_workspace_root):
+    # spec 011 FR-37 (P9): when the *agent* calls import_skill as an MCP tool, the operation the
+    # PreToolUse hook announces must carry the skill's declared risk level and be scored from it —
+    # exactly as the REST and chat doors do — not left to the reversibility modifiers that pinned it
+    # at 5/5. weekly-digest declares `high` (gates); triage is unset → low (below the gate).
+    from app import workflow
+
+    high = agent._operation_for_capability_tool("import_skill", {"name": "weekly-digest"})
+    assert high.declared_risk == "high"
+    assert workflow.score_operation(high).score == 4
+
+    low = agent._operation_for_capability_tool("import_skill", {"name": "triage"})
+    assert low.declared_risk == "low"
+    assert workflow.score_operation(low).score == 2
+
+
 def test_ingest_handler_refuses_raw_and_surfaces_error(isolated_workspace_root):
     # A capability error is surfaced as tool text, not raised (handler contract).
     result = asyncio.run(_handler("import_skill", "demo")({"name": "../evil"}))

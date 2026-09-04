@@ -43,7 +43,8 @@ def test_ac1_ac13_consequential_turn_streams_approval_interaction(client, isolat
     assert last["pending_plan"] is not None          # plan shown (FR-5)
     assert last["interaction"] is not None            # delivered as an interaction (FR-17)
     assert last["interaction"]["kind"] == "approval"
-    assert len(last["interaction"]["options"]) == 1   # 1-proposal degenerate clarification (FR-6)
+    # The affirmative proposal plus spec 011 FR-38's optional "approve all similar" batch option.
+    assert [o["id"] for o in last["interaction"]["options"]] == ["approve", "approve_all"]
     assert last["executed"] is False                  # nothing runs without explicit approval (P8)
 
 

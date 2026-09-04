@@ -2,8 +2,8 @@
 
 **Feature ID:** `011-maker-checker-approval`
 **Status:** Implemented — governance amendments applied; three layers, concierge and experience store
-landed, AC-1…AC-20 covered by tests (see *Deviations recorded during implementation*)
-**Created:** 2026-08-29 · **Last Updated:** 2026-08-29
+landed, AC-1…AC-20 and AC-22…AC-24 covered by tests (see *Deviations recorded during implementation*)
+**Created:** 2026-08-29 · **Last Updated:** 2026-09-01
 
 > Describes **what** and **why**. Replaces the single-function approval gate with a **maker–checker**
 > architecture of **three independent layers** — an **execution** layer that only does work, a
@@ -136,6 +136,45 @@ be skipped next time.
 - **FR-5:** An operation announcement MUST carry enough to be judged without layer 1's help:
   capability-or-tool name, resolved target, declared tier, reversibility, and whether it is
   externally visible.
+- **FR-39: A shell command MUST be declared by its own effect, not by one tier for all shell use.**
+  Layer 1 MUST classify the command it is about to announce against a **data-declared allowlist of
+  read-only programs**. When every segment of the command invokes an allowlisted program **and** the
+  command contains no file-truncating or appending redirect, no `tee`, no in-place editor and no
+  externally-visible token, it MUST be announced as tier `auto` with reversibility "read-only —
+  nothing to undo". Any command not **positively** recognised as read-only MUST keep the pessimistic
+  `reversible` declaration and its "effects outside the repo are not undone" reversibility.
+  Recognition MUST follow **delegation**: where an allowlisted program hands the work to another
+  program — a wrapper such as `xargs` or `timeout`, or `find -exec`/`-execdir` — the delegated
+  program MUST itself be allowlisted for that segment to count as read-only, and a privilege-raising
+  wrapper (`sudo`) MUST never qualify regardless of its payload.
+  *Why (delegation):* `find … -exec wc -c {} \;` and `find … | xargs wc -l` are ordinary inventory
+  reads, but reading only the leading program mis-declares them — `-exec` can equally run `rm`. The
+  answer is to judge the **payload**, not to blanket-refuse the flag: refusing it made a routine size
+  listing score 4/5 and gate, while accepting it blindly would let `-exec rm` through. `sudo` is
+  excluded because it is the one wrapper whose risk is not its payload's effect.
+  *Why:* one blanket declaration for `Bash` put the phrase "not undone" on every shell call, which
+  trips the FR-8 `IRREVERSIBLE_OUTSIDE_GIT` modifier unconditionally and gives *reading* a score
+  floor of 3 — so `find`/`tail` over the vault scored higher than the same read via `Grep` (tier
+  `auto`), and an ordinary inventory reached the gate. The list is **positive** so an unrecognised
+  program is treated as mutating: this is recognition of known-safe programs, not static analysis of
+  shell (Non-Goals), and it fails closed. Destructive commands are unaffected — they are not on the
+  allowlist and `DESTRUCTIVE_SHELL` still lifts them to a gating score.
+
+- **FR-42: A shell command confined to the workspace MUST be declared as git-covered, not as
+  possibly escaping it.** When every path-like token in the command resolves inside the workspace
+  root, layer 1 MUST announce the same reversibility it gives an equivalent `Write`/`Edit` — the
+  turn's commit is the undo. The pessimistic "effects outside the repo are not undone" wording MUST
+  be reserved for commands with a token that resolves outside, or none that can be resolved at all.
+  *Why:* the blanket `Bash` reversibility is a disjunction — "`git revert` covers workspace files;
+  effects outside the repo are not undone" — and FR-8's `IRREVERSIBLE_OUTSIDE_GIT` matches on that
+  text, so it fired on every shell write regardless of where the write landed. `mkdir -p` of seven
+  `vault/wiki/` scaffold directories therefore scored 4 and gated, while the identical effect through
+  `Write` scored 2 and ran: the same blast radius priced differently because of which tool spelled
+  it. Correcting the declaration also removes the *need* to consult layer 3 for routine ingest
+  writes, which matters because FR-17's filter fails closed to `ask` **before** trust mode is
+  consulted — so a transient judge outage strands work that standing consent should have covered.
+  Safety is unchanged: an escaping token keeps the pessimistic declaration, and `DESTRUCTIVE_SHELL`
+  and `EXTERNALLY_VISIBLE` still lift `rm -rf`, `sed -i` and `curl` to a gating score on their own.
 
 ### Layer 2 — workflow reporting (maker)
 
@@ -151,6 +190,15 @@ be skipped next time.
   breadth of change, external visibility, privilege granting, target sensitivity. A modifier MUST NOT
   reference trust mode, precedent, operator identity, or the request's wording; those belong to
   layer 3.
+- **FR-40: Blast-radius modifiers MUST NOT fire on an `auto`-tier operation.** The modifiers that
+  describe the *extent* of a change — breadth of targets and target sensitivity — MUST be conditioned
+  on the operation changing something. Reading many files is not breadth of change, and reading
+  sensitive state is not corrupting it. *Why:* both conditions match the target **text**, so
+  `tail vault/wiki/log.md` scored as if it were rewriting the ledger and an inventory naming three
+  paths scored as a sweep — together enough to push a pure read to 5 and past the FR-18
+  precedent-free ceiling, where no trust mode can clear it. This mirrors the guard
+  `PRIVILEGE_GRANTING` already carries, and remains FR-9-compliant: the condition reads the declared
+  tier of the operation in front of it and nothing else.
 - **FR-10:** The justification MUST be one line stating the concrete effect and its undo path (e.g.
   "deletes 3 wiki pages; recoverable from the workspace git repo").
 - **FR-11:** Layer 2 MUST **accumulate**. When an operation's score reaches the gate threshold, the
@@ -201,6 +249,18 @@ be skipped next time.
   operation within the same request/turn.
 - **FR-27:** An operator decline MUST be **final** for that operation and run: it does not execute,
   the run terminates, and the same operation MUST NOT be re-asked within the run.
+- **FR-38:** When a run pauses, the operator MAY approve **every operation of the same shape** for the
+  remainder of that run, not only the paused one. *Shape* is `kind:name` — the capability or tool
+  identity, **target-independent** — so approving one skill import authorises the rest of a bulk
+  install (`import_skill` on any name) without a card per skill. The approval card carries a second,
+  optional affirmative option alongside "approve this one"; picking it seeds a **standing within-run
+  shape grant** that is honoured across the synchronous FR-26 resume re-run, so a bulk of similar
+  operations completes with **one** decision instead of one card per target. The grant is scoped to
+  the single authorised run (a new user request is a new run with no grants) and is **affirmative
+  only**: FR-27 and D8 are unchanged — a decline never generalises to a shape, and a specific
+  operation the operator has declined stays declined even under a shape grant. This is how "ask for
+  all at once" is realised under D1: layer 2 cannot forecast the run, so batch consent is granted
+  forward over the shape rather than by pre-flight look-ahead.
 
 ### Past experience
 
@@ -214,6 +274,24 @@ be skipped next time.
   or fail the response.
 - **FR-31:** The **operation fingerprint** MUST be deterministic, stable and human-auditable, so a
   precedent match can be explained without running the judge.
+- **FR-41: A shell fingerprint MUST identify the command's effect class, not its exact program
+  sequence.** Matching stays **exact string equality on the canonical form** — no embeddings, no
+  similarity score, no vector store (D5, P1/P10). The tolerance for variation comes from normalising
+  more aggressively, so that slight variations of one intent canonicalise to the *same* string:
+  1. a command classified read-only under FR-39 fingerprints as `read-only`, regardless of which
+     read programs it used or in what order;
+  2. otherwise the class is the **set** of effect-bearing programs — allowlisted read-only helpers
+     removed — deduplicated, **sorted**, and capped at three (e.g. `git+rm`);
+  3. if no effect-bearing program survives that filter the class is `write`, which is the case for a
+     command built only from read programs plus a redirect.
+  Argument values, program order, and read-only helpers are therefore not part of the identity:
+  `ls -la && rm -rf x` and `rm x; ls` are one shape. *Why:* the previous rule keyed on the ordered
+  first three program names, so every phrasing of an inventory was a brand-new shape at zero
+  approvals. With FR-17 requiring three approvals of one fingerprint, precedent for ordinary shell
+  work could never accumulate and the operator was asked forever. Coarsening is deliberately
+  **one-way** and applies only to `Bash`; path-target fingerprints are unchanged. Records written
+  under the previous rule simply stop matching and precedent re-accumulates — acceptable because the
+  store is append-only and every fingerprint in it stays readable.
 - **FR-32:** Weights and thresholds MUST be hand-editable and read fresh. A separate analysis routine
   MAY **suggest** updates from accumulated records but MUST NOT apply them automatically.
 - **FR-33:** Experience is **global** across workspaces, because trust is a property of the operator,
@@ -228,6 +306,17 @@ be skipped next time.
 - **FR-36:** The scoring model (layer 2) and the effect-tier model (layer 1) MUST remain separately
   evolvable: adding a modifier MUST NOT require an effect-table change, and adding a capability MUST
   NOT require a modifier change.
+- **FR-37:** An operation MAY carry a **declared risk level** describing the danger of the thing it
+  installs or runs, distinct from the mechanical reversibility of the act itself — the first use is
+  skill import, where the level is the skill's own `risk-level` ([[005-skill-import]] FR-12/FR-13).
+  When present, the level is the **authoritative** score for that operation: layer 2 MUST map it
+  through a **data-declared** table (`.leader-risk-weights.json` → `skill_risk_level`, default
+  `low`=2 / `medium`=3 / `high`=4 / `critical`=5, clamped 1–5) **instead of** the tier base and the
+  generic effect modifiers of FR-8. This keeps a trivially-reversible-but-dangerous install (a
+  symlink that grants runnable behaviour) from being pinned at the ceiling by the reversibility
+  modifiers, and keeps a genuinely dangerous one above the gate. The mapping is rules-as-data (P12)
+  and still describes only the operation's own effect (FR-9): it references no trust mode, precedent
+  or request wording. An operation with no declared level scores by FR-8 exactly as before.
 
 ## Data & file contracts
 
@@ -239,7 +328,7 @@ be skipped next time.
 
 ```text
 Operation   { op_id, kind: capability|tool, name, target, tier, reversibility,
-              external, score 1-5, modifiers[], justification, status }
+              external, declared_risk?, score 1-5, modifiers[], justification, status }
 RiskReport  { run_id, objective, workspace, gating_op, accumulated[], executed[] }
 Verdict     { decision: approve|decline|ask, reasoning, confidence,
               source: judge|trust|precedent, matched_precedent? }
@@ -275,6 +364,21 @@ Permit      { allow: bool, reason? }
 - **D8 — Decline never generalises.** An operator decline is final for the run (FR-27) and is
   recorded, but only ever narrows future automation (FR-19). The system may learn to stop asking; it
   may not learn to start refusing.
+- **D9 — Batch consent is shape-scoped and run-scoped.** "Approve all similar in this request"
+  (FR-38) grants forward over the operation *shape* (`kind:name`, ignoring target) for the one
+  authorised run, because the dynamic agent reveals operations one at a time and D1 rules out
+  look-ahead. It is deliberately **not** a standing precedent: it dies with the run and is never
+  written to the experience store, so it cannot quietly widen the checker's authority (P8). Only
+  approvals learn (FR-17); a batch grant is a one-request convenience, not a taught trust.
+- **D10 — Reading is not an effect; the fix belongs in the declaration, not the thresholds.** Routine
+  work gated because a read was *declared* like a write (FR-39) and then scored for extent it did not
+  have (FR-40) — so the correction is to describe the effect accurately, not to raise `gate` or blunt
+  the modifier weights. Raising `gate` to 5 would be the tempting one-line fix and is wrong: the
+  `approval` tier bases at 4 and `skill_risk_level.high` maps to 4, so it would silently auto-run
+  every approval-tier action and every high-risk skill install. Zeroing `BREADTH_MANY_TARGETS` and
+  `SENSITIVE_TARGET` in the weights file would work today but disarms them for *writes*, which is
+  the only place they were ever meant to fire. Both remain available to an operator as hand tuning
+  (FR-32); neither is the design.
 
 ## Constitution impact — APPLIED 2026-08-29 (constitution now 2.0.0)
 
@@ -384,6 +488,27 @@ only the effect table.
 - [x] **AC-19:** The run record is reconstructable after the fact: each operation, its modifiers, the
   verdict, the judge's reasoning, who decided, and the commit. (FR-14, FR-16)
 - [x] **AC-20:** `vault/raw/` remains refused irrespective of score, verdict or trust mode. (P2)
+- [ ] **AC-21:** A run that gates on N operations of the same shape (e.g. N high-risk `import_skill`
+  calls) raises **one** card; the operator picking "approve all" lets all N complete in the resumed
+  turn, while a plain "approve" completes only the paused one and re-asks the next. (FR-38, D9)
+- [x] **AC-22:** A read-only shell inventory of a workspace — `find`/`ls`/`tail`/`echo` over `vault/`,
+  including `tail` of `vault/wiki/log.md` — is announced `auto`, scores **1**, and runs with no card;
+  the same paths under `rm -rf`, `sed -i` or a truncating redirect still reach the gate. (FR-39,
+  FR-40)
+- [x] **AC-23:** `BREADTH_MANY_TARGETS` and `SENSITIVE_TARGET` fire on no `auto`-tier operation, and
+  still fire on the `reversible` / `approval` equivalents of the same targets. (FR-40, FR-9)
+- [x] **AC-24:** Two read-only commands differing in program order, arguments and which read programs
+  they use produce **one** fingerprint, so repeated operator approvals accumulate toward FR-17's
+  minimum sample count instead of resetting; a mutating command fingerprints on its effect-bearing
+  programs alone and never collides with the read-only class. (FR-41, FR-31, FR-17)
+- [x] **AC-25:** A read that delegates to an allowlisted program — `find … -exec wc -c {} \;`,
+  `find … | xargs wc -l`, `timeout 30 find …` — is announced `auto` and scores **1**, while the same
+  shapes delegating to a mutating program (`-exec rm`, `xargs rm`) or raising privilege (`sudo cat`)
+  keep the `reversible` declaration and reach the gate. (FR-39)
+- [x] **AC-26:** `mkdir -p` of several `vault/wiki/` scaffold directories scores the same as the
+  equivalent `Write` and runs without consulting layer 3, while the same command naming a path
+  outside the workspace keeps `IRREVERSIBLE_OUTSIDE_GIT`; `rm -rf` and `sed -i` inside the workspace
+  still reach the gate on `DESTRUCTIVE_SHELL` alone. (FR-42, FR-8)
 
 ## Implementation note (follow-up, not this document)
 
@@ -433,3 +558,40 @@ not deleted.
   flags every route. `tests/test_maker_checker_integration.py` unparses the callee of each `await` /
   `async for` instead, and the import scan walks function-local imports too, since that is where the
   layers break their cycles.
+
+### FR-39…FR-41 — recorded during implementation (2026-09-01)
+
+- **The shell effect vocabulary lives in `app/execution_gate.py`**, next to `TIERS`. Layer 1 needs it
+  to declare a tier (FR-39) and the experience store needs the same answer to fingerprint a command
+  (FR-41), and neither may import the other (FR-34). It is *description*, not policy — no score, no
+  threshold, no trust mode — so the contract module stays dependency-free and AC-2's check still
+  passes.
+- **The effect class is computed per command segment, not by filtering program names.** Filtering the
+  names against the read-only allowlist collapsed `git push` to the generic `write` class, because
+  `git` is on the allowlist as a program. Classifying each segment on how it was actually called
+  keeps `git push` → `git` distinct from `echo hi > f` → `write`, which is the difference between an
+  auditable precedent and an opaque one.
+- **A wrapper's wrapped command is unwrapped** (`xargs`, `sudo`, `timeout`, `sh -c`, …). Without it,
+  `find … | xargs rm` named `xargs` as the effect: it fingerprinted as a wrapper call and, since
+  `DESTRUCTIVE_SHELL` required whitespace *after* the verb, `rm` in final position matched nothing —
+  the deletion scored 3 and ran unprompted. The verb patterns are now anchored `(?=\s|$)`, which
+  still excludes the quoted mentions (`grep -rn "rm" .`) the trailing-space rule existed to exclude.
+  This was a pre-existing hole in the coarse detector, surfaced by FR-41's segment analysis.
+- **Delegation is judged by payload, and only some wrappers may delegate a read.** The first cut
+  refused `-exec`/`-execdir` outright as mutating flags, which left `find … -exec wc -c {} \;` — a
+  plain size listing — declared `reversible` and scored 4/5, i.e. still gating on the very run FR-39
+  was written for. It is now read-only when the delegated program is itself allowlisted. Only
+  `nice`/`time`/`timeout`/`xargs` may pass a read through: a shell interpreter (`bash -c '…'`)
+  re-parses its quoted argument, so segment splitting cannot see the whole command and a reading
+  payload proves nothing, and `sudo`'s risk is the privilege rather than the payload's effect.
+- **"Path-like" (FR-42) is read over-inclusively, and confinement must be unanimous.** A sed script
+  (`s/a/b/`) is indistinguishable from a relative path at this level, so it is collected as one. That
+  is sound only because the check requires *every* token to resolve inside and at least one to
+  resolve at all: a spurious token can cost a command its downgrade but never earn it one, and a
+  command that names nothing resolvable keeps the pessimistic declaration instead of being excused
+  for its silence.
+- **A segment whose first token is a flag names no program.** Splitting on `;` cuts
+  `find … -exec wc {} \; -delete` into a trailing `-delete` segment, which fingerprinted as
+  `tool:Bash:-delete` — a flag recorded where FR-41 requires an effect-bearing program. Leading flags
+  are now dropped with leading assignments. Scoring was already correct (`DESTRUCTIVE_SHELL` matches
+  the text); the defect was an unauditable entry in the append-only store.

@@ -39,7 +39,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import config
-from .execution_gate import Operation
+from .execution_gate import Operation, effectful_programs, is_read_only_shell
 
 log = logging.getLogger(__name__)
 
@@ -94,8 +94,10 @@ def band(score: int) -> str:
 #     target.
 #   * volatile tokens — uuids, hex blobs, timestamps, long digit runs — collapse to `{id}`/`{ts}`/
 #     `{n}`, otherwise every occurrence would be a brand-new shape and precedent could never form.
-#   * `Bash` reduces to the program names it invokes; the arguments are not statically analysable
-#     (Non-Goals) and would make every command unique.
+#   * `Bash` reduces to an **effect class** — `read-only`, or the sorted set of its effect-bearing
+#     programs (FR-41). Arguments are not statically analysable (Non-Goals) and the earlier rule (the
+#     first three program names, in order) made every phrasing of one intent a new shape, so
+#     precedent could never reach FR-17's sample count. Coarsening is one-way and `Bash`-only.
 #
 # `op_id` is deliberately absent: it identifies an occurrence, not a shape.
 
@@ -105,8 +107,12 @@ _UUID = re.compile(r"[0-9a-f]{8}-?(?:[0-9a-f]{4}-?){3}[0-9a-f]{12}", re.IGNORECA
 _HEXBLOB = re.compile(r"\b[0-9a-f]{12,}\b", re.IGNORECASE)
 _TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}(?:[t_ ]\d{2}[:-]?\d{2}(?:[:-]?\d{2})?)?", re.IGNORECASE)
 _LONG_DIGITS = re.compile(r"\d{3,}")
-_COMMAND_SPLIT = re.compile(r"[;&|\n]+")
-_ENV_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+
+# Effect classes a shell command collapses to (FR-41). Named rather than derived so they read as
+# categories on an audit record: `tool:Bash:read-only` is a sentence an operator can check.
+READ_ONLY_COMMAND_CLASS = "read-only"
+WRITE_COMMAND_CLASS = "write"
+_COMMAND_CLASS_PROGRAM_LIMIT = 3
 
 
 def _collapse_volatile(text: str) -> str:
@@ -118,20 +124,21 @@ def _collapse_volatile(text: str) -> str:
 
 
 def _normalise_command(target: str) -> str:
-    """A shell command reduced to the programs it runs, e.g. ``rm -rf x && git status`` -> ``rm+git``."""
-    programs: list[str] = []
-    for segment in _COMMAND_SPLIT.split(target):
-        tokens = [t for t in segment.strip().split() if t]
-        while tokens and (_ENV_ASSIGNMENT.match(tokens[0]) or tokens[0] in ("sudo", "env", "nohup")):
-            tokens.pop(0)
-        if not tokens:
-            continue
-        program = tokens[0].strip("'\"").rsplit("/", 1)[-1]
-        if program and program not in programs:
-            programs.append(program)
-        if len(programs) == 3:
-            break
-    return "+".join(programs) if programs else "-"
+    """A shell command reduced to its **effect class** (spec 011 FR-41).
+
+    ``rm -rf x && git status`` and ``ls; rm x`` both -> ``rm``; any recognised read-only command ->
+    ``read-only``. Order, arguments and read-only helpers are dropped, so slight variations of one
+    intent canonicalise to one string and precedent can actually accumulate — matching itself stays
+    exact equality on this form, with no similarity scoring anywhere (D5).
+    """
+    if is_read_only_shell(target):
+        return READ_ONLY_COMMAND_CLASS
+    effectful = effectful_programs(target)
+    if not effectful:
+        # Built only from read programs, yet not read-only: a redirect, a substitution or an
+        # in-place flag is doing the writing, and no program name names it.
+        return WRITE_COMMAND_CLASS
+    return "+".join(effectful[:_COMMAND_CLASS_PROGRAM_LIMIT])
 
 
 def _normalise_path(target: str) -> str:
@@ -170,7 +177,7 @@ def operation_fingerprint(operation: Operation) -> str:
     """Canonical, human-auditable identity of an operation's **shape** (spec 011 FR-31).
 
     Examples: ``capability:import_skill:second-brain-ingest`` ·
-    ``tool:Write:vault/wiki/concepts/*`` · ``tool:Bash:rm+git``.
+    ``tool:Write:vault/wiki/concepts/*`` · ``tool:Bash:read-only`` · ``tool:Bash:rm``.
 
     Stable across runs, workspaces and machines, and readable enough to put in front of an
     operator — which is the whole point: a precedent that cannot be explained cannot be audited

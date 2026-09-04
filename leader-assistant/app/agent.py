@@ -343,16 +343,23 @@ def _raw_guard_decision(workspace_path: Path, tool_name: str, tool_input: dict) 
 # (FR-4/FR-6, AC-3) — previously every Write and Bash outside vault/raw/ ran unobserved.
 #
 # Tiers stay deliberately coarse; the fine-grained judgment is layer 2's scoring modifiers (D3).
-# Bash is the interesting case: it is declared `reversible` because its usual effect is on
-# workspace files, and the DESTRUCTIVE_SHELL modifier is what lifts `rm -rf` to a gating score.
+# Bash is the interesting case: this entry is the *unrecognised* case, declared `reversible` because
+# a command's usual effect is on workspace files, and the DESTRUCTIVE_SHELL modifier is what lifts
+# `rm -rf` to a gating score. A command recognised as read-only is declared `auto` instead
+# (spec 011 FR-39) — see `_operation_for_tool`.
+# The undo path for a mutation that stays inside the workspace repo. Shared so a shell command
+# confined to the workspace is priced exactly like the equivalent `Write` (FR-42), and so the wording
+# layer 2 pattern-matches cannot drift between the two.
+_GIT_COVERED = "`git revert` the turn's commit in the workspace repo"
+
 _TOOL_EFFECTS: dict[str, tuple[str, str]] = {
     "Read": ("auto", "read-only — nothing to undo"),
     "Glob": ("auto", "read-only — nothing to undo"),
     "Grep": ("auto", "read-only — nothing to undo"),
     "Skill": ("auto", "loads instructions; any work it performs is announced as its own operations"),
-    "Write": ("reversible", "`git revert` the turn's commit in the workspace repo"),
-    "Edit": ("reversible", "`git revert` the turn's commit in the workspace repo"),
-    "NotebookEdit": ("reversible", "`git revert` the turn's commit in the workspace repo"),
+    "Write": ("reversible", _GIT_COVERED),
+    "Edit": ("reversible", _GIT_COVERED),
+    "NotebookEdit": ("reversible", _GIT_COVERED),
     "Bash": ("reversible", "`git revert` covers workspace files; effects outside the repo are not undone"),
 }
 
@@ -392,8 +399,43 @@ def _operation_for_capability_tool(capability: str, tool_input: dict) -> Operati
     reversibility = effect.reversibility if effect else "unknown undo path"
     target = next((str(tool_input[k]) for k in _CAPABILITY_TARGET_ARGS if tool_input.get(k)), "")
     return Operation(
-        kind="capability", name=capability, target=target, tier=tier, reversibility=reversibility
+        kind="capability",
+        name=capability,
+        target=target,
+        tier=tier,
+        reversibility=reversibility,
+        # Same declared-risk resolution the REST and chat doors use, so a skill the *agent* installs
+        # is scored from its declared level too, not the reversibility modifiers (spec 011 FR-37, P9).
+        declared_risk=capabilities.declared_risk_for(capability, target),
     )
+
+
+def _confined_to_workspace(workspace_path: Path, command: str) -> bool:
+    """Does every path this command names sit inside the workspace repo (spec 011 FR-42)?
+
+    Requires at least one resolvable path and **all** of them inside, so a command naming nothing
+    resolvable (`git commit -m "…"`) keeps the pessimistic declaration rather than earning a
+    downgrade by saying nothing. An unresolvable token — a variable, a `~` — counts as outside.
+    """
+    tokens = execution_gate.path_tokens(command)
+    if not tokens:
+        return False
+    try:
+        root = workspace_path.resolve()
+    except (OSError, ValueError):
+        return False
+    for token in tokens:
+        if token.startswith("~") or token.startswith("$"):
+            return False
+        candidate = Path(token)
+        if not candidate.is_absolute():
+            candidate = workspace_path / candidate
+        try:
+            if not candidate.resolve().is_relative_to(root):
+                return False
+        except (OSError, ValueError):
+            return False
+    return True
 
 
 def _operation_for_tool(workspace_path: Path, tool_name: str, tool_input: dict) -> Operation:
@@ -406,6 +448,14 @@ def _operation_for_tool(workspace_path: Path, tool_name: str, tool_input: dict) 
     A write whose target resolves **outside** the workspace is escalated to the `approval` tier: the
     workspace git repo is what makes a mutation reversible (P8), and it does not reach beyond its own
     root, so no revert here can undo that write.
+
+    A shell command recognised as **read-only** is declared `auto` rather than `reversible` (FR-39),
+    so inspecting the workspace is not scored as changing it. Recognition is positive and the
+    external-token check is applied first, so anything unrecognised keeps the pessimistic tier.
+
+    A shell command that mutates but stays **inside** the workspace is declared with the git-covered
+    undo path, the same one `Write` gets (FR-42), so `mkdir -p vault/wiki/…` is not priced as if it
+    might have escaped the repo.
     """
     if tool_name.startswith(_MCP_PREFIX):
         return _operation_for_capability_tool(tool_name[len(_MCP_PREFIX):], tool_input)
@@ -413,6 +463,12 @@ def _operation_for_tool(workspace_path: Path, tool_name: str, tool_input: dict) 
     tier, reversibility = _TOOL_EFFECTS.get(tool_name, ("reversible", "unknown undo path"))
     target = _tool_target(tool_name, tool_input)
     external = tool_name == "Bash" and any(tok in target for tok in _EXTERNAL_SHELL_TOKENS)
+
+    if tool_name == "Bash" and not external and execution_gate.is_read_only_shell(target):
+        tier = "auto"
+        reversibility = execution_gate.READ_ONLY_SHELL_REVERSIBILITY
+    elif tool_name == "Bash" and not external and _confined_to_workspace(workspace_path, target):
+        reversibility = _GIT_COVERED
 
     if tier == "reversible" and tool_name in ("Write", "Edit", "NotebookEdit") and target:
         resolved = Path(target)

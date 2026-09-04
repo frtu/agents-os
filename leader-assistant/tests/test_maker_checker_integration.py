@@ -108,6 +108,152 @@ def test_ac3_native_write_to_wiki_is_announced_and_scored(isolated_workspace_roo
     assert "modifiers" in scored.as_dict()
 
 
+# --- AC-22: a read is declared as a read, so routine inspection does not gate (FR-39/FR-40) ----
+
+
+def _declared(command: str):
+    """Layer 1's declaration for a shell command, plus layer 2's score for it."""
+    from app import agent, workflow
+
+    operation = agent._operation_for_tool(Path("/tmp/ws"), "Bash", {"command": command})
+    return operation, workflow.score_operation(operation)
+
+
+READ_ONLY_INVENTORY = (
+    'echo "=== tree ==="; find vault -maxdepth 2 | sort; '
+    "find vault/wiki -type f | sort; tail -20 vault/wiki/log.md 2>/dev/null"
+)
+
+
+def test_ac22_read_only_inventory_is_declared_auto_and_scores_one():
+    # AC-22 (FR-39/FR-40): this exact shape of command used to score 5 and stall behind a card. One
+    # blanket `Bash` declaration put "effects outside the repo are not undone" on every shell call,
+    # which fired IRREVERSIBLE_OUTSIDE_GIT unconditionally; BREADTH then read the listed paths as a
+    # sweep and SENSITIVE_TARGET read `tail`-ing the ledger as rewriting it.
+    from app import config
+
+    operation, scored = _declared(READ_ONLY_INVENTORY)
+    assert operation.tier == "auto"
+    assert operation.reversibility == "read-only — nothing to undo"
+    assert scored.modifiers == ()
+    assert scored.score == 1
+    assert scored.score < config.gate_threshold()
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "rm -rf vault/wiki/concepts && find vault -type f | sort",
+        "find vault -type f | xargs rm",  # the deletion is behind a wrapper
+        'sed -i "s/a/b/" vault/wiki/portal.md',  # read-only program, mutating flag
+        "echo hi > vault/wiki/portal.md",  # read-only programs, writing redirect
+        'find . -name "*.md" -delete',
+        "echo $(rm -rf vault)",  # hidden by command substitution
+        "curl -s https://example.com/x | tail -5",
+        "git push origin master",  # read-only program, mutating subcommand
+    ],
+)
+def test_ac22_mutating_commands_still_reach_the_gate(command):
+    # AC-22 (FR-39): recognition is *positive*, so the downgrade reaches only known-safe reads and
+    # every way of smuggling an effect past it keeps the pessimistic declaration.
+    from app import config
+
+    operation, scored = _declared(command)
+    assert operation.tier == "reversible", command
+    assert scored.score >= config.gate_threshold(), command
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "python3 script.py",  # unknown program
+        "bash -c 'find vault'",  # a shell re-parses its argument, so the payload is not the command
+        "sudo cat vault/wiki/portal.md",  # reading payload, but the privilege is the risk
+    ],
+)
+def test_fr39_unrecognised_commands_keep_the_pessimistic_declaration(command):
+    # FR-39: an unknown program, and the two wrapper kinds excluded from delegation, are never
+    # classified read-only however harmless the payload looks.
+    operation, _scored = _declared(command)
+    assert operation.tier == "reversible", command
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        r"find vault/raw -type f -exec wc -c {} \; | sort -rn",
+        "find vault/raw -type f | xargs wc -l",
+        "timeout 30 find vault -type f",
+    ],
+)
+def test_ac25_a_read_that_delegates_to_a_reading_program_is_still_a_read(command):
+    # AC-25 (FR-39): judging only the leading program mis-declared these — `-exec`/`xargs` were read
+    # as mutating outright, so listing file sizes scored 4 and gated. The payload decides.
+    operation, scored = _declared(command)
+    assert operation.tier == "auto", command
+    assert scored.score == 1, command
+
+
+@pytest.mark.parametrize(
+    "command",
+    [r"find vault -type f -exec rm {} \;", "find vault -type f | xargs rm"],
+)
+def test_ac25_a_delegated_mutation_is_not_excused_by_its_wrapper(command):
+    # AC-25 (FR-39): the other direction of the same rule — accepting the flag rather than the
+    # payload would have let `-exec rm` through as a read.
+    from app import config
+
+    operation, scored = _declared(command)
+    assert operation.tier == "reversible", command
+    assert scored.score >= config.gate_threshold(), command
+
+
+def test_ac26_a_shell_write_inside_the_workspace_is_priced_like_a_write(tmp_path):
+    # AC-26 (FR-42): the run this fixed stalled on exactly this `mkdir -p`. The blanket `Bash`
+    # reversibility says "effects outside the repo are not undone", which `_escapes_git` matches on
+    # text, so a scaffold creation scored 4 and gated while the same effect via `Write` scored 2.
+    from app import agent, config, workflow
+
+    scaffold = "mkdir -p vault/wiki/concepts vault/wiki/resources vault/wiki/synthesis"
+    shell = agent._operation_for_tool(tmp_path, "Bash", {"command": scaffold})
+    written = agent._operation_for_tool(tmp_path, "Write", {"file_path": "vault/wiki/concepts/a.md"})
+
+    assert shell.reversibility == written.reversibility
+    assert "IRREVERSIBLE_OUTSIDE_GIT" not in workflow.score_operation(shell).modifiers
+    assert workflow.score_operation(shell).score < config.gate_threshold()
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "mkdir -p /tmp/elsewhere vault/wiki/x",  # one escaping token is enough
+        "mkdir -p ~/elsewhere",  # unresolvable, so treated as outside
+        'git commit -m "ingest"',  # names no path, so it earns no downgrade by saying nothing
+    ],
+)
+def test_fr42_a_command_that_may_escape_keeps_the_pessimistic_declaration(command, tmp_path):
+    # FR-42: confinement must be *proven* for every token, never inferred from the absence of one.
+    from app import agent, workflow
+
+    operation = agent._operation_for_tool(tmp_path, "Bash", {"command": command})
+    assert "IRREVERSIBLE_OUTSIDE_GIT" in workflow.score_operation(operation).modifiers, command
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["rm -rf vault/wiki", 'sed -i "" s/a/b/ vault/wiki/portal.md', "echo hi > vault/wiki/portal.md"],
+)
+def test_ac26_a_destructive_command_still_gates_inside_the_workspace(command, tmp_path):
+    # AC-26 (FR-42/FR-8): the downgrade removes a modifier that was firing on the wrong evidence, not
+    # the ones that read the command itself — being inside the workspace excuses nothing destructive.
+    from app import agent, config, workflow
+
+    operation = agent._operation_for_tool(tmp_path, "Bash", {"command": command})
+    scored = workflow.score_operation(operation)
+    assert "DESTRUCTIVE_SHELL" in scored.modifiers, command
+    assert scored.score >= config.gate_threshold(), command
+
+
 def test_ac3_a_write_outside_the_workspace_is_escalated(isolated_workspace_root, tmp_path):
     # AC-3 + FR-8: the same tool, scored differently because the *effect* differs. The workspace git
     # repo is what makes a write reversible, and it does not reach outside its own root, so an
@@ -322,3 +468,40 @@ def test_ac17_a_pause_in_a_non_default_workspace_reports_where_its_card_lives(
     }).json()
     assert answered["executed"] is True
     assert (isolated_workspace_root / "elsewhere" / "skills" / "weekly-digest").exists()
+
+
+# --- AC-21 / FR-38: batch "approve all similar" ------------------------------
+
+
+def test_ac21_approval_card_offers_a_batch_option_and_carries_the_shape_fr38(
+    client, isolated_workspace_root
+):
+    """FR-38: the pause offers "approve all similar" and durably records the shape it would grant.
+
+    The multi-operation semantics — one shape grant admitting N same-shape ops — are unit-tested at
+    layer 2 (``test_shape_grant_lets_all_same_shape_ops_through_fr38``). This proves the door: the
+    operator is actually *offered* the batch choice, the run's ``awaiting_shape`` is persisted on the
+    card record, and answering with it completes the paused work through the seeded shape grant.
+    """
+    from app import capabilities
+    from app import conversation as convo
+
+    capabilities.create_workspace("bulk")
+    paused = client.post("/api/skills/import", json={"workspace": "bulk", "name": "weekly-digest"})
+    assert paused.status_code == 409  # weekly-digest declares high risk → gates
+    assessment = paused.json()
+
+    _name, wpath = capabilities.resolve_for_chat("bulk")
+    conv = convo.load(wpath, assessment["conversation_id"])
+    record = conv.pending_interaction
+    assert [o["id"] for o in record["options"]] == ["approve", "approve_all"]
+    assert record["granted_shape"] == "capability:import_skill"
+
+    answered = client.post("/api/chat/interaction", json={
+        "workspace": assessment["workspace"],
+        "conversation_id": assessment["conversation_id"],
+        "interaction_id": assessment["interaction_id"],
+        "choice": "approve_all",
+    }).json()
+    assert answered["executed"] is True
+    assert (isolated_workspace_root / "bulk" / "skills" / "weekly-digest").exists()

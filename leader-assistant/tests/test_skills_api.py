@@ -44,18 +44,25 @@ def test_catalog_lists_library_skills(client):
     assert {"weekly-digest", "triage"} <= set(by_name)
     assert by_name["weekly-digest"]["description"] == "Summarise the week"
     assert by_name["weekly-digest"]["installed"] is False
+    # AC-8 (spec 005 FR-12/FR-13): the catalog reports each skill's effective risk level — the
+    # declared one for weekly-digest, the internal-library `low` default for the unset triage.
+    assert by_name["weekly-digest"]["risk_level"] == "high"
+    assert by_name["triage"]["risk_level"] == "low"
 
 
 def test_rest_import_asks_before_installing(client, isolated_workspace_root):
-    # spec 011 AC-9/AC-17: installing a skill is approval-tier, so at cold start REST asks rather
-    # than installing — and nothing is on disk while the question is outstanding.
+    # spec 011 AC-9/AC-17 + FR-37: a skill declaring `risk-level: high` scores at the gate, so at
+    # cold start REST asks rather than installing — and nothing is on disk while the question stands.
     v = _make_workspace(client)
     r = client.post("/api/skills/import", json={"workspace": v, "name": "weekly-digest"})
     assert r.status_code == 409
     risk = r.json()
     assert risk["gating"]["name"] == "import_skill"
     assert risk["gating"]["target"] == "weekly-digest"
-    assert "PRIVILEGE_GRANTING" in risk["gating"]["modifiers"]  # spec 011 FR-8
+    # spec 011 FR-37: the score comes from the declared level (high = 4), not the reversibility
+    # modifiers, so the recorded modifier names the level rather than PRIVILEGE_GRANTING.
+    assert risk["gating"]["modifiers"] == ["SKILL_RISK_HIGH"]
+    assert risk["gating"]["score"] == 4
     assert not (isolated_workspace_root / v / "skills" / "weekly-digest").exists()
 
 
@@ -134,6 +141,53 @@ def test_chat_import_is_plan_first_then_approve(client, offline_agent, isolated_
     assert approved["executed"] is True
     assert (isolated_workspace_root / v / "skills" / "weekly-digest").is_symlink()
     assert (isolated_workspace_root / v / ".claude" / "skills" / "weekly-digest").is_symlink()
+
+
+def test_low_default_skill_auto_installs_via_rest(client, isolated_workspace_root):
+    # spec 011 FR-37 / spec 005 AC-8: an internal skill with no declared risk-level defaults to
+    # `low` (score 2, below the gate), so REST installs it directly instead of asking — the fix
+    # for a trivially-reversible symlink being pinned at 5/5 by the reversibility modifiers.
+    v = _make_workspace(client)
+    r = client.post("/api/skills/import", json={"workspace": v, "name": "triage"})
+    assert r.status_code == 200
+    assert (isolated_workspace_root / v / "skills" / "triage").is_symlink()
+
+
+def test_in_library_reference_link_is_internal_low_not_external_high(skills_library, tmp_path):
+    # spec 005 FR-13: a library skill whose folder is itself a reference-link into ANOTHER repo is
+    # still internal — membership is by placement, not by link target. Regression for `rewrite-clarity`
+    # (linked into the library from a sibling repo) being classed external and pinned at high (4/5).
+    from app import workflow
+    from app.execution_gate import Operation
+
+    external_repo = tmp_path / "other-repo" / "skills" / "linked-skill"
+    external_repo.mkdir(parents=True)
+    (external_repo / "SKILL.md").write_text(
+        "---\nname: linked-skill\ndescription: lives elsewhere\n---\n\n# linked-skill\n",
+        encoding="utf-8",
+    )
+    (skills_library / "linked-skill").symlink_to(external_repo, target_is_directory=True)
+
+    assert capabilities.skill_declared_risk("linked-skill") == "low"
+    eff = capabilities.EFFECTS["import_skill"]
+    op = Operation(
+        kind="capability", name="import_skill", target="linked-skill",
+        tier=eff.tier, reversibility=eff.reversibility,
+        declared_risk=capabilities.declared_risk_for("import_skill", "linked-skill"),
+    )
+    assert workflow.score_operation(op).score == 2  # low, below the gate
+
+
+def test_low_default_skill_auto_installs_via_chat(client, offline_agent, isolated_workspace_root):
+    # spec 011 FR-37 (parity, P9): the same low-default skill installs in one chat turn — no pending
+    # plan, no approval pause — because the declared level, not the words in the message, sets the score.
+    v = _make_workspace(client)
+    first = client.post(
+        "/api/chat", json={"workspace": v, "message": "install the triage skill"}
+    ).json()
+    assert first["pending_plan"] is None
+    assert first["executed"] is True
+    assert (isolated_workspace_root / v / "skills" / "triage").is_symlink()
 
 
 def test_skill_routes_are_registered(client):
