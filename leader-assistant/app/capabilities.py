@@ -1080,6 +1080,17 @@ async def ask_stream(
     # Resolve/create up front so we have a stable id to track; pass it through to the impl
     # (as a concrete id, never None) so it loads this same record instead of creating another.
     _name, wpath = resolve_for_chat(workspace)
+    # spec 008 FR-16: approving targets an existing conversation's pending plan. A blank/unknown id
+    # here means the client lost the thread (e.g. state not yet committed mid-turn); minting a fresh
+    # conversation would orphan the real pending card, so reject instead of forking.
+    if approve:
+        existing = conversation.load(wpath, conversation_id) if (conversation_id or "").strip() else None
+        if existing is None:
+            yield models.ChatDelta(
+                workspace=_name, conversation_id=(conversation_id or ""), done=True,
+                reply="There is no pending plan to approve in this conversation.",
+            )
+            return
     cid = conversation.load_or_new(wpath, conversation_id).conversation_id
     _mark_running(cid)
     try:
@@ -1097,11 +1108,13 @@ async def _ask_stream_impl(
     auto_approve: bool | None = None,
 ) -> AsyncIterator[models.ChatDelta]:
     """Core chat-turn generator (FR-1..FR-6, FR-13); see ask_stream for running-status tracking."""
-    from . import agent, conversation, persona
+    from . import agent, conversation, conversation_view, persona
 
     selector = workspace
     name, wpath = resolve_for_chat(selector)
     conv = conversation.load_or_new(wpath, conversation_id)
+    # spec 002 FR-15: one entity owns final message streaming + log writing for this turn.
+    view = conversation_view.ConversationView(conv)
     cid = conv.conversation_id
     # Name the record *before* anything can write it (spec 012 FR-5). Every branch below — approval,
     # a resolved action, a pause raised mid-stream — can be the first durable write, so the fallback
@@ -1109,10 +1122,11 @@ async def _ask_stream_impl(
     # turn is appended. A no-op on an existing record (FR-6).
     conversation.set_name(conv, conversation.fallback_name(message))
 
-    def delta(reply: str, *, done: bool, citations=None, pending=None, executed=False, interaction=None) -> models.ChatDelta:
+    def delta(reply: str, *, done: bool, citations=None, pending=None, executed=False, interaction=None, event=None) -> models.ChatDelta:
         return models.ChatDelta(
             workspace=name, conversation_id=cid, reply=reply, done=done,
             citations=citations or [], pending_plan=pending, executed=executed, interaction=interaction,
+            event=event,
         )
 
     # --- approval turn (D2) ---
@@ -1123,12 +1137,12 @@ async def _ask_stream_impl(
             if executed:
                 conversation.clear_pending_plan(conv)
                 conversation.clear_pending_interaction(conv)  # drop the shadow approval interaction (FR-17)
-            conversation.append_turn(conv, message or "(approve)", reply)
-            yield delta(reply, done=True, pending=pending_model, executed=executed)
+            em = view.emit_turn(message or "(approve)", reply)
+            yield delta(reply, done=True, pending=pending_model, executed=executed, event=em)
         else:
             reply = "There is no pending plan to approve in this conversation."
-            conversation.append_turn(conv, message or "(approve)", reply)
-            yield delta(reply, done=True)
+            em = view.emit_turn(message or "(approve)", reply)
+            yield delta(reply, done=True, event=em)
         return
 
     # A plan stored by an older build can name an action this build cannot execute. FR-4 stops new
@@ -1145,8 +1159,8 @@ async def _ask_stream_impl(
     action = _resolve_action(message)
     if action is not None:
         reply, ran = await _announce_and_run(selector, action, detail=message)
-        conversation.append_turn(conv, message, reply)
-        yield delta(reply, done=True, executed=ran)
+        em = view.emit_turn(message, reply)
+        yield delta(reply, done=True, executed=ran, event=em)
         return
 
     # --- no executable action → a normal answer, never a plan (FR-4) ---
@@ -1179,9 +1193,9 @@ async def _ask_stream_impl(
         final_reply, citations = _fallback_answer(selector, message)
 
     itx = _card_to_surface(raised)
-    conversation.append_turn(conv, message, final_reply)
+    em = view.emit_turn(message, final_reply)
     _record_turn_effects(wpath, message)  # reversible writes stay logged + revertible (spec 009 FR-6)
-    yield delta(final_reply, done=True, citations=citations, interaction=itx)
+    yield delta(final_reply, done=True, citations=citations, interaction=itx, event=em)
 
 
 def _card_to_surface(raised: list[models.Interaction]) -> models.Interaction | None:
@@ -1467,15 +1481,28 @@ async def respond_to_interaction_stream(
       - an option id → authorize/select that proposal; a plan-wrapping approval executes it (FR-17).
     """
     from . import conversation as convo
+    from . import conversation_view
 
     name, wpath = resolve_for_chat(selector)
-    conv = convo.load_or_new(wpath, conversation_id)
+    # spec 008 FR-16: an answer resolves within the interaction's OWN conversation. Load (never
+    # load_or_new) — a missing/blank/unknown id must be rejected, not minted into a fresh thread that
+    # would orphan the live card and leave it to time out (the approve/cancel fork regression).
+    conv = convo.load(wpath, conversation_id) if (conversation_id or "").strip() else None
+    if conv is None:
+        yield models.ChatDelta(
+            workspace=name, conversation_id=(conversation_id or ""), done=True,
+            reply="That request is no longer awaiting a response.",
+        )
+        return
     cid = conv.conversation_id
+    # spec 002 FR-15: the resumed turn's messages go through the one entity, same as a normal turn.
+    view = conversation_view.ConversationView(conv)
 
-    def delta(reply, *, done, citations=None, pending=None, executed=False, interaction=None):
+    def delta(reply, *, done, citations=None, pending=None, executed=False, interaction=None, event=None):
         return models.ChatDelta(
             workspace=name, conversation_id=cid, reply=reply, done=done,
             citations=citations or [], pending_plan=pending, executed=executed, interaction=interaction,
+            event=event,
         )
 
     record = conv.pending_interaction
@@ -1502,8 +1529,8 @@ async def respond_to_interaction_stream(
             _unmark_running(cid)
         # Supersede the old id and re-present the same decision with a NEW id + fresh countdown (D8/D9).
         fresh = _represent_interaction(conv, itx)
-        convo.append_turn(conv, "(chat about it)", reply)
-        yield delta(reply, done=True, citations=citations, interaction=fresh)
+        em = view.emit_turn("(chat about it)", reply)
+        yield delta(reply, done=True, citations=citations, interaction=fresh, event=em)
         return
 
     # --- decline (FR-14): no consequential action ---
@@ -1512,8 +1539,8 @@ async def respond_to_interaction_stream(
         if conv.pending_plan:
             convo.clear_pending_plan(conv)
         reply = "Declined — no action taken (human-in-the-loop, P8)."
-        convo.append_turn(conv, "(declined)", reply)
-        yield delta(reply, done=True)
+        em = view.emit_turn("(declined)", reply)
+        yield delta(reply, done=True, event=em)
         return
 
     chosen = next((o for o in itx.options if o.id == choice), None)
@@ -1532,8 +1559,8 @@ async def respond_to_interaction_stream(
         if executed and conv.pending_plan:
             convo.clear_pending_plan(conv)
         pending_model = None if executed else models.Plan(**record["plan"])
-        convo.append_turn(conv, f"(approved) {chosen.label}", reply)
-        yield delta(reply, done=True, pending=pending_model, executed=executed)
+        em = view.emit_turn(f"(approved) {chosen.label}", reply)
+        yield delta(reply, done=True, pending=pending_model, executed=executed, event=em)
         return
 
     # --- generic clarification/approval selection → resume the turn and finish the work ---
@@ -1544,8 +1571,8 @@ async def respond_to_interaction_stream(
         reply, citations = await _routine_reply(name, selector, wpath, conv, _resume_context(itx, chosen))
     finally:
         _unmark_running(cid)
-    convo.append_turn(conv, f"(selected) {chosen.label}", reply)
-    yield delta(reply, done=True, citations=citations)
+    em = view.emit_turn(f"(selected) {chosen.label}", reply)
+    yield delta(reply, done=True, citations=citations, event=em)
 
 
 async def respond_to_interaction(

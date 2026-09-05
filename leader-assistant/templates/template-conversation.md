@@ -6,8 +6,12 @@ Tags: [{{tag-list}}]
 Sdk-session-id: {{sdk-session-id}}
 Pending-plan: {{plan}}
 Pending-interaction: {{interaction}}
+Template-type: mustache
 ---
 
 # Conversation — {{conversation-name}}
 
-{{logs}}
+{{#event-message}}
+## {{role}} - {{event-time}}
+{{message}}
+{{/event-message}}

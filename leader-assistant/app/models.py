@@ -180,6 +180,20 @@ class ChatAnswer(BaseModel):
     )
 
 
+class EventMessage(BaseModel):
+    """One completed message in a conversation (spec 002 FR-16).
+
+    The unit the `conversation-view` entity emits to the user and appends to the log: a bubble's
+    worth of text stamped with the local time it was produced, so a surface can render the message
+    and show its received time beside it.
+    """
+
+    conversation_id: str
+    role: str = Field(..., description="'user' | 'assistant'")
+    event_time: str = Field(..., description="Local time the message was produced (%Y-%m-%d %H:%M)")
+    message: str
+
+
 class ChatDelta(BaseModel):
     """One streamed chunk; the final delta carries done=true (FR-4)."""
 
@@ -193,6 +207,9 @@ class ChatDelta(BaseModel):
     interaction: "Interaction | None" = Field(
         None, description="A pending agent→user interaction card raised by this turn (spec 008 FR-1/FR-2)"
     )
+    # spec 002 FR-16: the assistant's completed message rides on the final (done) delta so a surface
+    # can render the bubble AND stamp its received time; non-final deltas leave this None.
+    event: "EventMessage | None" = None
 
 
 class ChatStatus(BaseModel):

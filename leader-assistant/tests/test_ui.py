@@ -392,6 +392,45 @@ def test_approve_targets_url_workspace_when_state_lost_fr38(monkeypatch):
     assert sent["workspace"] == "interviews"
 
 
+def test_turn_conversation_prefers_url_over_state_fr40():
+    # spec 004 FR-40 (A1): the URL's ?conversation wins; gr.State is only the fallback; neither ⇒ "".
+    assert ui._turn_conversation("real-cid", "stale") == "real-cid"
+    assert ui._turn_conversation("real-cid", None) == "real-cid"   # state lost on reload
+    assert ui._turn_conversation("", "state-cid") == "state-cid"   # no param ⇒ fall back
+    assert ui._turn_conversation("  ", None) == ""
+
+
+def test_respond_continues_url_conversation_when_state_lost_fr40(monkeypatch):
+    # spec 004 FR-40 (A1): a typed turn sent while gr.State is blank (as after a reload) must continue
+    # the thread named in ?conversation — not fork a new one by sending a blank id to load_or_new.
+    sent = {}
+
+    async def fake_stream(workspace, message, cid, approve, auto_approve=None):
+        sent["conversation_id"] = cid
+        yield {"reply": "ok", "conversation_id": cid}
+
+    monkeypatch.setattr(ui, "_stream_chat", fake_stream)
+    # blank state cid, URL carries the real thread; ws resolves from url too
+    _drain(ui._respond([{"role": "user", "content": "approve and continue"}],
+                       "", "interviews", None, "interviews", "real-cid"))
+    assert sent["conversation_id"] == "real-cid"   # continued the URL's thread, not a fork
+
+
+def test_run_turn_renders_received_time_below_bubble_fr16(monkeypatch):
+    # spec 002 FR-16: the final done delta carries an event-message; its event_time is rendered on a
+    # muted line *below* the assistant bubble (outside it), sourced from the one event.
+    async def fake_stream(workspace, message, cid, approve, auto_approve=None):
+        yield {"reply": "hi there", "conversation_id": "c1",
+               "event": {"conversation_id": "c1", "role": "assistant",
+                         "event_time": "2026-09-02 14:30", "message": "hi there"}}
+
+    monkeypatch.setattr(ui, "_stream_chat", fake_stream)
+    outs = _drain(ui._respond([{"role": "user", "content": "hi"}], "c1", "interviews"))
+    final = outs[-1][0][-1]["content"]
+    assert "hi there" in final
+    assert "msg-time" in final and "2026-09-02 14:30" in final
+
+
 def test_respond_refuses_turn_with_no_workspace_fr39(monkeypatch):
     # FR-39: with neither a URL param nor state, the turn is refused — never sent workspace-less,
     # which the backend would resolve to LEADER_DEFAULT_WORKSPACE.
@@ -452,5 +491,6 @@ def test_ui_wires_url_workspace_into_every_turn_fr38():
     assert "_WS_FROM_URL_JS" in src
     assert "_WS_SYNC_JS" in src                     # load-time URL healing
     assert src.count("js=_WS_FROM_URL_JS") == 3     # submit, approve, interaction answer
-    assert "[chat, conversation, active_vault, auto_approve_box, ws_url]" in src
+    # spec 004 FR-40 (A1): the submit/approve chains also carry the URL's ?conversation mirror.
+    assert "[chat, conversation, active_vault, auto_approve_box, ws_url, conv_url_in]" in src
     assert "[chat, conversation, active_vault, interaction, itx_choice, ws_url]" in src

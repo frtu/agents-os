@@ -102,6 +102,17 @@ to the same file — the name never changes.
   `Created:` carries only a date (hand-written, or written before this requirement) MUST still load,
   and its date MUST still bucket correctly wherever `created` is consumed as a date
   ([[004-assistant-sidebar]] FR-25).
+- **FR-13:** Message blocks MUST be appended to the log **only** through
+  `templates/template-conversation.md`'s `{{#event-message}}…{{/event-message}}` section — one
+  iteration per `event-message` — so the human-owned template governs the message body as well as the
+  header (Constitution P7). Each iteration substitutes `{{role}}`, `{{event-time}}` and `{{message}}`
+  and yields a `## <role> - <event-time>` block. The append MUST stay strictly append-only (never
+  rewrites a prior block, FR-7) and MUST go through the `vault/raw/` write-guard (P2). This extends
+  D2: the template now renders the header **and** each appended message block, not the header alone.
+- **FR-14:** Parsing MUST read **both** the FR-13 format `## <role> - <event-time>` and the legacy
+  `## [<event-time>] <role>` form, so every session written before this requirement (including the
+  prj-copilot records) still resumes with an unchanged turn count. No migration of the body is
+  required.
 
 ### Reading and resolution
 
@@ -212,6 +223,11 @@ to the same file — the name never changes.
   sort in that order. (FR-1)
 - [x] **AC-15:** A record whose `Created:` is a bare date loads, resolves by id, and buckets under
   the correct relative-date header. (FR-12, FR-7)
+- [ ] **AC-16:** An appended message block renders through the template's `{{#event-message}}` loop
+  as `## <role> - <event-time>` followed by the message body; the template governs the block shape.
+  (FR-13)
+- [ ] **AC-17:** A session file containing a legacy `## [<time>] <role>` block and one written in the
+  FR-13 `## <role> - <time>` form both parse, preserving turn count, role and body. (FR-14)
 
 ## Deviations recorded during implementation
 

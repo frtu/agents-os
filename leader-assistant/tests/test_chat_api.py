@@ -91,7 +91,8 @@ def test_ac5_session_record_exists(client, offline_agent, isolated_workspace_roo
     cid = client.post("/api/chat", json={"message": "hello"}).json()["conversation_id"]
     path = session_file(isolated_workspace_root / "_default_", cid)
     assert path.is_file()
-    assert "## [" in path.read_text(encoding="utf-8")
+    # spec 012 FR-13: messages are logged via the template loop as `## <role> - <time>`.
+    assert "## user - " in path.read_text(encoding="utf-8")
 
 
 def test_ac6_stream_and_full_converge(client, offline_agent):
@@ -107,6 +108,24 @@ def test_ac6_stream_and_full_converge(client, offline_agent):
     assert events[-1]["done"] is True
     assert events[-1]["reply"] == full["reply"]
     assert events[-1]["pending_plan"] is not None
+
+
+def test_fr16_final_delta_carries_event_message(client, offline_agent):
+    # spec 002 FR-16: the final (done) delta carries an event-message (conversation_id/role/
+    # event_time/message); incremental deltas do not — it rides alongside the token stream.
+    _ingest(client, "demo", "Risk engine", "The risk engine decides if work is safe or risky.")
+    streamed = client.post(
+        "/api/chat/stream", json={"workspace": "demo", "message": "what does the risk engine decide?"}
+    )
+    events = sse_events(streamed.text)
+    final = events[-1]
+    assert final["done"] is True
+    assert final["event"] is not None
+    assert final["event"]["role"] == "assistant"
+    assert final["event"]["event_time"]
+    assert final["event"]["conversation_id"] == final["conversation_id"]
+    # non-final deltas ride the token stream without the completed event-message
+    assert all(e.get("event") is None for e in events[:-1])
 
 
 def test_ac8_no_raw_writes_or_log_edits(client, offline_agent, isolated_workspace_root):

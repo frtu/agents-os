@@ -77,6 +77,20 @@ Pending-interaction: {{interaction}}
 """
 
 _NAME_HEADING = re.compile(r"^#\s+Conversation\s+—\s*(.+)$", re.MULTILINE)
+# spec 012 FR-13: the `{{#event-message}}…{{/event-message}}` loop body — one message block per
+# iteration. Extracted from the human-owned template so its shape governs the log body, not just the
+# header (Constitution P7).
+_EVENT_SECTION = re.compile(
+    r"\{\{#event-message\}\}\n?(.*?)\n?\{\{/event-message\}\}", re.DOTALL
+)
+# Used when the template is missing/unreadable or carries no event-message section: the message body
+# must degrade to a readable block, not break chat (mirrors _TEMPLATE_FALLBACK, spec 012 D1).
+_EVENT_SECTION_FALLBACK = "## {{role}} - {{event-time}}\n{{message}}"
+# spec 012 FR-14: the FR-13 header `## <role> - <event-time>`. The timestamp shape is pinned so a
+# message body that happens to start with `## word - text` is not mistaken for a turn header.
+_NEW_HEADER = re.compile(
+    r"^##\s+(?P<role>\S+)\s+-\s+(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2})\s*$"
+)
 # The id inside a dated filename, with the time part optional so a pre-FR-12 name still reads.
 _FILENAME_ID = re.compile(r"^\d{4}-\d{2}-\d{2}(?:-\d{2}-\d{2}-\d{2})?-([^-]+)-")
 _PLACEHOLDER = re.compile(r"\{\{[^}]*\}\}")
@@ -262,13 +276,38 @@ def _render_frontmatter(conv: Conversation) -> str:
 
 
 def _render_header(conv: Conversation) -> str:
-    """Frontmatter + the name heading — written once, at materialization (spec 012 FR-3/D2)."""
+    """Frontmatter + the name heading — written once, at materialization (spec 012 FR-3/D2).
+
+    The event-message loop is part of the template body but is not a header line, so it is dropped
+    here (like `{{logs}}`): the header is rendered once, message blocks are appended per turn by
+    ``render_message_block`` (spec 012 FR-13).
+    """
     _, body = _template_parts()
     rendered_body = _render_lines(body, conv)
     text = _render_frontmatter(conv)
     if rendered_body:
         text += "\n" + "\n".join(rendered_body) + "\n"
     return text
+
+
+@lru_cache(maxsize=1)
+def _event_section() -> str:
+    """The `{{#event-message}}` loop body from the template (spec 012 FR-13), or a fallback block."""
+    m = _EVENT_SECTION.search(_template_text())
+    return m.group(1) if m else _EVENT_SECTION_FALLBACK
+
+
+def render_message_block(role: str, event_time: str, message: str) -> str:
+    """Render one message block through the template's event-message loop (spec 012 FR-13).
+
+    One iteration of the mustache loop: substitute `{{role}}`, `{{event-time}}`, `{{message}}` into
+    the human-owned section, yielding a `## <role> - <event-time>` block followed by the body.
+    """
+    subs = {"{{role}}": role, "{{event-time}}": event_time, "{{message}}": message.strip()}
+    out = _event_section()
+    for token, value in subs.items():
+        out = out.replace(token, value)
+    return out
 
 
 # --- (de)serialisation -----------------------------------------------------
@@ -319,11 +358,17 @@ def _parse_turns(body: str) -> list[Turn]:
             turns.append(Turn(role=role, timestamp=ts, text="\n".join(buf).strip()))
 
     for line in body.splitlines():
-        if line.startswith("## [") and "] " in line:
+        new = _NEW_HEADER.match(line)  # spec 012 FR-14: `## <role> - <time>`
+        if line.startswith("## [") and "] " in line:  # legacy `## [<time>] <role>`
             flush()
             header = line[4:]
             ts, _, role = header.partition("] ")
             role = role.strip()
+            buf = []
+        elif new:
+            flush()
+            role = new.group("role").strip()
+            ts = new.group("ts").strip()
             buf = []
         else:
             buf.append(line)
@@ -449,19 +494,26 @@ def _ensure_materialized(conv: Conversation) -> Path:
     return target
 
 
-def append_turn(conv: Conversation, user_message: str, assistant_reply: str) -> None:
-    """Append one user+assistant turn — never rewrites prior lines (FR-7)."""
+def append_message_block(conv: Conversation, role: str, event_time: str, text: str) -> None:
+    """Append one message block via the template's event-message loop (spec 012 FR-13, FR-7).
+
+    The single message-writing primitive: `append_turn`, `append_event` and the `conversation-view`
+    entity all go through here, so the on-disk format has one source of truth. Strictly append-only
+    (never rewrites a prior block) and always through the `vault/raw/` guard (P2).
+    """
     path = _ensure_materialized(conv)
     vault_mod.guard_write_path(conv.workspace, path)
-    stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    block = (
-        f"\n## [{stamp}] user\n{user_message.strip()}\n"
-        f"\n## [{stamp}] assistant\n{assistant_reply.strip()}\n"
-    )
+    block = "\n" + render_message_block(role, event_time, text) + "\n"
     with path.open("a", encoding="utf-8") as fh:
         fh.write(block)
-    conv.turns.append(Turn("user", stamp, user_message.strip()))
-    conv.turns.append(Turn("assistant", stamp, assistant_reply.strip()))
+    conv.turns.append(Turn(role, event_time, text.strip()))
+
+
+def append_turn(conv: Conversation, user_message: str, assistant_reply: str) -> None:
+    """Append one user+assistant turn — never rewrites prior lines (FR-7, spec 012 FR-13)."""
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    append_message_block(conv, "user", stamp, user_message)
+    append_message_block(conv, "assistant", stamp, assistant_reply)
 
 
 def append_event(conv: Conversation, label: str, text: str) -> None:
@@ -470,13 +522,8 @@ def append_event(conv: Conversation, label: str, text: str) -> None:
     Unlike ``append_turn`` (a user+assistant pair) this records one event, e.g. an interaction
     request or its resolution, so decisions stay auditable in the durable ``sessions/`` record.
     """
-    path = _ensure_materialized(conv)
-    vault_mod.guard_write_path(conv.workspace, path)
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    block = f"\n## [{stamp}] {label}\n{text.strip()}\n"
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write(block)
-    conv.turns.append(Turn(label, stamp, text.strip()))
+    append_message_block(conv, label, stamp, text)
 
 
 def _maybe_json(raw: str):

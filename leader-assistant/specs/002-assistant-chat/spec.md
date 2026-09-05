@@ -134,6 +134,21 @@ Numbered, testable, unambiguous.
   disconnects — so a conversation can never be reported as running once no turn is processing.
   Being a read-only status probe, this capability MUST NOT itself count as a turn, MUST NOT
   mutate the conversation, and MUST be available on both the REST and chat-facing surfaces (P9).
+- **FR-15 (conversation-view entity):** A single **stateful `conversation-view`** entity, keyed by
+  the **`conversation-id`**, MUST own both surfaces of a turn's final interaction: (a) streaming
+  completed messages back to the user and (b) appending them to the durable conversation log. The
+  code that persists a message MUST NOT be duplicated across the capability layer; each completed
+  message MUST flow through this one entity so the log written and the message displayed are produced
+  from the same source. The entity is built over the durable store ([[012-conversation-naming]]); it
+  does not replace id resolution, materialization or frontmatter persistence, which remain the store's
+  responsibility.
+- **FR-16 (event-message contract):** Each completed message the assistant (or the user) contributes
+  to a turn MUST be represented as an **`event-message`** carrying `conversation_id`, `role`
+  (`user` | `assistant`), `event_time` (the local time the message was produced), and `message`. The
+  streamed `ChatDelta` MUST carry the assistant `event-message` on its **final** (`done`) event so a
+  surface can render the message bubble **and** stamp its received time; incremental (non-final)
+  deltas keep streaming the accumulated reply and MUST NOT carry an `event-message` (it rides
+  alongside the token stream, it does not replace it).
 
 ## Key Entities & Concepts
 
@@ -192,6 +207,11 @@ Numbered, testable, unambiguous.
   `running=true`; once the turn finishes (normally or via error/disconnect) the same query
   reports `running=false`. An unknown conversation id reports `running=false, exists=false`,
   and the status query neither adds a turn nor mutates the `sessions/` record. (FR-14, P1, P9)
+- [ ] **AC-12:** Every persisted message flows through the one `conversation-view` entity — no
+  capability appends a message to the log by another path — so the log content and the streamed
+  message agree. (FR-15)
+- [ ] **AC-13:** A streamed turn's **final** delta carries an `event-message` with `role`,
+  `event_time`, `conversation_id` and `message`; non-final deltas carry none. (FR-16)
 
 ## Resolved Decisions
 

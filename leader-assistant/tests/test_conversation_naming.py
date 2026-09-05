@@ -224,6 +224,68 @@ def test_fr3_h1_heading_does_not_become_a_turn(isolated_workspace_root):
     assert reloaded.name == "Pricing review"
 
 
+# --- FR-13/FR-14: event-message log format + back-compat parsing -----------
+
+
+def test_fr13_append_writes_new_role_time_block(isolated_workspace_root):
+    # spec 012 FR-13: a message is appended via the {{#event-message}} loop, one iteration per
+    # message, producing `## <role> - <event-time>` blocks (not the legacy `## [<time>] <role>`).
+    capabilities.create_workspace("demo")
+    workspace = isolated_workspace_root / "demo"
+    conv = conversation.load_or_new(workspace, None)
+    conversation.append_message_block(conv, "user", "2026-09-02 14:30", "hello")
+    conversation.append_message_block(conv, "assistant", "2026-09-02 14:30", "hi there")
+
+    text = conv.path.read_text(encoding="utf-8")
+    assert "## user - 2026-09-02 14:30" in text
+    assert "## assistant - 2026-09-02 14:30" in text
+    assert "## [" not in text  # never the legacy header
+
+
+def test_fr13_render_message_block_uses_the_template_loop(isolated_workspace_root):
+    # spec 012 FR-13: the minimal mustache renderer substitutes one block from the template's
+    # {{#event-message}} section per event-message (role / event-time / message).
+    block = conversation.render_message_block("assistant", "2026-09-02 14:30", "  hi  ")
+    assert block == "## assistant - 2026-09-02 14:30\nhi"
+
+
+def test_fr14_parser_reads_new_and_legacy_formats(isolated_workspace_root):
+    # spec 012 FR-14: the parser reads the new `## <role> - <time>` AND the legacy
+    # `## [<time>] <role>` header — a mixed file (an old thread continued after the format change)
+    # round-trips both, so no session is orphaned by the change.
+    capabilities.create_workspace("demo")
+    workspace = isolated_workspace_root / "demo"
+    sessions = workspace / "sessions"
+    sessions.mkdir(exist_ok=True)
+    (sessions / "mixedformat00.md").write_text(
+        "---\nId: mixedformat00\nCreated: 2026-08-01\n---\n\n"
+        "## [2026-08-01 09:00] user\nold question\n\n"
+        "## [2026-08-01 09:00] assistant\nold answer\n\n"
+        "## user - 2026-09-02 14:30\nnew question\n\n"
+        "## assistant - 2026-09-02 14:30\nnew answer\n",
+        encoding="utf-8",
+    )
+
+    conv = conversation.load(workspace, "mixedformat00")
+    assert [(t.role, t.text) for t in conv.turns] == [
+        ("user", "old question"), ("assistant", "old answer"),
+        ("user", "new question"), ("assistant", "new answer"),
+    ]
+
+
+def test_fr14_markdown_heading_in_body_is_not_a_turn(isolated_workspace_root):
+    # spec 012 FR-14: the new-header regex is anchored to a `## <role> - <timestamp>` shape, so a
+    # `## Something` heading inside a message body is content, not a turn boundary.
+    capabilities.create_workspace("demo")
+    workspace = isolated_workspace_root / "demo"
+    conv = conversation.load_or_new(workspace, None)
+    conversation.append_message_block(conv, "assistant", "2026-09-02 14:30", "See:\n## Summary\ndetails")
+
+    reloaded = conversation.load(workspace, conv.conversation_id)
+    assert [t.role for t in reloaded.turns] == ["assistant"]
+    assert "## Summary" in reloaded.turns[0].text
+
+
 # --- FR-4: the assistant names the conversation it is answering -------------
 
 
@@ -326,7 +388,8 @@ def test_fr6_name_is_frozen_and_the_second_turn_reuses_one_file(
     text = after[0].read_text(encoding="utf-8")
     assert "# Conversation — First chosen title" in text
     assert "Completely different title" not in text
-    assert text.count("] user") == 2
+    # spec 012 FR-13: two turns → two `## user - <time>` message blocks.
+    assert text.count("## user - ") == 2
 
 
 def test_fr6_set_name_is_a_no_op_once_materialized(isolated_workspace_root):

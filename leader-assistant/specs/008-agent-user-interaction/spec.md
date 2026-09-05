@@ -198,9 +198,15 @@ Numbered, testable, unambiguous.
   interaction (approval/clarification) outstanding at once, and MUST NOT proceed with the gated work
   while it is outstanding. Non-blocking **notifications** MAY stream concurrently.
 - **FR-16 (id-scoped, idempotent responses):** An Interaction Response MUST reference the interaction
-  **id** it answers. Responding to an **unknown**, **already-resolved**, or **expired** interaction
-  MUST be **rejected without side effects** — in particular it MUST NOT cause a proposed action to run
-  twice or run after a timeout.
+  **id** it answers **and the conversation it belongs to**. Responding to an **unknown**,
+  **already-resolved**, or **expired** interaction MUST be **rejected without side effects** — in
+  particular it MUST NOT cause a proposed action to run twice or run after a timeout. An answer or an
+  **approval** MUST resolve **within the interaction's own conversation**: a response that arrives with
+  a **missing or blank conversation id MUST be rejected**, never treated as a fresh conversation. The
+  frontend MUST take the conversation id from the **card being answered**, not from mutable session
+  state that may be stale mid-turn — otherwise a click made while the prior turn is still streaming
+  forks a **new** conversation and orphans the live card (it can then only time out). *(Regression
+  guarded: an approve/cancel during the approval-wait window must append to the same thread.)*
 - **FR-17 (relationship to plan-first approval):** The existing plan-first approval flow
   ([[002-assistant-chat]] FR-5: a consequential request returns a `pending_plan` approved by a
   follow-up turn) MUST be expressible as an **approval** interaction under this protocol, so the user

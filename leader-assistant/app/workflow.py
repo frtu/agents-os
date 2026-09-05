@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Protocol, runtime_checkable
 
 from . import config
-from .execution_gate import ALLOW, Operation, Permit
+from .execution_gate import ALLOW, Operation, Permit, strip_heredocs
 
 # Operation lifecycle on a run record (FR-7).
 STATUSES = ("pending", "executed", "declined", "not-reached")
@@ -208,10 +208,12 @@ DESTRUCTIVE_SHELL_PATTERNS: tuple[str, ...] = (
     r"\bgit\s+clean\s+-[a-z]*f",
     r"\bsed\s+-i\b",
     r"\bfind\b[^|]*\s-delete\b",
-    # A truncating redirect. `>>` (append) and fd forms like `2>&1` are excluded: appending is the
-    # sanctioned way to touch the append-only ledger, and redirecting a stream is not a deletion.
-    r"(?<![0-9>&])>(?!>)",
 )
+
+# A file-creating/truncating redirect, judged by **where it lands** rather than by its syntax
+# (spec 011 FR-48). `>>` (append) and fd forms like `2>&1` are excluded: appending is the sanctioned
+# way to touch the append-only ledger, and redirecting a stream is not a deletion.
+_FILE_REDIRECT_RE = re.compile(r"(?<![0-9>&])>(?!>)")
 _DESTRUCTIVE_SHELL_RE = re.compile("|".join(DESTRUCTIVE_SHELL_PATTERNS))
 
 # Number of distinct path-like targets at which an operation counts as broad. Three, because one or
@@ -235,7 +237,13 @@ SENSITIVE_TARGET_MARKERS: tuple[str, ...] = (
 
 
 def _normalized_target(operation: Operation) -> str:
-    return operation.target.replace("\\", "/").strip()
+    target = operation.target.replace("\\", "/").strip()
+    if operation.name in SHELL_TOOL_NAMES:
+        # FR-45: a here-document body is the data the command writes, not command syntax. Matching
+        # effect patterns against it let a wiki page's own prose fire DESTRUCTIVE_SHELL and
+        # EXTERNALLY_VISIBLE — a page describing `rm -rf` scored as one.
+        target = strip_heredocs(target)
+    return target
 
 
 def _is_shell(operation: Operation) -> bool:
@@ -286,7 +294,9 @@ def _grants_privilege(operation: Operation) -> bool:
 
 
 def _destructive_shell(operation: Operation) -> bool:
-    return _is_shell(operation) and bool(_DESTRUCTIVE_SHELL_RE.search(operation.target))
+    # FR-45: match the *normalized* target, which strips heredoc bodies. Scanning the raw
+    # target let the prose of a page being written fire this modifier.
+    return _is_shell(operation) and bool(_DESTRUCTIVE_SHELL_RE.search(_normalized_target(operation)))
 
 
 def _changes_something(operation: Operation) -> bool:
@@ -318,6 +328,20 @@ def _sensitive_target(operation: Operation) -> bool:
     return any(marker in target for marker in SENSITIVE_TARGET_MARKERS)
 
 
+def _redirect_escapes_repo(operation: Operation) -> bool:
+    """A shell redirect whose write is **not** covered by a git revert (spec 011 FR-48).
+
+    Replaces the bare `>` token in DESTRUCTIVE_SHELL, which described the *transport* rather than the
+    effect (FR-9/P12) and put `cat > vault/wiki/page.md` at exactly the gate threshold — pricing the
+    creation of one page identically to `rm -rf` of the concepts tree. Confinement is read off the
+    FR-42 reversibility wording, the same signal layer 1 already computed, so no path resolution
+    happens here.
+    """
+    if not _is_shell(operation) or not _changes_something(operation):
+        return False
+    return bool(_FILE_REDIRECT_RE.search(_normalized_target(operation))) and _escapes_git(operation)
+
+
 MODIFIERS: tuple[ScoringModifier, ...] = (
     ScoringModifier(
         name="IRREVERSIBLE_OUTSIDE_GIT",
@@ -338,6 +362,11 @@ MODIFIERS: tuple[ScoringModifier, ...] = (
         name="DESTRUCTIVE_SHELL",
         description="shell command contains destructive tokens",
         condition=_destructive_shell,
+    ),
+    ScoringModifier(
+        name="REDIRECT_ESCAPES_REPO",
+        description="writes via a redirect that no git revert here covers",
+        condition=_redirect_escapes_repo,
     ),
     ScoringModifier(
         name="BREADTH_MANY_TARGETS",
@@ -438,6 +467,11 @@ def score_operation(operation: Operation) -> ScoredOperation:
 RUN_STATES = ("running", "awaiting", "declined")
 
 _AWAITING_REASON = "run paused awaiting a decision on a higher-risk operation (spec 011 FR-12)"
+
+# Operations a paused run MUST still permit (spec 011 FR-49). `request_approval` is the channel
+# Constitution P8 v2.0.0 requires to stay open — "fail closed to asking" is unsatisfiable if the
+# asking channel is itself refused.
+PAUSE_EXEMPT_NAMES: frozenset[str] = frozenset({"request_approval"})
 _RUN_DECLINED_REASON = "run ended when an earlier operation was declined (spec 011 FR-27)"
 _OP_DECLINED_REASON = "declined for this run and not re-asked (spec 011 FR-27)"
 
@@ -588,6 +622,14 @@ class WorkflowRun:
             self._operations.append(scored.with_status("not-reached"))
             return Permit(allow=False, reason=_OP_DECLINED_REASON)
         if self._state != "running":
+            # FR-49: fail closed to *asking*, not to silence. An `auto`-tier operation changes
+            # nothing, so refusing it only stops the assistant explaining itself; and refusing
+            # `request_approval` collapses FR-15's three outcomes into an undocumented fourth (hang).
+            if self._state == "awaiting" and (
+                operation.tier == "auto" or operation.name in PAUSE_EXEMPT_NAMES
+            ):
+                self._operations.append(scored.with_status("executed"))
+                return ALLOW
             self._operations.append(scored.with_status("not-reached"))
             reason = _AWAITING_REASON if self._state == "awaiting" else _RUN_DECLINED_REASON
             return Permit(allow=False, reason=reason)

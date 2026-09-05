@@ -333,7 +333,12 @@ be skipped next time.
   consult the judge → surface an ask if required → resume on answer → record experience
   asynchronously.
 - **FR-25:** An ask MUST surface as the existing **008 approval interaction card**. This feature adds
-  no new asking surface and no new REST route for asking.
+  no new asking surface and no new REST route for asking. The card's **prompt MUST stay a concise,
+  scannable one-liner**: the gating operation's target is **summarized** (first line, truncated) so the
+  choices remain visible, never displaced by a raw payload. A shell command is the motivating case — a
+  multi-line / heredoc `Bash` target would otherwise fill the prompt and push the options off-screen.
+  The **full, untruncated** target MUST still be preserved in the persisted record (the durable risk
+  assessment) so nothing an operator needs to audit is lost.
 - **FR-26:** On operator approval, execution MUST **resume synchronously** and complete the paused
   operation within the same request/turn.
 - **FR-27:** An operator decline MUST be **final** for that operation and run: it does not execute,

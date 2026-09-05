@@ -379,6 +379,28 @@ def _card_extra(run: WorkflowRun, assessment: models.RiskAssessment, plan: model
     return extra
 
 
+_TARGET_SUMMARY_MAX = 80
+
+
+def _summarize_target(target: str | None) -> str:
+    """Collapse a gating target to one scannable line for the card prompt (spec 011 FR-25).
+
+    A shell target is the whole command — often multi-line / heredoc — which would fill the prompt and
+    push the choices off-screen. Keep only the first non-empty line and cap its length; the full,
+    untruncated target stays in the persisted risk assessment for audit.
+    """
+    if not target:
+        return "(no target)"
+    first = next((ln.strip() for ln in target.splitlines() if ln.strip()), "")
+    if not first:
+        return "(no target)"
+    collapsed = " ".join(first.split())
+    if len(collapsed) > _TARGET_SUMMARY_MAX:
+        return collapsed[: _TARGET_SUMMARY_MAX - 1].rstrip() + "…"
+    multiline = "\n" in target.strip()
+    return f"{collapsed} …" if (multiline and not collapsed.endswith("…")) else collapsed
+
+
 def _ask_card(
     selector: str | None,
     conversation_id: str,
@@ -397,7 +419,7 @@ def _ask_card(
 
     gating = assessment.gating
     prompt = (
-        f"Approve `{gating.name}` on `{gating.target or '(no target)'}` (risk {gating.score}/5)?"
+        f"Approve `{gating.name}` on `{_summarize_target(gating.target)}` (risk {gating.score}/5)?"
         if gating
         else f"Approve this work? {run.objective}"
     )

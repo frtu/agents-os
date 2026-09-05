@@ -85,7 +85,48 @@ _READ_ONLY_GIT_SUBCOMMANDS: frozenset[str] = frozenset(
      "rev-parse", "shortlog", "show", "status"}
 )
 
-_SEGMENT_SPLIT = re.compile(r"\|\||&&|[;|&\n]")
+# Here-document bodies are the *data* a command writes, not command syntax (spec 011 FR-45).
+# The delimiter and redirect operator are kept; only the payload between them is removed.
+_HEREDOC = re.compile(
+    r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1(.*?)^[ \t]*\2[ \t]*$",
+    re.DOTALL | re.MULTILINE,
+)
+
+# Flags that consume the *next* token, so that token is an argument and never a subcommand
+# (spec 011 FR-47).
+_FLAGS_WITH_ARGS: dict[str, frozenset[str]] = {
+    "git": frozenset({"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}),
+}
+
+
+def strip_heredocs(command: str) -> str:
+    """Remove here-document bodies, keeping the operator and delimiter (spec 011 FR-45).
+
+    The payload of `cat > page.md <<EOF … EOF` is the page being written. Classifying it as shell
+    made a wiki page's own prose set `external` and fire destructive-token matching, so a page that
+    merely mentioned `curl` scored 5/5. Content is data; only syntax is classified.
+    """
+    return _HEREDOC.sub(lambda m: f"<<{m.group(1)}{m.group(2)}{m.group(1)}", command or "")
+
+
+def _subcommand(program: str, args: list[str]) -> str:
+    """First positional argument, skipping flags **and the arguments they consume** (FR-47).
+
+    `git -C . status` names the subcommand `status`, not `.` — taking the first non-dash token read
+    the flag's argument and declared a read-only inspection a mutation.
+    """
+    consumes = _FLAGS_WITH_ARGS.get(program, frozenset())
+    skip = False
+    for arg in args:
+        if skip:
+            skip = False
+            continue
+        if arg.startswith("-"):
+            if arg in consumes:
+                skip = True
+            continue
+        return arg
+    return ""
 # Redirect fragments that move a stream rather than write a file, stripped before the file-redirect
 # test so `2>&1` and `2>/dev/null` do not read as writes.
 _STREAM_REDIRECT = re.compile(r"[0-9]*>&[0-9-]+|[0-9]*>\s*/dev/null")
@@ -105,7 +146,7 @@ def path_tokens(command: str) -> tuple[str, ...]:
     never earn it one.
     """
     tokens: list[str] = []
-    for segment in _segments(_STREAM_REDIRECT.sub("", command)):
+    for segment in _segments(_STREAM_REDIRECT.sub("", strip_heredocs(command))):
         for raw in segment.split():
             token = raw.strip("'\"")
             if token.startswith("-") or token in ("{}", ";", "\\", "\\;", "+"):
@@ -124,7 +165,7 @@ def effectful_programs(command: str) -> tuple[str, ...]:
     was actually called — `git push` yields `git`, while `git log` yields nothing.
     """
     effectful: set[str] = set()
-    for segment in _segments(command):
+    for segment in _segments(strip_heredocs(command)):
         if _segment_is_read_only(segment):
             continue
         effectful.update(_segment_programs(segment))
@@ -140,7 +181,7 @@ def is_read_only_shell(command: str) -> bool:
     """
     if not (command or "").strip():
         return False
-    stripped = _STREAM_REDIRECT.sub("", command)
+    stripped = _STREAM_REDIRECT.sub("", strip_heredocs(command))
     if _FILE_REDIRECT.search(stripped) or _SUBSTITUTION.search(stripped):
         return False
     segments = _segments(stripped)
@@ -148,7 +189,36 @@ def is_read_only_shell(command: str) -> bool:
 
 
 def _segments(command: str) -> tuple[str, ...]:
-    return tuple(s.strip() for s in _SEGMENT_SPLIT.split(command or "") if s.strip())
+    """Split on shell separators, ignoring those inside quotes (spec 011 FR-46).
+
+    A plain regex split shattered `grep -n "a\\|b\\|c" f` into phantom segments whose leading words
+    are not allowlisted programs, so FR-39's pessimistic default declared a pure read a mutation.
+    """
+    out: list[str] = []
+    buf: list[str] = []
+    quote = ""
+    index = 0
+    text = command or ""
+    while index < len(text):
+        char = text[index]
+        if quote:
+            buf.append(char)
+            if char == quote:
+                quote = ""
+        elif char in "'\"":
+            quote = char
+            buf.append(char)
+        elif char in ";|&\n":
+            # Consume a doubled operator (`||`, `&&`) as one separator.
+            if index + 1 < len(text) and text[index + 1] == char:
+                index += 1
+            out.append("".join(buf))
+            buf = []
+        else:
+            buf.append(char)
+        index += 1
+    out.append("".join(buf))
+    return tuple(s.strip() for s in out if s.strip())
 
 
 def _segment_programs(segment: str) -> tuple[str, ...]:
@@ -201,6 +271,25 @@ def _is_pure_assignment(segment: str) -> bool:
     return bool(tokens) and all(_ASSIGNMENT.match(t) for t in tokens)
 
 
+_EXTERNAL_GIT_SUBCOMMANDS = frozenset({"push"})
+
+
+def has_external_reach(command: str) -> bool:
+    """True when a segment contacts a remote, however its flags are arranged (FR-5/FR-47).
+
+    Substring matching on `"git push"` missed `git -C . push origin master`, which scored 3 and ran
+    unprompted: the flag sat between the program and the subcommand it was looking for.
+    """
+    for segment in _segments(strip_heredocs(command)):
+        programs = _segment_programs(segment)
+        if "git" not in programs:
+            continue
+        args = [t for t in segment.split() if t][1:]
+        if _subcommand("git", args) in _EXTERNAL_GIT_SUBCOMMANDS:
+            return True
+    return False
+
+
 def _segment_is_read_only(segment: str) -> bool:
     programs = _segment_programs(segment)
     if not programs:
@@ -219,8 +308,7 @@ def _segment_is_read_only(segment: str) -> bool:
     if any(arg.split("=", 1)[0] in mutating for arg in args):
         return False
     if "git" in programs:
-        subcommand = next((a for a in args if not a.startswith("-")), "")
-        return subcommand in _READ_ONLY_GIT_SUBCOMMANDS
+        return _subcommand("git", args) in _READ_ONLY_GIT_SUBCOMMANDS
     return True
 
 

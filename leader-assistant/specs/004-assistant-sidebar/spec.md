@@ -174,6 +174,15 @@ Numbered, testable, unambiguous.
   report that in the chat. It MUST NOT send a turn with an absent/empty workspace, because the
   backend resolves that to `LEADER_DEFAULT_WORKSPACE` — writing the conversation and any of its
   effects into the **wrong workspace**, silently and unrecoverably from the operator's point of view.
+- **FR-40 (the URL is a fallback for a turn's conversation id):** Every request the UI sends on
+  behalf of a chat turn — a new turn or an approve — MUST resolve its target **conversation id** from
+  the `?conversation=` URL param **at send time**, preferring it over transient client/session state
+  when the two disagree, and falling back to session state only when the param is absent. This mirrors
+  FR-38 for workspace: the `?conversation` param (FR-32) survives a reload while framework session
+  state does not, so a turn read solely from session state can carry a **blank** id after a reload —
+  and the backend treats a blank id as "start a new conversation" ([[012-conversation-naming]] FR-2),
+  **forking the thread** and orphaning any pending card in the real conversation. Resolving from the
+  URL keeps a typed turn on its own thread.
 
 ### Workspaces panel (selector + create)
 
@@ -478,6 +487,9 @@ Numbered, testable, unambiguous.
 - [ ] **AC-20:** The **first** turn of a fresh thread makes that conversation appear in the Sessions
   list without a page reload, and the row for the **active** conversation is marked as such; the mark
   moves on resume and clears on **New conversation**. (FR-37)
+- [ ] **AC-21:** A typed turn sent while session state has lost the id but `?conversation=<id>` is set
+  appends to the **same** session file (no new record), because the turn resolves its id from the URL.
+  (FR-40)
 
 ## Resolved Decisions
 

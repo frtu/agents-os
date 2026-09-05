@@ -10,6 +10,7 @@ reproducible.
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import pytest
@@ -21,6 +22,12 @@ from app.vault import WorkspaceError
 
 def sse_events(text: str) -> list[dict]:
     return [json.loads(line[6:]) for line in text.splitlines() if line.startswith("data: ")]
+
+
+def _session_files(selector: str | None):
+    _name, wpath = capabilities.resolve_for_chat(selector)
+    sessions = wpath / "sessions"
+    return sorted(sessions.glob("*.md")) if sessions.is_dir() else []
 
 
 def _consequential_chat(client, message, conversation_id=None):
@@ -164,18 +171,22 @@ def test_ac5_new_task_does_not_answer_pending_interaction(client, offline_agent,
 # --- AC-6: timeout default/configurable + expiry aborts with fixed message -----
 
 
-def test_ac6_timeout_default_30s(client, isolated_workspace_root):
-    # AC-6 (FR-9): every request carries a timeout, 30s for an approval.
+def test_ac6_approval_default_is_two_minutes(client, isolated_workspace_root):
+    # AC-6 (FR-9/D5): an approval makes the operator read the maker/checker blast radius before
+    # consenting, so it now defaults to 120s (same "read then decide" cost as a clarification).
     first = _consequential_chat(client, "create a workspace named ac6def")
-    assert first["interaction"]["timeout_seconds"] == 30
+    assert first["interaction"]["timeout_seconds"] == 120
 
 
-def test_ac6_clarification_default_is_two_minutes(isolated_workspace_root):
-    # AC-6 (FR-9/D5): a clarification asks the user to read proposals and choose, so its default is
-    # 120s while the other kinds stay at 30s.
+def test_ac6_decision_kinds_are_two_minutes_notification_stays_30s(isolated_workspace_root):
+    # AC-6 (FR-9/D5): anything the user must *decide* (approval, clarification) defaults to 120s; only
+    # a notification, which just needs dismissing, keeps 30s.
     capabilities.create_workspace("ac6kind")
+    # Separate conversations: only one blocking card may be pending per conversation (FR-15).
     clarify = capabilities.create_interaction("ac6kind", None, "clarification", "which?", ["A", "B"])
     assert clarify.timeout_seconds == 120
+    approve = capabilities.create_interaction("ac6kind", None, "approval", "ok?", ["yes"])
+    assert approve.timeout_seconds == 120
     note = capabilities.create_interaction("ac6kind", clarify.conversation_id, "notification", "fyi")
     assert note.timeout_seconds == 30
 
@@ -216,6 +227,53 @@ def test_ac6_expiry_aborts_with_fixed_message_no_action(client, isolated_workspa
     assert r["reply"] == INTERACTION_TIMEOUT_MSG
     assert r["executed"] is False
     assert not (isolated_workspace_root / "ac6exp").exists()
+
+
+# --- FR-16: an answer/approve resolves in its OWN conversation, never forks a new one ---
+
+
+def test_fr16_answer_with_blank_conversation_id_is_rejected_without_forking(isolated_workspace_root):
+    # spec 008 FR-16 (regression): a card answered while the prior turn was still streaming used to
+    # arrive with a blank conversation id and silently mint a NEW conversation, orphaning the live
+    # card (it could then only time out). A blank id must now be rejected with no new record.
+    capabilities.create_workspace("fr16ans")
+    assert _session_files("fr16ans") == []
+    ans = asyncio.run(capabilities.respond_to_interaction("fr16ans", "", "itx-nope", "approve"))
+    assert "no longer awaiting" in ans.reply.lower()
+    assert _session_files("fr16ans") == []  # no phantom conversation minted
+
+
+def test_fr16_approve_with_blank_conversation_id_does_not_fork(isolated_workspace_root):
+    # spec 008 FR-16: approving targets an existing pending plan; a blank id must not fork a thread.
+    capabilities.create_workspace("fr16app")
+    assert _session_files("fr16app") == []
+    ans = asyncio.run(capabilities.ask("fr16app", "(approve)", "", approve=True))
+    assert "no pending plan" in ans.reply.lower()
+    assert _session_files("fr16app") == []  # nothing materialized
+
+
+def test_fr16_answer_with_correct_id_resolves_in_place(isolated_workspace_root):
+    # spec 008 FR-16: the happy path — answering with the card's own id resolves within the same
+    # conversation record; no second file appears.
+    capabilities.create_workspace("fr16ok")
+    itx = capabilities.create_interaction("fr16ok", None, "approval", "ok?", ["yes"])
+    before = _session_files("fr16ok")
+    assert len(before) == 1  # the blocking card materialized exactly one record
+    ans = asyncio.run(
+        capabilities.respond_to_interaction("fr16ok", itx.conversation_id, itx.interaction_id, "decline")
+    )
+    assert ans.conversation_id == itx.conversation_id
+    assert _session_files("fr16ok") == before  # answered in place — no new thread
+
+
+def test_fr16_rest_answer_with_blank_conversation_id_is_rejected(client, isolated_workspace_root):
+    # Parity (P9): the same guard holds over REST — a blank conversation id is rejected, not forked.
+    capabilities.create_workspace("fr16rest")
+    r = client.post("/api/chat/interaction", json={
+        "workspace": "fr16rest", "conversation_id": "", "interaction_id": "itx-x", "choice": "approve",
+    }).json()
+    assert "no longer awaiting" in r["reply"].lower()
+    assert _session_files("fr16rest") == []
 
 
 # --- AC-7: the UI renders a visually distinct card ----------------------------

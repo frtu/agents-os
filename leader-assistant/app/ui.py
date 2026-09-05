@@ -279,6 +279,12 @@ _NAV_WORKSPACE_JS = """
 # Gradio's StateHolder on its own schedule, so it cannot be the only pointer to the active workspace.
 _WS_FROM_URL_JS = "() => new URL(window.location).searchParams.get('workspace') || ''"
 
+# spec 004 FR-40: re-read the conversation id from the URL at send time, into a hidden mirror. Mirrors
+# _WS_FROM_URL_JS: gr.State is reset on reload and expired by Gradio on its own schedule, so a turn
+# read solely from state can carry a blank id and fork the thread; the URL's ?conversation keeps a
+# typed turn on its own thread (A1).
+_CONV_FROM_URL_JS = "() => new URL(window.location).searchParams.get('conversation') || ''"
+
 # spec 004 FR-29/FR-38: on load, write the *resolved* active workspace back into ?workspace (silently,
 # via replaceState). This makes the URL always carry the workspace — including on a bare `/` visit —
 # so the URL, not gr.State, is the pointer a turn resolves from and a reload can never land on a page
@@ -435,6 +441,9 @@ main.contain > .column { display: flex; flex-direction: column; }
   background: var(--background-fill-secondary); box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
 .itx-prompt { font-size: 0.92rem; margin-bottom: 8px; }
+/* spec 002 FR-16: the event-message's received time, rendered on its own muted line *below* an
+   assistant bubble (outside it) so the text shown and its receipt time come from the one event. */
+.msg-time { font-size: 0.72rem; color: var(--body-text-color-subdued); margin-top: 4px; }
 /* The options as a vertical list of clickable "radio-style" buttons. */
 .itx-opts { display: flex; flex-direction: column; gap: 6px; }
 .itx-opt {
@@ -834,6 +843,22 @@ def _turn_workspace(from_url, from_state):
     return (from_url or "").strip() or (from_state or "").strip() or None
 
 
+def _turn_conversation(from_url, from_state):
+    """The conversation id a turn continues (spec 004 FR-40 — A1).
+
+    Mirrors _turn_workspace: the URL's ?conversation wins, gr.State is only the fallback. State is
+    reset on reload and expired by Gradio's StateHolder on its own schedule, so a turn read solely
+    from it can carry a blank id and fork the thread (the observed f80c1441→550ba6c2 split).
+    """
+    return (from_url or "").strip() or (from_state or "").strip() or ""
+
+
+def _time_line(event) -> str:
+    """The received-time line for a completed message (spec 002 FR-16), or "" when absent."""
+    stamp = (event or {}).get("event_time") if isinstance(event, dict) else None
+    return f"\n\n<div class='msg-time'>{html.escape(stamp)}</div>" if stamp else ""
+
+
 async def _run_turn(history, conversation_id, workspace, approve, auto_approve=None):
     """Stream one assistant turn, updating the last message as text arrives.
 
@@ -851,7 +876,7 @@ async def _run_turn(history, conversation_id, workspace, approve, auto_approve=N
     yield (history, conversation_id, gr.update(visible=False), None)
 
     reply, cid = "", conversation_id
-    citations, pending, interaction = [], None, None
+    citations, pending, interaction, event = [], None, None, None
     try:
         async for data in _stream_chat(workspace, user_msg, conversation_id, approve, auto_approve):
             if "error" in data:
@@ -863,6 +888,7 @@ async def _run_turn(history, conversation_id, workspace, approve, auto_approve=N
             citations = data.get("citations") or citations
             pending = data.get("pending_plan") or pending
             interaction = data.get("interaction") or interaction
+            event = data.get("event") or event  # spec 002 FR-16: rides the final done delta
             history[-1]["content"] = reply or THINKING
             yield (history, cid, gr.update(visible=False), None)
     except Exception as e:  # network/transport failure -> surface it (FR-11)
@@ -870,7 +896,7 @@ async def _run_turn(history, conversation_id, workspace, approve, auto_approve=N
         yield (history, cid, gr.update(visible=False), None)
         return
 
-    history[-1]["content"] = (reply or "…") + _format_extras(citations, pending)
+    history[-1]["content"] = (reply or "…") + _format_extras(citations, pending) + _time_line(event)
     # spec 008 FR-8/FR-10: a blocking interaction is appended as its own assistant message (the card
     # bubble) inside the chat scroll; the card owns approval, so the legacy Approve button only shows
     # for the rare plan without an interaction.
@@ -884,15 +910,17 @@ async def _run_turn(history, conversation_id, workspace, approve, auto_approve=N
     yield (history, cid, gr.update(visible=show_approve), awaiting)
 
 
-async def _respond(history, conversation_id, workspace, auto_approve=None, ws_from_url=""):
+async def _respond(history, conversation_id, workspace, auto_approve=None, ws_from_url="", conv_from_url=""):
     target = _turn_workspace(ws_from_url, workspace)  # spec 004 FR-38
-    async for out in _run_turn(history, conversation_id, target, False, auto_approve):
+    cid = _turn_conversation(conv_from_url, conversation_id)  # spec 004 FR-40 (A1)
+    async for out in _run_turn(history, cid, target, False, auto_approve):
         yield out
 
 
-async def _approve(history, conversation_id, workspace, auto_approve=None, ws_from_url=""):
+async def _approve(history, conversation_id, workspace, auto_approve=None, ws_from_url="", conv_from_url=""):
     target = _turn_workspace(ws_from_url, workspace)  # spec 004 FR-38
-    async for out in _run_turn(history, conversation_id, target, True, auto_approve):
+    cid = _turn_conversation(conv_from_url, conversation_id)  # spec 004 FR-40 (A1)
+    async for out in _run_turn(history, cid, target, True, auto_approve):
         yield out
 
 
@@ -1059,6 +1087,11 @@ async def _run_interaction(history, conversation_id, workspace, interaction, cho
         yield (history, conversation_id, gr.update(visible=False), interaction)
         return
     interaction_id = interaction.get("interaction_id")
+    # spec 008 FR-16: answer within the card's OWN conversation. The gr.State `conversation_id` can be
+    # stale or blank while the prior turn is still streaming (its id is only committed as deltas
+    # arrive); answering with that would fork a new thread and orphan this card. The card carries the
+    # conversation it belongs to, so trust it over the state component.
+    conversation_id = (interaction.get("conversation_id") or conversation_id or "").strip()
     label = _choice_label(interaction, choice)
     history = _neutralize_card(history, interaction_id, label) + [
         {"role": "user", "content": label},
@@ -1067,7 +1100,7 @@ async def _run_interaction(history, conversation_id, workspace, interaction, cho
     yield (history, conversation_id, gr.update(visible=False), None)
 
     reply, cid = "", conversation_id
-    citations, fresh = [], None
+    citations, fresh, event = [], None, None
     try:
         async for data in _stream_interaction(workspace, conversation_id, interaction_id, choice):
             if "error" in data:
@@ -1078,6 +1111,7 @@ async def _run_interaction(history, conversation_id, workspace, interaction, cho
             cid = data.get("conversation_id", cid)
             citations = data.get("citations") or citations
             fresh = data.get("interaction") or fresh
+            event = data.get("event") or event  # spec 002 FR-16: rides the final done delta
             history[-1]["content"] = reply or THINKING
             yield (history, cid, gr.update(visible=False), None)
     except Exception as e:  # network/transport failure -> surface it (FR-11)
@@ -1085,7 +1119,7 @@ async def _run_interaction(history, conversation_id, workspace, interaction, cho
         yield (history, cid, gr.update(visible=False), None)
         return
 
-    history[-1]["content"] = (reply or "…") + _format_extras(citations, None)
+    history[-1]["content"] = (reply or "…") + _format_extras(citations, None) + _time_line(event)
     card = _card_html(fresh)
     if card:
         history = history + [{"role": "assistant", "content": card}]
@@ -1646,6 +1680,9 @@ def build_demo() -> gr.Blocks:
         # Hidden components are not in the DOM, so this is only ever passed as an event input/output —
         # never read back with querySelector.
         ws_url = gr.Textbox(visible=False, elem_id="ws-url")
+        # spec 004 FR-40 (A1): a hidden mirror of the URL's ?conversation, refilled by _CONV_FROM_URL_JS
+        # at the start of every turn so the turn continues the URL's thread even when gr.State was lost.
+        conv_url_in = gr.Textbox(visible=False, elem_id="conv-url-in")
 
         # --- wiring ---
         sidebar_out = [vault_box, active_vault, vault_suggest, wiki_view, vault_status, create_btn]
@@ -1762,7 +1799,9 @@ def build_demo() -> gr.Blocks:
         box.submit(_user_submit, [box, chat], [box, chat]).then(
             None, None, [ws_url], js=_WS_FROM_URL_JS
         ).then(
-            _respond, [chat, conversation, active_vault, auto_approve_box, ws_url], turn_out
+            None, None, [conv_url_in], js=_CONV_FROM_URL_JS  # spec 004 FR-40 (A1)
+        ).then(
+            _respond, [chat, conversation, active_vault, auto_approve_box, ws_url, conv_url_in], turn_out
         ).then(None, None, None, js=_COUNTDOWN_JS).then(
             lambda cid: cid or "", [conversation], [conv_url]
         ).then(_conv_title_md, [conversation, active_vault], [conv_title]).then(
@@ -1775,7 +1814,9 @@ def build_demo() -> gr.Blocks:
         approve_btn.click(_add_approve_msg, [chat], [chat]).then(
             None, None, [ws_url], js=_WS_FROM_URL_JS
         ).then(
-            _approve, [chat, conversation, active_vault, auto_approve_box, ws_url], turn_out
+            None, None, [conv_url_in], js=_CONV_FROM_URL_JS  # spec 004 FR-40 (A1)
+        ).then(
+            _approve, [chat, conversation, active_vault, auto_approve_box, ws_url, conv_url_in], turn_out
         ).then(None, None, None, js=_COUNTDOWN_JS).then(
             lambda cid: cid or "", [conversation], [conv_url]
         ).then(_conv_title_md, [conversation, active_vault], [conv_title]).then(

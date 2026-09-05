@@ -392,6 +392,63 @@ def test_ac20_raw_denial_never_reaches_layer_2(isolated_workspace_root):
     assert run.state == "running"
 
 
+# --- FR-25: the approval card prompt stays a concise one-liner -----------------
+
+
+def test_fr25_summarize_target_collapses_shell_commands():
+    # spec 011 FR-25: a multi-line / long shell target must not fill the card prompt. The summary is
+    # one scannable line, truncated, so the option buttons stay visible.
+    from app import concierge
+
+    assert concierge._summarize_target(None) == "(no target)"
+    assert concierge._summarize_target("   \n  \n") == "(no target)"
+    assert concierge._summarize_target("git status") == "git status"
+
+    long_line = "echo " + "x" * 200
+    summary = concierge._summarize_target(long_line)
+    assert len(summary) <= 80
+    assert summary.endswith("…")
+
+    heredoc = "cat <<'EOF' > f.md\nline one\nline two\nEOF"
+    multi = concierge._summarize_target(heredoc)
+    assert "\n" not in multi
+    assert multi.startswith("cat <<'EOF'")
+    assert multi.endswith("…")  # a trailing marker signals there is more than the first line
+
+
+def test_fr25_bash_gating_card_prompt_is_concise_full_command_preserved(isolated_workspace_root):
+    # spec 011 FR-25: the reported bug — a long Bash command landed in the card's prompt and pushed the
+    # options off-screen. The prompt must summarize the target, while the full command stays in the
+    # persisted risk assessment for audit.
+    from app import capabilities, concierge, conversation, models
+
+    capabilities.create_workspace("fr25")
+    run = concierge.build_run("run a big script", "fr25")
+    full_command = "cat <<'EOF' > /tmp/out.md\n" + "\n".join(f"row {i}" for i in range(40)) + "\nEOF"
+    gating = models.RiskOperation(
+        op_id="op-1", kind="tool", name="Bash", target=full_command, tier="approval", score=4
+    )
+    assessment = models.RiskAssessment(
+        run_id=run.run_id, objective=run.objective, gating=gating, accumulated=[gating]
+    )
+
+    card = concierge._ask_card("fr25", None, run, assessment, None)
+    assert card is not None
+    assert "\n" not in card.prompt
+    assert len(card.prompt) <= 140
+    assert card.prompt.startswith("Approve `Bash`")
+    assert "row 39" not in card.prompt  # the body of the heredoc never reaches the prompt
+
+    # The options survive alongside the concise prompt (not displaced by the payload).
+    assert [o.id for o in card.options] == ["approve", "approve_all"]
+
+    # The full command is still recoverable from the persisted record (spec 011 FR-25 audit clause).
+    _name, wpath = capabilities.resolve_for_chat("fr25")
+    conv = conversation.load(wpath, card.conversation_id)
+    assert conv is not None
+    assert conv.pending_interaction["risk"]["gating"]["target"] == full_command
+
+
 # --- AC-17: REST and chat reach execution only via the concierge (FR-23) ------
 
 
