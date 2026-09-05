@@ -13,6 +13,7 @@ plus vault/wiki/portal.md (catalog) and vault/wiki/log.md (append-only ledger).
 from __future__ import annotations
 
 import hashlib
+import shutil
 import subprocess
 from datetime import date
 from pathlib import Path
@@ -90,8 +91,39 @@ def scaffold_workspace(workspace: Path) -> Path:
         log.write_text("# Log\n\nAppend-only operational record.\n")
     _bootstrap_foundation_docs(workspace)
     _bootstrap_tbd(workspace)
+    _bootstrap_workspace_template(workspace)
     _init_workspace_repo(workspace)
     return workspace
+
+
+def _bootstrap_workspace_template(workspace: Path) -> None:
+    """Copy the repo-relative bootstrap template into the workspace and run bootstrap.sh.
+
+    spec 03-workspace §1.1 / AC10. Copies every entry of ``templates/_workspace_`` (e.g.
+    bootstrap.sh, .gitignore) into the workspace root without overwriting existing files, then runs
+    ``bootstrap.sh`` from inside the workspace. Best-effort: a missing template folder or skill
+    library (e.g. an isolated test root) degrades to a no-op rather than failing creation.
+    """
+    template = config.workspace_template_source()
+    if not template.is_dir():
+        return
+    for src in template.iterdir():
+        dest = workspace / src.name
+        if dest.exists():
+            continue
+        if src.is_dir():
+            shutil.copytree(src, dest)
+        else:
+            shutil.copy2(src, dest)
+    script = workspace / "bootstrap.sh"
+    if not script.is_file():
+        return
+    try:
+        subprocess.run(
+            ["bash", "bootstrap.sh"], cwd=str(workspace), capture_output=True, text=True
+        )
+    except FileNotFoundError:
+        pass
 
 
 def _bootstrap_foundation_docs(workspace: Path) -> None:

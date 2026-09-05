@@ -83,6 +83,19 @@ def skills_library_root() -> Path:
     return repo.parent / "skills"
 
 
+def workspace_template_source() -> Path:
+    """Repo-relative bootstrap template copied into every new workspace (spec 03-workspace §1.1 AC10).
+
+    Default: the repo-root ``templates/_workspace_`` folder (relative to this package, never an
+    absolute path). Overridable via LEADER_WORKSPACE_TEMPLATE.
+    """
+    override = os.getenv("LEADER_WORKSPACE_TEMPLATE")
+    if override:
+        return Path(override).expanduser()
+    repo = Path(__file__).resolve().parent.parent  # <repo>/app -> <repo>
+    return repo / "templates" / "_workspace_"
+
+
 def foundation_docs_source() -> Path:
     """Directory the foundation docs are bootstrapped from (spec 007 FR-9/D10, spec 22 R1).
 

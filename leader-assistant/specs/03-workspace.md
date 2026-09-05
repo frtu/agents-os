@@ -73,6 +73,19 @@ Workspaces/<workspace-name>/
 templates/          # repo-root, externalized, shared output templates (NOT inside a workspace)
 ```
 
+## 1.1 Bootstrap Template (copied on create)
+
+A repo-root **workspace bootstrap template** at `templates/_workspace_/` seeds every new
+workspace. On create, the scaffolder **copies the template's contents** (e.g. `bootstrap.sh`,
+`.gitignore`) into the new workspace root and then **runs `bootstrap.sh`** from inside the
+workspace. The template is referenced by a **repo-relative** path (never an absolute one), and
+the copy is **non-destructive/idempotent** — an existing file in the workspace is never
+overwritten.
+
+`bootstrap.sh` links the shared skill library into the workspace's `skills/` folder (§2). Its
+execution is **best-effort**: a missing skill library (e.g. in an isolated test root) makes it a
+no-op rather than failing workspace creation. A missing template folder likewise skips this step.
+
 ## 2. `skills/` — Installed Skills
 
 Each workspace has a `skills/` folder holding its **installed skills**. Skills are
@@ -249,3 +262,7 @@ copies is open — [[001-leader-assistant/plan-tbd|plan-tbd]] TBD-5.
 - AC8: Importing a skill (feature [[005-skill-import]]) creates a symlink `skills/<name>` and a
   discovery mirror `.claude/skills/<name>`, both resolving to `<library>/<name>`, and is
   committed to git; the agent then loads and runs it on a later turn without a restart.
+- AC10: On create, the contents of the repo-relative bootstrap template `templates/_workspace_/`
+  are copied verbatim into the new workspace (without overwriting existing files) and
+  `bootstrap.sh` is run from the workspace; a missing template folder or skill library degrades to
+  a no-op rather than failing creation (§1.1).
