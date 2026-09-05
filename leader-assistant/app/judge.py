@@ -30,7 +30,7 @@ import json
 from dataclasses import dataclass
 from typing import Awaitable, Callable
 
-from . import config
+from . import config, tracing
 from .workflow import DECISIONS, RiskReport, Verdict, control_mode_verdict
 
 # The model call is on the operator's critical path: a turn is paused while it runs. A judge that
@@ -449,12 +449,14 @@ async def sdk_ask_model(system_prompt: str, prompt: str) -> str:
         max_turns=1,
     )
     text = ""
-    try:  # pragma: no cover — requires the claude CLI
-        async for message in query(prompt=prompt, options=opts):
-            if isinstance(message, AssistantMessage):
-                for block in message.content:
-                    if isinstance(block, TextBlock):
-                        text += block.text
-    except Exception as e:  # noqa: BLE001 — mapped, never leaked as an SDK type
-        raise JudgeUnavailable(str(e)) from e
+    with tracing.generation("judge-review", model=config.judge_model(), input=prompt) as gen:
+        try:  # pragma: no cover — requires the claude CLI
+            async for message in query(prompt=prompt, options=opts):
+                if isinstance(message, AssistantMessage):
+                    for block in message.content:
+                        if isinstance(block, TextBlock):
+                            text += block.text
+        except Exception as e:  # noqa: BLE001 — mapped, never leaked as an SDK type
+            raise JudgeUnavailable(str(e)) from e
+        gen.update(output=text)
     return text

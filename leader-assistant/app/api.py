@@ -15,7 +15,7 @@ import json
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from . import capabilities, concierge, models
+from . import capabilities, concierge, models, tracing
 from .vault import WorkspaceError
 
 app = FastAPI(
@@ -58,6 +58,12 @@ async def _declined(_request, exc: concierge.Declined) -> JSONResponse:
 @app.get("/health", tags=["ops"], summary="Liveness probe")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.on_event("shutdown")
+async def _flush_traces() -> None:
+    """Best-effort send of buffered Langfuse spans on a graceful shutdown (spec 013 FR-6)."""
+    tracing.flush()
 
 
 # Every route below reaches a capability through `concierge.invoke` (spec 011 FR-23), never

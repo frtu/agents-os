@@ -139,7 +139,8 @@ app/
 ├── capabilities.py # surface-agnostic capability layer — the parity boundary (P9)
 ├── models.py       # pydantic request/response contracts (the Swagger schemas)
 ├── vault.py        # resolver, scaffolder, vault/raw/ guard, log, per-workspace git
-└── config.py       # env-based workspace resolution
+├── config.py       # env-based workspace resolution
+└── tracing.py      # Langfuse tracing over the three query() call sites (spec 013)
 specs/              # build spec kit (see above)
 templates/          # externalized, human-owned output templates (reuse-before-create, P7)
 memory/             # constitution + agent memory
@@ -197,6 +198,10 @@ Workspaces are git-ignored (`Workspaces/`, `.tmp-workspaces/`). The chat surface
 `claude-agent-sdk` runtime, which needs the `claude` CLI / credentials to be reachable;
 when it is not, `ask()` falls back to a deterministic cited answer via `query` so the
 endpoint still works offline. All non-chat capabilities run without any credentials.
+
+`LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_BASE_URL` (read natively by the
+`langfuse` SDK, not `LEADER_*`) point `app/tracing.py` at a local Langfuse instance (spec 013).
+Unset by default; absent either key, tracing is a no-op — no network call, no exception.
 
 ## Conventions & invariants (don't break these)
 

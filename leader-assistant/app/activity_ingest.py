@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import config, models
+from . import config, models, tracing
 from .agent import AgentUnavailable
 
 # MCP/native tools the ingest activity may use. Unlike the removed narrow `ingest` tool
@@ -103,10 +103,13 @@ async def run(inp: models.ActivityInput) -> models.ActivityOutput:
         f"Selected raw sources: {inp.raw_selection or 'ALL captured sources'}\n\n"
         "Run the second-brain-ingest activity now over the unprocessed work."
     )
-    # phase 1 — run the skill, collect unstructured output
-    unstructured = await _headless(_PHASE1_SYSTEM, prompt, workspace_path)
-    # phase 2 — coerce the unstructured output into the Output Object
-    structured = await _headless(_PHASE2_SYSTEM, unstructured, workspace_path, tools=[])
+    with tracing.span("ingest", workspace=str(workspace_path)):
+        # phase 1 — run the skill, collect unstructured output
+        unstructured = await _headless(_PHASE1_SYSTEM, prompt, workspace_path, phase="phase1")
+        # phase 2 — coerce the unstructured output into the Output Object
+        structured = await _headless(
+            _PHASE2_SYSTEM, unstructured, workspace_path, tools=[], phase="phase2"
+        )
     return _parse_output(structured)
 
 
@@ -127,7 +130,11 @@ def _parse_output(text: str) -> models.ActivityOutput:
 
 
 async def _headless(  # pragma: no cover — requires the live SDK runtime/credentials
-    system_prompt: str, message: str, workspace_path: Path, tools: list[str] | None = None
+    system_prompt: str,
+    message: str,
+    workspace_path: Path,
+    tools: list[str] | None = None,
+    phase: str = "phase1",
 ) -> str:
     """Run one headless turn and return the accumulated text (spec 007 FR-6).
 
@@ -162,15 +169,18 @@ async def _headless(  # pragma: no cover — requires the live SDK runtime/crede
         hooks={"PreToolUse": [HookMatcher(hooks=[_raw_guard_hook(workspace_path)])]},
     )
     out = ""
-    try:
-        async for m in query(prompt=message, options=opts):
-            for block in getattr(m, "content", []) or []:
-                if isinstance(block, TextBlock):
-                    out += block.text
-            if isinstance(m, ResultMessage):
-                out = getattr(m, "result", None) or out
-    except CLINotFoundError as e:
-        raise AgentUnavailable("claude CLI not found") from e
-    except Exception as e:  # noqa: BLE001 — treat runtime failures as unavailability
-        raise AgentUnavailable(str(e)) from e
+    with tracing.generation(f"ingest-{phase}", model=config.agent_model(), input=message[:2000]) as gen:
+        try:
+            async for m in query(prompt=message, options=opts):
+                for block in getattr(m, "content", []) or []:
+                    if isinstance(block, TextBlock):
+                        out += block.text
+                if isinstance(m, ResultMessage):
+                    out = getattr(m, "result", None) or out
+                    usage, cost = tracing.usage_and_cost(m.usage, m.total_cost_usd)
+                    gen.update(output=out, usage_details=usage, cost_details=cost)
+        except CLINotFoundError as e:
+            raise AgentUnavailable("claude CLI not found") from e
+        except Exception as e:  # noqa: BLE001 — treat runtime failures as unavailability
+            raise AgentUnavailable(str(e)) from e
     return out

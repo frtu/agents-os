@@ -37,7 +37,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import AsyncIterator, Awaitable, Callable
 
-from . import conversation, execution_gate, models, vault
+from . import conversation, execution_gate, models, tracing, vault
 from .execution_gate import Operation
 
 _SERVER = "leader"
@@ -655,19 +655,25 @@ async def run_stream(
     )
 
     reply, sid = "", resume_sid
-    try:
-        async for m in query(prompt=message, options=opts):
-            if isinstance(m, SystemMessage) and getattr(m, "subtype", "") == "init":
-                sid = m.data.get("session_id", sid)
-            elif isinstance(m, StreamEvent):
-                ev = m.event
-                if ev.get("type") == "content_block_delta" and ev.get("delta", {}).get("type") == "text_delta":
-                    reply += ev["delta"]["text"]
-                    yield reply, sid
-            elif isinstance(m, ResultMessage):
-                sid = getattr(m, "session_id", None) or sid
-    except CLINotFoundError as e:
-        raise AgentUnavailable("claude CLI not found") from e
-    except Exception as e:  # noqa: BLE001 — treat runtime failures as unavailability
-        raise AgentUnavailable(str(e)) from e
-    yield reply, sid
+    with tracing.generation(
+        "chat-turn", model=config.agent_model(), input=message,
+        session_id=conversation_id, workspace=workspace_selector,
+    ) as gen:
+        try:
+            async for m in query(prompt=message, options=opts):
+                if isinstance(m, SystemMessage) and getattr(m, "subtype", "") == "init":
+                    sid = m.data.get("session_id", sid)
+                elif isinstance(m, StreamEvent):
+                    ev = m.event
+                    if ev.get("type") == "content_block_delta" and ev.get("delta", {}).get("type") == "text_delta":
+                        reply += ev["delta"]["text"]
+                        yield reply, sid
+                elif isinstance(m, ResultMessage):
+                    sid = getattr(m, "session_id", None) or sid
+                    usage, cost = tracing.usage_and_cost(m.usage, m.total_cost_usd)
+                    gen.update(output=reply, usage_details=usage, cost_details=cost)
+        except CLINotFoundError as e:
+            raise AgentUnavailable("claude CLI not found") from e
+        except Exception as e:  # noqa: BLE001 — treat runtime failures as unavailability
+            raise AgentUnavailable(str(e)) from e
+        yield reply, sid
