@@ -219,6 +219,11 @@ DEFAULT_RISK_WEIGHTS: dict = {
         # Above this score an ask is mandatory when no precedent matches, even under standing
         # consent (FR-18).
         "precedent_free_ceiling": 4,
+        # When the judge is unavailable/malformed, a reversible-tier operation at or below this
+        # score auto-runs instead of deadlocking; approval-tier and higher scores still ask
+        # (FR-44). Default = gate, so only the score-at-the-floor operations pass. Set below gate
+        # to restore pure fail-closed.
+        "judge_unavailable_safe_ceiling": 4,
         # Approvals of the same fingerprint needed before a precedent can unlock a skip (FR-17).
         "precedent_min_samples": 3,
         # How far back precedent counting looks, in days.
@@ -295,6 +300,11 @@ def precedent_free_ceiling() -> int:
 def precedent_min_samples() -> int:
     """Approvals of one fingerprint required before precedent unlocks a skip (spec 011 FR-17)."""
     return _threshold("precedent_min_samples", "LEADER_PRECEDENT_MIN_SAMPLES")
+
+
+def judge_unavailable_safe_ceiling() -> int:
+    """Max score a reversible op may auto-run at when the judge is down (spec 011 FR-44)."""
+    return _threshold("judge_unavailable_safe_ceiling", "LEADER_JUDGE_UNAVAILABLE_SAFE_CEILING")
 
 
 def precedent_window_days() -> int:

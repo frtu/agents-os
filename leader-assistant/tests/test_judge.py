@@ -312,6 +312,103 @@ def test_a_raising_emptiness_check_is_treated_as_cold_fr21():
     assert _review(j).decision == "ask"
 
 
+# --- FR-44 judge-unavailable passthrough --------------------------------------------------------
+
+def _reversible_report(score: int) -> RiskReport:
+    """A reversible-tier gating report at a chosen score — the shape FR-44 may let through."""
+    op = ScoredOperation(
+        operation=Operation(
+            kind="tool",
+            name="Write",
+            target="vault/wiki/portal.md",
+            tier="reversible",
+            reversibility="git revert the turn commit",
+        ),
+        score=score,
+        modifiers=(),
+        justification="rewrite one wiki page; recoverable from the workspace git repo",
+    )
+    return RiskReport(
+        run_id="run-1", objective="rewrite wiki pages", workspace="demo", gating=op, accumulated=(op,)
+    )
+
+
+def test_judge_down_lets_reversible_low_risk_through_fr44_ac29():
+    """A dead judge does not deadlock a reversible op at/under the ceiling (spec 011 FR-44, AC-29)."""
+
+    async def boom(_system, _prompt):
+        raise judge.JudgeUnavailable("claude CLI not found")
+
+    verdict = _review(_judge(ask_model=boom), report=_reversible_report(4))
+    assert verdict.decision == "approve"
+    assert verdict.source == "filter"
+    assert verdict.reasoning == judge.JUDGE_DOWN_PASSTHROUGH_REASON
+    # AC-29: a passthrough is a filter grant, never operator precedent.
+    assert verdict.matched_precedent is None
+
+
+def test_judge_down_still_asks_for_approval_tier_fr44_ac30():
+    """The escape is reversible-only; an approval-tier executable still fails closed (FR-44, AC-30)."""
+
+    async def boom(_system, _prompt):
+        raise judge.JudgeUnavailable("claude CLI not found")
+
+    # The default _report() is approval-tier, so it must keep asking even at the ceiling score.
+    verdict = _review(_judge(ask_model=boom), report=_report(4))
+    assert verdict.decision == "ask"
+    assert verdict.reasoning == judge.FAIL_CLOSED_REASON
+
+
+def test_judge_down_still_asks_above_the_ceiling_fr44_ac30():
+    """A reversible op scoring above the ceiling is not "not too risky" — it asks (FR-44, AC-30)."""
+
+    async def boom(_system, _prompt):
+        raise judge.JudgeUnavailable("claude CLI not found")
+
+    verdict = _review(_judge(ask_model=boom), report=_reversible_report(5))
+    assert verdict.decision == "ask"
+    assert verdict.reasoning == judge.FAIL_CLOSED_REASON
+
+
+def test_a_timed_out_judge_also_lets_reversible_low_risk_through_fr44():
+    """Timeout is one flavour of "judge silent"; the same passthrough applies (spec 011 FR-44)."""
+
+    async def slow(_system, _prompt):
+        await asyncio.sleep(5)
+        return json.dumps({"decision": "approve", "reasoning": "fine", "confidence": 1.0})
+
+    verdict = _review(_judge(ask_model=slow, timeout=0.01), report=_reversible_report(4))
+    assert verdict.decision == "approve"
+    assert verdict.source == "filter"
+
+
+def test_ceiling_below_gate_restores_pure_fail_closed_fr44_ac30(monkeypatch):
+    """The ceiling is data: set it under the gate and FR-44 stops firing entirely (FR-44, AC-30)."""
+    monkeypatch.setenv("LEADER_JUDGE_UNAVAILABLE_SAFE_CEILING", "3")
+
+    async def boom(_system, _prompt):
+        raise judge.JudgeUnavailable("claude CLI not found")
+
+    verdict = _review(_judge(ask_model=boom), report=_reversible_report(4))
+    assert verdict.decision == "ask"
+    assert verdict.reasoning == judge.FAIL_CLOSED_REASON
+
+
+def test_the_passthrough_never_widens_on_what_the_model_said_fr44():
+    """Even a malformed "approve" is silence; the grant comes from tier+score, not the payload."""
+
+    async def garbage(_system, _prompt):
+        return json.dumps({"decision": "APPROVE_ALWAYS", "reasoning": "widening itself"})
+
+    # Malformed → recommendation None → passthrough decides purely on reversible+score.
+    approved = _review(_judge(ask_model=garbage), report=_reversible_report(4))
+    assert approved.decision == "approve"
+    assert approved.reasoning == judge.JUDGE_DOWN_PASSTHROUGH_REASON
+    # Same malformed payload on an approval-tier op still asks — the payload never mattered.
+    asked = _review(_judge(ask_model=garbage), report=_report(4))
+    assert asked.decision == "ask"
+
+
 # --- FR-15/FR-16 the recommendation and its record ----------------------------------------------
 
 def test_model_reasoning_is_recorded_verbatim_fr16():

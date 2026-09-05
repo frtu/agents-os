@@ -243,6 +243,11 @@ def _confidence(value: object) -> float:
 # Reasons the filter records when it overrules the model. Kept as constants so the audit record and
 # the tests agree on the wording an operator will read.
 FAIL_CLOSED_REASON = "the judge was unavailable or its answer was malformed; asking is the safe default"
+JUDGE_DOWN_PASSTHROUGH_REASON = (
+    "the judge was unavailable or its answer was malformed, but this operation is reversible "
+    "(git-recoverable) and at or below the judge-unavailable safe ceiling, so it runs and is "
+    "recorded for revert rather than deadlocking the run"
+)
 COLD_START_REASON = "no recorded experience yet, so no shape has precedent; asking is the safe default"
 NO_AUTHORITY_REASON = (
     "neither standing consent nor a matching precedent authorises skipping the ask, "
@@ -267,18 +272,28 @@ def apply_filter(
     max_score: int,
     ceiling: int,
     min_samples: int,
+    reversible: bool = False,
+    judge_down_ceiling: int = 0,
 ) -> Verdict:
-    """Turn a recommendation into a verdict — the FR-17..FR-21 grant filter (spec 011 D4).
+    """Turn a recommendation into a verdict — the FR-17..FR-21/FR-44 grant filter (spec 011 D4).
 
     Pure and synchronous by design: no model, no I/O, no clock. The model's recommendation enters
     only as ``recommendation``; the authority to honour it comes exclusively from the other
     arguments, none of which the model can set. Every path that is not an outright honour resolves
-    to ``ask`` — the filter has no failure mode that grants.
+    to ``ask`` — the filter has no failure mode that grants, save the one bounded passthrough of
+    FR-44, which fires *only* when the model is silent and never widens with anything the model said.
 
     A downgrade keeps the model's reasoning **verbatim** and appends why it was overruled: an
     operator auditing the record needs the judgment *and* the reason it did not stand (FR-16).
     """
     if recommendation is None:
+        # FR-44: a dead checker must not deadlock low-risk, git-recoverable work. A reversible-tier
+        # operation at or below the judge-unavailable ceiling auto-runs (recorded, revertible);
+        # approval-tier executable actions and anything above the ceiling still fail closed to ask.
+        if reversible and max_score <= judge_down_ceiling:
+            return Verdict(
+                decision="approve", reasoning=JUDGE_DOWN_PASSTHROUGH_REASON, source="filter"
+            )
         return Verdict(decision="ask", reasoning=FAIL_CLOSED_REASON, source="filter")
 
     # FR-20 cold start: with nothing recorded, no shape can have precedent, so nothing is
@@ -373,6 +388,10 @@ class Judge:
             max_score=report.max_score,
             ceiling=config.precedent_free_ceiling(),
             min_samples=config.precedent_min_samples(),
+            # FR-44: only a git-recoverable mutation may auto-run under a dead judge; an
+            # approval-tier executable action still waits for a human.
+            reversible=report.gating.operation.tier != "approval",
+            judge_down_ceiling=config.judge_unavailable_safe_ceiling(),
         )
 
     async def _recommend(self, report: RiskReport) -> Recommendation | None:
