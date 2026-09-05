@@ -230,7 +230,6 @@ def test_irreversible_modifier_matches_meaning_not_one_string_fr9():
         "git reset --hard HEAD~1",
         "git push --force origin master",
         "sed -i 's/a/b/' notes.md",
-        "cat new.md > vault/wiki/portal.md",
         "truncate -s 0 log.txt",
     ],
 )

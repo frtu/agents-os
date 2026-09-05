@@ -462,12 +462,20 @@ def _operation_for_tool(workspace_path: Path, tool_name: str, tool_input: dict) 
 
     tier, reversibility = _TOOL_EFFECTS.get(tool_name, ("reversible", "unknown undo path"))
     target = _tool_target(tool_name, tool_input)
-    external = tool_name == "Bash" and any(tok in target for tok in _EXTERNAL_SHELL_TOKENS)
+    # FR-45: classify the command, never the heredoc payload it writes.
+    classifiable = execution_gate.strip_heredocs(target) if tool_name == "Bash" else target
+    external = tool_name == "Bash" and (
+        any(tok in classifiable for tok in _EXTERNAL_SHELL_TOKENS)
+        or execution_gate.has_external_reach(classifiable)
+    )
 
     if tool_name == "Bash" and not external and execution_gate.is_read_only_shell(target):
         tier = "auto"
         reversibility = execution_gate.READ_ONLY_SHELL_REVERSIBILITY
     elif tool_name == "Bash" and not external and _confined_to_workspace(workspace_path, target):
+        # A real external call has no git undo, so `external` still short-circuits confinement. What
+        # FR-45 fixes is *what sets* `external`: a heredoc payload that merely mentions `curl` no
+        # longer does, so a page whose own prose names a tool keeps its git-covered undo path.
         reversibility = _GIT_COVERED
 
     if tier == "reversible" and tool_name in ("Write", "Edit", "NotebookEdit") and target:

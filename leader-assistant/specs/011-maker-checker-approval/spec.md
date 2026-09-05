@@ -176,6 +176,41 @@ be skipped next time.
   Safety is unchanged: an escaping token keeps the pessimistic declaration, and `DESTRUCTIVE_SHELL`
   and `EXTERNALLY_VISIBLE` still lift `rm -rf`, `sed -i` and `curl` to a gating score on their own.
 
+- **FR-45: A heredoc body is data, not command syntax, and MUST NOT be classified.** Before any
+  effect classification — read-only recognition (FR-39), path confinement (FR-42), external-token
+  detection (FR-5 `external`), destructive-token matching (FR-8) or effect-class fingerprinting
+  (FR-41) — layer 1 MUST strip every here-document body from the command, leaving the redirect
+  operator and delimiter. The body's *content* MUST NOT contribute to any score.
+  *Why:* the payload of `cat > page.md <<'EOF' … EOF` is the **page being written**, and it was
+  scanned as though it were shell. A source précis whose prose merely contained the word `curl`
+  set `external=True`, which in turn skipped FR-42's confinement branch and restored the
+  "not undone" wording — so a wiki page scored **5/5, above the FR-18 ceiling, because of a word in
+  its own text**. Measured: the identical write scored 4 with the body `body` and 5 with the body
+  `use curl to fetch, then rm the tmp`. Content-dependent scoring is not a description of an
+  operation's effect, so it also violates FR-9/P12. Safety is unchanged: the redirect target and
+  every program outside the body are still classified exactly as before.
+
+- **FR-46: Command splitting MUST be quote-aware.** When layer 1 splits a command into segments to
+  classify it, separators (`|`, `||`, `&&`, `;`, `&`) appearing inside single or double quotes MUST
+  NOT split it. *Why:* the splitter was a plain regex, so `grep -n "record\|precedent\|awaiting" f`
+  shattered into phantom segments — `precedent\`, `awaiting" f` — whose leading words are not
+  allowlisted programs. Under FR-39's deliberately pessimistic "unknown program means assume it
+  mutates", a **pure read** was therefore declared `reversible`, and with the FR-42 wording it
+  reached a gating score. Confirmed live: a read-only `grep` of one source file scored 5/5, and the
+  judge's own reasoning recorded the modifiers as "misclassifications of a read". Any grep
+  alternation, and any quoted `;`/`&`/`|`, is affected — which is most non-trivial inspection.
+
+- **FR-47: A flag's argument MUST NOT be mistaken for a subcommand.** When resolving a
+  conditionally-read-only program's subcommand (FR-39's `git` case), layer 1 MUST skip both the
+  flags and the **arguments those flags consume** (`git -C <path>`, `git -c <k>=<v>`,
+  `--git-dir <path>`). *Why:* the resolver took the first non-`-` token, so in
+  `git -C . status --porcelain` the subcommand read as `.` rather than `status`. `.` is not on the
+  read-only subcommand list, so the canonical way to inspect a workspace repo from outside it was
+  declared a mutation. This is the defect that gated the **first** operation of the 2026-09-02
+  ingest session — a read-only `git status` — and it silently degrades FR-41 fingerprints too,
+  since `effectful_programs` then reports `git` for a read, so repeated approvals of the same
+  intent never accumulate into FR-17 precedent.
+
 ### Layer 2 — workflow reporting (maker)
 
 - **FR-6:** Exactly one **workflow run** MUST be opened per user request, spanning the whole
@@ -214,6 +249,30 @@ be skipped next time.
   each still fires on its own, and breadth still fires for a sweep anywhere outside the store. This
   refines FR-40's guard, which reads the same declared tier and nothing else, so it stays FR-9
   compliant.
+- **FR-48: A redirect MUST be scored by where it lands, not by its syntax.** A file-creating or
+  truncating redirect MUST NOT count as a destructive token on its own. It MUST raise the score only
+  when the write is **not** covered by a git revert — i.e. when layer 1 declared the command as
+  escaping the repo (FR-42). *Why:* `DESTRUCTIVE_SHELL` matched a bare `>` at weight 2, which on the
+  `reversible` base of 2 put **every** heredoc write at exactly the gate threshold. Measured:
+  `cat > vault/wiki/sources/notes/X.md <<EOF` scored 4 — *identical to*
+  `rm -rf vault/wiki/concepts`, also 4 — while the same effect through `Write` scored 2 and ran. So
+  routine ingest could never score below the gate however small the batch, and the parity gap
+  between two doors to one mutation is a P9 violation. `>` describes transport, not effect, so
+  scoring it also violated FR-9/P12. Safety is preserved and sharpened: a redirect that escapes the
+  repo now scores 5 (base 2 + `IRREVERSIBLE_OUTSIDE_GIT` + `REDIRECT_ESCAPES_REPO`) where it
+  previously scored 3, and `rm`, `sed -i`, `truncate` and `git reset --hard` are untouched.
+
+- **FR-49: A paused run MUST still permit reads and the approval-request channel.** While a run is
+  `awaiting` a verdict, layer 2 MUST continue to permit `auto`-tier operations and MUST always
+  permit the capability by which approval is requested. Everything else stays refused (FR-12).
+  *Why:* the pause refused **every** announcement, including reads and `request_approval` itself, so
+  Constitution P8 v2.0.0's "MUST fail closed to asking" was unsatisfiable — the channel needed to
+  ask was shut by the same pause. FR-15's three outcomes (ask / auto-approve / decline) collapsed to
+  an undocumented fourth: hang. Observed four times in one session, twice on a pure read. An
+  `auto`-tier operation changes nothing by definition (FR-40 already relies on this), so permitting
+  it cannot widen the blast radius the operator is being asked about; refusing it only stops the
+  assistant from explaining what it is asking for.
+
 - **FR-10:** The justification MUST be one line stating the concrete effect and its undo path (e.g.
   "deletes 3 wiki pages; recoverable from the workspace git repo").
 - **FR-11:** Layer 2 MUST **accumulate**. When an operation's score reaches the gate threshold, the
@@ -247,7 +306,22 @@ be skipped next time.
 - **FR-20: Cold start.** With no experience records, every gated operation MUST resolve to `ask`,
   whatever the judge reasons.
 - **FR-21: Fail closed.** An unavailable, timed-out, or malformed judge response MUST resolve to
-  `ask`.
+  `ask`, **except** where the bounded passthrough of FR-44 applies.
+- **FR-44: A dead checker MUST NOT deadlock low-risk, recoverable work.** When FR-21's condition
+  holds — the judge is unavailable, timed out, or malformed, so no recommendation is produced — the
+  deterministic filter MUST auto-approve the gating operation **iff** it is **reversible-tier**
+  (git-recoverable; tier ≠ `approval`) **and** its score is at or below a data-declared
+  `judge_unavailable_safe_ceiling` (default = `gate`). Every other case — an `approval`-tier
+  executable action (`import_skill`, `create_workspace`), or any operation scoring above the ceiling
+  — MUST still resolve to `ask`. A passthrough MUST record source `filter` and MUST NOT establish
+  precedent (only operator decisions do, FR-30), so it is auditable and revertible but never
+  bootstraps its own authority. *Why:* FR-21 and FR-12 together let one flaky checker call brick a
+  whole turn, stranding even the trivially-reversible work a healthy judge would have waved through;
+  a reversible mutation is git-committed and revertible (FR-6), so running it under a dead checker
+  costs at most one `git revert`, while an executable approval-tier action — the reason the gate
+  exists — still waits for a human. The ceiling is rules-as-data (P12): setting it below `gate`
+  restores pure fail-closed. This is the deterministic filter's own rule (FR-17): the model cannot
+  reach it, because there is no model response when it fires.
 - **FR-22:** The judge MUST have **no execution capability** — no capability-layer access, no tools,
   no filesystem writes other than the experience store.
 
@@ -332,6 +406,46 @@ be skipped next time.
   modifiers, and keeps a genuinely dangerous one above the gate. The mapping is rules-as-data (P12)
   and still describes only the operation's own effect (FR-9): it references no trust mode, precedent
   or request wording. An operation with no declared level scores by FR-8 exactly as before.
+
+## Judge-unavailable deadlock escape — RATIFIED as FR-44 (2026-09-02)
+
+> **Status: approved and implemented.** The operator reviewed the pending proposal below and chose
+> the narrow, deterministic option: a bounded passthrough in the filter, not a circuit-breaker card.
+> The behaviour is now **FR-44** in the Functional Requirements above; this section keeps the defect
+> record and the reasoning behind the shape that was chosen.
+
+**The defect (observed 2026-09-02, session `e9858c0a3561`).** FR-21 (fail closed on an unavailable,
+timed-out, or malformed judge) is correct, and FR-12 (pause the whole run at the first gating
+operation) is correct — but *together* they can brick a turn with no operator escape hatch. In the
+observed run the judge returned one malformed response; FR-21 correctly resolved it to `ask`, FR-12
+paused the run, and every subsequent tool call — including read-only ones and even a fresh
+`request_approval` — was refused with "run paused awaiting a decision." Approving the card did not
+help, because the *next* operation hit the same failing judge and re-paused. The only recovery was
+to abandon the session. A single flaky checker call therefore denies all progress, including the
+read-only work that never needed the judge, and the operator has no in-turn way out.
+
+**Why it was not already covered.** FR-21 decides one operation's verdict; it said nothing about a
+*persistently* down checker. FR-12's global pause is a safety property (nothing runs past an
+unresolved gate) but had no escape. Trust mode does not help: FR-21 fails closed regardless of
+standing consent, by design.
+
+**What was chosen (FR-44).** An extra branch in the deterministic filter, taken only when the judge
+produced no recommendation: a **reversible-tier** operation at or below `judge_unavailable_safe_ceiling`
+auto-runs; everything else still asks. It is deliberately the *narrowest* of the options considered,
+and it lives in the filter (FR-17) rather than the concierge because the decision is data-only —
+tier and score, both already on the report — and the model cannot influence a branch that only fires
+when the model is silent. The safety line is the tier: a git-recoverable mutation under a dead
+checker costs at most one `git revert` (FR-6), whereas an `approval`-tier executable action — the
+reason the gate exists — still waits for a human. Because everything reaching the filter already
+scored ≥ `gate`, the default ceiling of `gate` means the passthrough fires only for the score-at-the-
+floor operations and still stops the score-above-floor ones.
+
+**Alternatives considered and declined.** (1) A **checker circuit-breaker card** after *N* fail-closed
+verdicts — richer, but it adds a new interaction kind and a new concierge state for a degraded mode
+that FR-44 already makes rare; deferred, not rejected. (2) Letting **`auto`-tier reads** bypass a
+dead judge — unnecessary once reads are declared `auto` (FR-39), because an `auto` operation never
+reaches the gate and so never reaches the judge at all; the scoring fixes of FR-39/FR-43 removed the
+misclassification that made this session's reads gate in the first place.
 
 ## Data & file contracts
 
@@ -495,7 +609,8 @@ only the effect table.
   to `ask` by deterministic code. (FR-17)
 - [x] **AC-9:** With an empty experience store every gated operation asks, regardless of judge
   output. (FR-20)
-- [x] **AC-10:** An unavailable or malformed judge response resolves to `ask`. (FR-21)
+- [x] **AC-10:** An unavailable or malformed judge response resolves to `ask` for an approval-tier or
+  above-ceiling operation; the FR-44 passthrough is the only exception. (FR-21, FR-44)
 - [x] **AC-11:** The judge cannot execute: it has no capability or tool access, and writes only the
   experience store. (FR-22)
 - [x] **AC-12:** After a repeated approval reaches the minimum sample count, the same shape completes
@@ -544,6 +659,14 @@ only the effect table.
   scores below `gate` no matter how many pages it touches — `BREADTH_MANY_TARGETS` never fires in the
   knowledge store — while the same count of targets under a non-store path (e.g. `docs/`) still fires
   breadth, and a write to `vault/wiki/log.md` still fires `SENSITIVE_TARGET`. (FR-43, D11)
+- [x] **AC-29:** With the judge unavailable/timed-out/malformed, a **reversible**-tier gating
+  operation scoring at or below `judge_unavailable_safe_ceiling` resolves to `approve` with source
+  `filter`, and the record establishes **no** precedent (a later healthy run with the same shape
+  still asks). (FR-44, FR-30)
+- [x] **AC-30:** With the judge unavailable, an `approval`-tier operation (`import_skill`,
+  `create_workspace`) still resolves to `ask`, and so does any reversible operation scoring **above**
+  the ceiling; setting `judge_unavailable_safe_ceiling` below `gate` restores pure fail-closed for
+  all operations. (FR-44, FR-21)
 
 ## Implementation note (follow-up, not this document)
 

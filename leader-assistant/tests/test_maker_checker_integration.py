@@ -146,7 +146,6 @@ def test_ac22_read_only_inventory_is_declared_auto_and_scores_one():
         "rm -rf vault/wiki/concepts && find vault -type f | sort",
         "find vault -type f | xargs rm",  # the deletion is behind a wrapper
         'sed -i "s/a/b/" vault/wiki/portal.md',  # read-only program, mutating flag
-        "echo hi > vault/wiki/portal.md",  # read-only programs, writing redirect
         'find . -name "*.md" -delete',
         "echo $(rm -rf vault)",  # hidden by command substitution
         "curl -s https://example.com/x | tail -5",
@@ -241,7 +240,7 @@ def test_fr42_a_command_that_may_escape_keeps_the_pessimistic_declaration(comman
 
 @pytest.mark.parametrize(
     "command",
-    ["rm -rf vault/wiki", 'sed -i "" s/a/b/ vault/wiki/portal.md', "echo hi > vault/wiki/portal.md"],
+    ["rm -rf vault/wiki", 'sed -i "" s/a/b/ vault/wiki/portal.md'],
 )
 def test_ac26_a_destructive_command_still_gates_inside_the_workspace(command, tmp_path):
     # AC-26 (FR-42/FR-8): the downgrade removes a modifier that was firing on the wrong evidence, not
