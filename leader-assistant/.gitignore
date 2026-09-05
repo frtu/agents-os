@@ -21,7 +21,7 @@ data/
 .claude/skills
 
 # Knowledge vaults (each is its own git repo)
-Vaults/
+Workspaces/.leader-experience.jsonl
 .tmp-vaults/
 
 # macOS
