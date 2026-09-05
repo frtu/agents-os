@@ -260,10 +260,36 @@ def test_breadth_fires_on_a_glob_or_three_targets_fr9():
     fired = lambda target: score_operation(  # noqa: E731
         op(kind="tool", name="Edit", target=target, tier="reversible")
     ).modifiers
-    assert "BREADTH_MANY_TARGETS" in fired("vault/wiki/concepts/*.md")
+    # Breadth fires outside the knowledge store; a glob or three targets under docs/ is a sweep.
+    assert "BREADTH_MANY_TARGETS" in fired("docs/concepts/*.md")
     assert "BREADTH_MANY_TARGETS" in fired("a/one.md b/two.md c/three.md")
     assert "BREADTH_MANY_TARGETS" not in fired("a/one.md b/two.md")
-    assert "BREADTH_MANY_TARGETS" not in fired("vault/wiki/portal.md")
+    assert "BREADTH_MANY_TARGETS" not in fired("docs/portal.md")
+
+
+def test_breadth_never_fires_in_the_knowledge_store_fr43():
+    """spec 011 FR-43 / D11 / AC-28: bulk writes into vault/wiki/ or vault/output/ are safe by design.
+
+    An ingest of many sources writes many pages because that is the job, not because it is running
+    wide. Breadth must not gate on page count in the store — but it still fires for any sweep that
+    escapes it, and a sensitive control file inside the store still disqualifies the exemption.
+    """
+    fired = lambda target: score_operation(  # noqa: E731
+        op(kind="tool", name="Write", target=target, tier="reversible")
+    ).modifiers
+    # A glob and seven targets inside the store: no breadth, however many pages.
+    assert "BREADTH_MANY_TARGETS" not in fired("vault/wiki/concepts/*.md")
+    assert "BREADTH_MANY_TARGETS" not in fired("vault/output/reports/*.md")
+    assert "BREADTH_MANY_TARGETS" not in fired(
+        "vault/wiki/a.md vault/wiki/b.md vault/wiki/c.md vault/wiki/d.md "
+        "vault/wiki/e.md vault/wiki/f.md vault/wiki/g.md"
+    )
+    # One target escaping the store re-arms breadth for the whole operation.
+    assert "BREADTH_MANY_TARGETS" in fired("vault/wiki/a.md vault/wiki/b.md docs/c.md")
+    # A sensitive control file inside the store is not exempt; breadth returns.
+    assert "BREADTH_MANY_TARGETS" in fired(
+        "vault/wiki/a.md vault/wiki/b.md vault/wiki/log.md"
+    )
 
 
 def test_sensitive_targets_fire_fr9():
@@ -297,7 +323,7 @@ def test_blast_radius_modifiers_do_not_fire_on_a_read_fr40_ac23(modifier):
     the FR-18 ceiling where no trust mode can clear it.
     """
     targets = {
-        "BREADTH_MANY_TARGETS": "vault/wiki/a.md vault/wiki/b.md vault/wiki/c.md",
+        "BREADTH_MANY_TARGETS": "docs/a.md docs/b.md docs/c.md",
         "SENSITIVE_TARGET": "vault/wiki/log.md",
     }
     target = targets[modifier]

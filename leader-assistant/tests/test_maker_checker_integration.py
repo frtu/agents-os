@@ -254,6 +254,81 @@ def test_ac26_a_destructive_command_still_gates_inside_the_workspace(command, tm
     assert scored.score >= config.gate_threshold(), command
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cd /Users/x/library/skills/second-brain-ingest && wc -l SKILL.md && sed -n '1,200p' SKILL.md",
+        "cd vault/wiki && ls -la && cat portal.md",
+    ],
+)
+def test_ac27_cd_then_reads_is_declared_auto_and_scores_one(command):
+    # AC-27 (FR-39): the session that motivated this stalled three times on `cd <path> && <reads>`.
+    # `cd` writes nothing, so it belongs on the read-only allowlist; without it the whole && chain
+    # kept the pessimistic `reversible` declaration and scored 5 via three false-positive modifiers.
+    from app import config
+
+    operation, scored = _declared(command)
+    assert operation.tier == "auto", command
+    assert operation.reversibility == "read-only — nothing to undo", command
+    assert scored.modifiers == (), command
+    assert scored.score == 1, command
+    assert scored.score < config.gate_threshold(), command
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "R=vault; find $R -type f | sort",
+        "R=/tmp/ws/vault; echo ===; find $R/wiki -type f | sed 's#.*/##' | sort | uniq",
+        "A=1 B=2; find vault -name '*.md' | sort",
+    ],
+)
+def test_ac27_assignment_prefixed_reads_are_declared_auto_and_score_one(command):
+    # AC-27 (FR-39): a second session stalled on read-only recon written as `R=<path>; find $R …`.
+    # The bare `R=<path>` segment named no program and was read as mutating, dragging the whole chain
+    # to `reversible` where IRREVERSIBLE_OUTSIDE_GIT + BREADTH scored it 4-5. A pure assignment sets
+    # shell state and writes nothing, so it is a read-only no-op.
+    from app import config
+
+    operation, scored = _declared(command)
+    assert operation.tier == "auto", command
+    assert scored.modifiers == (), command
+    assert scored.score == 1, command
+    assert scored.score < config.gate_threshold(), command
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["R=vault; rm -rf $R/wiki", "R=vault; echo hi > $R/x.md"],
+)
+def test_fr39_an_assignment_prefix_does_not_excuse_a_mutation(command):
+    # FR-39: recognition stays positive — the assignment no-op is read-only, but a real mutation
+    # behind it keeps the pessimistic declaration and reaches the gate.
+    from app import config
+
+    operation, scored = _declared(command)
+    assert operation.tier == "reversible", command
+    assert scored.score >= config.gate_threshold(), command
+
+
+def test_ac28_bulk_knowledge_store_write_never_gates_on_count(tmp_path):
+    # AC-28 (FR-43 / D11): an ingest writes one page per source by design, so breadth must not gate on
+    # page count in vault/wiki/. Seventeen targets or one, the write stays below the gate; the same
+    # count outside the store re-arms breadth and reaches it.
+    from app import agent, config, workflow
+
+    many = " ".join(f"vault/wiki/sources/docs/p{i}.md" for i in range(17))
+    store = agent._operation_for_tool(tmp_path, "Edit", {"file_path": many})
+    store_scored = workflow.score_operation(store)
+    assert "BREADTH_MANY_TARGETS" not in store_scored.modifiers
+    assert store_scored.score < config.gate_threshold()
+
+    outside = agent._operation_for_tool(
+        tmp_path, "Edit", {"file_path": "docs/a.md docs/b.md docs/c.md"}
+    )
+    assert "BREADTH_MANY_TARGETS" in workflow.score_operation(outside).modifiers
+
+
 def test_ac3_a_write_outside_the_workspace_is_escalated(isolated_workspace_root, tmp_path):
     # AC-3 + FR-8: the same tool, scored differently because the *effect* differs. The workspace git
     # repo is what makes a write reversible, and it does not reach outside its own root, so an

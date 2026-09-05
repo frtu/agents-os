@@ -199,6 +199,21 @@ be skipped next time.
   precedent-free ceiling, where no trust mode can clear it. This mirrors the guard
   `PRIVILEGE_GRANTING` already carries, and remains FR-9-compliant: the condition reads the declared
   tier of the operation in front of it and nothing else.
+- **FR-43: The knowledge store is a safe-by-design write target — breadth MUST NOT gate it.** When
+  every path-like target of a state-changing operation resolves inside the workspace's `vault/wiki/`
+  or `vault/output/` tree — and none of them is a sensitive control file (the FR-9 `SENSITIVE_TARGET`
+  set) — `BREADTH_MANY_TARGETS` MUST NOT fire, however many pages the operation touches. *Why:*
+  `vault/wiki/` is the LLM's own durable knowledge store and `vault/output/` its generated artifacts
+  (P1); writing to them in bulk is the sanctioned ingestion workflow, not the anomalous sweep breadth
+  exists to surface, and the whole blast radius is one `git revert` of the turn's commit (FR-42).
+  Breadth was only ever a proxy for "a change the operator wants to see before it lands"; a batch of
+  additive, git-covered pages in the very store the assistant exists to fill is not that — so an
+  ingest of seventeen sources must not gate on its own page count. Safety is unchanged elsewhere: a
+  target that escapes the store, a destructive verb (`DESTRUCTIVE_SHELL`), an external effect
+  (`EXTERNALLY_VISIBLE`), or a sensitive control file (`SENSITIVE_TARGET`, e.g. `vault/wiki/log.md`)
+  each still fires on its own, and breadth still fires for a sweep anywhere outside the store. This
+  refines FR-40's guard, which reads the same declared tier and nothing else, so it stays FR-9
+  compliant.
 - **FR-10:** The justification MUST be one line stating the concrete effect and its undo path (e.g.
   "deletes 3 wiki pages; recoverable from the workspace git repo").
 - **FR-11:** Layer 2 MUST **accumulate**. When an operation's score reaches the gate threshold, the
@@ -378,7 +393,19 @@ Permit      { allow: bool, reason? }
   every approval-tier action and every high-risk skill install. Zeroing `BREADTH_MANY_TARGETS` and
   `SENSITIVE_TARGET` in the weights file would work today but disarms them for *writes*, which is
   the only place they were ever meant to fire. Both remain available to an operator as hand tuning
-  (FR-32); neither is the design.
+  (FR-32); neither is the design. *(Refined by D11: `BREADTH_MANY_TARGETS` stays armed for writes
+  everywhere except the knowledge store — see FR-43.)*
+
+- **D11 — The knowledge store is exempt from breadth (FR-43).** D10 kept `BREADTH_MANY_TARGETS`
+  armed for writes because a sweep across many files is exactly what an operator wants to see before
+  it lands. But the one place the assistant writes in bulk *by design* is `vault/wiki/` (its own
+  durable knowledge store, P1) and `vault/output/` (its generated artifacts) — an ingest of
+  seventeen sources writes seventeen pages because that is the job, not because it is running wide.
+  So a state-changing operation whose path targets are *all* inside `vault/wiki/`/`vault/output/`,
+  none of them a sensitive control file (the FR-9 `SENSITIVE_TARGET` set — e.g. `vault/wiki/log.md`),
+  does not count as broad, however many pages it touches. This is narrower than zeroing the modifier
+  (D10's rejected shortcut): breadth still fires for any sweep that escapes the store, and every
+  other modifier still fires inside it.
 
 ## Constitution impact — APPLIED 2026-08-29 (constitution now 2.0.0)
 
@@ -509,6 +536,14 @@ only the effect table.
   equivalent `Write` and runs without consulting layer 3, while the same command naming a path
   outside the workspace keeps `IRREVERSIBLE_OUTSIDE_GIT`; `rm -rf` and `sed -i` inside the workspace
   still reach the gate on `DESTRUCTIVE_SHELL` alone. (FR-42, FR-8)
+- [x] **AC-27:** A `cd <path> && wc -l … && sed -n '1,200p' …` inspection is announced `auto` and
+  scores **1**, whether the path is inside or outside the workspace — `cd` writes nothing, so a chain
+  of reads behind it carries no `IRREVERSIBLE_OUTSIDE_GIT`/`PRIVILEGE_GRANTING`/`BREADTH`. (FR-39,
+  AC-22)
+- [x] **AC-28:** A single `Write`/`Edit`, or a bulk write, whose targets are all under `vault/wiki/`
+  scores below `gate` no matter how many pages it touches — `BREADTH_MANY_TARGETS` never fires in the
+  knowledge store — while the same count of targets under a non-store path (e.g. `docs/`) still fires
+  breadth, and a write to `vault/wiki/log.md` still fires `SENSITIVE_TARGET`. (FR-43, D11)
 
 ## Implementation note (follow-up, not this document)
 
@@ -595,3 +630,29 @@ not deleted.
   `tool:Bash:-delete` — a flag recorded where FR-41 requires an effect-bearing program. Leading flags
   are now dropped with leading assignments. Scoring was already correct (`DESTRUCTIVE_SHELL` matches
   the text); the defect was an unauditable entry in the append-only store.
+
+### FR-43 + `cd` read-only fix — recorded during implementation (2026-09-02)
+
+- **`cd`/`pushd`/`popd` are read-only and belong on the allowlist.** A session ingest paused three
+  times on read-only inspections shaped `cd <path> && wc -l … && sed -n '1,200p'` — each declared
+  `reversible` and scored 5/5 via `IRREVERSIBLE_OUTSIDE_GIT` + `PRIVILEGE_GRANTING` + `BREADTH`, above
+  the precedent-free ceiling, so the judge's *approve* could not stand. Root cause: `cd` was absent
+  from `READ_ONLY_PROGRAMS`, so its segment failed FR-39's positive test and the whole `&&` chain
+  kept the pessimistic `reversible` declaration even though every real segment only read. `cd`,
+  `pushd`, and `popd` change the shell's working directory and write nothing; adding them lets a
+  `cd X && <reads>` chain be recognised as `auto`. (FR-39)
+- **FR-43 makes the knowledge store's write breadth structurally safe, not luckily safe.** A bulk
+  `vault/wiki/` write already scored at most 3 today (below `gate` 4) — but only because no *second*
+  modifier happened to stack. The operator's guarantee is that ingest approval is independent of file
+  count, so `_many_targets` now returns `False` when every path target resolves inside
+  `vault/wiki/`/`vault/output/` and none is a `SENSITIVE_TARGET`. Seventeen pages or one, breadth
+  never fires in the store; it still fires for any sweep that escapes it. (FR-43, D11)
+- **A bare variable-assignment segment is a read-only no-op, not an unrecognised command.** A second
+  ingest session stalled the same way on read-only recon written as `R=<vault-path>; find $R … | sed
+  … | sort | uniq` — the operator's habit of assigning a long path to a variable first. The leading
+  `R=<path>;` segment names no program (assignments are environment, stripped before the program
+  scan), and a program-less segment was read as "assume it mutates", dragging the whole `;`/`&&`/`|`
+  chain from `auto` to `reversible` so `IRREVERSIBLE_OUTSIDE_GIT` + `BREADTH` scored it 4–5 and gated.
+  A pure `VAR=value` segment sets shell state and writes nothing (command substitution in the value
+  is already refused by the `_SUBSTITUTION` guard), so it is now recognised as read-only. Any
+  program-less segment that is *not* a pure assignment keeps the pessimistic declaration. (FR-39)

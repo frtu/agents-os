@@ -46,9 +46,10 @@ READ_ONLY_SHELL_REVERSIBILITY = "read-only — nothing to undo"
 # anything not listed is treated as mutating.
 READ_ONLY_PROGRAMS: frozenset[str] = frozenset(
     {
-        "awk", "basename", "cat", "cmp", "column", "cut", "diff", "dirname", "du", "echo", "file",
-        "find", "fold", "git", "grep", "head", "jq", "ls", "nl", "printf", "pwd", "readlink",
-        "realpath", "rg", "sed", "sort", "stat", "tail", "tr", "tree", "uniq", "wc", "yq",
+        "awk", "basename", "cat", "cd", "cmp", "column", "cut", "diff", "dirname", "du", "echo",
+        "file", "find", "fold", "git", "grep", "head", "jq", "ls", "nl", "popd", "printf", "pushd",
+        "pwd", "readlink", "realpath", "rg", "sed", "sort", "stat", "tail", "tr", "tree", "uniq",
+        "wc", "yq",
     }
 )
 
@@ -190,10 +191,23 @@ def _delegated_programs(tokens: list[str]) -> tuple[str, ...]:
     )
 
 
+def _is_pure_assignment(segment: str) -> bool:
+    """A segment that is only `VAR=value` assignments — it sets shell state and runs no program.
+
+    Command substitution (`R=$(rm x)`) is caught earlier by `is_read_only_shell`'s `_SUBSTITUTION`
+    guard, so what reaches here writes nothing to the filesystem and is a read-only no-op.
+    """
+    tokens = [t for t in segment.split() if t]
+    return bool(tokens) and all(_ASSIGNMENT.match(t) for t in tokens)
+
+
 def _segment_is_read_only(segment: str) -> bool:
     programs = _segment_programs(segment)
     if not programs:
-        return False
+        # A pure-assignment segment (`R=vault`) names no program because it *is* no program — a
+        # read-only no-op, not an unrecognised command. Any other program-less segment keeps the
+        # pessimistic answer.
+        return _is_pure_assignment(segment)
     # Delegation (FR-39): the payload decides, so the innermost program must read; anything it passed
     # through must be a transparent wrapper or a reading program that handed work on (`find -exec`).
     if programs[-1] not in READ_ONLY_PROGRAMS:

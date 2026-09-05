@@ -248,6 +248,28 @@ def _target_items(target: str) -> tuple[str, ...]:
     return tuple(t for t in tokens if t and _PATH_LIKE_RE.search(t))
 
 
+# The one place the assistant writes in bulk by design: its own durable knowledge store (P1) and its
+# generated artifacts. A write here is the job, not a sweep — see spec 011 FR-43 / D11.
+KNOWLEDGE_STORE_MARKERS: tuple[str, ...] = ("vault/wiki/", "vault/output/")
+
+
+def _confined_to_knowledge_store(operation: Operation) -> bool:
+    """True when every path-like target is inside vault/wiki/ or vault/output/ and none is sensitive.
+
+    Breadth exists to surface a sweep the operator did not ask for; a bulk ingest into the knowledge
+    store is exactly the sweep they did ask for, so it must not gate on page count (FR-43). Narrower
+    than zeroing the modifier: a single escaping path or a sensitive control file (e.g.
+    vault/wiki/log.md) disqualifies the whole operation, keeping breadth armed everywhere else.
+    """
+    target = _normalized_target(operation)
+    items = _target_items(target)
+    if not items:
+        return False
+    if any(marker in item for item in items for marker in SENSITIVE_TARGET_MARKERS):
+        return False
+    return all(any(marker in item for marker in KNOWLEDGE_STORE_MARKERS) for item in items)
+
+
 def _escapes_git(operation: Operation) -> bool:
     text = operation.reversibility.lower()
     return any(phrase in text for phrase in NO_GIT_UNDO_PHRASES)
@@ -280,6 +302,8 @@ def _changes_something(operation: Operation) -> bool:
 
 def _many_targets(operation: Operation) -> bool:
     if not _changes_something(operation):
+        return False
+    if _confined_to_knowledge_store(operation):
         return False
     target = _normalized_target(operation)
     if _GLOB_RE.search(target):
