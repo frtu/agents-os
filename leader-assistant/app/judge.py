@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from typing import Awaitable, Callable
 
 from . import config
-from .workflow import DECISIONS, RiskReport, Verdict
+from .workflow import DECISIONS, RiskReport, Verdict, control_mode_verdict
 
 # The model call is on the operator's critical path: a turn is paused while it runs. A judge that
 # hangs must degrade to a card, not to a spinner (FR-21).
@@ -40,7 +40,7 @@ JUDGE_TIMEOUT_SECONDS = 30.0
 # `source` values this module can produce. `filter` marks a verdict deterministic code chose over
 # the model's — the audit record needs to distinguish "the judge said ask" from "the judge was
 # overruled".
-SOURCES = ("judge", "trust", "precedent", "filter")
+SOURCES = ("judge", "trust", "precedent", "filter", "control-mode-off")
 
 
 class JudgeUnavailable(RuntimeError):
@@ -378,6 +378,12 @@ class Judge:
 
     async def review(self, report: RiskReport) -> Verdict:
         """Recommend with the model, then grant with code (spec 011 FR-15..FR-21)."""
+        # spec 013 FR-5: control mode off bypasses this layer entirely - no model call and no
+        # filter. Deliberately *before* ``_recommend`` so the LLM is neither paid for nor waited
+        # on: "turn off all LLM checks" must mean the call does not happen, not that its answer
+        # is discarded.
+        if not config.control_mode():
+            return control_mode_verdict()
         recommendation = await self._recommend(report)
         return apply_filter(
             recommendation,

@@ -438,6 +438,44 @@ def _confined_to_workspace(workspace_path: Path, command: str) -> bool:
     return True
 
 
+def _git_recoverable(command: str) -> bool:
+    """Does every path this command names sit inside some enclosing git repo (spec 011 FR-51)?
+
+    Broader than `_confined_to_workspace`: a write into any working tree with a `.git` ancestor —
+    the project repo included — is undone by that repo's `git revert`, not only the per-workspace one.
+    Deterministic, no shelling out: resolve each token and walk its parents for a `.git` entry.
+    Requires at least one resolvable path and **all** of them recoverable, matching FR-42's unanimous
+    rule; an unresolvable token (`~`, `$VAR`) counts as outside, the safer reading.
+    """
+    tokens = execution_gate.path_tokens(command)
+    if not tokens:
+        return False
+    for token in tokens:
+        if token.startswith("~") or token.startswith("$"):
+            return False
+        try:
+            resolved = Path(token).resolve()
+        except (OSError, ValueError):
+            return False
+        # A create names a path that does not exist yet; the enclosing dir is what must be in a repo.
+        start = resolved if resolved.exists() else resolved.parent
+        if not any((parent / ".git").exists() for parent in (start, *start.parents)):
+            return False
+    return True
+
+
+def _names_sensitive_target(command: str) -> bool:
+    """Does the command name a sensitive control file (spec 011 FR-51/FR-8)?
+
+    The FR-51 git-recoverable downgrade must not rescue a write to the ledger, the git database, the
+    operator's trust settings or the constitution: `SENSITIVE_TARGET` weighs only 1 and does not gate
+    on its own, so it relies on the pessimistic reversibility staying in place. Uses the execution
+    layer's shared marker list so layer 1 and layer 2 never drift.
+    """
+    target = execution_gate.strip_heredocs(command).replace("\\", "/")
+    return any(marker in target for marker in execution_gate.SENSITIVE_TARGET_MARKERS)
+
+
 def _operation_for_tool(workspace_path: Path, tool_name: str, tool_input: dict) -> Operation:
     """Describe a tool call as an announceable Operation (spec 011 FR-5).
 
@@ -469,13 +507,23 @@ def _operation_for_tool(workspace_path: Path, tool_name: str, tool_input: dict) 
         or execution_gate.has_external_reach(classifiable)
     )
 
-    if tool_name == "Bash" and not external and execution_gate.is_read_only_shell(target):
+    if tool_name == "Bash" and not external and execution_gate.is_safe_shell(target):
+        # Read-only (FR-39) or safe-create (FR-50, `mkdir`) — announced `auto`, so it never reaches
+        # the gate. `is_safe_shell` is the read-only set plus `mkdir`; a create has no content to
+        # revert, so the read-only reversibility wording is accurate enough.
         tier = "auto"
         reversibility = execution_gate.READ_ONLY_SHELL_REVERSIBILITY
-    elif tool_name == "Bash" and not external and _confined_to_workspace(workspace_path, target):
+    elif tool_name == "Bash" and not external and (
+        _confined_to_workspace(workspace_path, target)
+        or (_git_recoverable(target) and not _names_sensitive_target(target))
+    ):
         # A real external call has no git undo, so `external` still short-circuits confinement. What
         # FR-45 fixes is *what sets* `external`: a heredoc payload that merely mentions `curl` no
         # longer does, so a page whose own prose names a tool keeps its git-covered undo path.
+        # FR-51: a write into any enclosing git repo (e.g. `specs/` in the project repo, not just the
+        # workspace) is git-covered too, so spec authoring is `reversible`, not irreversible — but a
+        # SENSITIVE_TARGET (constitution, log, settings) keeps the pessimistic declaration so it still
+        # gates, since SENSITIVE_TARGET alone does not reach the threshold.
         reversibility = _GIT_COVERED
 
     if tier == "reversible" and tool_name in ("Write", "Edit", "NotebookEdit") and target:

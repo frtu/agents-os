@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Protocol, runtime_checkable
 
 from . import config
-from .execution_gate import ALLOW, Operation, Permit, strip_heredocs
+from .execution_gate import ALLOW, SENSITIVE_TARGET_MARKERS, Operation, Permit, strip_heredocs
 
 # Operation lifecycle on a run record (FR-7).
 STATUSES = ("pending", "executed", "declined", "not-reached")
@@ -128,6 +128,32 @@ class Verdict:
 
 ASK_DEFAULT_REASON = "no checker is installed; asking is the safe default"
 
+# --- control mode off: the operator's blanket standing consent (spec 013 FR-5) ---------
+#
+# Declared here because layer 2 owns ``Verdict``; layer 3 imports this rather than building its own,
+# which keeps FR-34's import direction intact (judge -> workflow -> config, never the reverse).
+
+CONTROL_MODE_OFF_SOURCE = "control-mode-off"
+CONTROL_MODE_OFF_REASON = (
+    "control mode is off (LEADER_CONTROL_MODE): the operator granted blanket standing consent for "
+    "this process, so no checker was consulted and no approval was raised; this operation was still "
+    "scored, recorded and committed, so it remains auditable and revertible"
+)
+
+
+def control_mode_verdict() -> Verdict:
+    """The bypass verdict (spec 013 FR-5).
+
+    ``source`` names the deciding party - the operator's process-level consent, not a checker and
+    not the agent - which is what Constitution P8 v2.1.0 requires the record to state.
+    """
+    return Verdict(
+        decision="approve",
+        reasoning=CONTROL_MODE_OFF_REASON,
+        confidence=1.0,
+        source=CONTROL_MODE_OFF_SOURCE,
+    )
+
 
 @runtime_checkable
 class Checker(Protocol):
@@ -144,6 +170,10 @@ class AskChecker:
     """
 
     async def review(self, report: RiskReport) -> Verdict:  # noqa: ARG002
+        # spec 013 FR-5: the bypass is *global*, so it must hold with layer 3 absent too -
+        # otherwise "skip every approval" would silently depend on a judge being installed.
+        if not config.control_mode():
+            return control_mode_verdict()
         return Verdict(decision="ask", reasoning=ASK_DEFAULT_REASON, source="default")
 
 
@@ -223,18 +253,6 @@ BREADTH_TARGET_THRESHOLD = 3
 
 _GLOB_RE = re.compile(r"[*?]|\[[^\]]+\]")
 _PATH_LIKE_RE = re.compile(r"/|\.[A-Za-z0-9]{1,6}$")
-
-# Targets whose corruption is not a normal revert: the ledger of what happened, the git database
-# that would do the reverting, the operator's own trust settings, and the constitution.
-SENSITIVE_TARGET_MARKERS: tuple[str, ...] = (
-    ".git/",
-    "vault/wiki/log.md",
-    ".leader-settings.json",
-    ".leader-experience.jsonl",
-    ".leader-risk-weights.json",
-    "memory/constitution.md",
-)
-
 
 def _normalized_target(operation: Operation) -> str:
     target = operation.target.replace("\\", "/").strip()

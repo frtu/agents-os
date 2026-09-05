@@ -195,3 +195,78 @@ def test_a_declined_run_refuses_everything_fr49_fr27():
     assert run.state == "declined"
     assert drive_sync(lambda: run.permit(_read())).allow is False
     assert drive_sync(lambda: run.permit(_approval_request())).allow is False
+
+
+# --- FR-50: mkdir and plain grep are safe, announced `auto` --------------------
+
+
+def test_plain_grep_is_auto_fr50(tmp_path):
+    assert execution_gate.is_safe_shell("grep -rn foo app/") is True
+    operation, scored = _bash(tmp_path, "grep -rn foo app/")
+    assert operation.tier == "auto"
+    assert scored.score < config.gate_threshold()
+
+
+def test_mkdir_is_auto_fr50(tmp_path):
+    # The control-mode session gated `mkdir -p specs/013-…`; a directory create is create-only.
+    assert execution_gate.is_safe_shell("mkdir -p specs/013-control-mode") is True
+    operation, scored = _bash(tmp_path, "mkdir -p specs/013-control-mode")
+    assert operation.tier == "auto"
+    assert "IRREVERSIBLE_OUTSIDE_GIT" not in scored.modifiers
+    assert scored.score < config.gate_threshold()
+
+
+def test_reads_chained_with_mkdir_are_auto_fr50(tmp_path):
+    command = "grep -n foo app/x.py && mkdir -p specs/013"
+    assert execution_gate.is_safe_shell(command) is True
+    operation, _ = _bash(tmp_path, command)
+    assert operation.tier == "auto"
+
+
+def test_mkdir_compound_with_destruction_still_gates_fr50(tmp_path):
+    # The per-segment all() rule: one mutating segment keeps the whole command off `auto`.
+    assert execution_gate.is_safe_shell("mkdir a && rm -rf b") is False
+    _, scored = _bash(tmp_path, "mkdir a && rm -rf b")
+    assert "DESTRUCTIVE_SHELL" in scored.modifiers
+    assert scored.score >= config.gate_threshold()
+
+
+# --- FR-51: any enclosing git repo is git-recoverable --------------------------
+
+
+def test_redirect_into_enclosing_git_is_reversible_fr51(tmp_path):
+    # A project-repo-style write: a `.git` ancestor, not the per-workspace root.
+    (tmp_path / ".git").mkdir()
+    repo_workspace = tmp_path / "some-workspace"  # unrelated workspace; confinement must NOT apply
+    repo_workspace.mkdir()
+    target = tmp_path / "specs" / "013" / "spec.md"
+    command = f"cat > {target} <<'EOF'\nhi\nEOF"
+    assert agent._git_recoverable(command) is True
+    operation = agent._operation_for_tool(repo_workspace, "Bash", {"command": command})
+    scored = score_operation(operation)
+    assert operation.tier == "reversible"
+    assert "IRREVERSIBLE_OUTSIDE_GIT" not in scored.modifiers
+    assert "REDIRECT_ESCAPES_REPO" not in scored.modifiers
+    assert scored.score < config.gate_threshold()
+
+
+def test_redirect_outside_any_git_still_gates_fr51(tmp_path):
+    # No `.git` ancestor anywhere above the target → pessimistic, still gates (FR-48 preserved).
+    target = tmp_path / "nogit" / "file.md"
+    command = f"cat > {target} <<'EOF'\nhi\nEOF"
+    assert agent._git_recoverable(command) is False
+    operation = agent._operation_for_tool(tmp_path / "ws", "Bash", {"command": command})
+    scored = score_operation(operation)
+    assert "IRREVERSIBLE_OUTSIDE_GIT" in scored.modifiers
+    assert scored.score >= config.gate_threshold()
+
+
+def test_a_sensitive_target_inside_a_repo_still_gates_fr51(tmp_path):
+    # git-recoverable is not a free pass: a control file still fires SENSITIVE_TARGET.
+    (tmp_path / ".git").mkdir()
+    target = tmp_path / "memory" / "constitution.md"
+    command = f"cat > {target} <<'EOF'\nhi\nEOF"
+    operation = agent._operation_for_tool(tmp_path / "ws", "Bash", {"command": command})
+    scored = score_operation(operation)
+    assert "SENSITIVE_TARGET" in scored.modifiers
+    assert scored.score >= config.gate_threshold()

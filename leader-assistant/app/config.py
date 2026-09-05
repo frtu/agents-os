@@ -9,6 +9,7 @@ Environment overrides:
 - LEADER_MCP_TOOL_BLACKLIST comma-separated agent MCP tool names to withhold
 - LEADER_AGENT_MODEL       Claude Agent SDK model selector (default: sonnet)
 - LEADER_SETTINGS_PATH     runtime settings file (default: <workspace root>/.leader-settings.json)
+- LEADER_CONTROL_MODE      global safety gate; `false` skips every approval + LLM check (default: true)
 """
 
 from __future__ import annotations
@@ -161,6 +162,45 @@ def set_auto_approve(value: bool) -> bool:
     data[_SETTINGS_AUTO_APPROVE_KEY] = bool(value)
     _write_settings(data)
     return bool(value)
+
+
+# --- control mode: the operator's global gate switch (spec 013 FR-1..FR-5) -------------
+#
+# The one knob that turns the whole maker-checker gate off. With control mode ON (the default) the
+# system behaves exactly as spec 011 describes. With it OFF the checker is never consulted and no
+# approval card is ever raised - every gating operation is granted directly.
+#
+# What control mode does NOT switch off (spec 013 FR-6, Constitution P8/P12): operations are still
+# **scored** by layer 2, still recorded on the run, still appended to `log.md`, still committed to
+# git, and still written to the experience store. The bypass removes the *ask*, never the *audit* -
+# an unauditable bypass would violate P8's "in all cases ... auditable and revertible" and P12's
+# "each evaluation is auditable in log.md".
+
+CONTROL_MODE_ENV = "LEADER_CONTROL_MODE"
+
+# Only these spellings turn control mode off. Everything else - a blank value, a typo, or a word
+# like "maybe" - leaves it ON, because the failure direction of a safety switch must be *safe*
+# (spec 013 FR-3). A misconfigured deployment gets more asking, never less.
+CONTROL_MODE_OFF_VALUES = frozenset({"false", "0", "no", "off", "disabled"})
+
+
+def control_mode() -> bool:
+    """Is the approval/checker gate enforced (spec 013 FR-1..FR-3)?
+
+    ``True`` (enforced) unless the operator explicitly set ``LEADER_CONTROL_MODE`` to one of
+    ``CONTROL_MODE_OFF_VALUES``. Read fresh on every call so a change applies process-wide without
+    a restart, and fail-safe: a missing, blank, or unrecognised value means ON (FR-3).
+
+    **Env-only, deliberately** (spec 013 FR-4). Unlike ``auto_approve``, this is not persisted in
+    the settings file and has no REST route, so nothing reachable at runtime - no API call, no UI
+    control, and no agent tool - can flip it. Disabling the gate requires operator access to the
+    process environment, which is the point: the agent must not be able to switch off the control
+    that governs it (Constitution P8 - the maker never grants its own approval).
+    """
+    raw = os.getenv(CONTROL_MODE_ENV)
+    if raw is None:
+        return True
+    return raw.strip().lower() not in CONTROL_MODE_OFF_VALUES
 
 
 DEFAULT_INTERACTION_TIMEOUT = 30

@@ -53,6 +53,26 @@ READ_ONLY_PROGRAMS: frozenset[str] = frozenset(
     }
 )
 
+# Programs that mutate but only ever **create** — never overwrite or delete an existing path — so the
+# whole blast radius is an empty directory an `rmdir` undoes (spec 011 FR-50). Kept separate from
+# READ_ONLY_PROGRAMS on purpose: `mkdir` is not read-only, and `effectful_programs` (FR-41) must keep
+# reporting it when it rides in a mutating command. Only `is_safe_shell` admits it; the strict
+# `is_read_only_shell` never does.
+SAFE_MUTATING_PROGRAMS: frozenset[str] = frozenset({"mkdir"})
+
+# Targets whose corruption is not a normal revert: the ledger of what happened, the git database that
+# would do the reverting, the operator's own trust settings, and the constitution. Declared here in
+# the execution layer (FR-34) so both agent.py (layer 1) and workflow.py (layer 2) can name a
+# sensitive target without crossing a layer boundary.
+SENSITIVE_TARGET_MARKERS: tuple[str, ...] = (
+    ".git/",
+    "vault/wiki/log.md",
+    ".leader-settings.json",
+    ".leader-experience.jsonl",
+    ".leader-risk-weights.json",
+    "memory/constitution.md",
+)
+
 # Programs whose argument *is* another command, so their own name says nothing about the effect
 # (`find . | xargs rm`). The effect is the payload's, so these are unwrapped before classifying.
 COMMAND_WRAPPERS: frozenset[str] = frozenset(
@@ -179,13 +199,27 @@ def is_read_only_shell(command: str) -> bool:
     quoted ``>`` inside an awk program reads as a redirect and costs the command its `auto` tier —
     that over-firing is the intended direction.
     """
+    return _all_segments_recognised(command, READ_ONLY_PROGRAMS)
+
+
+def is_safe_shell(command: str) -> bool:
+    """Is every part of ``command`` either read-only or a safe create (spec 011 FR-50)?
+
+    Broader than ``is_read_only_shell`` by exactly ``SAFE_MUTATING_PROGRAMS`` (`mkdir`): a command
+    built only from reads and directory-creates is announceable ``auto``. The per-segment ``all()``
+    rule is unchanged, so `mkdir a && rm -rf b` is not safe — the `rm` segment fails recognition.
+    """
+    return _all_segments_recognised(command, READ_ONLY_PROGRAMS | SAFE_MUTATING_PROGRAMS)
+
+
+def _all_segments_recognised(command: str, allowed: frozenset[str]) -> bool:
     if not (command or "").strip():
         return False
     stripped = _STREAM_REDIRECT.sub("", strip_heredocs(command))
     if _FILE_REDIRECT.search(stripped) or _SUBSTITUTION.search(stripped):
         return False
     segments = _segments(stripped)
-    return bool(segments) and all(_segment_is_read_only(s) for s in segments)
+    return bool(segments) and all(_segment_is_read_only(s, allowed) for s in segments)
 
 
 def _segments(command: str) -> tuple[str, ...]:
@@ -290,7 +324,12 @@ def has_external_reach(command: str) -> bool:
     return False
 
 
-def _segment_is_read_only(segment: str) -> bool:
+def _segment_is_read_only(segment: str, allowed: frozenset[str] = READ_ONLY_PROGRAMS) -> bool:
+    """Recognise a single segment against ``allowed`` (spec 011 FR-39/FR-50).
+
+    ``allowed`` defaults to the strict read-only set, so ``effectful_programs`` keeps its exact
+    fingerprinting semantics; ``is_safe_shell`` passes the read-only set plus ``mkdir``.
+    """
     programs = _segment_programs(segment)
     if not programs:
         # A pure-assignment segment (`R=vault`) names no program because it *is* no program — a
@@ -299,7 +338,7 @@ def _segment_is_read_only(segment: str) -> bool:
         return _is_pure_assignment(segment)
     # Delegation (FR-39): the payload decides, so the innermost program must read; anything it passed
     # through must be a transparent wrapper or a reading program that handed work on (`find -exec`).
-    if programs[-1] not in READ_ONLY_PROGRAMS:
+    if programs[-1] not in allowed:
         return False
     if any(p not in _TRANSPARENT_WRAPPERS and p not in READ_ONLY_PROGRAMS for p in programs[:-1]):
         return False

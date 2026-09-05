@@ -273,6 +273,37 @@ be skipped next time.
   it cannot widen the blast radius the operator is being asked about; refusing it only stops the
   assistant from explaining what it is asking for.
 
+- **FR-50: A directory-creating command MUST be recognised as safe and announced `auto`.** Layer 1
+  MUST hold a **data-declared safe-mutation allowlist** — distinct from the read-only allowlist
+  (FR-39) — whose sole member is `mkdir`. A command whose every segment invokes a program that is
+  either read-only (FR-39) or on the safe-mutation allowlist, and which is otherwise recognised as
+  read-only (no file-redirect, no substitution, quote-aware split of FR-46), MUST be announced tier
+  `auto`. *Why:* `mkdir` only ever **creates** directories — it never overwrites or deletes an
+  existing path — so its blast radius is a single empty directory that `rmdir` undoes, yet it was not
+  on any allowlist and so declared pessimistically `reversible` and, off the workspace root, also
+  fired `IRREVERSIBLE_OUTSIDE_GIT`: `mkdir -p specs/013-…` scored to the gate in the 2026-09-03
+  control-mode session. It is a **separate** list, not an addition to FR-39's, because `mkdir` is not
+  read-only and `effectful_programs` (FR-41) must keep reporting it when it appears in a mutating
+  command. The per-segment `all()` rule is unchanged, so `mkdir a && rm -rf b` is **not** safe — the
+  `rm` segment keeps the command off `auto` and `DESTRUCTIVE_SHELL` still gates it. The operator
+  elected `auto` (no `log.md` audit) for `mkdir` explicitly; a directory create carries no content to
+  review or revert.
+
+- **FR-51: Reversibility MUST recognise any enclosing git working tree, not only the workspace
+  root.** FR-42 downgrades a command to git-covered only when its paths resolve under the *workspace*
+  root; layer 1 MUST also treat a mutation as git-covered when **every** path-like token resolves
+  inside a directory tree that contains a `.git` entry — i.e. the write is recoverable by *some* git
+  repo, such as the enclosing project repo. When so, it MUST announce the same reversibility an
+  equivalent `Write`/`Edit` gets (the turn's commit is the undo). A token with no enclosing `.git`,
+  an unresolvable token (`~`, `$VAR`), or a `SENSITIVE_TARGET` (FR-8) MUST keep the pessimistic
+  declaration and gate. *Why:* spec authoring writes into `specs/` in the **parent project repo**,
+  which the workspace-only confinement of FR-42 does not recognise, so `cat > specs/013-…/spec.md`
+  fired `IRREVERSIBLE_OUTSIDE_GIT` + `REDIRECT_ESCAPES_REPO` and scored 5/5 despite being one
+  `git revert` away from undone. Safety is preserved and sharpened: a redirect with no enclosing repo
+  (`cat > /etc/hosts`, `cat > ~/.zshrc`) still scores 5 and gates (FR-48 unchanged), and a sensitive
+  control file (`memory/constitution.md`, `vault/wiki/log.md`, `.leader-settings.json`) still gates
+  on `SENSITIVE_TARGET` even when it sits inside a repo.
+
 - **FR-10:** The justification MUST be one line stating the concrete effect and its undo path (e.g.
   "deletes 3 wiki pages; recoverable from the workspace git repo").
 - **FR-11:** Layer 2 MUST **accumulate**. When an operation's score reaches the gate threshold, the
@@ -672,6 +703,16 @@ only the effect table.
   `create_workspace`) still resolves to `ask`, and so does any reversible operation scoring **above**
   the ceiling; setting `judge_unavailable_safe_ceiling` below `gate` restores pure fail-closed for
   all operations. (FR-44, FR-21)
+- [x] **AC-31:** `mkdir -p <path>` — and a chain of reads plus `mkdir` (`grep … && mkdir -p …`) — is
+  announced `auto`, scores **1**, and runs with no card, whether the path is inside or outside the
+  workspace; a plain `grep`/`ls` inventory is likewise `auto`. But `mkdir a && rm -rf b` is **not**
+  `auto`: the `rm` segment keeps it off the safe list and `DESTRUCTIVE_SHELL` still gates it.
+  (FR-50, FR-39, FR-46)
+- [x] **AC-32:** A file-creating redirect whose target resolves inside an enclosing git repo — e.g.
+  `cat > specs/013-…/spec.md` in the project repo — is declared git-covered, scores below `gate`,
+  and carries no `IRREVERSIBLE_OUTSIDE_GIT`/`REDIRECT_ESCAPES_REPO`; the same redirect with no
+  enclosing repo (`cat > /etc/hosts`) still scores **5** and gates, and one into a `SENSITIVE_TARGET`
+  inside a repo still gates. (FR-51, FR-48, FR-8)
 
 ## Implementation note (follow-up, not this document)
 

@@ -208,13 +208,14 @@ def test_ac25_a_delegated_mutation_is_not_excused_by_its_wrapper(command):
 
 
 def test_ac26_a_shell_write_inside_the_workspace_is_priced_like_a_write(tmp_path):
-    # AC-26 (FR-42): the run this fixed stalled on exactly this `mkdir -p`. The blanket `Bash`
-    # reversibility says "effects outside the repo are not undone", which `_escapes_git` matches on
-    # text, so a scaffold creation scored 4 and gated while the same effect via `Write` scored 2.
+    # AC-26 (FR-42): a shell mutation confined to the workspace must carry the same git-covered undo
+    # path as `Write`, not the blanket "effects outside the repo are not undone" that `_escapes_git`
+    # matches on text — otherwise the same effect scores 4 (gates) via a redirect and 2 via `Write`.
+    # (`mkdir` moved to FR-50 `auto`, so this pins the general redirect-write case instead.)
     from app import agent, config, workflow
 
-    scaffold = "mkdir -p vault/wiki/concepts vault/wiki/resources vault/wiki/synthesis"
-    shell = agent._operation_for_tool(tmp_path, "Bash", {"command": scaffold})
+    redirect = "cat > vault/wiki/concepts/a.md <<'EOF'\nhi\nEOF"
+    shell = agent._operation_for_tool(tmp_path, "Bash", {"command": redirect})
     written = agent._operation_for_tool(tmp_path, "Write", {"file_path": "vault/wiki/concepts/a.md"})
 
     assert shell.reversibility == written.reversibility
@@ -225,13 +226,14 @@ def test_ac26_a_shell_write_inside_the_workspace_is_priced_like_a_write(tmp_path
 @pytest.mark.parametrize(
     "command",
     [
-        "mkdir -p /tmp/elsewhere vault/wiki/x",  # one escaping token is enough
-        "mkdir -p ~/elsewhere",  # unresolvable, so treated as outside
+        "cp vault/wiki/x /tmp/elsewhere/x",  # one escaping token is enough
+        "cat > ~/elsewhere <<'EOF'\nhi\nEOF",  # unresolvable, so treated as outside
         'git commit -m "ingest"',  # names no path, so it earns no downgrade by saying nothing
     ],
 )
 def test_fr42_a_command_that_may_escape_keeps_the_pessimistic_declaration(command, tmp_path):
     # FR-42: confinement must be *proven* for every token, never inferred from the absence of one.
+    # (Uses non-`mkdir` mutations, since `mkdir` is now FR-50 `auto` regardless of path.)
     from app import agent, workflow
 
     operation = agent._operation_for_tool(tmp_path, "Bash", {"command": command})

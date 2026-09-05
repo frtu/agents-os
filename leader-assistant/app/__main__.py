@@ -13,6 +13,17 @@ import os
 
 import uvicorn
 
+# Support both `python -m app` / the console script (package context) and a direct
+# `python app/__main__.py` run, which has no parent package for a relative import.
+if __package__:
+    from . import config
+else:
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from app import config
+
 
 def main() -> None:
     host = os.getenv("LEADER_HOST", "127.0.0.1")
@@ -32,6 +43,16 @@ def main() -> None:
         "\n"
         "  Press Ctrl+C to stop.\n"
     )
+    # spec 013 FR-7: a disabled gate must never be silent. An operator who forgot the flag is
+    # set in `.env` would otherwise get an unguarded process that looks exactly like a guarded one.
+    if not config.control_mode():
+        banner += (
+            "  !!  CONTROL MODE OFF - every approval and risk check is bypassed.\n"
+            "      Operations are still scored, logged to log.md and git-committed;\n"
+            "      nothing will be asked. Set LEADER_CONTROL_MODE=true to restore the gate.\n"
+            "\n"
+        )
+
     print(banner, flush=True)
 
     uvicorn.run("app.api:app", host=host, port=port, log_level="info")
