@@ -1,5 +1,5 @@
 ---
-id: 202608132112-17
+id: 202608152112-17
 title: Observability — Portal, Log & Health
 spec: 17-observability
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[05-zettelkasten]]"
   - "[[11-git-workflow]]"
   - "[[16-workflows]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Observability — Portal, Log & Health

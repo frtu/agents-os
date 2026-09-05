@@ -1,5 +1,5 @@
 ---
-id: 202608132112-10
+id: 202608152112-10
 title: Risk Engine
 spec: 10-risk-engine
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[08-specification-lifecycle]]"
   - "[[11-git-workflow]]"
   - "[[01-principles]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Risk Engine

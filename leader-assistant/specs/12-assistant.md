@@ -1,5 +1,5 @@
 ---
-id: 202608132112-12
+id: 202608152112-12
 title: Assistant Architecture
 spec: 12-assistant
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[07-specification-model]]"
   - "[[10-risk-engine]]"
   - "[[13-api]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Assistant Architecture

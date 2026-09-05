@@ -3,7 +3,7 @@
 **Feature ID:** `011-maker-checker-approval`
 **Status:** Implemented — governance amendments applied; three layers, concierge and experience store
 landed, AC-1…AC-20 and AC-22…AC-24 covered by tests (see *Deviations recorded during implementation*)
-**Created:** 2026-08-29 · **Last Updated:** 2026-09-01
+**Created:** 2026-08-29 · **Last Updated:** 2026-09-05
 
 > Describes **what** and **why**. Replaces the single-function approval gate with a **maker–checker**
 > architecture of **three independent layers** — an **execution** layer that only does work, a

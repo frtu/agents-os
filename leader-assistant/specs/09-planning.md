@@ -1,5 +1,5 @@
 ---
-id: 202608132112-09
+id: 202608152112-09
 title: Planning-First Interaction & Clarification
 spec: 09-planning
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[07-specification-model]]"
   - "[[10-risk-engine]]"
   - "[[16-workflows]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Planning-First Interaction & Clarification

@@ -1,5 +1,5 @@
 ---
-id: 202608132112-15
+id: 202608152112-15
 title: External Integrations & Output Feedback
 spec: 15-integrations
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[09-planning]]"
   - "[[13-api]]"
   - "[[16-workflows]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # External Integrations & Output Feedback

@@ -1,5 +1,5 @@
 ---
-id: 202608132112-03
+id: 202608152112-03
 title: Workspace
 spec: 03-vault
 layer: moc
@@ -15,7 +15,7 @@ related:
   - "[[04-knowledge-ingestion]]"
   - "[[05-zettelkasten]]"
   - "[[11-git-workflow]]"
-Created: 2026-08-13
+Created: 2026-08-15
 Last Updated: 2026-08-16
 ---
 

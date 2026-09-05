@@ -1,5 +1,5 @@
 ---
-id: 202608132112-19
+id: 202608152112-19
 title: Non-Functional Requirements
 spec: 19-non-functional
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[03-workspace]]"
   - "[[17-observability]]"
   - "[[20-testing]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Non-Functional Requirements

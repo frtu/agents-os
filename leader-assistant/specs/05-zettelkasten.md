@@ -1,5 +1,5 @@
 ---
-id: 202608132112-05
+id: 202608152112-05
 title: Zettelkasten Knowledge Management
 spec: 05-zettelkasten
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[04-knowledge-ingestion]]"
   - "[[07-specification-model]]"
   - "[[17-observability]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Zettelkasten Knowledge Management

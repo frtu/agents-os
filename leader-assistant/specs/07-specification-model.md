@@ -1,5 +1,5 @@
 ---
-id: 202608132112-07
+id: 202608152112-07
 title: Specification Model
 spec: 07-specification-model
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[05-zettelkasten]]"
   - "[[08-specification-lifecycle]]"
   - "[[09-planning]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Specification Model

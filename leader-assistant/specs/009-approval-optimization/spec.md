@@ -2,7 +2,7 @@
 
 **Feature ID:** `009-approval-optimization`
 **Status:** Implemented
-**Created:** 2026-08-27 · **Last Updated:** 2026-08-27
+**Created:** 2026-08-29 · **Last Updated:** 2026-08-29
 
 > Describes **what** and **why**. Reworks the human-in-the-loop model so the assistant is **fast and
 > low-friction** — it **asks only when it truly matters**, never blocks on the *words* in a request,

@@ -122,6 +122,9 @@ develop-eggs/
 # Installer logs
 pip-log.txt
 
+# coding & execution env state
+leader-assistant/.claude/skills
+
 # Unit test / coverage reports
 .coverage
 .tox

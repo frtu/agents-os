@@ -1,5 +1,5 @@
 ---
-id: 202608132112-20
+id: 202608152112-20
 title: Testing & Acceptance
 spec: 20-testing
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[04-knowledge-ingestion]]"
   - "[[10-risk-engine]]"
   - "[[16-workflows]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Testing & Acceptance

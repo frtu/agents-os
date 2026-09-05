@@ -1,5 +1,5 @@
 ---
-id: 202608132112-01
+id: 202608152112-01
 title: Product Principles & Core Invariants
 spec: 01-principles
 layer: core
@@ -15,8 +15,8 @@ related:
   - "[[03-workspace]]"
   - "[[05-zettelkasten]]"
   - "[[10-risk-engine]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Product Principles & Core Invariants

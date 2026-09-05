@@ -1,5 +1,5 @@
 ---
-id: 202608132112-04
+id: 202608152112-04
 title: Knowledge Ingestion
 spec: 04-knowledge-ingestion
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[05-zettelkasten]]"
   - "[[10-risk-engine]]"
   - "[[11-git-workflow]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Knowledge Ingestion

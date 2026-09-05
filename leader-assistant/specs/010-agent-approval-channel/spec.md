@@ -2,7 +2,7 @@
 
 **Feature ID:** `010-agent-approval-channel`
 **Status:** Implemented
-**Created:** 2026-08-28 · **Last Updated:** 2026-08-28
+**Created:** 2026-08-29 · **Last Updated:** 2026-08-29
 
 > Describes **what** and **why**. Gives the agent a **structured way to ask** for consent, while
 > keeping the **granting** of consent deterministic and human-owned. Trust mode

@@ -1,5 +1,5 @@
 ---
-id: 202608132112-02
+id: 202608152112-02
 title: Domain Model
 spec: 02-domain-model
 layer: core
@@ -15,8 +15,8 @@ related:
   - "[[03-workspace]]"
   - "[[05-zettelkasten]]"
   - "[[07-specification-model]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Domain Model

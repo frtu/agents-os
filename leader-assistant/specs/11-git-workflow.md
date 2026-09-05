@@ -1,5 +1,5 @@
 ---
-id: 202608132112-11
+id: 202608152112-11
 title: Git Workflow
 spec: 11-git-workflow
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[10-risk-engine]]"
   - "[[08-specification-lifecycle]]"
   - "[[17-observability]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Git Workflow

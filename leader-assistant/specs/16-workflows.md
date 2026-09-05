@@ -1,5 +1,5 @@
 ---
-id: 202608132112-16
+id: 202608152112-16
 title: Workflows & Knowledge Operations
 spec: 16-workflows
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[06-conversations]]"
   - "[[07-specification-model]]"
   - "[[17-observability]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Workflows & Knowledge Operations

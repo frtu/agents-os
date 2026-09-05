@@ -1,5 +1,5 @@
 ---
-id: 202608132112-14
+id: 202608152112-14
 title: Chat Interface
 spec: 14-chat
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[06-conversations]]"
   - "[[09-planning]]"
   - "[[12-assistant]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Chat Interface

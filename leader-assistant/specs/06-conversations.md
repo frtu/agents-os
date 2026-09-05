@@ -1,5 +1,5 @@
 ---
-id: 202608132112-06
+id: 202608152112-06
 title: Conversation Capture & Dreaming
 spec: 06-conversations
 layer: moc
@@ -15,8 +15,8 @@ related:
   - "[[04-knowledge-ingestion]]"
   - "[[05-zettelkasten]]"
   - "[[16-workflows]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Conversation Capture & Dreaming

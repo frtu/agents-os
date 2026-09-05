@@ -2,7 +2,7 @@
 
 **Feature ID:** `006-mcp-capability-tools`
 **Status:** Draft
-**Created:** 2026-08-17 · **Last Updated:** 2026-08-22
+**Created:** 2026-08-16 · **Last Updated:** 2026-08-22
 
 > **Superseded in part by [[007-knowledge-activities]] (2026-08-22).** The `ingest` MCP tool
 > (originally FR-4/AC-1/AC-5/Scenario-3/D1 below) is **removed**: ingest is no longer a narrow

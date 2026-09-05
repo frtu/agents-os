@@ -1,5 +1,5 @@
 ---
-id: 202608132112-00
+id: 202608152112-00
 title: Product Vision
 spec: 00-product-vision
 layer: core
@@ -15,8 +15,8 @@ related:
   - "[[02-domain-model]]"
   - "[[07-specification-model]]"
   - "[[12-assistant]]"
-Created: 2026-08-13
-Last Updated: 2026-08-13
+Created: 2026-08-15
+Last Updated: 2026-08-15
 ---
 
 # Product Vision
