@@ -26,6 +26,10 @@ else:
 
 
 def main() -> None:
+    # Load repo-root .env before reading any config so operators can set LEADER_* there
+    # (spec 03-workspace §0). override=False keeps a real shell/CLI value winning.
+    config.load_env_file()
+
     host = os.getenv("LEADER_HOST", "127.0.0.1")
     port = int(os.getenv("LEADER_PORT", "8000"))
     display_host = "localhost" if host in ("0.0.0.0", "127.0.0.1") else host

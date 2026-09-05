@@ -1,5 +1,8 @@
 """Configuration + workspace resolution (spec 03-workspace §0, Constitution P13).
 
+Any of the variables below may be set in a repo-root `.env` file, loaded once at startup by
+``load_env_file`` (called from ``app/__main__.py``); a real shell/CLI value always wins.
+
 Environment overrides:
 - LEADER_WORKSPACE_PATH    explicit single-workspace path (wins over root/selector)
 - LEADER_WORKSPACE_ROOT    root directory holding Workspaces/<name>/ (default: ./Workspaces)
@@ -20,6 +23,29 @@ from pathlib import Path
 
 DEFAULT_ROOT = "Workspaces"
 DEFAULT_WORKSPACE_NAME = "_default_"
+
+
+def repo_root() -> Path:
+    """Repo root (the directory holding this package), where `.env` lives."""
+    return Path(__file__).resolve().parent.parent
+
+
+def load_env_file(path: Path | None = None, *, override: bool = False) -> Path | None:
+    """Load `LEADER_*` (and any) vars from a `.env` file (spec 03-workspace §0).
+
+    Called once at process startup (``app/__main__.py``), never at import time — so the test
+    suite, which imports this module directly, is unaffected by a developer's `.env`. Defaults
+    to the repo-root `.env`. ``override=False`` keeps a real shell/CLI environment value winning
+    over the file, making `.env` a convenience default the operator can override. Returns the
+    path loaded, or ``None`` if no file was found.
+    """
+    from dotenv import load_dotenv
+
+    env_path = path or (repo_root() / ".env")
+    if not env_path.is_file():
+        return None
+    load_dotenv(env_path, override=override)
+    return env_path
 
 # Agent MCP tools withheld by default (spec 006 FR-1): the chat surface (recursion),
 # the human-only raw upload channel (P2), and cross-workspace creation.

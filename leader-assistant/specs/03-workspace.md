@@ -47,9 +47,12 @@ The assistant supports **multiple workspaces** under a configurable root:
 
 - Default root `Workspaces/`; each workspace at `Workspaces/<workspace-name>/`.
 - A `_default_` workspace is created by default when no selector is supplied.
-- Overridable via environment: `LEADER_WORKSPACE_ROOT` (root dir), `LEADER_WORKSPACE_PATH`
-  (explicit single-workspace path), `LEADER_DEFAULT_WORKSPACE` (default selector, default value
-  `_default_`).
+- Overridable via environment: `LEADER_WORKSPACE_ROOT` (root dir, default `./Workspaces`),
+  `LEADER_WORKSPACE_PATH` (explicit single-workspace path), `LEADER_DEFAULT_WORKSPACE` (default
+  selector, default value `_default_`).
+- Any `LEADER_*` variable may be set in a repo-root `.env` file, loaded once at process
+  startup (`app/__main__.py`). A real shell/CLI environment value always wins over `.env`
+  (loaded with `override=False`), so `.env` is a convenience default an operator can override.
 - Every capability resolves a target workspace from an explicit selector, or the configured
   default when omitted ([[13-api]], [[14-chat]]).
 - All durable state for a workspace stays inside that workspace. **Output templates are the
