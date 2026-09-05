@@ -3,37 +3,36 @@
 
 set -e
 
-SKILLS_LIB_DIR="${1:-../../../skills}"
-if [[ ! -d "$SKILLS_LIB_DIR" ]]; then
-    echo "Error: Skill library dir '$SKILLS_LIB_DIR' doesn't exist." >&2
-    exit 1
-fi
-
-LINK_SKILLS="${SKILLS_LIB_DIR}/link-skills.sh"
-
 # Default configuration
-TARGET_DIR="${2:-./skills}"
+SKILLS_LIB_DIR="../../../skills"
+TARGET_DIR="./skills"
 
 usage() {
     cat <<EOF
 Usage: $0 [OPTIONS]
 
 Options:
-    -t, --target DIR    Target skills directory (default: ~/.claude/skills)
-    --help              Show this help message
+    -s, --skills-lib DIR   Skills library directory (default: ../../../skills)
+    -t, --target DIR       Target skills directory (default: ./skills)
+    --help                 Show this help message
 
 Environment variables:
     CLAUDE_SKILLS_DIR   Target directory for skill symlinks
 
 Examples:
-    $0                       # Link skills to ~/.claude/skills
-    $0 -t /custom/skills     # Link skills to a custom directory
+    $0                                              # Use default paths
+    $0 -s /path/to/skills                           # Use custom skills library
+    $0 -s /path/to/skills -t /custom/target         # Custom source and target
 EOF
     exit 0
 }
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -s|--skills-lib)
+            SKILLS_LIB_DIR="$2"
+            shift 2
+            ;;
         -t|--target)
             TARGET_DIR="$2"
             shift 2
@@ -47,6 +46,13 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ ! -d "$SKILLS_LIB_DIR" ]]; then
+    echo "Error: Skill library dir '$SKILLS_LIB_DIR' doesn't exist." >&2
+    exit 1
+fi
+
+LINK_SKILLS="${SKILLS_LIB_DIR}/link-skills.sh"
 
 cd "$(dirname "$0")"
 
