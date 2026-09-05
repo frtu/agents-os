@@ -165,16 +165,18 @@ def set_auto_approve(value: bool) -> bool:
 
 DEFAULT_INTERACTION_TIMEOUT = 30
 
-# spec 008 FR-9/D5: how long an answer takes depends on what is being asked. A clarification asks the
-# user to read several proposals and choose between them; a notification only needs dismissing and an
-# approval is already framed as a yes/no.
-INTERACTION_TIMEOUT_BY_KIND = {"clarification": 120}
+# spec 008 FR-9/D5: how long an answer takes depends on what is being asked. Anything the user must
+# *decide* gets 120s — a clarification asks them to read several proposals and choose, and an approval
+# makes them read the maker/checker blast-radius report before consenting. Only a notification, which
+# just needs dismissing, keeps the 30s default.
+INTERACTION_TIMEOUT_BY_KIND = {"clarification": 120, "approval": 120}
 
 
 def interaction_timeout_seconds(kind: str | None = None) -> int:
     """Default countdown for an agent→user interaction card (spec 008 FR-9, D5).
 
-    **30 seconds**, or **120** for a ``clarification``. ``LEADER_INTERACTION_TIMEOUT`` overrides every
+    **30 seconds** for a ``notification`` (just needs dismissing); **120** for anything the user must
+    decide — both ``approval`` and ``clarification``. ``LEADER_INTERACTION_TIMEOUT`` overrides every
     kind — an explicit operator instruction outranks a per-kind default. A per-request override is
     applied at ``create_interaction`` time; this is the fallback. A non-positive or unparseable env
     value falls back to the per-kind default.

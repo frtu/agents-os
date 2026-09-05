@@ -457,6 +457,25 @@ def test_submit_interaction_targets_url_workspace_fr38(monkeypatch):
     assert sent["workspace"] == "interviews"
 
 
+def test_submit_interaction_answers_within_cards_own_conversation_fr16(monkeypatch):
+    # spec 008 FR-16 (regression): the reported approve/cancel fork. While the prior turn is still
+    # streaming, gr.State conversation_id is not yet committed (blank here). The answer must target the
+    # CARD's own conversation, not the blank state — otherwise it forks a new thread and orphans the
+    # live card. The card carries its conversation id, so the answer follows it.
+    sent = {}
+
+    async def fake_stream(workspace, cid, iid, choice):
+        sent["conversation_id"] = cid
+        yield {"reply": "resumed", "conversation_id": cid}
+
+    monkeypatch.setattr(ui, "_stream_interaction", fake_stream)
+    itx = {"interaction_id": "itx-1", "conversation_id": "real-cid", "kind": "approval", "prompt": "?",
+           "options": [{"id": "yes", "label": "Yes"}], "timeout_seconds": 120}
+    outs = _drain(ui._submit_interaction([], "", "interviews", itx, "yes", "interviews"))  # blank state cid
+    assert sent["conversation_id"] == "real-cid"        # answered in the card's thread, not a fork
+    assert outs[-1][1] == "real-cid"                    # state is corrected to the card's conversation
+
+
 def test_submit_interaction_refuses_with_no_workspace_and_keeps_card_fr39(monkeypatch):
     # FR-39: refuse the resumed turn, and leave the card live so it can be answered once a
     # workspace is resolved rather than being consumed by the failed attempt.

@@ -70,7 +70,7 @@ over REST for machine callers (P9).
 - **Scenario 1 — Security consent (approval):** As a user, when the agent needs to do something
   sensitive (e.g. run a shell command a skill requests), it shows a distinct **approval card**:
   one proposal, **Yes / No**, a **"chat about it"** option, and a turning progress wheel counting down
-  from 30s. I click **Yes** and it proceeds; if I click **No** (or it times out) it does **not**
+  from 120s. I click **Yes** and it proceeds; if I click **No** (or it times out) it does **not**
   proceed and tells me so.
 - **Scenario 2 — Choose an approach (clarification):** As a user, when my request is ambiguous, the
   agent presents **2–4 distinct proposals** as selectable **radio cards** plus a final **"chat about
@@ -149,9 +149,11 @@ Numbered, testable, unambiguous.
 ### Feedback, timing & presentation
 
 - **FR-9 (timeout, configurable, per-kind defaults):** Every Interaction Request MUST carry a
-  **timeout**. The system default MUST be **30 seconds**, except a **clarification**, whose default
-  MUST be **120 seconds** — it asks the user to read several proposals and choose between them, which
-  takes longer than dismissing a notification or answering an approval already framed as a yes/no.
+  **timeout**. The system default MUST be **30 seconds** for a **notification** (it only needs
+  dismissing), and **120 seconds** for any request the user must *decide* — both **approval** and
+  **clarification**. An approval is not a snap yes/no in practice: a maker/checker gate presents the
+  accumulated blast radius (risk operations, targets, undo paths) the operator must read before
+  consenting, which takes as long as choosing between clarification proposals.
   Defaults MUST be **configurable** (a system-wide override applying to every kind, plus an
   optional per-request override), and the **remaining time SHOULD be visible** (an animated wheel /
   countdown). On expiry: a **notification** auto-dismisses; a **blocking** request (approval,
@@ -347,10 +349,13 @@ Numbered, testable, unambiguous.
   the pending interaction; it never resolves the interaction by itself. *(User decision.)*
 - **D4 — Bottom chat box = new task.** The global chat box always starts a new top-level turn; deep
   context for a pending decision is entered only via the card. *(User decision.)*
-- **D5 — Default timeout 30s, 120s for a clarification, configurable**, with a visible animated
-  countdown. The default was a flat 30s until it proved too short to read a set of proposals and
-  decide; the timeout is now a property of the **kind**, because how long an answer takes depends on
-  what is being asked, not on who is asking. A system-wide override still applies to every kind — an
+- **D5 — Default timeout 30s for a notification, 120s for anything to decide (approval &
+  clarification), configurable**, with a visible animated countdown. The default was a flat 30s until
+  it proved too short to read a set of proposals and decide; the timeout is now a property of the
+  **kind**, because how long an answer takes depends on what is being asked, not on who is asking. Only
+  a notification (which just needs dismissing) keeps 30s; an approval was raised from 30s to 120s once
+  the maker/checker gate began presenting a full blast-radius report the operator must read before
+  consenting — the same "read then decide" cost as a clarification. A system-wide override still applies to every kind — an
   explicit operator instruction outranks a per-kind guess. *(User decision.)*
 - **D6 — Timeout/decline is never authorization; timeout aborts with a fixed message.** A blocking
   interaction that times out or is declined performs no consequential action (safe default), preserving
