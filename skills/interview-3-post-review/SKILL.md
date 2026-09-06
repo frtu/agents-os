@@ -65,7 +65,7 @@ Options: `engineering-screen`, `technical`, `system-design`, `hiring-manager`, `
 
 | Step option | Wiki step page | Rubric |
 |-------------|----------------|--------|
-| `engineering-screen` | [[step-hire-1b-engineering-screen\|Step 1b]] *(P5+/M2+ only)* | [[interview-rubric-engineering-screen\|Engineering Screen Rubric]] — **PRELIMINARY** |
+| `engineering-screen` | [[step-hire-1b-engineering-screen\|Step 1b]] *(P4+/M2+ only)* | [[interview-rubric-engineering-screen\|Engineering Screen Rubric]] — **PRELIMINARY** |
 | `technical` | [[step-hire-2-coding\|Step 2]] | [[interview-rubric-coding\|Coding Rubric]] |
 | `system-design` | [[step-hire-3-system\|Step 3]] | [[interview-rubric-system\|System Rubric]] |
 | `hiring-manager` / `culture` | [[step-hire-4-team-match\|Step 4]] | [[hire-4-team-match-template\|Team Match Template]] |

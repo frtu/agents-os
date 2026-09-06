@@ -62,7 +62,7 @@ For IC {Level} evaluated vs {Level+1} level range: "Level {Level}-{Level+1} eval
 
 Options: `engineering-screen`, `coding`, `system-design`, `hiring-manager` or `team-match`, `bar-raiser`
 
-`engineering-screen` maps to [[step-hire-1b-engineering-screen|Step 1b]] and runs **only for IC lvl 5+ or Manager lvl 2+ reqs**. If the target level from Question 2 is below IC lvl 5 or Manager lvl 2, do not offer it. See "Engineering Screen Preparation" below for how prep differs.
+`engineering-screen` maps to [[step-hire-1b-engineering-screen|Step 1b]] and runs **only for IC lvl 4+ or Manager lvl 2+ reqs**. If the target level from Question 2 is below IC lvl 4 or Manager lvl 2, do not offer it. See "Engineering Screen Preparation" below for how prep differs.
 
 **Question 4: Focus Areas (Optional)**
 
