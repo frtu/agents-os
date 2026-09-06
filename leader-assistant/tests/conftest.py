@@ -11,6 +11,21 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
+from app import config
+
+
+@pytest.fixture(autouse=True)
+def no_real_dotenv(tmp_path, monkeypatch):
+    """Keep the suite off the developer's real repo-root `.env` (spec 03-workspace §0).
+
+    ``config.load_env_file()`` (called by ``app.__main__.main()``) reads ``repo_root()/.env``.
+    Tests that exercise startup must not inherit whatever a developer put in the real `.env`
+    (e.g. ``LEADER_CONTROL_MODE=false``), which would flip control mode and leak into later tests.
+    Point ``repo_root`` at an empty tmp dir so the *default* load is a no-op; tests that pass an
+    explicit path to ``load_env_file`` still hit the real function.
+    """
+    monkeypatch.setattr(config, "repo_root", lambda: tmp_path)
+
 
 @pytest.fixture(autouse=True)
 def isolated_workspace_root(tmp_path, monkeypatch):
