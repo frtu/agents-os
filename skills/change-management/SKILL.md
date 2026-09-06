@@ -11,24 +11,28 @@ allowed-tools: Bash Read Glob AskUserQuestion Skill
 
 Orchestrates change management workflows by chaining sub-skills:
 
-| Phase        | Skill                       | Purpose                                    |
-| ------------ | --------------------------- | ------------------------------------------ |
-| 0 — Resume   | `change-management-0-resume` | Reconstruct context from recent git history (optional) |
-| 1 — Stage    | `change-management-1-stage` | Stage files via `git add`                  |
-| 2 — Refactor | `change-management-2-refactor` | Move/rename files via `git mv`          |
-| 9 — Log      | `change-management-9-log`   | Generate commit message and append to log  |
+| Phase        | Skill                          | Purpose                                                |
+| ------------ | ------------------------------ | ------------------------------------------------------ |
+| 0 — Resume   | `change-management-0-resume`   | Reconstruct context from recent git history (optional) |
+| 1 — Stage    | `change-management-1-stage`    | Stage files via `git add`                              |
+| 2 — Refactor | `change-management-2-refactor` | Move/rename files via `git mv`                         |
+| 7 — Diff     | `change-management-7-diff`     | Export changes to a `.patch` file                      |
+| 8 — Apply    | `change-management-8-apply`    | Apply a `.patch` file to restore changes               |
+| 9 — Log      | `change-management-9-log`      | Generate commit message and append to log              |
 
 This router selects the appropriate phase(s) based on user intent.
 
 ## Quick Reference
 
-| User Says                                      | Route To                     |
-| ---------------------------------------------- | ---------------------------- |
-| "resume from git", "what was I doing", "pick up where we left off" | `change-management-0-resume` |
-| "stage changes", "git add", "prepare commit"   | `change-management-1-stage`  |
-| "refactor", "move files", "rename", "git mv"   | `change-management-2-refactor` |
-| "log changes", "commit message", "capture log" | `change-management-9-log`    |
-| "stage and log", "full workflow"               | Phase 1 → Phase 9            |
+| User Says                                                          | Route To                       |
+| ------------------------------------------------------------------ | ------------------------------ |
+| "resume from git", "what was I doing", "pick up where we left off" | `change-management-0-resume`   |
+| "stage changes", "git add", "prepare commit"                       | `change-management-1-stage`    |
+| "refactor", "move files", "rename", "git mv"                       | `change-management-2-refactor` |
+| "create patch", "export diff", "save patch"                        | `change-management-7-diff`     |
+| "apply patch", "restore patch"                                     | `change-management-8-apply`    |
+| "log changes", "commit message", "capture log"                     | `change-management-9-log`      |
+| "stage and log", "full workflow"                                   | Phase 1 → Phase 9              |
 
 ## Workflow Patterns
 
@@ -55,7 +59,15 @@ When reorganizing wiki structure:
 2. Run `/change-management-1-stage` to stage all changes
 3. Run `/change-management-9-log` to create commit message and log entry
 
-### Pattern C: Single Phase
+### Pattern C: Diff + Apply (stash alternative)
+
+When preserving changes across branch switches or sessions:
+
+1. Run `/change-management-7-diff` to export current changes to a `.patch` file
+2. Switch branches, reset, or start new session
+3. Run `/change-management-8-apply {patch-file}` to restore the changes
+
+### Pattern D: Single Phase
 
 Run any phase standalone when only that step is needed.
 
