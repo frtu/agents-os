@@ -63,10 +63,7 @@ Output format: `title;path` (CSV), one per line, newest first.
 
 **If user specified language** (e.g., "in English", "from French"): use it directly.
 
-**Otherwise**, ask for the language:
-- **English** (default)
-- **French**
-- **Custom** (allow user to type)
+**Otherwise**, use **English** as the default (skip the prompt).
 
 ## Step 3: Transcribe
 
