@@ -1,13 +1,28 @@
 #!/bin/bash
 
 # file-rename-natural-language: Rename files to Title Case with spaces between words
+# - Converts filename to Title Case (capitalize each word)
 # - Replaces hyphens/underscores with spaces
 # - Replaces special characters with underscores
-# - Capitalizes first letter of each word
 # - Skips .DS_Store and README.md files
-# - Uses git mv to preserve history
+# - Preserves the file extension
+#
+# Usage: file-rename-natural-language.sh <folder>
 
-find . -type f ! -name ".DS_Store" ! -name "README.md" ! -path "./.git/*" | sort | while read file; do
+target="$1"
+
+if [[ -z "$target" ]]; then
+    echo "Error: missing folder argument." >&2
+    echo "Usage: $0 <folder>" >&2
+    exit 1
+fi
+
+if [[ ! -d "$target" ]]; then
+    echo "Error: '$target' is not a directory." >&2
+    exit 1
+fi
+
+find "$target" -type f ! -name ".DS_Store" ! -name "README.md" ! -path "*/.git/*" | sort | while read file; do
     dir=$(dirname "$file")
     filename=$(basename "$file")
 
