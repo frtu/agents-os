@@ -2,8 +2,10 @@
 
 The non-negotiable principles for the **AI Leader & Project Specification Assistant** — an assistant that maintains a compounding Zettelkasten Knowledge Vault and continuously derives project specifications (and, secondarily, PO/PM artifacts) from it. Every spec, plan, and task in this repository MUST comply. When a plan conflicts with the constitution, the constitution wins; amend the constitution deliberately rather than working around it.
 
-Version: 2.0.0 · Ratified: 2026-08-16 · Last amended: 2026-08-29
+Version: 2.1.0 · Ratified: 2026-08-16 · Last amended: 2026-09-06
 
+> **Amendment 2.1.0 (2026-09-06) — MINOR: Principle 14 added (error transparency).** Errors MUST be surfaced to users with meaningful context, never silently swallowed or replaced with unrelated fallback messages. When a component fails and the system falls back, the fallback response MUST include the reason for the original failure. Motivated by a bug where agent runtime failures returned "No matching knowledge found" instead of the actual error (e.g., "claude CLI not found").
+>
 > **Amendment 2.0.0 (2026-08-29) — MAJOR: Principle 8 redefined (bounded delegation).** Human control over consequential work may now also be satisfied by a **bounded checker** acting under the operator's standing consent — a redefinition of human-in-the-loop, not an extension, because 1.2.0 held that a non-human party can **never** grant an approval. The checker's authority is enforced by deterministic code, not by the checker: it may never widen its own authority, never grant consent for a shape lacking either standing consent or recorded precedent, MUST fail closed to asking, and MUST NOT be able to execute. It may learn to **ask less**; it may never learn to **refuse more**. Principle 12 additionally extends: rules-as-data now covers **risk-scoring modifiers**, not only the effect table. Downstream specs to reconcile: [[09-planning]], [[10-risk-engine]], [[12-assistant]], [[13-api]], [[14-chat]], [[18-security]], [[20-testing]], and features `008-agent-user-interaction`, `009-approval-optimization`, `010-agent-approval-channel`. Motivated by feature [`011-maker-checker-approval`](../specs/011-maker-checker-approval/spec.md).
 >
 > **Amendment 1.2.0 (2026-08-29).** Principle 8 extended: human control over consequential work is satisfied **either** by reviewing a per-action plan **or** by the operator's **explicit, revocable standing consent** (auto-approve / "trust mode"), provided every executed action stays **auditable and revertible** (recorded in `log.md` and committed to git). Risk is judged on the **actual effect** of the capability about to run (its declared effect tier — Principle 12), never on the wording of a request, and the assistant MUST NOT prompt for an approval it cannot execute. Standing consent is **operator-only**: the agent can request clarification but can **never** grant or bypass its own approval. Downstream specs to reconcile: [[09-planning]], [[10-risk-engine]], [[13-api]], [[14-chat]], and feature `008-agent-user-interaction`. Motivated by feature [`009-approval-optimization`](../specs/009-approval-optimization/spec.md).
@@ -150,6 +152,23 @@ Source specs: [[10-risk-engine]], [[11-git-workflow]].
 The assistant supports multiple workspaces under a configurable root (default `Workspaces/`, each workspace at `Workspaces/<workspace-name>/`; overridable via environment). A `_default_` workspace is created by default. Every capability resolves a target workspace (an explicit selector, or the configured default when omitted). All durable state for a workspace stays inside that workspace.
 
 Source specs: [[03-workspace]], [[02-domain-model]].
+
+## Principle 14 — Error transparency
+
+Errors MUST be surfaced to users with meaningful context, never silently swallowed or replaced with unrelated messages. Code that handles exceptions MUST:
+
+- **Preserve the error reason** — when catching an exception, capture its message for use in user-facing output.
+- **Surface failures in fallbacks** — when a primary path fails and the system falls back to an alternative, the fallback response MUST indicate *what failed and why*, not just the fallback result. A user who sees only the fallback output must still understand that the primary path failed.
+- **Never mask root causes** — a generic message (e.g., "operation failed") is acceptable only when the actual error contains sensitive information; otherwise, propagate specifics.
+- **Log for diagnostics** — even when an error is handled gracefully, log it at an appropriate level so operators can diagnose recurring issues.
+
+Anti-pattern: catching `AgentUnavailable` and returning "No matching knowledge found" — the user cannot tell that the agent failed; they think the wiki is empty.
+
+Correct pattern: catching `AgentUnavailable` and returning "The assistant agent is currently unavailable (claude CLI not found). Falling back to wiki search: no matching knowledge found."
+
+This principle applies to all error-handling code, including fallbacks, retries, and graceful degradation paths. The human in control (P8) cannot make informed decisions without knowing what actually happened.
+
+Source specs: [[17-observability]], [[19-non-functional]].
 
 ---
 

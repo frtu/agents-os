@@ -1056,9 +1056,22 @@ def _record_turn_effects(workspace: Path, message: str) -> None:
     _git_commit(workspace, f"chat: {label[:60]}")
 
 
-def _fallback_answer(selector: str | None, message: str) -> tuple[str, list[models.Citation]]:
-    """Deterministic, cited answer when the agent runtime is unavailable (FR-2)."""
+def _fallback_answer(
+    selector: str | None, message: str, reason: str = ""
+) -> tuple[str, list[models.Citation]]:
+    """Deterministic, cited answer when the agent runtime is unavailable (FR-2).
+
+    If wiki has matching pages, returns cited excerpts. Otherwise returns an informative
+    message that includes the reason the agent is unavailable (if provided).
+    """
     ans = query(models.QueryRequest(workspace=selector, question=message))
+    if not ans.citations and reason:
+        # No wiki content to fall back to — tell the user why the agent is down.
+        return (
+            f"The assistant agent is currently unavailable ({reason}). "
+            "Once the agent runtime is available, I can help with ingestion, queries, and more. "
+            "In the meantime, you can use the REST API endpoints directly."
+        ), []
     return ans.answer, ans.citations
 
 
@@ -1172,6 +1185,7 @@ async def _ask_stream_impl(
     # name the record it materializes.
     naming: list[tuple[str, list[str]]] = [(conversation.fallback_name(message), [])]
     final_reply, final_sid, agent_ok = "", conv.sdk_session_id, True
+    agent_error = ""
     try:
         async for reply, sid in agent.run_stream(
             system_prompt, message, selector, wpath, conv.sdk_session_id, citations,
@@ -1179,8 +1193,9 @@ async def _ask_stream_impl(
         ):
             final_reply, final_sid = reply, sid
             yield delta(reply, done=False)
-    except agent.AgentUnavailable:
+    except agent.AgentUnavailable as e:
         agent_ok = False
+        agent_error = str(e) or "unknown error"
 
     # Before any write below (spec 012 FR-4/FR-6): `set_sdk_session_id` and `append_turn` both
     # materialize, and the name is fixed by whichever lands first. Last proposal wins; a no-op if a
@@ -1190,7 +1205,7 @@ async def _ask_stream_impl(
     if agent_ok:
         conversation.set_sdk_session_id(conv, final_sid)
     else:
-        final_reply, citations = _fallback_answer(selector, message)
+        final_reply, citations = _fallback_answer(selector, message, agent_error)
 
     itx = _card_to_surface(raised)
     em = view.emit_turn(message, final_reply)
@@ -1637,16 +1652,18 @@ async def _routine_reply(name, selector, wpath, conv, message) -> tuple[str, lis
     system_prompt = persona.build_system_prompt()
     citations: list[models.Citation] = []
     final_reply, final_sid, agent_ok = "", conv.sdk_session_id, True
+    agent_error = ""
     try:
         async for reply, sid in agent.run_stream(
             system_prompt, message, selector, wpath, conv.sdk_session_id, citations
         ):
             final_reply, final_sid = reply, sid
-    except agent.AgentUnavailable:
+    except agent.AgentUnavailable as e:
         agent_ok = False
+        agent_error = str(e) or "unknown error"
     if agent_ok:
         conversation.set_sdk_session_id(conv, final_sid)
     else:
-        final_reply, citations = _fallback_answer(selector, message)
+        final_reply, citations = _fallback_answer(selector, message, agent_error)
     _record_turn_effects(wpath, message)  # spec 009 FR-6
     return final_reply, citations

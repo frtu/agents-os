@@ -312,6 +312,69 @@ def test_ac7_capability_parity_between_rest_and_chat(client):
     assert "/api/chat/status" in paths  # FR-14 running-status probe
 
 
+def test_p14_agent_unavailable_error_surfaced_to_user(client, monkeypatch, isolated_workspace_root):
+    """P14 (error transparency): when the agent fails, the error reason is surfaced to the user.
+
+    The fallback must NOT return a misleading message like "No matching knowledge found"
+    when the real problem is that the agent runtime is unavailable.
+    """
+    from app import agent
+
+    error_message = "claude CLI not found in PATH"
+
+    async def _unavailable_with_reason(*_args, **_kwargs):
+        raise agent.AgentUnavailable(error_message)
+        yield  # pragma: no cover — marks this an async generator
+
+    monkeypatch.setattr(agent, "run_stream", _unavailable_with_reason)
+
+    # Use an empty workspace (no wiki content) so the fallback has nothing to search.
+    # This is the scenario where the old code returned "No matching knowledge found".
+    capabilities.create_workspace("empty")
+
+    r = client.post("/api/chat", json={"workspace": "empty", "message": "hello"})
+    assert r.status_code == 200
+    body = r.json()
+
+    # The response MUST include the actual error reason, not a generic fallback message.
+    assert error_message in body["reply"], (
+        f"Expected error message '{error_message}' in reply, got: {body['reply']}"
+    )
+    # It should NOT contain the misleading fallback message on its own.
+    assert "unavailable" in body["reply"].lower(), (
+        "Response should indicate the agent is unavailable"
+    )
+
+
+def test_p14_agent_error_in_stream_includes_reason(client, monkeypatch, isolated_workspace_root):
+    """P14 (error transparency): streamed endpoint also surfaces agent errors.
+
+    Both /api/chat and /api/chat/stream must show the error reason.
+    """
+    from app import agent
+
+    error_message = "authentication failed: invalid API key"
+
+    async def _unavailable_with_reason(*_args, **_kwargs):
+        raise agent.AgentUnavailable(error_message)
+        yield  # pragma: no cover — marks this an async generator
+
+    monkeypatch.setattr(agent, "run_stream", _unavailable_with_reason)
+
+    capabilities.create_workspace("empty2")
+
+    r = client.post("/api/chat/stream", json={"workspace": "empty2", "message": "hello"})
+    assert r.status_code == 200
+
+    events = sse_events(r.text)
+    assert len(events) >= 1
+    final = events[-1]
+    assert final.get("done") is True
+    assert error_message in final["reply"], (
+        f"Expected error message '{error_message}' in streamed reply, got: {final['reply']}"
+    )
+
+
 @pytest.mark.skipif(
     not os.getenv("LEADER_LIVE_AGENT"),
     reason="requires the claude CLI / credentials; set LEADER_LIVE_AGENT=1 to run",
