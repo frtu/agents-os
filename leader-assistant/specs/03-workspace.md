@@ -77,10 +77,12 @@ templates/          # repo-root, externalized, shared output templates (NOT insi
 
 A repo-root **workspace bootstrap template** at `templates/_workspace_/` seeds every new
 workspace. On create, the scaffolder **copies the template's contents** (e.g. `bootstrap.sh`,
-`.gitignore`) into the new workspace root and then **runs `bootstrap.sh`** from inside the
-workspace. The template is referenced by a **repo-relative** path (never an absolute one), and
-the copy is **non-destructive/idempotent** — an existing file in the workspace is never
-overwritten.
+`.gitignore`, `.claude/settings.local.json`) into the new workspace root and then **runs
+`bootstrap.sh`** from inside the workspace. Nested template files are copied to their mirrored
+path — the copy **merges into pre-created directories** (e.g. `.claude/`) file-by-file rather than
+skipping an existing folder. The template is referenced by a **repo-relative** path (never an
+absolute one), and the copy is **non-destructive/idempotent** — an existing file in the workspace
+is never overwritten.
 
 `bootstrap.sh` links the shared skill library into the workspace's `skills/` folder (§2). Its
 execution is **best-effort**: a missing skill library (e.g. in an isolated test root) makes it a

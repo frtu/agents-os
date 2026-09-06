@@ -107,14 +107,16 @@ def _bootstrap_workspace_template(workspace: Path) -> None:
     template = config.workspace_template_source()
     if not template.is_dir():
         return
-    for src in template.iterdir():
-        dest = workspace / src.name
+    # Per-file merge (not copytree): scaffold_workspace pre-creates dirs like .claude/, so a
+    # whole-directory skip would drop template files nested under them (e.g. .claude/settings.local.json).
+    for src in template.rglob("*"):
+        if src.is_dir():
+            continue
+        dest = workspace / src.relative_to(template)
         if dest.exists():
             continue
-        if src.is_dir():
-            shutil.copytree(src, dest)
-        else:
-            shutil.copy2(src, dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
     script = workspace / "bootstrap.sh"
     if not script.is_file():
         return

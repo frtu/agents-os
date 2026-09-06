@@ -13,6 +13,9 @@ def fake_template(tmp_path, monkeypatch):
     template = tmp_path / "_workspace_"
     template.mkdir()
     (template / ".gitignore").write_text("vault/.obsidian\n", encoding="utf-8")
+    # Nested file under a dir the scaffolder pre-creates (.claude/) — must still be copied.
+    (template / ".claude").mkdir()
+    (template / ".claude" / "settings.local.json").write_text("{}\n", encoding="utf-8")
     (template / "bootstrap.sh").write_text(
         "#!/usr/bin/env bash\ncd \"$(dirname \"$0\")\"\ntouch bootstrap.ran\n",
         encoding="utf-8",
@@ -27,6 +30,8 @@ def test_template_copied_and_bootstrap_run_on_create(fake_template):
     ws = vault.resolve_workspace("demo")
     assert (ws / "bootstrap.sh").is_file()
     assert (ws / ".gitignore").read_text(encoding="utf-8") == "vault/.obsidian\n"
+    # spec 03-workspace §1.1: nested files merge into pre-created dirs like .claude/.
+    assert (ws / ".claude" / "settings.local.json").read_text(encoding="utf-8") == "{}\n"
     assert (ws / "bootstrap.ran").exists()  # bootstrap.sh actually executed
 
 
