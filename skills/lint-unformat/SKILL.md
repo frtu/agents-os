@@ -1,12 +1,28 @@
 ---
 name: lint-unformat
-description: Clean up Slack formatting with emoji images, Zoom speaker images, whitespace issues, code block formatting, unescaped table wikilinks, misaligned markdown tables, and missing wikilinks. Use when the user says "clean slack", "normalize slack emoji", "unformat slack", "clean zoom transcript", "normalize code blocks", "clean whitespace", "remove blank lines", "fix table wikilinks", "escape wikilinks", "align tables", "format tables", "line up pipes", "relink wiki", "add wikilinks", "auto-link mentions", or has markdown files with Slack emoji image syntax, Zoom speaker images, code blocks with extra blank lines, wikilinks with unescaped pipes in tables, ragged/misaligned table columns, or unlinked mentions of pages that exist.
-version: 0.6.0
+description: Clean up Slack formatting with emoji images, Zoom speaker images, whitespace issues, code block formatting, unescaped table wikilinks, misaligned markdown tables, and missing wikilinks. Use when the user says "clean slack", "normalize slack emoji", "unformat slack", "clean zoom transcript", "normalize code blocks", "clean whitespace", "remove blank lines", "fix table wikilinks", "escape wikilinks", "align tables", "format tables", "line up pipes", "relink wiki", "add wikilinks", "auto-link mentions", "unformat", "lint", or has markdown files with Slack emoji image syntax, Zoom speaker images, code blocks with extra blank lines, wikilinks with unescaped pipes in tables, ragged/misaligned table columns, or unlinked mentions of pages that exist.
+version: 0.7.0
 ---
 
 # Lint Unformat
 
-Clean up Slack-style emoji, Zoom speaker images, whitespace issues, and code block formatting in markdown files. Normalizers can be run independently or all together.
+Clean up Slack-style emoji, Zoom speaker images, whitespace issues, and code block formatting in markdown files.
+
+## Default Behavior (Run All)
+
+**When invoked without specific flags, run ALL normalizers.** This is the expected behavior for "unformat", "lint", "clean up", etc.
+
+```bash
+# DEFAULT: Run all normalizers (images + whitespace + code-blocks)
+python3 {skill_base}/scripts/normalize_markdown.py /path/to/file.md
+```
+
+This single command applies:
+- **images**: Slack emoji URLs → `:emoji:`, Zoom speaker images → plain text
+- **whitespace**: Collapse blank lines, trim trailing spaces, ensure final newline
+- **code-blocks**: Remove blank lines inside fenced code blocks
+
+**IMPORTANT:** Do NOT use the old `normalize_image_links.py` script — it only handles images. Always use `normalize_markdown.py` which runs all normalizers by default.
 
 ## Normalizers
 
@@ -21,43 +37,58 @@ Clean up Slack-style emoji, Zoom speaker images, whitespace issues, and code blo
 
 ## Procedure
 
-1. **Parse the ARGUMENTS** to determine which normalizer(s) to run:
-   - If user says "images", "emoji", "slack emoji", "zoom" → use `--images`
-   - If user says "whitespace", "blank lines", "trailing spaces" → use `--whitespace`
-   - If user says "code blocks", "code block cleanup" → use `--code-blocks`
-   - If user says "table wikilinks", "escape wikilinks", "fix table links" → run the standalone `fix-table-wikilinks.py` script (see below)
-   - If user says "align tables", "format tables", "normalize tables", "line up pipes" → run the standalone `align-tables.py` script (see below)
-   - If user says "relink wiki", "add wikilinks", "auto-link mentions", "link concepts" → run the standalone `relink-wiki.py` script (see below)
-   - If user says "all" or doesn't specify → run with no flags (applies all three)
-
-2. **Determine target files**:
+1. **Determine target files** from ARGUMENTS:
    - If ARGUMENTS specifies file paths → use those
    - If ARGUMENTS says "local files" or "modified files" → get from `git status --porcelain | grep -E '^\s*M.*\.md$' | sed 's/^...//'`
    - If ARGUMENTS says "all files" → use `find . -name "*.md" -type f`
 
-3. **Run the normalizer**:
+2. **Parse which normalizer(s) to run** (default = ALL):
+   - **Default / "unformat" / "lint" / "clean" / "all"** → run with NO flags (applies images + whitespace + code-blocks)
+   - "images", "emoji", "slack emoji", "zoom" → use `--images` only
+   - "whitespace", "blank lines", "trailing spaces" → use `--whitespace` only
+   - "code blocks", "code block cleanup" → use `--code-blocks` only
+   - "table wikilinks", "escape wikilinks", "fix table links" → run standalone `fix-table-wikilinks.py`
+   - "align tables", "format tables", "line up pipes" → run standalone `align-tables.py`
+   - "relink wiki", "add wikilinks", "auto-link mentions" → run standalone `relink-wiki.py`
+
+3. **Run the normalizer** (always use `normalize_markdown.py`, never `normalize_image_links.py`):
    ```bash
-   python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py [FLAGS] [FILES...]
+   # Default: all normalizers
+   python3 {skill_base}/scripts/normalize_markdown.py [FILES...]
+   
+   # With specific flags (only if user explicitly requested a subset)
+   python3 {skill_base}/scripts/normalize_markdown.py --images [FILES...]
    ```
 
 4. **Report summary** from script output.
 
+> **Deprecated:** `normalize_image_links.py` and `normalize_whitespaces.py` are legacy scripts. Always use `normalize_markdown.py` which consolidates all normalizers.
+
 ## Examples
 
 ```bash
-# All normalizers (default)
-python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py /path/to/file.md
-# Single normalizer
-python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py --images /path/to/file.md
-python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py --whitespace /path/to/file.md
-python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py --code-blocks /path/to/file.md
-# Multiple normalizers
-python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py --whitespace --code-blocks /path/to/file.md
-# Dry run
-python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py --dry-run /path/to/file.md
-# Multiple files
-python3 .claude/commands/lint-unformat/scripts/normalize_markdown.py file1.md file2.md
+# ═══════════════════════════════════════════════════════════════════
+# DEFAULT: All normalizers (images + whitespace + code-blocks)
+# This is what "unformat", "lint", "clean" should run
+# ═══════════════════════════════════════════════════════════════════
+python3 {skill_base}/scripts/normalize_markdown.py /path/to/file.md
+python3 {skill_base}/scripts/normalize_markdown.py file1.md file2.md
+
+# Dry run (preview changes without modifying)
+python3 {skill_base}/scripts/normalize_markdown.py --dry-run /path/to/file.md
+
+# ═══════════════════════════════════════════════════════════════════
+# Single normalizer (only if user explicitly requests a subset)
+# ═══════════════════════════════════════════════════════════════════
+python3 {skill_base}/scripts/normalize_markdown.py --images /path/to/file.md
+python3 {skill_base}/scripts/normalize_markdown.py --whitespace /path/to/file.md
+python3 {skill_base}/scripts/normalize_markdown.py --code-blocks /path/to/file.md
+
+# Multiple specific normalizers
+python3 {skill_base}/scripts/normalize_markdown.py --whitespace --code-blocks /path/to/file.md
 ```
+
+> `{skill_base}` = the skill's base directory (e.g., `/Users/fred.tu/git/ai/agents-os-frtu/skills/lint-unformat`)
 
 ## Normalizer Details
 
