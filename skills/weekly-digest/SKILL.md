@@ -33,19 +33,27 @@ ambiguous decisions (new project creation, conflicting mappings) pause for input
 
 ### 1. Identify the date
 
-If the user gave a date, use it. Otherwise list available folders and ask:
+If the user gave a date, use it. Otherwise auto-detect the most recent unprocessed week:
 
 ```bash
-ls -1d "raw/daily/Weekly updates/"*/ 2>/dev/null | sed 's#.*/\([^/]*\)/#\1#'
+# Get unique dates from raw folders (strip product suffix)
+raw_dates=$(ls -1d "raw/daily/Weekly updates/"*/ 2>/dev/null | sed 's#.*/\([0-9-]*\)-[^/]*/.*#\1#' | sort -u)
+
+# Get processed dates (have consolidated.md)
+processed_dates=$(ls "wiki/projects/_weekly_/"*-consolidated.md 2>/dev/null | sed 's#.*/\([0-9-]*\)-consolidated\.md#\1#' | sort -u)
+
+# Find unprocessed dates
+unprocessed=$(comm -23 <(echo "$raw_dates") <(echo "$processed_dates"))
 ```
 
-```
-Available weekly updates:
-- 2026-07-03
-- 2026-06-26
-- 2026-06-05
+**Auto-select logic:**
+- If exactly one unprocessed date exists → use it automatically (no prompt)
+- If multiple unprocessed dates exist → auto-select the most recent one
+- If no unprocessed dates → show all available dates and ask which to reprocess
 
-Which date should I process?
+When auto-selecting, announce the choice:
+```
+Auto-selected 2026-09-11 (most recent unprocessed week).
 ```
 
 ### 2. Run Phase 1 — Aggregate
