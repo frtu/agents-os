@@ -19,19 +19,41 @@ Call this skill when:
 
 ## Input Parameters
 
-| Parameter    | Description                    | Required |
-| ------------ | ------------------------------ | -------- |
-| `patch_file` | Path to the `.patch` file      | Yes      |
+| Parameter    | Description                                         | Required | Default                                              |
+| ------------ | --------------------------------------------------- | -------- | ---------------------------------------------------- |
+| `patch_file` | Filename or full path to the `.patch` file          | Yes      | —                                                    |
+| `patch_dir`  | Directory to search when `patch_file` is a filename | No       | `$CHANGE_MANAGEMENT_REPO_PATH`, else `.` (cwd)       |
+
+**Patch directory resolution** (precedence, highest first):
+
+1. **`patch_dir` parameter** (ephemeral) — use it if the caller passed one.
+2. **`$CHANGE_MANAGEMENT_REPO_PATH`** (durable env var) — else use it if set and non-empty.
+3. **Current folder** (`.`) — fallback only when neither above is configured.
+
+If `patch_file` is a plain filename (no `/`), prepend the resolved directory.
+If `patch_file` is an absolute or relative path (contains `/`), use it as-is.
 
 ## Workflow
+
+### 0. Resolve Patch Path
+
+```bash
+PATCH_DIR="${patch_dir:-${CHANGE_MANAGEMENT_REPO_PATH:-.}}"
+# If patch_file has no directory component, prepend PATCH_DIR
+case "$patch_file" in
+  */*) PATCH_PATH="$patch_file" ;;
+  *)   PATCH_PATH="$PATCH_DIR/$patch_file" ;;
+esac
+echo "Resolving patch: $PATCH_PATH"
+```
 
 ### 1. Validate Patch File
 
 Check the file exists and is readable:
 
 ```bash
-if [ ! -f "{patch_file}" ]; then
-    echo "Error: Patch file not found: {patch_file}"
+if [ ! -f "$PATCH_PATH" ]; then
+    echo "Error: Patch file not found: $PATCH_PATH"
     exit 1
 fi
 ```
@@ -41,7 +63,7 @@ fi
 Dry-run to verify the patch can be applied cleanly:
 
 ```bash
-git apply --check "{patch_file}"
+git apply --check "$PATCH_PATH"
 ```
 
 If this fails, report the conflicts and stop.
@@ -49,7 +71,7 @@ If this fails, report the conflicts and stop.
 ### 3. Apply Patch
 
 ```bash
-git apply "{patch_file}"
+git apply "$PATCH_PATH"
 ```
 
 ### 4. Verify Application
@@ -65,7 +87,7 @@ git status --short
 Output summary:
 
 ```
-Patch applied: {patch_file}
+Patch applied: $PATCH_PATH
 
 Changes applied:
 {git status output}
@@ -81,12 +103,12 @@ To discard if needed:
 
 ## Edge Cases
 
-**Patch file not found:** Report error with the exact path and suggest checking the path.
+**Patch file not found:** Report the resolved path (`$PATCH_PATH`) and which directory was used, so the user can verify `CHANGE_MANAGEMENT_REPO_PATH` or `patch_dir`.
 
 **Patch conflicts:** If `--check` fails, report which files conflict:
 
 ```bash
-git apply --check "{patch_file}" 2>&1
+git apply --check "$PATCH_PATH" 2>&1
 ```
 
 Suggest options:
@@ -98,7 +120,7 @@ Suggest options:
 
 **Reverse apply:** Mention that user can reverse a patch with:
 ```bash
-git apply --reverse "{patch_file}"
+git apply --reverse "$PATCH_PATH"
 ```
 
 ## Integration

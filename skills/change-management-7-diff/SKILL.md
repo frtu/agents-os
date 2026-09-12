@@ -21,11 +21,30 @@ Call this skill when:
 
 ## Input Parameters
 
-| Parameter     | Description                                      | Required | Default   |
-| ------------- | ------------------------------------------------ | -------- | --------- |
-| `output_path` | Directory path where patch file will be written  | No       | `.` (cwd) |
+| Parameter     | Description                                      | Required | Default                          |
+| ------------- | ------------------------------------------------ | -------- | -------------------------------- |
+| `output_path` | Directory path where patch file will be written  | No       | `$CHANGE_MANAGEMENT_REPO_PATH`, else `.` (cwd) |
+
+**Patch directory resolution** (precedence, highest first):
+
+1. **`output_path` parameter** (ephemeral) — use it if the caller passed one.
+2. **`$CHANGE_MANAGEMENT_REPO_PATH`** (durable env var) — else use it if set and non-empty.
+3. **Current folder** (`.`) — fallback only when neither above is configured.
 
 ## Workflow
+
+### 0. Resolve Patch Directory
+
+Apply the precedence above to pick the target directory, then ensure it exists:
+
+```bash
+PATCH_DIR="${output_path:-${CHANGE_MANAGEMENT_REPO_PATH:-.}}"
+mkdir -p "$PATCH_DIR"
+echo "Patch directory: $PATCH_DIR"
+```
+
+`${VAR:-...}` treats unset **and** empty as "not configured", so a blank env var
+correctly falls through to the next choice.
 
 ### 1. Determine Diff Mode
 
@@ -52,12 +71,12 @@ Format: `YYYYMMDD-HHMMSS.patch` (e.g., `20260904-143052.patch`)
 
 **If staged changes exist:**
 ```bash
-git diff --staged > {output_path}/{timestamp}.patch
+git diff --staged > $PATCH_DIR/{timestamp}.patch
 ```
 
 **If no staged changes (use unstaged):**
 ```bash
-git diff > {output_path}/{timestamp}.patch
+git diff > $PATCH_DIR/{timestamp}.patch
 ```
 
 ### 4. Validate Patch
@@ -65,11 +84,11 @@ git diff > {output_path}/{timestamp}.patch
 Check that the patch file is non-empty:
 
 ```bash
-if [ -s {output_path}/{timestamp}.patch ]; then
+if [ -s $PATCH_DIR/{timestamp}.patch ]; then
     echo "Patch created successfully"
 else
     echo "Warning: No changes to export"
-    rm {output_path}/{timestamp}.patch
+    rm $PATCH_DIR/{timestamp}.patch
 fi
 ```
 
@@ -78,15 +97,15 @@ fi
 Output summary:
 
 ```
-Patch exported: {output_path}/{timestamp}.patch
+Patch exported: $PATCH_DIR/{timestamp}.patch
 Mode: {staged | unstaged}
 Size: {file size}
 
 To apply later:
-  /change-management-8-apply {output_path}/{timestamp}.patch
+  /change-management-8-apply $PATCH_DIR/{timestamp}.patch
   
 To apply manually:
-  git apply {output_path}/{timestamp}.patch
+  git apply $PATCH_DIR/{timestamp}.patch
 ```
 
 ## Edge Cases

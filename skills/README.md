@@ -373,6 +373,33 @@ graph TD
     style W2 fill:#f3e5f5
 ```
 
+## Environment Variables
+
+Some skills read shared environment variables to avoid repeating configuration on every invocation. Set these in your shell profile (`~/.zshrc`, `~/.bashrc`) or in a `.env` file sourced before starting Claude Code.
+
+| Variable | Used by | Purpose | Default |
+|----------|---------|---------|---------|
+| `CHANGE_MANAGEMENT_REPO_PATH` | `change-management-7-diff`, `change-management-8-apply` | Persistent directory where patch files are written and read. Lets you share patches across projects or keep them outside the repo. | `.` (current working directory) |
+
+### Patch file directory (`CHANGE_MANAGEMENT_REPO_PATH`)
+
+Both diff/apply skills use the same three-tier precedence:
+
+1. **Ephemeral parameter** (`output_path` / `patch_dir`) — per-invocation override.
+2. **`CHANGE_MANAGEMENT_REPO_PATH`** — durable env var; set once, applies to every invocation.
+3. **Current folder** (`.`) — fallback when neither above is configured.
+
+```bash
+# Add to ~/.zshrc or ~/.bashrc
+export CHANGE_MANAGEMENT_REPO_PATH=~/patches
+
+# Then patch round-trips just work:
+# /change-management-7-diff            → writes ~/patches/20260909-143052.patch
+# /change-management-8-apply 20260909-143052.patch  → reads ~/patches/20260909-143052.patch
+```
+
+A copy of this table is in [`skills/.env.example`](./.env.example).
+
 ## Troubleshooting
 
 ### Symlink Issues
