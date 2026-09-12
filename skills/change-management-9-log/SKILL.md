@@ -124,6 +124,9 @@ To commit:
   git commit                   # to edit interactively
 ```
 
+This is the end of the auto-chain (see the router's Auto-Chaining section) — stop here.
+Never run `git commit` yourself unless the user explicitly asks for it in that turn.
+
 ## Edge Cases
 
 **Missing log.md:** Warn user but still display commit message. They can create

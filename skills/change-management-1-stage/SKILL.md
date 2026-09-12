@@ -87,9 +87,11 @@ Staged {N} files:
 - Input sources: {count}
 - New pages: {count}
 - Updated pages: {count}
-
-Ready for /change-management-9-log to create commit message.
 ```
+
+Then, without waiting for confirmation, auto-chain into `/change-management-9-log` to
+create the commit message — per the router's Auto-Chaining rule. Only pause instead of
+chaining if unexpected files ended up staged and it's unclear whether they belong.
 
 ## Do NOT Commit
 

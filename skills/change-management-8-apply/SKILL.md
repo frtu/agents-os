@@ -93,12 +93,16 @@ Changes applied:
 {git status output}
 
 Files modified: {count}
+```
 
-To stage these changes:
-  /change-management-1-stage
-  
-To discard if needed:
-  git checkout -- .
+Then, without waiting for confirmation, auto-chain into `/change-management-1-stage`
+with the files that were actually applied (excluding any skipped/conflicting paths) —
+per the router's Auto-Chaining rule. Only pause instead of chaining if `--check` failed
+outright and nothing was applied, or if conflicts leave it unclear what should be staged.
+
+To discard the applied changes if needed:
+```bash
+git checkout -- .
 ```
 
 ## Edge Cases
