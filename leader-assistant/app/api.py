@@ -370,6 +370,62 @@ async def skills_import(req: models.ImportSkillRequest) -> models.ImportSkillRep
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# --- per-workspace external MCP servers (spec 014) -------------------------
+
+
+@app.get("/api/workspaces/{selector}/mcp", response_model=models.McpServerList, tags=["mcp"], summary="List a workspace's external MCP servers")
+async def mcp_list(selector: str) -> models.McpServerList:
+    """Registered external MCP servers for a workspace, with auth status (spec 014 FR-3)."""
+    return await concierge.invoke(
+        "list_mcp_servers", selector, lambda: capabilities.list_mcp_servers(selector),
+        workspace=selector,
+    )
+
+
+@app.post("/api/workspaces/{selector}/mcp", response_model=models.McpServerInfo, tags=["mcp"], summary="Register an external MCP server")
+async def mcp_add(selector: str, req: models.AddMcpServerRequest) -> models.McpServerInfo:
+    """Register (or update) an external MCP server on a workspace (spec 014 FR-2).
+
+    A `reversible`-tier effect: the `.mcp.json` edit is committed to the workspace repo, so a
+    `git revert` undoes it. The privilege concern (a new external tool surface,
+    `mcp__<name>__*`) is covered structurally instead — this capability is operator-only, a
+    registered server is inert until a separate deliberate `login`, and every external tool
+    call still faces the PreToolUse risk gate (spec 014 D5/FR-11/FR-13).
+    """
+    try:
+        return await concierge.invoke(
+            "add_mcp_server", req.name,
+            lambda: capabilities.add_mcp_server(selector, req.name, req.url, req.transport),
+            workspace=selector, objective=f"register MCP server {req.name}",
+        )
+    except WorkspaceError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/workspaces/{selector}/mcp/{name}", response_model=models.McpServerInfo, tags=["mcp"], summary="Remove an external MCP server")
+async def mcp_remove(selector: str, name: str) -> models.McpServerInfo:
+    """Remove a registered MCP server (spec 014 FR-4). Reversible: the `.mcp.json` edit is committed."""
+    try:
+        return await concierge.invoke(
+            "remove_mcp_server", name, lambda: capabilities.remove_mcp_server(selector, name),
+            workspace=selector, objective=f"remove MCP server {name}",
+        )
+    except WorkspaceError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/workspaces/{selector}/mcp/{name}/login", response_model=models.McpLoginInfo, tags=["mcp"], summary="Capture a per-workspace OAuth login")
+async def mcp_login(selector: str, name: str) -> models.McpLoginInfo:
+    """Prepare/drive the OAuth login for a registered server, capturing it under `.mcp-auth/` (spec 014 FR-8)."""
+    try:
+        return await concierge.invoke(
+            "login_mcp_server", name, lambda: capabilities.login_mcp_server(selector, name),
+            workspace=selector, objective=f"log in to MCP server {name}",
+        )
+    except WorkspaceError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # --- human web UI (spec 003-assistant-ui) ----------------------------------
 # Mount the Gradio startup surface at `/`. Registered last so the explicit REST
 # routes above (and Swagger at /api/) take precedence; Gradio serves its own

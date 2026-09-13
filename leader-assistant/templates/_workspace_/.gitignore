@@ -1,2 +1,4 @@
 vault/.obsidian
 # vault/.obsidian/workspace.json
+# per-workspace MCP OAuth credential store — never commit (spec 014 FR-7)
+.mcp-auth/

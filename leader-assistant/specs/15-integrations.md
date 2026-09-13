@@ -15,8 +15,9 @@ related:
   - "[[09-planning]]"
   - "[[13-api]]"
   - "[[16-workflows]]"
+  - "[[014-workspace-mcp-servers]]"
 Created: 2026-08-15
-Last Updated: 2026-08-15
+Last Updated: 2026-09-12
 ---
 
 # External Integrations & Output Feedback
@@ -56,10 +57,31 @@ Knowledge → Specification → Review → Feedback → Improved Knowledge
 
 After generating an output, evaluate: which concepts were used; whether existing concepts needed correction; whether new concepts emerged; whether a contradiction was discovered; whether the spec exposed missing knowledge; whether concept usage should be recorded (`referenced-to`, [[05-zettelkasten]]).
 
-## 4. Acceptance Criteria
+## 4. Per-Workspace MCP Servers (feature [[014-workspace-mcp-servers]])
+
+A distinct, narrower integration path than §1's on-demand external actions: attaching a live
+**MCP server** (e.g. Atlassian at `https://mcp.atlassian.com/v1/mcp`) to a single workspace so
+its tools become directly callable by the agent, rather than the assistant driving one-off
+external actions itself.
+
+- **Registration** is per-workspace, in `<workspace>/.mcp.json` (the schema the `claude` CLI
+  already discovers) — an operator `list`/`add`/`remove`s servers, never the agent (default
+  agent MCP blacklist). See [[03-workspace]] §4b for the storage layout.
+- **Login** is captured once per workspace via a workspace-scoped `CLAUDE_CONFIG_DIR`
+  (`<workspace>/.mcp-auth/`, git-ignored) so later agent runs reuse the token without a second
+  login.
+- Registered servers' tools are exposed to the agent as `mcp__<name>__*`, still subject to the
+  existing PreToolUse risk gate ([[011-maker-checker-approval]]) — this is a tool surface, not a
+  bypass of the gate that governs §1's on-demand actions.
+- Isolation: a server + login on one workspace is invisible to another (Constitution P13).
+
+## 5. Acceptance Criteria
 
 - AC1: External PM actions occur only when explicitly requested by the user.
 - AC2: Each external action is preceded by a proposed action/plan.
 - AC3: Results of external actions are captured (and optionally fed back into the Vault).
 - AC4: No background process synchronizes the whole Vault to an external PM tool.
 - AC5: Generated outputs trigger an output→knowledge evaluation recording concept usage.
+- AC6: An operator can add/list/remove a per-workspace external MCP server and capture its
+  login once, reused by later agent runs without a second login ([[014-workspace-mcp-servers]]).
+- AC7: The agent cannot itself add, remove, or log in to an external MCP server (operator-only).

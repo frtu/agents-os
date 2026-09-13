@@ -15,8 +15,9 @@ related:
   - "[[04-knowledge-ingestion]]"
   - "[[05-zettelkasten]]"
   - "[[11-git-workflow]]"
+  - "[[014-workspace-mcp-servers]]"
 Created: 2026-08-15
-Last Updated: 2026-08-16
+Last Updated: 2026-09-12
 ---
 
 # Workspace
@@ -62,6 +63,8 @@ The assistant supports **multiple workspaces** under a configurable root:
 
 ```text
 Workspaces/<workspace-name>/
+├── .mcp.json       # external MCP server registrations — tracked in git (url only, no secrets)
+├── .mcp-auth/      # per-workspace CLAUDE_CONFIG_DIR — git-ignored (captured OAuth tokens)
 ├── skills/         # installed skills — each a file/folder or a reference-link to another folder
 ├── sessions/       # operational conversations (short-term memory)
 └── vault/          # ingestion root — the durable knowledge store
@@ -219,6 +222,27 @@ One file per thread, named `YYYY-MM-DD-HH-MM-SS-<conversation-id>-<slug>.md` (th
 timestamp, to the second) and created only on the first user message
 ([[012-conversation-naming]] FR-1/FR-2/FR-12).
 
+## 4b. `.mcp.json` / `.mcp-auth/` — External MCP Servers (feature [[014-workspace-mcp-servers]])
+
+A workspace may register **external** MCP servers (e.g. Atlassian), each a sibling of `vault/`
+at the workspace root rather than inside it — like `sessions/`, this is operational state, not
+durable knowledge:
+
+- **`.mcp.json`** — the standard `{"mcpServers": {"<name>": {"type": "http"|"sse", "url": "..."}}}`
+  schema the `claude` CLI already discovers (`setting_sources=["project"]` + `cwd=<workspace>`).
+  **Tracked in git** — registration is knowledge worth versioning, and holds no secrets (url/
+  transport only). A capability trio (`list`/`add`/`remove_mcp_server`) manages it, reachable
+  identically over REST, chat, and UI (P9); all three are **operator-only** (default agent MCP
+  blacklist) — the agent cannot manage its own external tool surface.
+- **`.mcp-auth/`** — a dedicated `CLAUDE_CONFIG_DIR` for the workspace. `login_mcp_server` drives
+  the `claude` CLI's own OAuth flow with `CLAUDE_CONFIG_DIR=<workspace>/.mcp-auth`, so a captured
+  login is workspace-scoped and portable with the workspace; every later agent run for that
+  workspace sets the same `CLAUDE_CONFIG_DIR` so the token is reused with no second login.
+  **Git-ignored** — it holds credential material and must never enter the ledger.
+- Registered servers' tools are exposed to the agent as `mcp__<name>__*` in `allowed_tools`,
+  still subject to the existing PreToolUse risk gate — this adds a tool surface, it does not
+  bypass gating.
+
 ## 5. Special Files
 
 - `vault/wiki/portal.md` — one line per page (`- [[page|Page]] — summary`, <120 chars), grouped
@@ -268,3 +292,5 @@ copies is open — [[001-leader-assistant/plan-tbd|plan-tbd]] TBD-5.
   are copied verbatim into the new workspace (without overwriting existing files) and
   `bootstrap.sh` is run from the workspace; a missing template folder or skill library degrades to
   a no-op rather than failing creation (§1.1).
+- AC11: A workspace's `.mcp.json` is tracked in git and its `.mcp-auth/` is git-ignored; an
+  add/remove of an external MCP server is committed to the workspace repo ([[014-workspace-mcp-servers]] §4b).

@@ -48,8 +48,19 @@ def load_env_file(path: Path | None = None, *, override: bool = False) -> Path |
     return env_path
 
 # Agent MCP tools withheld by default (spec 006 FR-1): the chat surface (recursion),
-# the human-only raw upload channel (P2), and cross-workspace creation.
-DEFAULT_MCP_TOOL_BLACKLIST = frozenset({"chat", "upload", "create_workspace"})
+# the human-only raw upload channel (P2), cross-workspace creation, and — per spec 014
+# FR-12 — external MCP server + credential management (operator-only integration control).
+DEFAULT_MCP_TOOL_BLACKLIST = frozenset(
+    {
+        "chat",
+        "upload",
+        "create_workspace",
+        "list_mcp_servers",
+        "add_mcp_server",
+        "remove_mcp_server",
+        "login_mcp_server",
+    }
+)
 
 
 def workspace_root() -> Path:
@@ -416,3 +427,34 @@ def mcp_tool_blacklist() -> set[str]:
     if raw is None:
         return set(DEFAULT_MCP_TOOL_BLACKLIST)
     return {name.strip() for name in raw.split(",") if name.strip()}
+
+
+# --- per-workspace external MCP servers (spec 014) -------------------------------------
+#
+# An external MCP server is attached to a single workspace via a standard `<ws>/.mcp.json`
+# (the schema the `claude` CLI discovers, spec 014 FR-1) and logged into once, with the OAuth
+# token captured under a git-ignored `<ws>/.mcp-auth/` used as CLAUDE_CONFIG_DIR (FR-6).
+
+
+def workspace_mcp_config_path(workspace: Path) -> Path:
+    """Path to a workspace's external MCP server registrations (spec 014 FR-1)."""
+    return workspace / ".mcp.json"
+
+
+def workspace_mcp_auth_dir(workspace: Path) -> Path:
+    """Per-workspace CLI config+credential dir (CLAUDE_CONFIG_DIR) — git-ignored (spec 014 FR-6/FR-7)."""
+    return workspace / ".mcp-auth"
+
+
+def workspace_mcp_servers(workspace: Path) -> dict:
+    """The `mcpServers` map from a workspace's `.mcp.json`, tolerant of missing/corrupt (spec 014 FR-3).
+
+    Returns ``{}`` when the file is absent or unparseable — a bad registration file must never
+    crash a run, mirroring ``_read_settings``.
+    """
+    try:
+        data = json.loads(workspace_mcp_config_path(workspace).read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError, OSError):
+        return {}
+    servers = data.get("mcpServers") if isinstance(data, dict) else None
+    return servers if isinstance(servers, dict) else {}

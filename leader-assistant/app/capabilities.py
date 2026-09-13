@@ -83,6 +83,16 @@ EFFECTS: dict[str, Effect] = {
     # A new workspace is its own git repo, outside every existing workspace's ledger, so no revert
     # in the active workspace can remove it.
     "create_workspace": Effect("approval", "delete the workspace directory manually; no git revert covers it"),
+    # Per-workspace external MCP servers (spec 014 FR-13). Listing is read-only; login is
+    # operator-initiated and lands its token in git-ignored .mcp-auth/ (nothing in the ledger to
+    # undo). Add/remove are git-recoverable edits of .mcp.json — reversible, so they run unprompted
+    # then log + commit. The privilege-granting concern is covered elsewhere: these are operator-only
+    # (default agent blacklist, FR-12), the registered tools are inert until a separate deliberate
+    # login, and every external tool call still faces the PreToolUse risk gate (FR-11).
+    "list_mcp_servers": _READ_ONLY,
+    "login_mcp_server": Effect("auto", "token lands in git-ignored .mcp-auth/ — nothing in the ledger to undo"),
+    "remove_mcp_server": Effect("reversible", "`git revert` the .mcp.json edit in the workspace repo"),
+    "add_mcp_server": Effect("reversible", "`git revert` the .mcp.json edit in the workspace repo"),
 }
 
 # Explicit "create a workspace named X" intent (FR-10, D1).
@@ -701,6 +711,141 @@ def import_skill(selector: str | None, name: str) -> models.ImportSkillReport:
         committed=committed,
         message=f"Imported skill '{safe}' as a reference-link into {ws_name}.",
     )
+
+
+# --- per-workspace external MCP servers (feature 014) ----------------------
+#
+# Registration lives in a standard `<ws>/.mcp.json` (the schema the `claude` CLI discovers via
+# setting_sources=["project"] + cwd, spec 014 FR-1). The OAuth token a server needs is captured
+# once under the git-ignored `<ws>/.mcp-auth/` (used as CLAUDE_CONFIG_DIR, FR-6/FR-7). These four
+# capabilities are operator-only (default agent blacklist, FR-12).
+
+_MCP_SERVER_NAME = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def _mcp_authenticated(auth_dir: Path, name: str) -> bool:
+    """Best-effort: is a login token captured for ``name`` under ``.mcp-auth/`` (spec 014 FR-9)?
+
+    Scans the workspace CLI config dir for a credentials file mentioning the server. Defaults to
+    ``False`` whenever it cannot be confirmed — never a false positive (FR-9). On macOS the token
+    may live in the Keychain rather than here (spec 014 R2), in which case this reports ``False``.
+    """
+    if not auth_dir.is_dir():
+        return False
+    for path in auth_dir.rglob("*"):
+        if not path.is_file():
+            continue
+        low = path.name.lower()
+        if "cred" not in low and low != ".mcp.json" and not low.endswith(".json"):
+            continue
+        try:
+            if name in path.read_text(encoding="utf-8"):
+                return True
+        except (OSError, ValueError):
+            continue
+    return False
+
+
+def list_mcp_servers(selector: str | None = None) -> models.McpServerList:
+    """List a workspace's registered external MCP servers (spec 014 FR-3)."""
+    ws_name, workspace = _resolve_scaffolded(selector)
+    auth_dir = config.workspace_mcp_auth_dir(workspace)
+    servers = [
+        models.McpServerInfo(
+            name=name,
+            url=str(cfg.get("url", "")),
+            transport=str(cfg.get("type", "http")),
+            authenticated=_mcp_authenticated(auth_dir, name),
+        )
+        for name, cfg in sorted(config.workspace_mcp_servers(workspace).items())
+        if isinstance(cfg, dict)
+    ]
+    return models.McpServerList(workspace=ws_name, servers=servers)
+
+
+def add_mcp_server(
+    selector: str | None, name: str, url: str, transport: str = "http"
+) -> models.McpServerInfo:
+    """Register (or update) an external MCP server in `<ws>/.mcp.json`, then commit (spec 014 FR-2/FR-5)."""
+    if not name or not _MCP_SERVER_NAME.fullmatch(name):
+        raise WorkspaceError(f"invalid MCP server name: {name!r}")
+    if transport not in ("http", "sse"):
+        raise WorkspaceError(f"invalid MCP transport: {transport!r} (expected http or sse)")
+    if not url.strip():
+        raise WorkspaceError("MCP server url must be non-empty")
+
+    _, workspace = _resolve_scaffolded(selector)
+    path = config.workspace_mcp_config_path(workspace)
+    servers = config.workspace_mcp_servers(workspace)
+    servers[name] = {"type": transport, "url": url.strip()}  # idempotent: merge in place (FR-2)
+    _write_mcp_config(path, servers)
+
+    vault.append_log(workspace, "mcp", f"add server {name} ({url.strip()})")
+    _git_commit(workspace, f"chore(mcp): register {name}")  # revertible (FR-5)
+    auth_dir = config.workspace_mcp_auth_dir(workspace)
+    return models.McpServerInfo(
+        name=name,
+        url=url.strip(),
+        transport=transport,
+        authenticated=_mcp_authenticated(auth_dir, name),
+    )
+
+
+def remove_mcp_server(selector: str | None, name: str) -> models.McpServerInfo:
+    """Remove a registered MCP server from `<ws>/.mcp.json`, then commit (spec 014 FR-4/FR-5)."""
+    ws_name, workspace = _resolve_scaffolded(selector)
+    servers = config.workspace_mcp_servers(workspace)
+    if name not in servers:
+        raise WorkspaceError(f"no such MCP server in {ws_name}: {name}")
+    removed = servers.pop(name)
+    _write_mcp_config(config.workspace_mcp_config_path(workspace), servers)
+
+    vault.append_log(workspace, "mcp", f"remove server {name}")
+    _git_commit(workspace, f"chore(mcp): remove {name}")
+    cfg = removed if isinstance(removed, dict) else {}
+    return models.McpServerInfo(
+        name=name,
+        url=str(cfg.get("url", "")),
+        transport=str(cfg.get("type", "http")),
+        authenticated=False,
+    )
+
+
+def login_mcp_server(selector: str | None, name: str) -> models.McpLoginInfo:
+    """Drive the per-workspace OAuth login for a registered server (spec 014 FR-8).
+
+    Points the CLI's config+credential dir at `<ws>/.mcp-auth/` (CLAUDE_CONFIG_DIR, FR-6) so the
+    captured token is workspace-scoped, and returns the exact `config_dir` plus a ready-to-run
+    fallback command. The OAuth browser round-trip is interactive and cannot be completed
+    unattended, so this capability *prepares and reports* the flow rather than blocking on it —
+    the operator completes the login once via the returned command's `/mcp` authenticate step.
+    """
+    ws_name, workspace = _resolve_scaffolded(selector)
+    servers = config.workspace_mcp_servers(workspace)
+    if name not in servers:
+        raise WorkspaceError(f"no such MCP server in {ws_name}: {name} — add it first")
+    auth_dir = config.workspace_mcp_auth_dir(workspace)
+    auth_dir.mkdir(parents=True, exist_ok=True)
+    # The `claude` CLI has no headless single-server auth; OAuth runs interactively via `/mcp`.
+    command = (
+        f"CLAUDE_CONFIG_DIR={auth_dir} claude "
+        f'--add-dir "{workspace}" (then run /mcp and authenticate "{name}")'
+    )
+    return models.McpLoginInfo(
+        workspace=ws_name,
+        server=name,
+        config_dir=str(auth_dir),
+        command=command,
+        authenticated=_mcp_authenticated(auth_dir, name),
+    )
+
+
+def _write_mcp_config(path: Path, servers: dict) -> None:
+    """Write the `mcpServers` map back to `<ws>/.mcp.json` in the standard CLI schema (spec 014 FR-1)."""
+    import json
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"mcpServers": servers}, indent=2, sort_keys=True), encoding="utf-8")
 
 
 # --- model selection (feature 004-assistant-sidebar, FR-26..FR-28) ---------

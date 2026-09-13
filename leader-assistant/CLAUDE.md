@@ -102,6 +102,10 @@ AC2). The human web UI (Gradio, spec 003) owns `/`, so Swagger is relocated to *
 | `GET`  | `/api/workspaces` | — | `WorkspaceList` (workspaces, root, default) |
 | `POST` | `/api/workspaces` | `{name}` | `WorkspaceInfo` |
 | `GET`  | `/api/workspaces/{selector}` | path selector | `WorkspaceInfo` |
+| `GET`  | `/api/workspaces/{selector}/mcp` | path selector | `McpServerList` (spec 014) |
+| `POST` | `/api/workspaces/{selector}/mcp` | `{name,url,transport?}` | `McpServerInfo` (spec 014) |
+| `DELETE` | `/api/workspaces/{selector}/mcp/{name}` | path params | `McpServerInfo` (spec 014) |
+| `POST` | `/api/workspaces/{selector}/mcp/{name}/login` | path params | `McpLoginInfo` (spec 014) |
 | `POST` | `/api/ingest` | `{workspace?,title,content,provenance}` | `IngestReport` |
 | `POST` | `/api/query` | `{workspace?,question}` | `Answer` (reply + citations) |
 | `POST` | `/api/plan` | `{workspace?,request}` | `Plan` (risk, steps, requires_approval) |
@@ -151,6 +155,8 @@ yet migrated — see the divergence note):
 
 ```text
 Workspaces/<workspace-name>/
+├── .mcp.json       # external MCP server registrations (tracked; url only, no secrets) — spec 014
+├── .mcp-auth/      # per-workspace CLAUDE_CONFIG_DIR — git-ignored (captured OAuth tokens) — spec 014
 ├── skills/         # installed skills — each a file/folder or a reference-link to another folder
 ├── sessions/       # operational conversations (short-term memory)
 └── vault/          # ingestion root — the durable knowledge store (P1)

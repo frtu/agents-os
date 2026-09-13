@@ -467,6 +467,43 @@ class ImportSkillReport(BaseModel):
     message: str
 
 
+class McpServerInfo(BaseModel):
+    """One external MCP server registered on a workspace (spec 014 FR-3)."""
+
+    name: str = Field(..., description="Server name; the tool prefix is mcp__<name>__*", examples=["atlassian"])
+    url: str = Field(..., description="Server endpoint URL", examples=["https://mcp.atlassian.com/v1/mcp"])
+    transport: str = Field("http", description="MCP transport: http or sse")
+    authenticated: bool = Field(
+        False, description="Best-effort: whether a login token is captured under .mcp-auth/ (spec 014 FR-9)"
+    )
+
+
+class McpServerList(BaseModel):
+    """External MCP servers registered on a workspace (spec 014 FR-3)."""
+
+    workspace: str
+    servers: list[McpServerInfo] = Field(default_factory=list)
+
+
+class AddMcpServerRequest(BaseModel):
+    """Register an external MCP server on a workspace (spec 014 FR-2)."""
+
+    workspace: str | None = Field(None, description="Workspace selector; omitted = default")
+    name: str = Field(..., description="Server name ([A-Za-z0-9_-]+)", examples=["atlassian"])
+    url: str = Field(..., description="Server endpoint URL", examples=["https://mcp.atlassian.com/v1/mcp"])
+    transport: str = Field("http", description="MCP transport: http or sse")
+
+
+class McpLoginInfo(BaseModel):
+    """Result of driving a per-workspace OAuth login (spec 014 FR-8)."""
+
+    workspace: str
+    server: str
+    config_dir: str = Field(..., description="CLAUDE_CONFIG_DIR the login used (<workspace>/.mcp-auth)")
+    command: str = Field(..., description="Ready-to-run fallback command for the operator")
+    authenticated: bool = Field(..., description="Best-effort: whether a token is now captured (spec 014 FR-9)")
+
+
 class ModelChoice(BaseModel):
     """One selectable Claude Agent SDK model (spec 004 FR-26/FR-27)."""
 

@@ -33,6 +33,7 @@ Bash-write risk (spec 005 D3).
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import AsyncIterator, Awaitable, Callable
@@ -639,11 +640,20 @@ async def run_stream(
         trust, naming,
     )
     server = _build_server(specs)
+    # spec 014 FR-10: point the CLI at this workspace's captured-login store so any external MCP
+    # server's OAuth token is reused, and admit its tools. The external servers themselves load via
+    # the setting_sources=["project"] path (the CLI discovers <ws>/.mcp.json under cwd) — no
+    # duplicate mcp_servers entry needed. os.environ is the only lever (ClaudeAgentOptions has no
+    # env field); set immediately before query(). Concurrency caveat: spec 014 R1.
+    os.environ["CLAUDE_CONFIG_DIR"] = str(config.workspace_mcp_auth_dir(workspace_path))
+    external_tools = [
+        f"mcp__{name}__*" for name in config.workspace_mcp_servers(workspace_path)
+    ]
     opts = ClaudeAgentOptions(
         system_prompt=system_prompt,
         model=config.agent_model(),
         mcp_servers={_SERVER: server},
-        allowed_tools=[*_NATIVE_TOOLS, *_allowed_tool_names(specs)],
+        allowed_tools=[*_NATIVE_TOOLS, *_allowed_tool_names(specs), *external_tools],
         permission_mode="bypassPermissions",
         setting_sources=["project"],  # MUST include a scope or skills are disabled (spec 005 risk 1)
         skills="all",
