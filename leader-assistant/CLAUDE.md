@@ -232,6 +232,10 @@ Unset by default; absent either key, tracing is a no-op — no network call, no 
   `/api/settings`; the agent has **no** tool to read, set, or bypass it (spec 009 FR-11). It is
   threaded to the tool layer as a **closure**, never a tool argument, so no value the agent passes
   can influence a verdict (spec 010 FR-2).
+- **Search is workspace-scoped (spec 011 FR-52)** — the agent's `Read`/`Glob`/`Grep` and read-only
+  shell (`ls`, `find`, `grep`, …) run `auto` only inside the selected workspace (or the skill library
+  root); any location outside is announced `approval` and pauses for the operator. Enforced in
+  `agent._operation_for_tool`, never by prompt.
 - **Portal is updated on every ingest** (`_update_portal`).
 - **No DB / vector store** as canonical storage (P1/P10). Markdown + YAML + git only.
 - Keep new capabilities mirrored 1:1 across REST and chat (P9 parity; parity test is
