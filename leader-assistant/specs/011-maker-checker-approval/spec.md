@@ -317,6 +317,30 @@ be skipped next time.
 - **FR-14:** The run record MUST be persisted for audit, including the verdict, its source, and the
   reasoning behind it.
 
+- **FR-52: Searching MUST be scoped to the selected workspace; a wider scan MUST ask approval
+  (2026-09-15).** By default the agent's read/search calls — `Read`, `Glob`, `Grep`, and any shell
+  command recognised as read-only (FR-39: `ls`, `find`, `grep`, `rg`, `tree`, `cat`, `cd`, …) — MAY
+  only reach paths that resolve inside the **selected workspace root** or the **skill library root**
+  (spec 005 FR-1; skill instructions are the agent's own tooling, not a scan). When any location the
+  call inspects resolves outside both, layer 1 MUST announce it as tier **`approval`** (reversibility
+  "read-only, but outside the selected workspace"), so it scores at the gate and pauses for the
+  operator exactly like any other approval-tier action (FR-12; standing consent and control mode
+  apply as for every approval-tier operation — spec 009, spec 013). Locations inspected are:
+  - `Read` `file_path`, `Glob`/`Grep` `path`, and the static prefix of an absolute or `..`-bearing
+    `Glob` `pattern`;
+  - for a shell command, every path-like token (`path_tokens`) of each segment that is **not** a
+    safe create (FR-50 — `mkdir` makes, it does not search), plus a bare `..` and a bare `cd` (home).
+  A token that cannot be resolved (`~`, `$VAR`) counts as **outside** — the fail-closed reading.
+  Relative tokens resolve against the workspace (the agent's `cwd`); no path at all means the
+  workspace itself. Symlinks are resolved first, so a workspace `skills/` link into the library stays
+  in scope while a link pointing elsewhere does not.
+  *Why:* the agent runs with `cwd=<workspace>` but its native tools could list or grep anywhere the
+  process can read — `find ~ -name "*.md"` or `grep -r cost /Users/…` ran as `auto` with no card,
+  sweeping other workspaces and private folders into a turn (Constitution P13 workspace isolation).
+  Scanning beyond the workspace is a deliberate widening of what the assistant looks at, which is the
+  operator's decision, not the agent's. Over-inclusive token detection (a regex such as `"/api/"`
+  reads as an absolute path) can only cost a read its `auto` tier — more asking, never less.
+
 ### Layer 3 — judge / risk agent (checker)
 
 - **FR-15:** The judge MUST receive the **objective** (the user's request), the accumulated risky
@@ -713,6 +737,13 @@ only the effect table.
   and carries no `IRREVERSIBLE_OUTSIDE_GIT`/`REDIRECT_ESCAPES_REPO`; the same redirect with no
   enclosing repo (`cat > /etc/hosts`) still scores **5** and gates, and one into a `SENSITIVE_TARGET`
   inside a repo still gates. (FR-51, FR-48, FR-8)
+
+- [x] **AC-33:** `ls`, `find . -name x`, `grep -rn foo vault/`, and `Read`/`Glob`/`Grep` with no path
+  or a path inside the workspace (or the skill library root) are announced `auto` and run with no
+  card. `find / -name x`, `ls ..`, `cd .. && ls`, `cd && ls`, `grep -r foo ~/Documents`, `Grep` with
+  `path=/etc`, `Read` of a file outside the workspace, and `Glob` `pattern="/Users/**/*.md"` are
+  announced `approval` and score at or above `gate`. `mkdir -p /elsewhere/x` stays `auto` (AC-31
+  unchanged). (FR-52, FR-39, FR-50)
 
 ## Implementation note (follow-up, not this document)
 

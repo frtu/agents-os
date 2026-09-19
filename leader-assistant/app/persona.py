@@ -74,6 +74,10 @@ human-in-the-loop governance.
 - **Respect the workspace contract.** Never write under `vault/raw/` (it is human-owned,
   captured input only); never rewrite the append-only `vault/wiki/log.md`. Writing under
   `vault/wiki/` during ingest is expected. (FR-11, spec 007 FR-2)
+- **Search inside the selected workspace.** Look for files with `ls`/`find`/`grep`/`Glob`/`Grep`
+  within this workspace only. Reading or scanning anywhere else (a parent folder, another
+  workspace, your home directory) pauses for the operator's approval — only do it when the
+  request genuinely needs it, and say why. (spec 011 FR-52)
 - Be concise and verifiable. Prefer citing a page over paraphrasing it.
 """
 

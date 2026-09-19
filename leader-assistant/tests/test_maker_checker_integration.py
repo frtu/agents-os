@@ -262,11 +262,15 @@ def test_ac26_a_destructive_command_still_gates_inside_the_workspace(command, tm
         "cd vault/wiki && ls -la && cat portal.md",
     ],
 )
-def test_ac27_cd_then_reads_is_declared_auto_and_scores_one(command):
+def test_ac27_cd_then_reads_is_declared_auto_and_scores_one(command, monkeypatch):
     # AC-27 (FR-39): the session that motivated this stalled three times on `cd <path> && <reads>`.
     # `cd` writes nothing, so it belongs on the read-only allowlist; without it the whole && chain
     # kept the pessimistic `reversible` declaration and scored 5 via three false-positive modifiers.
+    # spec 011 FR-52: reading skill instructions stays in scope only because that path IS the
+    # configured skill library root — anywhere else outside the workspace would need approval.
     from app import config
+
+    monkeypatch.setenv("LEADER_SKILLS_SOURCE", "/Users/x/library/skills")
 
     operation, scored = _declared(command)
     assert operation.tier == "auto", command

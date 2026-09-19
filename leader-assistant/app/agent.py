@@ -479,6 +479,60 @@ def _names_sensitive_target(command: str) -> bool:
     return any(marker in target for marker in execution_gate.SENSITIVE_TARGET_MARKERS)
 
 
+# --- workspace scan scope (spec 011 FR-52) ---------------------------------------------
+#
+# Searching is scoped to the selected workspace: a read whose locations all resolve inside the
+# workspace (or the skill library, the agent's own tooling) stays `auto`; one that reaches beyond is
+# announced `approval`, so a wider scan is the operator's decision, never the agent's.
+_READ_TOOLS = frozenset({"Read", "Glob", "Grep"})
+_GLOB_CHARS = "*?[{"
+_SCAN_OUTSIDE_REVERSIBILITY = "read-only, but outside the selected workspace — a wider scan needs approval"
+
+
+def _scan_targets(tool_name: str, tool_input: dict) -> tuple[str, ...]:
+    """Every location a read/search call inspects (spec 011 FR-52)."""
+    if tool_name == "Bash":
+        return execution_gate.scan_path_tokens(str(tool_input.get("command", "")))
+    targets = [str(tool_input[key]) for key in _FILE_PATH_KEYS if tool_input.get(key)]
+    pattern = str(tool_input.get("pattern") or "") if tool_name == "Glob" else ""
+    if pattern:
+        # Only the static prefix names a place; `**/*.md` is relative to `path` (or the workspace).
+        cut = min((pattern.find(c) for c in _GLOB_CHARS if c in pattern), default=len(pattern))
+        prefix = pattern[:cut]
+        if prefix.startswith(("/", "~", "$")) or ".." in prefix.split("/"):
+            targets.append(prefix)
+    return tuple(targets)
+
+
+def _outside_scan_scope(workspace_path: Path, tool_name: str, tool_input: dict) -> bool:
+    """Does this read reach beyond the workspace and the skill library (spec 011 FR-52)?
+
+    Any single location outside is enough; an unresolvable token (`~`, `$VAR`) counts as outside, the
+    fail-closed reading. Symlinks resolve first, so `skills/` links into the library stay in scope.
+    """
+    from . import config
+
+    roots: list[Path] = []
+    for root in (workspace_path, config.skills_library_root()):
+        try:
+            roots.append(root.resolve())
+        except (OSError, ValueError):
+            continue
+    for token in _scan_targets(tool_name, tool_input):
+        if token.startswith(("~", "$")):
+            return True
+        candidate = Path(token)
+        if not candidate.is_absolute():
+            candidate = workspace_path / candidate
+        try:
+            resolved = candidate.resolve()
+        except (OSError, ValueError):
+            return True
+        if not any(resolved.is_relative_to(root) for root in roots):
+            return True
+    return False
+
+
 def _operation_for_tool(workspace_path: Path, tool_name: str, tool_input: dict) -> Operation:
     """Describe a tool call as an announceable Operation (spec 011 FR-5).
 
@@ -528,6 +582,13 @@ def _operation_for_tool(workspace_path: Path, tool_name: str, tool_input: dict) 
         # SENSITIVE_TARGET (constitution, log, settings) keeps the pessimistic declaration so it still
         # gates, since SENSITIVE_TARGET alone does not reach the threshold.
         reversibility = _GIT_COVERED
+
+    if tier == "auto" and (tool_name in _READ_TOOLS or tool_name == "Bash") and _outside_scan_scope(
+        workspace_path, tool_name, tool_input
+    ):
+        # FR-52: a search beyond the selected workspace is not the agent's call — it pauses for approval.
+        tier = "approval"
+        reversibility = _SCAN_OUTSIDE_REVERSIBILITY
 
     if tier == "reversible" and tool_name in ("Write", "Edit", "NotebookEdit") and target:
         resolved = Path(target)

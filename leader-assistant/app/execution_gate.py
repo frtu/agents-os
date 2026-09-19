@@ -176,6 +176,38 @@ def path_tokens(command: str) -> tuple[str, ...]:
     return tuple(tokens)
 
 
+def scan_path_tokens(command: str) -> tuple[str, ...]:
+    """Locations a command inspects, for the workspace scan scope (spec 011 FR-52).
+
+    ``path_tokens`` of every segment that is not a safe create (FR-50 — `mkdir` makes, it does not
+    search), plus the two ways to name somewhere else without a slash: a bare ``..`` and a bare
+    ``cd`` (home, returned as ``~``). A variable assigned earlier in the same command is substituted
+    first (`R=vault; find $R` inspects `vault`), so only a variable the command never set stays
+    unresolvable. Over-inclusive like ``path_tokens``: a spurious token can only cost a read its
+    `auto` tier, never earn it one.
+    """
+    tokens: list[str] = []
+    assigned: dict[str, str] = {}
+    for segment in _segments(_STREAM_REDIRECT.sub("", strip_heredocs(command))):
+        words = [raw.strip("'\"") for raw in segment.split()]
+        while words and _ASSIGNMENT.match(words[0]):
+            name, _, value = words.pop(0).partition("=")
+            assigned[name] = value
+        if not words:
+            continue  # a pure assignment names a value, it inspects nothing
+        text = " ".join(words)
+        for name, value in assigned.items():
+            text = re.sub(rf"\$(?:{name}\b|\{{{name}\}})", lambda _m, v=value: v, text)
+        programs = _segment_programs(text)
+        if SAFE_MUTATING_PROGRAMS & set(programs):
+            continue
+        if programs[:1] == ("cd",) and len(words) == 1:
+            tokens.append("~")
+        tokens.extend(path_tokens(text))
+        tokens.extend(word for word in text.split() if word == "..")
+    return tuple(tokens)
+
+
 def effectful_programs(command: str) -> tuple[str, ...]:
     """Programs from the segments that are **not** read-only, sorted and deduplicated (FR-41).
 
