@@ -19,12 +19,12 @@ workspace the conversation operates on. The UI is a **pure presentation layer**:
 business logic and reaches the workspace only by **calling the backend REST API** over HTTP
 (`/api/chat`, `/api/chat/stream`, `/api/workspaces`). Because it adds no capability the API
 lacks, it preserves interface parity (Constitution P9). It runs in the **same process and
-port** as the API. The interactive **Swagger UI moves to `/api/`**, freeing `/` for the UI.
+port** as the API. The interactive **Swagger UI moves to `/api`**, freeing `/` for the UI.
 
 ## Goals
 
 - Make the assistant usable by a human **without curl/Swagger** — open the base URL and chat.
-- Serve the UI at `/` as the **default startup mode**; move Swagger to `/api/`.
+- Serve the UI at `/` as the **default startup mode**; move Swagger to `/api`.
 - Keep the UI a **thin surface over the REST API** (P9): it calls the API, never the workspace
   or capability layer directly.
 - Support **streamed** replies so long answers appear incrementally.
@@ -62,7 +62,7 @@ port** as the API. The interactive **Swagger UI moves to `/api/`**, freeing `/` 
 - **Scenario 6 — Approve consequential work:** As a stakeholder, when my request is
   consequential and the assistant returns a plan, the UI shows the plan and an **Approve**
   control; only when I click it does the UI resend the turn with approval to execute (P8).
-- **Scenario 7 — Find the API docs:** As a developer, when I go to `/api/`, I get the
+- **Scenario 7 — Find the API docs:** As a developer, when I go to `/api`, I get the
   Swagger UI to explore the same capabilities the chat UI uses.
 
 ## Functional Requirements
@@ -71,7 +71,7 @@ Numbered, testable, unambiguous.
 
 - **FR-1:** The system MUST serve a human-facing web UI at the **root path `/`** as the
   default surface when the service starts.
-- **FR-2:** The interactive API docs (Swagger UI) MUST be served under **`/api/`**; the REST
+- **FR-2:** The interactive API docs (Swagger UI) MUST be served at **`/api`** (no trailing slash — see D4); the REST
   capability endpoints MUST remain reachable under `/api/<resource>` (e.g. `/api/chat`,
   `/api/workspaces`) without conflict.
 - **FR-3:** The UI MUST obtain all data and effects by **calling the REST API over HTTP**
@@ -113,7 +113,7 @@ Numbered, testable, unambiguous.
 - **Pending plan panel** — the UI presentation of an API `pending_plan` plus the approval
   control (P8).
 - **Citation list** — the UI presentation of the `citations` an answer returns.
-- **API base** — the same-origin REST surface (`/api/*`) the UI calls; Swagger at `/api/`.
+- **API base** — the same-origin REST surface (`/api/*`) the UI calls; Swagger at `/api`.
 
 ## Constraints & Assumptions
 
@@ -133,7 +133,7 @@ Numbered, testable, unambiguous.
 
 - [ ] **AC-1:** Requesting `/` returns the chat UI (the default startup surface); the UI
   loads without manually visiting any other path. (FR-1)
-- [ ] **AC-2:** Swagger UI is served at `/api/`; `/api/chat` and `/api/workspaces` still resolve
+- [ ] **AC-2:** Swagger UI is served at `/api`; `/api/chat` and `/api/workspaces` still resolve
   to their endpoints (no route conflict). (FR-2)
 - [ ] **AC-3:** Sending a message in the UI produces a reply that renders **incrementally**
   (streamed), and the same content is obtained via the non-streaming path when streaming is
@@ -162,8 +162,10 @@ Numbered, testable, unambiguous.
 - **D3 — Coupling:** the UI calls the backend **over the HTTP REST API**, not the in-process
   capability layer, so it stays a pure presentation surface and continuously exercises the
   API (P9). *(Derived from FR-3.)*
-- **D4 — Docs relocation:** Swagger UI moves from `/docs` to **`/api/`** and `/` becomes the
+- **D4 — Docs relocation:** Swagger UI moves from `/docs` to **`/api`** and `/` becomes the
   UI; REST endpoints keep their `/api/<resource>` paths. *(User requirement.)*
+  Swagger is served at `/api` only: the UI mount at `/` matches every path, so `/api/` is not
+  redirected by FastAPI and would 404. Docs and the startup banner therefore advertise `/api`.
 
 ## Open Questions
 

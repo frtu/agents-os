@@ -1,6 +1,6 @@
 """Tests for the web UI surface (feature 003-assistant-ui).
 
-Covers the route wiring the spec fixes — UI at `/`, Swagger at `/api/`, REST
+Covers the route wiring the spec fixes — UI at `/`, Swagger at `/api`, REST
 endpoints still under `/api/<resource>` — and the parity invariant that the UI is
 a pure presentation layer: `app/ui.py` reaches the backend only over HTTP and
 never imports the capability/vault layer (spec 003 FR-3/FR-10/AC-8, P9).
@@ -31,7 +31,7 @@ def test_root_serves_web_ui(client):
 
 
 def test_swagger_relocated_to_api(client):
-    # AC-2: Swagger UI is served at /api/ ...
+    # AC-2: Swagger UI is served at /api ...
     docs = client.get("/api")
     assert docs.status_code == 200
     assert "swagger" in docs.text.lower() or "openapi" in docs.text.lower()

@@ -271,7 +271,7 @@ Numbered, testable, unambiguous.
 - **FR-18:** Every sidebar capability MUST be reachable through these REST endpoints; the UI
   MUST NOT import or call the capability layer, `app/vault`, `app/conversation`, or the
   filesystem directly (P9). New endpoints MUST live under `/api/*` and MUST NOT collide with
-  existing routes or the Swagger UI at `/api/`.
+  existing routes or the Swagger UI at `/api`.
 
 ### Sessions panel
 
@@ -388,7 +388,7 @@ Numbered, testable, unambiguous.
   actions), P9 (interface parity — sidebar is a surface over new REST endpoints), P10
   (portability — no new datastore; files land as Markdown/originals under `vault/raw/` + ingested
   `vault/wiki/`), P13 (multi-workspace) all apply.
-- **Builds on** feature 003 (UI at `/`, Swagger at `/api/`) and feature 001 workspace/ingest
+- **Builds on** feature 003 (UI at `/`, Swagger at `/api`) and feature 001 workspace/ingest
   capabilities. Reuses `GET`/`POST /api/workspaces`; **adds** wiki-tree, upload, and
   sessions-list endpoints.
 - **Assumption:** single-operator, local use — no auth; the browser reaches the same-origin

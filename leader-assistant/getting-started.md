@@ -30,13 +30,13 @@ On startup it prints a banner with the URLs, e.g.:
   Leader Assistant — local service
   --------------------------------
   Web UI     : http://localhost:8000/
-  Swagger UI : http://localhost:8000/api/
+  Swagger UI : http://localhost:8000/api
   ReDoc      : http://localhost:8000/redoc
   OpenAPI    : http://localhost:8000/openapi.json
   Health     : http://localhost:8000/health
 ```
 
-Open **http://localhost:8000/** for the web UI, or **http://localhost:8000/api/** for
+Open **http://localhost:8000/** for the web UI, or **http://localhost:8000/api** for
 the Swagger UI, which lets you try every endpoint from the browser. Press `Ctrl+C` to
 stop.
 

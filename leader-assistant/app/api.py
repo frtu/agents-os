@@ -2,7 +2,7 @@
 
 FastAPI auto-generates the OpenAPI schema and serves the interactive Swagger UI.
 Per spec 003-assistant-ui (D4/FR-2) the human web UI owns the root path `/`, so
-Swagger is relocated to **/api/** (`docs_url="/api"`); the OpenAPI schema stays at
+Swagger is relocated to **/api** (`docs_url="/api"`); the OpenAPI schema stays at
 `/openapi.json` and ReDoc at `/redoc`. The Gradio UI is mounted at `/` at the end
 of this module. This surface must stay in capability parity with any chat surface
 (Constitution P9, spec 13-api).
@@ -31,10 +31,10 @@ app = FastAPI(
         "undoable). Work that reaches the review threshold returns **409** with a "
         "`RiskAssessment`: the accumulated list of operations, each with its score and a one-line "
         "justification. Standing consent is the operator's to grant (`auto_approve`, "
-        "`/api/settings`), never the agent's. Interactive docs: **/api/**; the web UI is at **/**."
+        "`/api/settings`), never the agent's. Interactive docs: **/api**; the web UI is at **/**."
     ),
     contact={"name": "Leader Assistant", "url": "https://example.local"},
-    docs_url="/api",  # Swagger UI at /api/ — the web UI owns / (spec 003 D4/FR-2)
+    docs_url="/api",  # Swagger UI at /api — the web UI owns / (spec 003 D4/FR-2)
 )
 
 
@@ -428,7 +428,7 @@ async def mcp_login(selector: str, name: str) -> models.McpLoginInfo:
 
 # --- human web UI (spec 003-assistant-ui) ----------------------------------
 # Mount the Gradio startup surface at `/`. Registered last so the explicit REST
-# routes above (and Swagger at /api/) take precedence; Gradio serves its own
+# routes above (and Swagger at /api) take precedence; Gradio serves its own
 # assets under /gradio_api/, so it does not shadow /api/<resource> (FR-1, FR-2).
 import gradio as gr  # noqa: E402  (heavy import; kept local to app startup)
 

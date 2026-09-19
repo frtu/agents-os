@@ -7,7 +7,7 @@
 > Describes **how**. Turns [`spec.md`](spec.md) into architecture over the existing FastAPI
 > REST surface (`app/api.py`) and the feature 002 chat endpoints. Requirements are
 > referenced (FR-n, AC-n), not restated. Route paths below are binding where the spec fixes
-> them (`/` = UI, `/api/` = Swagger), illustrative otherwise.
+> them (`/` = UI, `/api` = Swagger), illustrative otherwise.
 
 ## Constitution Check
 
@@ -49,13 +49,13 @@
   by reading `text/event-stream` chunks and yielding accumulated `reply` to the chatbot.
   *(SSE-consumption mechanism is the one deferred detail — see Open Questions.)*
 - **Docs relocation:** configure FastAPI with `docs_url="/api"` so Swagger UI serves at
-  `/api/`; remove the current `@app.get("/")` → `/docs` redirect (root now serves the UI).
+  `/api`; remove the current `@app.get("/")` → `/docs` redirect (root now serves the UI).
   REST routes keep their `/api/<resource>` paths — FastAPI matches routes exactly, so `/api`
   (Swagger) does not shadow `/api/workspaces` etc. (FR-2). Decide alongside whether `openapi.json`
   and ReDoc move under `/api/` (Open Questions).
 - **Server:** unchanged launcher (`app/__main__.py` / `uv run leader-assistant`); the mounted
   app is still `app.api:app`, one process/port. Update the startup banner to advertise the UI
-  at `/` and Swagger at `/api/`.
+  at `/` and Swagger at `/api`.
 - **Dependencies added:** `gradio` (UI) and `httpx` (UI→API client) in `pyproject.toml`.
 - **Dependencies on other features:** consumes feature 002 endpoints (`/api/chat`,
   `/api/chat/stream`) and feature 001 workspace endpoints (`/api/workspaces`). Adds no capability.
@@ -69,7 +69,7 @@
 ```text
 Browser
   │  GET /            ──────────────► Gradio UI (startup surface, mounted on FastAPI)
-  │  GET /api/        ──────────────► Swagger UI (docs_url="/api")
+  │  GET /api         ──────────────► Swagger UI (docs_url="/api")
   ▼
 Gradio UI process ──HTTP(same origin)──► /api/workspaces    (list / create)
   (app/ui.py)                            /api/chat           (full reply)
@@ -103,7 +103,7 @@ Gradio UI process ──HTTP(same origin)──► /api/workspaces    (list / cr
   redirect, and `gr.mount_gradio_app(app, build_demo(), path="/")` so `/` serves the UI.
   Keep all existing `/api/<resource>` routes. (FR-1, FR-2, D4)
 - **`app/__main__.py` changes.** Update the startup banner: `UI : {base}/`,
-  `Swagger : {base}/api/`. (FR-1, FR-2)
+  `Swagger : {base}/api`. (FR-1, FR-2)
 - **`pyproject.toml` changes.** Add `gradio` and `httpx` dependencies. (Technical Context)
 
 ## Data & File Contracts
@@ -131,7 +131,7 @@ and the feature 001 workspace contract.
 
 - **Browser routes (binding where fixed by spec):**
   - `GET /` → Gradio UI (startup surface). (FR-1)
-  - `GET /api/` → Swagger UI (`docs_url="/api"`). (FR-2)
+  - `GET /api` → Swagger UI (`docs_url="/api"`). (FR-2)
   - `GET/POST /api/<resource>` → existing REST endpoints, unchanged. (FR-2)
 - **No new capability-layer functions** — parity is preserved by *not* adding any (P9);
   the UI is strictly a consumer of the existing REST surface (AC-8).
@@ -148,11 +148,11 @@ and the feature 001 workspace contract.
   mounting on the same FastAPI app keeps one process/port (FR-10).
 - **Full capability console now** — **rejected** for scope (D2); deferred to a follow-up.
 - **Keeping Swagger at `/docs` and putting the UI elsewhere** — **rejected**: the spec fixes
-  `/` = UI and `/api/` = Swagger (D4, FR-1/FR-2).
+  `/` = UI and `/api` = Swagger (D4, FR-1/FR-2).
 
 ## Risks & Mitigations
 
-- **Route conflict `/api/` (docs) vs `/api/<resource>` (endpoints)** → FastAPI matches routes
+- **Route conflict `/api` (docs) vs `/api/<resource>` (endpoints)** → FastAPI matches routes
   exactly; verify with a test that both Swagger and each endpoint resolve (AC-2).
 - **SSE consumption inside the UI process** → use an async HTTP client that reads
   `text/event-stream` incrementally; if streaming proves brittle, fall back to `/api/chat`
@@ -169,7 +169,7 @@ and the feature 001 workspace contract.
 
 ## Rollout / Sequencing
 
-- **MVP:** relocate Swagger to `/api/` and mount a Gradio chat UI at `/`; single message →
+- **MVP:** relocate Swagger to `/api` and mount a Gradio chat UI at `/`; single message →
   streamed reply via `/api/chat/stream`; conversation continuity via held `conversation_id`;
   default-workspace chat. Update the startup banner.
 - **Then:** workspace picker (list/select via `/api/workspaces`, create on explicit action); citations

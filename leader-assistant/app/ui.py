@@ -3,7 +3,7 @@
 The UI is a *pure presentation layer*: it reaches the workspace only by calling the
 backend REST API over HTTP (same origin), never `app.capabilities` / `app.vault`
 directly (spec 003 FR-3/AC-8, spec 004 FR-18, Constitution P9). It is mounted on
-the FastAPI app at `/` (see `app/api.py`); Swagger lives at `/api/`.
+the FastAPI app at `/` (see `app/api.py`); Swagger lives at `/api`.
 
 Feature 004 adds a **collapsible left sidebar** (`gr.Sidebar`) of three **independently
 collapsible** panels (`gr.Accordion`), top-to-bottom (spec 004 FR-2):

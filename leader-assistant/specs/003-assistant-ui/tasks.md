@@ -20,14 +20,14 @@
 
 ## Docs relocation & UI mount (server wiring)
 
-- [ ] T010 In `app/api.py`, set FastAPI `docs_url="/api"` (Swagger UI at `/api/`) and remove
+- [ ] T010 In `app/api.py`, set FastAPI `docs_url="/api"` (Swagger UI at `/api`) and remove
   the `@app.get("/")` → `/docs` redirect so `/` is free for the UI. (FR-2, D4)
 - [ ] T011 Decide + apply placement of `openapi.json` / ReDoc (keep at `/openapi.json`,
   `/redoc`, or move under `/api/`); document the choice. (FR-2; plan Open Questions)
 - [ ] T012 Mount the Gradio UI on the FastAPI app at `/` via
   `gr.mount_gradio_app(app, build_demo(), path="/")`. (FR-1, D1)
 - [ ] T013 [P] Update the startup banner in `app/__main__.py`: `UI : {base}/`,
-  `Swagger : {base}/api/`. (FR-1, FR-2)
+  `Swagger : {base}/api`. (FR-1, FR-2)
 
 ## UI — API client (UI → REST, same origin)
 
@@ -68,7 +68,7 @@
 ## Validation (map to AC)
 
 - [ ] T060 AC-1: `GET /` returns the chat UI (startup surface). (FR-1)
-- [ ] T061 AC-2: Swagger UI resolves at `/api/` **and** `/api/chat` + `/api/workspaces` still
+- [ ] T061 AC-2: Swagger UI resolves at `/api` **and** `/api/chat` + `/api/workspaces` still
   resolve (no route conflict). (FR-2)
 - [ ] T062 AC-3: a UI message renders incrementally (stream), and matches the non-streaming
   reply content. (FR-4)
@@ -96,4 +96,4 @@
 - **D2** — scope is chat + workspace picker only; full capability console deferred. (T030–T051)
 - **D3** — the UI calls the backend over the HTTP REST API, not the in-process capability
   layer; verified by AC-8. (T020, T067)
-- **D4** — Swagger relocates to `/api/`; `/` serves the UI; REST keeps `/api/<resource>`. (T010)
+- **D4** — Swagger relocates to `/api`; `/` serves the UI; REST keeps `/api/<resource>`. (T010)

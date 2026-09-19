@@ -40,7 +40,7 @@ def main() -> None:
         "  Leader Assistant — local service\n"
         "  --------------------------------\n"
         f"  Web UI     : {base}/\n"
-        f"  Swagger UI : {base}/api/\n"
+        f"  Swagger UI : {base}/api\n"
         f"  ReDoc      : {base}/redoc\n"
         f"  OpenAPI    : {base}/openapi.json\n"
         f"  Health     : {base}/health\n"
