@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(PYTHONPATH=. python3 -m voice_memo list *)",
+      "Bash(bash scripts/batch_transcribe.sh *)"
+    ]
+  }
+}
