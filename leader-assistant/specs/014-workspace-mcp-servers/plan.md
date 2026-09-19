@@ -67,10 +67,15 @@ Workspaces/<ws>/
   `.gitignore` so new workspaces get it; `.mcp.json` stays tracked. *(FR-7)*
 
 ### `app/agent.py` (`run_stream`)
-- Before building options: `os.environ["CLAUDE_CONFIG_DIR"] = str(config.workspace_mcp_auth_dir(workspace_path))`
-  and extend `allowed_tools` with `mcp__<name>__*` for each server in
-  `config.workspace_mcp_servers(workspace_path)`. *(FR-10)* External tools stay under the
-  existing PreToolUse gate (FR-11) — no change to the hook.
+- Before building options: relocate `CLAUDE_CONFIG_DIR` to `config.agent_config_dir(workspace_path)`
+  **only when it is not `None`** (i.e. the workspace has a registered server), and extend
+  `allowed_tools` with `mcp__<name>__*` for each server in
+  `config.workspace_mcp_servers(workspace_path)`. *(FR-10)* Restore the process-start value in a
+  `finally` so nothing leaks into the next run, the ingest activity or the judge. *(FR-15)*
+  External tools stay under the existing PreToolUse gate (FR-11) — no change to the hook.
+- Map an `AssistantMessage.error` to an actionable `AgentUnavailable` (error kind, CLI text,
+  effective config dir, login/token remedy) via `agent.describe_runtime_error`; reuse it in
+  `activity_ingest`. *(FR-16, P14)*
 
 ### `app/api.py`
 - `GET /api/workspaces/{selector}/mcp` → `list_mcp_servers`.

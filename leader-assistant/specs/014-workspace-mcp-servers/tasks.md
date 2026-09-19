@@ -29,3 +29,12 @@ satisfies. See [`spec.md`](spec.md) and [`plan.md`](plan.md).
   (AC-3); `login_mcp_server` config_dir + command (AC-4); offline `run_stream` sets
   `CLAUDE_CONFIG_DIR` + `mcp__<name>__*` (AC-5); four capabilities blacklisted (AC-6); routes
   registered (AC-7). Run `uv run --extra dev pytest` green. *(AC-1..AC-7)*
+- [x] **T010 — Spec amendment (2026-09-19):** FR-10 gated on a registered server; FR-15 (restore
+  `CLAUDE_CONFIG_DIR` after a run); FR-16 (actionable auth failure); AC-9..AC-11; D6; R2 finding.
+- [x] **T011 — Config dir scoping:** `config.agent_config_dir`; `agent.run_stream` relocates only
+  when a server is registered and restores the process-start value in `finally`. *(FR-10, FR-15)*
+- [x] **T012 — Auth failure reason:** `agent.describe_runtime_error` maps `AssistantMessage.error`
+  to an actionable `AgentUnavailable` in `run_stream` and `activity_ingest`. *(FR-16, P14)*
+- [x] **T013 — Tests:** AC-9 (no relocation without servers), AC-10 (restored after run/error),
+  AC-11 (auth failure message) in `tests/test_mcp_servers_api.py`; spec 002 AC-14 in
+  `tests/test_chat_api.py`. *(AC-9..AC-11, 002 AC-14)*

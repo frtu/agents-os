@@ -238,6 +238,9 @@ durable knowledge:
   the `claude` CLI's own OAuth flow with `CLAUDE_CONFIG_DIR=<workspace>/.mcp-auth`, so a captured
   login is workspace-scoped and portable with the workspace; every later agent run for that
   workspace sets the same `CLAUDE_CONFIG_DIR` so the token is reused with no second login.
+  Relocation happens **only when the workspace has a registered server** and is undone when the
+  run ends; a workspace without servers runs with the operator's own `claude` login
+  ([[014-workspace-mcp-servers]] FR-10/FR-15).
   **Git-ignored** — it holds credential material and must never enter the ledger.
 - Registered servers' tools are exposed to the agent as `mcp__<name>__*` in `allowed_tools`,
   still subject to the existing PreToolUse risk gate — this adds a tool surface, it does not

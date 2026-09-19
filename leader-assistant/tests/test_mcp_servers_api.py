@@ -130,11 +130,15 @@ def test_run_stream_sets_config_dir_and_allows_external_tools_fr10(
     captured: dict = {}
 
     async def fake_query(prompt=None, options=None):
+        import os
+
         captured["opts"] = options
+        captured["config_dir"] = os.environ.get("CLAUDE_CONFIG_DIR")  # as the CLI would see it
         return
         yield  # pragma: no cover — marks this an async generator
 
     monkeypatch.setattr(claude_agent_sdk, "query", fake_query)
+    monkeypatch.setattr(agent, "_BASE_CONFIG_DIR", None)
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
 
     async def drive():
@@ -143,10 +147,118 @@ def test_run_stream_sets_config_dir_and_allows_external_tools_fr10(
 
     asyncio.run(drive())
 
+    assert captured["config_dir"] == str(config.workspace_mcp_auth_dir(ws))
+    assert "mcp__atlassian__*" in captured["opts"].allowed_tools
+
+
+def _capture_config_dir(monkeypatch, *, messages=(), error: Exception | None = None) -> dict:
+    """Patch the SDK query to record CLAUDE_CONFIG_DIR at call time, then yield/raise as told."""
     import os
 
-    assert os.environ["CLAUDE_CONFIG_DIR"] == str(config.workspace_mcp_auth_dir(ws))
-    assert "mcp__atlassian__*" in captured["opts"].allowed_tools
+    import claude_agent_sdk
+
+    seen: dict = {}
+
+    async def fake_query(prompt=None, options=None):
+        seen["config_dir"] = os.environ.get("CLAUDE_CONFIG_DIR")
+        for m in messages:
+            yield m
+        if error is not None:
+            raise error
+
+    monkeypatch.setattr(claude_agent_sdk, "query", fake_query)
+    return seen
+
+
+def _drive(v, ws):
+    from app import agent
+
+    async def go():
+        async for _ in agent.run_stream("sys", "hi", v, ws, None, []):
+            pass
+
+    asyncio.run(go())
+
+
+def test_run_stream_without_servers_keeps_operator_config_dir_ac9_fr10(
+    isolated_workspace_root, monkeypatch
+):
+    # spec 014 AC-9 / FR-10: no registered server → no relocation; the operator's login stays usable.
+    import os
+
+    from app import agent
+
+    v = _make_workspace()
+    ws = isolated_workspace_root / v
+    monkeypatch.setattr(agent, "_BASE_CONFIG_DIR", "/operator/claude")
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", "/operator/claude")
+    seen = _capture_config_dir(monkeypatch)
+
+    _drive(v, ws)
+
+    assert seen["config_dir"] == "/operator/claude"
+    assert os.environ["CLAUDE_CONFIG_DIR"] == "/operator/claude"
+    assert config.agent_config_dir(ws) is None
+
+
+def test_run_stream_restores_config_dir_after_run_and_error_ac10_fr15(
+    isolated_workspace_root, monkeypatch
+):
+    # spec 014 AC-10 / FR-15: the relocation is scoped to the run — undone on success and on error,
+    # so the ingest activity / judge never inherit a workspace's .mcp-auth/.
+    import os
+
+    from app import agent
+
+    v = _make_workspace()
+    ws = isolated_workspace_root / v
+    capabilities.add_mcp_server(v, "atlassian", ATLASSIAN)
+    monkeypatch.setattr(agent, "_BASE_CONFIG_DIR", None)
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+
+    seen = _capture_config_dir(monkeypatch)
+    _drive(v, ws)
+    assert seen["config_dir"] == str(config.workspace_mcp_auth_dir(ws))
+    assert "CLAUDE_CONFIG_DIR" not in os.environ
+
+    seen = _capture_config_dir(monkeypatch, error=RuntimeError("boom"))
+    with pytest.raises(agent.AgentUnavailable):
+        _drive(v, ws)
+    assert seen["config_dir"] == str(config.workspace_mcp_auth_dir(ws))
+    assert "CLAUDE_CONFIG_DIR" not in os.environ
+
+
+def test_run_stream_auth_failure_is_actionable_ac11_fr16(isolated_workspace_root, monkeypatch):
+    # spec 014 AC-11 / FR-16 / P14: the CLI's "Not logged in" survives as the AgentUnavailable reason
+    # (with config dir + remedy) instead of the SDK's opaque "returned an error result".
+    from claude_agent_sdk import AssistantMessage, TextBlock
+
+    from app import agent
+
+    v = _make_workspace()
+    ws = isolated_workspace_root / v
+    capabilities.add_mcp_server(v, "atlassian", ATLASSIAN)
+    monkeypatch.setattr(agent, "_BASE_CONFIG_DIR", None)
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    not_logged_in = AssistantMessage(
+        content=[TextBlock(text="Not logged in · Please run /login")],
+        model="sonnet",
+        error="authentication_failed",
+    )
+    _capture_config_dir(
+        monkeypatch,
+        messages=[not_logged_in],
+        error=Exception("Claude Code returned an error result: success"),
+    )
+
+    with pytest.raises(agent.AgentUnavailable) as exc:
+        _drive(v, ws)
+
+    reason = str(exc.value)
+    assert "authentication_failed" in reason and "Not logged in" in reason
+    assert str(config.workspace_mcp_auth_dir(ws)) in reason
+    assert "claude /login" in reason and "CLAUDE_CODE_OAUTH_TOKEN" in reason
+    assert "returned an error result" not in reason
 
 
 def test_mcp_capabilities_are_blacklisted_from_agent_fr12():

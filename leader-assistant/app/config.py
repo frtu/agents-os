@@ -458,3 +458,13 @@ def workspace_mcp_servers(workspace: Path) -> dict:
         return {}
     servers = data.get("mcpServers") if isinstance(data, dict) else None
     return servers if isinstance(servers, dict) else {}
+
+
+def agent_config_dir(workspace: Path) -> Path | None:
+    """The CLAUDE_CONFIG_DIR an agent run for ``workspace`` relocates to, or ``None`` (spec 014 FR-10).
+
+    Only a workspace with a registered MCP server needs its `.mcp-auth/` (captured OAuth tokens);
+    every other workspace keeps the operator's own config — a relocated dir does not see the
+    default `claude` login, so relocating unconditionally logs the agent out (spec 014 D6).
+    """
+    return workspace_mcp_auth_dir(workspace) if workspace_mcp_servers(workspace) else None

@@ -144,6 +144,7 @@ async def _headless(  # pragma: no cover — requires the live SDK runtime/crede
     """
     try:
         from claude_agent_sdk import (
+            AssistantMessage,
             ClaudeAgentOptions,
             CLINotFoundError,
             HookMatcher,
@@ -154,7 +155,7 @@ async def _headless(  # pragma: no cover — requires the live SDK runtime/crede
     except ImportError as e:
         raise AgentUnavailable(str(e)) from e
 
-    from .agent import _raw_guard_hook  # reuse the P2 raw-guard hook (FR-13)
+    from .agent import _message_text, _raw_guard_hook, describe_runtime_error  # P2 hook (FR-13)
 
     allowed = _ACTIVITY_TOOLS if tools is None else tools
     opts = ClaudeAgentOptions(
@@ -168,10 +169,13 @@ async def _headless(  # pragma: no cover — requires the live SDK runtime/crede
         add_dirs=[str(workspace_path), str(config.skills_library_root())],
         hooks={"PreToolUse": [HookMatcher(hooks=[_raw_guard_hook(workspace_path)])]},
     )
-    out = ""
+    out, runtime_error = "", ""
     with tracing.generation(f"ingest-{phase}", model=config.agent_model(), input=message[:2000]) as gen:
         try:
             async for m in query(prompt=message, options=opts):
+                if isinstance(m, AssistantMessage) and m.error:  # spec 014 FR-16 / P14
+                    runtime_error = describe_runtime_error(m.error, _message_text(m))
+                    continue
                 for block in getattr(m, "content", []) or []:
                     if isinstance(block, TextBlock):
                         out += block.text
@@ -182,5 +186,7 @@ async def _headless(  # pragma: no cover — requires the live SDK runtime/crede
         except CLINotFoundError as e:
             raise AgentUnavailable("claude CLI not found") from e
         except Exception as e:  # noqa: BLE001 — treat runtime failures as unavailability
-            raise AgentUnavailable(str(e)) from e
+            raise AgentUnavailable(runtime_error or str(e)) from e
+    if runtime_error:
+        raise AgentUnavailable(runtime_error)
     return out

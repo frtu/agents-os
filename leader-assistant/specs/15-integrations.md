@@ -69,7 +69,8 @@ external actions itself.
   agent MCP blacklist). See [[03-workspace]] §4b for the storage layout.
 - **Login** is captured once per workspace via a workspace-scoped `CLAUDE_CONFIG_DIR`
   (`<workspace>/.mcp-auth/`, git-ignored) so later agent runs reuse the token without a second
-  login.
+  login. The config dir is relocated only for workspaces that register a server, and only for
+  the duration of a run ([[014-workspace-mcp-servers]] FR-10/FR-15/FR-16).
 - Registered servers' tools are exposed to the agent as `mcp__<name>__*`, still subject to the
   existing PreToolUse risk gate ([[011-maker-checker-approval]]) — this is a tool surface, not a
   bypass of the gate that governs §1's on-demand actions.

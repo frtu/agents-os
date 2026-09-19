@@ -129,11 +129,26 @@ Numbered, testable, unambiguous.
 
 ### Agent runtime wiring
 
-- **FR-10:** Before invoking the agent for a workspace, the runtime MUST set
-  `CLAUDE_CONFIG_DIR` to that workspace's `.mcp-auth/` so captured tokens are found, and MUST add
-  `mcp__<name>__*` to `allowed_tools` for every server registered in that workspace's `.mcp.json`.
+- **FR-10 (amended 2026-09-19):** Before invoking the agent for a workspace **that has at least one
+  server registered** in its `.mcp.json`, the runtime MUST set `CLAUDE_CONFIG_DIR` to that
+  workspace's `.mcp-auth/` so captured tokens are found, and MUST add `mcp__<name>__*` to
+  `allowed_tools` for every registered server. For a workspace with **no** registered server the
+  runtime MUST NOT relocate `CLAUDE_CONFIG_DIR`: the CLI runs with the operator's own config (the
+  value the process started with, or the CLI default), so the operator's existing `claude` login
+  keeps working. *(A relocated config dir does not see the default login — verified, see R2.)*
 - **FR-11:** External MCP tool calls MUST remain subject to the existing PreToolUse risk gate
   (spec 011) — this feature adds a tool surface, it does not bypass gating.
+- **FR-15 (no leak):** A relocation made for one agent run (FR-10) MUST be undone when that run
+  ends (normally, on error, or on client disconnect): `CLAUDE_CONFIG_DIR` is restored to the value
+  the process started with (unset if it was unset). Other SDK call sites that do not relocate
+  (ingest activity, judge) MUST therefore never inherit a workspace's `.mcp-auth/`.
+- **FR-16 (actionable auth failure):** When the CLI reports a runtime error on an assistant
+  message (e.g. `authentication_failed` → "Not logged in · Please run /login"), the runtime MUST
+  raise `AgentUnavailable` carrying that error kind, the CLI's text, the effective
+  `CLAUDE_CONFIG_DIR` (or "default"), and — for `authentication_failed` — the remedy: run
+  `claude /login` with that config dir, or provide `CLAUDE_CODE_OAUTH_TOKEN` (from
+  `claude setup-token`) or `ANTHROPIC_API_KEY` in the server environment. It MUST NOT surface the
+  SDK's opaque "Claude Code returned an error result" in place of that reason (Constitution P14).
 
 ### Governance & parity
 
@@ -171,6 +186,11 @@ Numbered, testable, unambiguous.
   `<workspace>/.mcp.json`; `CLAUDE_CONFIG_DIR` relocates the CLI's config+credential dir and the
   SDK subprocess inherits `os.environ`; `ClaudeAgentOptions` has no `env` field, so the runtime
   sets `os.environ["CLAUDE_CONFIG_DIR"]` for the run.
+- **SDK/CLI fact (verified 2026-09-19, macOS, CLI 2.1.270 / SDK 0.2.139):** a CLI started with a
+  fresh `CLAUDE_CONFIG_DIR` does **not** see the operator's default login and answers
+  `Not logged in · Please run /login` (`AssistantMessage.error == "authentication_failed"`); the
+  SDK then raises the opaque `Claude Code returned an error result: success`. Env credentials
+  (`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`) are honoured regardless of the config dir.
 - **Assumption:** single-operator, local, trusted machine (as in feature 005/006). One agent
   run at a time per process for a given workspace — see Risk R1.
 
@@ -186,8 +206,15 @@ Numbered, testable, unambiguous.
   fallback command; the browser round-trip itself is a documented manual step, not asserted.
   (FR-8)
 - [x] **AC-5:** For a workspace with a registered server, the agent runtime sets
-  `CLAUDE_CONFIG_DIR` to that workspace's `.mcp-auth/` and includes `mcp__<name>__*` in
-  `allowed_tools`. (FR-10) *(Exercised offline by asserting the assembled options.)*
+  `CLAUDE_CONFIG_DIR` to that workspace's `.mcp-auth/` during the run and includes
+  `mcp__<name>__*` in `allowed_tools`. (FR-10) *(Exercised offline by asserting the assembled options.)*
+- [x] **AC-9:** For a workspace with **no** registered server, the agent run leaves
+  `CLAUDE_CONFIG_DIR` at the process's original value (unset stays unset). (FR-10)
+- [x] **AC-10:** After a run for a workspace with a registered server ends — normally or with an
+  error — `CLAUDE_CONFIG_DIR` is back to the process's original value. (FR-15)
+- [x] **AC-11:** A CLI `authentication_failed` assistant message makes `run_stream` raise
+  `AgentUnavailable` whose message names the CLI text, the config dir and the login/token remedy,
+  not "Claude Code returned an error result". (FR-16)
 - [x] **AC-6:** With the default configuration, none of the four MCP-management capabilities are
   registered as agent tools. (FR-12)
 - [x] **AC-7:** All four routes exist and are thin concierge calls; the REST surface is otherwise
@@ -222,6 +249,14 @@ Numbered, testable, unambiguous.
   carry the extra `url` argument. `list`/`login` are `auto` (read-only / credential write lands
   in git-ignored `.mcp-auth/`, nothing in the ledger to undo). *(Design, spec 011 FR-37.)*
 
+- **D6 — Relocate the config dir only when it buys something (2026-09-19).** Unconditionally
+  pointing every run at `.mcp-auth/` logged the agent out of every workspace without MCP servers
+  (observed on `cost-management`: chat silently degraded to the keyword fallback). Relocation is
+  now gated on a registered server (FR-10), scoped to the run (FR-15), and an auth failure names
+  its remedy (FR-16). A workspace with servers still needs Anthropic auth in its `.mcp-auth/` —
+  either an interactive `/login` there (the `login_mcp_server` command covers it) or an env token.
+  *(User decision — chosen over a per-workspace `/login` without code change.)*
+
 ## Known Risks & Caveats
 
 - **R1 — Process-global `CLAUDE_CONFIG_DIR`.** `ClaudeAgentOptions` has no per-invocation `env`,
@@ -232,7 +267,9 @@ Numbered, testable, unambiguous.
 - **R2 — macOS may store the token in the Keychain, not `.mcp-auth/`.** The login step MUST be
   verified empirically (AC-8). If the CLI uses the Keychain on this platform, the token is not
   workspace-portable via the config dir; record the finding here after verification and, if
-  needed, document forcing file-based storage.
+  needed, document forcing file-based storage. **Finding (2026-09-19):** the operator's default
+  Anthropic login is not visible under a relocated config dir (see Constraints); mitigated by
+  D6/FR-10/FR-16. MCP OAuth token portability (AC-8) is still unverified.
 - **R3 — OAuth token refresh is not reliably automatic.** A captured login may eventually expire
   and require a repeat `login_mcp_server`. This is why `authenticated` (FR-9) is surfaced and
   re-login is a one-command repeat.

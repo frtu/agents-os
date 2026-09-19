@@ -375,6 +375,31 @@ def test_p14_agent_error_in_stream_includes_reason(client, monkeypatch, isolated
     )
 
 
+def test_fallback_with_matching_pages_still_names_reason_fr17_ac14(client, monkeypatch):
+    """spec 002 FR-17 / AC-14 (P14): matching wiki pages must not hide that the agent failed.
+
+    Regression for the cost-management session where "Found 5 relevant page(s)…" replaced the
+    agent's answer while the real cause ("Not logged in") was dropped.
+    """
+    from app import agent
+
+    error_message = "claude CLI authentication_failed: Not logged in · Please run /login"
+
+    async def _unavailable_with_reason(*_args, **_kwargs):
+        raise agent.AgentUnavailable(error_message)
+        yield  # pragma: no cover — marks this an async generator
+
+    _ingest(client, "demo", "Risk engine", "The risk engine decides if work is safe, risky, or rejected.")
+    monkeypatch.setattr(agent, "run_stream", _unavailable_with_reason)
+
+    r = client.post("/api/chat", json={"workspace": "demo", "message": "what does the risk engine decide"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["citations"], "the wiki-search fallback should still cite the matching page"
+    assert error_message in body["reply"]
+    assert "unavailable" in body["reply"].lower()
+
+
 @pytest.mark.skipif(
     not os.getenv("LEADER_LIVE_AGENT"),
     reason="requires the claude CLI / credentials; set LEADER_LIVE_AGENT=1 to run",

@@ -150,6 +150,12 @@ Numbered, testable, unambiguous.
   deltas keep streaming the accumulated reply and MUST NOT carry an `event-message` (it rides
   alongside the token stream, it does not replace it).
 
+- **FR-17 (fallback transparency, 2026-09-19):** When the agent runtime is unavailable and the
+  turn falls back to the deterministic cited wiki search, the reply MUST state that the agent is
+  unavailable **and why** (the `AgentUnavailable` reason) **whether or not** the search found
+  matching pages — the cited excerpts follow that notice. A user must never mistake a keyword
+  search for the agent's answer (Constitution P14).
+
 ## Key Entities & Concepts
 
 - **Conversation** — a durable, resumable thread of turns identified by a conversation id.
@@ -212,6 +218,9 @@ Numbered, testable, unambiguous.
   message agree. (FR-15)
 - [ ] **AC-13:** A streamed turn's **final** delta carries an `event-message` with `role`,
   `event_time`, `conversation_id` and `message`; non-final deltas carry none. (FR-16)
+
+- [x] **AC-14:** With the agent unavailable and the wiki holding pages that match the question, the
+  reply names the unavailability reason **and** still returns the matching citations. (FR-17, P14)
 
 ## Resolved Decisions
 

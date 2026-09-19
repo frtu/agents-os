@@ -1210,14 +1210,21 @@ def _fallback_answer(
     message that includes the reason the agent is unavailable (if provided).
     """
     ans = query(models.QueryRequest(workspace=selector, question=message))
-    if not ans.citations and reason:
+    if not reason:
+        return ans.answer, ans.citations
+    import logging
+
+    logging.getLogger(__name__).warning("agent unavailable, using wiki-search fallback: %s", reason)
+    notice = f"The assistant agent is currently unavailable ({reason})."
+    if not ans.citations:
         # No wiki content to fall back to — tell the user why the agent is down.
         return (
-            f"The assistant agent is currently unavailable ({reason}). "
+            f"{notice} "
             "Once the agent runtime is available, I can help with ingestion, queries, and more. "
             "In the meantime, you can use the REST API endpoints directly."
         ), []
-    return ans.answer, ans.citations
+    # spec 002 FR-17 / P14: matching pages must not hide the failure — excerpts follow the notice.
+    return f"{notice} Falling back to wiki search: {ans.answer}", ans.citations
 
 
 async def ask_stream(

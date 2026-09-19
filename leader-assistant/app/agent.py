@@ -45,6 +45,8 @@ _SERVER = "leader"
 
 # Native tools granted for skill execution (spec 005 FR-9), alongside the MCP tools.
 _NATIVE_TOOLS = ["Skill", "Bash", "Read", "Write", "Edit", "Glob", "Grep"]
+# The CLAUDE_CONFIG_DIR the process started with — what every run restores (spec 014 FR-15).
+_BASE_CONFIG_DIR = os.environ.get("CLAUDE_CONFIG_DIR")
 
 
 class AgentUnavailable(RuntimeError):
@@ -599,6 +601,36 @@ def _build_server(specs: list[ToolSpec]):
     return create_sdk_mcp_server(_SERVER, "1.0.0", tools=tools)
 
 
+def _set_config_dir(value: str | None) -> None:
+    """Point the CLI at ``value``, or unset it for the CLI default (spec 014 FR-10/FR-15)."""
+    if value is None:
+        os.environ.pop("CLAUDE_CONFIG_DIR", None)
+    else:
+        os.environ["CLAUDE_CONFIG_DIR"] = value
+
+
+def _message_text(message) -> str:  # noqa: ANN001 — any SDK message with content blocks
+    return "".join(getattr(b, "text", "") or "" for b in getattr(message, "content", []) or [])
+
+
+def describe_runtime_error(error: str, text: str) -> str:
+    """Actionable ``AgentUnavailable`` reason for a CLI-reported runtime error (spec 014 FR-16, P14).
+
+    The SDK only raises an opaque "Claude Code returned an error result" after the CLI has already
+    said what went wrong on the assistant message; this keeps that reason, the effective config
+    dir, and — for a missing login — how to fix it.
+    """
+    config_dir = os.environ.get("CLAUDE_CONFIG_DIR") or "default"
+    reason = f"claude CLI {error}: {text.strip() or 'no detail'} (CLAUDE_CONFIG_DIR={config_dir})"
+    if error == "authentication_failed":
+        login = "claude /login" if config_dir == "default" else f"CLAUDE_CONFIG_DIR={config_dir} claude /login"
+        reason += (
+            f" — run `{login}`, or set CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`) "
+            "or ANTHROPIC_API_KEY in the server environment"
+        )
+    return reason
+
+
 async def run_stream(
     system_prompt: str,
     message: str,
@@ -619,6 +651,7 @@ async def run_stream(
     """
     try:
         from claude_agent_sdk import (
+            AssistantMessage,
             ClaudeAgentOptions,
             CLINotFoundError,
             HookMatcher,
@@ -640,12 +673,13 @@ async def run_stream(
         trust, naming,
     )
     server = _build_server(specs)
-    # spec 014 FR-10: point the CLI at this workspace's captured-login store so any external MCP
-    # server's OAuth token is reused, and admit its tools. The external servers themselves load via
-    # the setting_sources=["project"] path (the CLI discovers <ws>/.mcp.json under cwd) — no
-    # duplicate mcp_servers entry needed. os.environ is the only lever (ClaudeAgentOptions has no
-    # env field); set immediately before query(). Concurrency caveat: spec 014 R1.
-    os.environ["CLAUDE_CONFIG_DIR"] = str(config.workspace_mcp_auth_dir(workspace_path))
+    # spec 014 FR-10: a workspace with a registered server points the CLI at its captured-login
+    # store so the external server's OAuth token is reused, and admits its tools; one without
+    # servers keeps the operator's own login (D6). The external servers themselves load via the
+    # setting_sources=["project"] path (the CLI discovers <ws>/.mcp.json under cwd) — no duplicate
+    # mcp_servers entry needed. os.environ is the only lever (ClaudeAgentOptions has no env field);
+    # set immediately before query() and restored after (FR-15). Concurrency caveat: spec 014 R1.
+    auth_dir = config.agent_config_dir(workspace_path)
     external_tools = [
         f"mcp__{name}__*" for name in config.workspace_mcp_servers(workspace_path)
     ]
@@ -664,14 +698,18 @@ async def run_stream(
         resume=resume_sid,
     )
 
-    reply, sid = "", resume_sid
+    reply, sid, runtime_error = "", resume_sid, ""
     with tracing.generation(
         "chat-turn", model=config.agent_model(), input=message,
         session_id=conversation_id, workspace=workspace_selector,
     ) as gen:
+        if auth_dir is not None:
+            _set_config_dir(str(auth_dir))
         try:
             async for m in query(prompt=message, options=opts):
-                if isinstance(m, SystemMessage) and getattr(m, "subtype", "") == "init":
+                if isinstance(m, AssistantMessage) and m.error:  # spec 014 FR-16
+                    runtime_error = describe_runtime_error(m.error, _message_text(m))
+                elif isinstance(m, SystemMessage) and getattr(m, "subtype", "") == "init":
                     sid = m.data.get("session_id", sid)
                 elif isinstance(m, StreamEvent):
                     ev = m.event
@@ -685,5 +723,9 @@ async def run_stream(
         except CLINotFoundError as e:
             raise AgentUnavailable("claude CLI not found") from e
         except Exception as e:  # noqa: BLE001 — treat runtime failures as unavailability
-            raise AgentUnavailable(str(e)) from e
+            raise AgentUnavailable(runtime_error or str(e)) from e
+        finally:
+            _set_config_dir(_BASE_CONFIG_DIR)  # spec 014 FR-15: never leak a workspace's .mcp-auth/
+        if runtime_error:
+            raise AgentUnavailable(runtime_error)
         yield reply, sid
