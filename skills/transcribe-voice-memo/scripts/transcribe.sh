@@ -110,6 +110,8 @@ TODAY=$(date +%Y-%m-%d)
 echo "Transcribing: $RECORDING_NAME"
 echo "Language: $LANGUAGE"
 echo "Device: $DEVICE"
+echo "Audio Path: $AUDIO_PATH"
+echo "Output Path: $OUTPUT_PATH"
 echo ""
 
 # Run whisper transcription
