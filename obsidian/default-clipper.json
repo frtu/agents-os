@@ -1,0 +1,46 @@
+{
+	"schemaVersion": "0.1.0",
+	"name": "Default",
+	"behavior": "create",
+	"noteContentFormat": "{{content}}",
+	"properties": [
+		{
+			"name": "Title",
+			"value": "{{title}}",
+			"type": "text"
+		},
+		{
+			"name": "Source",
+			"value": "{{url}}",
+			"type": "text"
+		},
+		{
+			"name": "Author",
+			"value": "{{author|split:\\\", \\\"|wikilink|join}}",
+			"type": "text"
+		},
+		{
+			"name": "Published",
+			"value": "{{published}}",
+			"type": "text"
+		},
+		{
+			"name": "Created",
+			"value": "{{date}}",
+			"type": "text"
+		},
+		{
+			"name": "Description",
+			"value": "{{description}}",
+			"type": "text"
+		},
+		{
+			"name": "Tags",
+			"value": "clippings",
+			"type": "text"
+		}
+	],
+	"triggers": [],
+	"noteNameFormat": "{{title}}",
+	"path": "Vault/raw/clippings"
+}
