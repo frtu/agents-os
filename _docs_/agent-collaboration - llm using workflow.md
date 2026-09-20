@@ -9,7 +9,7 @@ Habbit of interacting with AI is getting to a state, that our work life depdends
 * Adhoc interaction : use **prompt**
 * Regular interaction when having upstream demand & stakeholders : use composable **skills** (skill using skills) & reusable **scripts**
 
-![Interaction mode](images/Interaction mode-context-skills-refresh.png)
+![Interaction mode](images/interaction-mode-context-skills-refresh.png)
 
 #### Knowledge & Skills refresh loop
 
