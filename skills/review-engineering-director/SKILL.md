@@ -91,6 +91,12 @@ Confirm, briefly: **who reads it**, **what decision it must drive**, **the ask**
 
 ### Step 3 — Draft with BLUF structure
 
+**If a domain-specific template matches the artifact, start from it instead of the default.** Templates live in `references/templates/` and carry per-section insight, style, and diagnostic questions:
+
+| Template | Use when the artifact is… |
+| --- | --- |
+| `references/templates/product-definition.md` | a product-definition / vision proposal arguing a new technical product should exist and asking to fund it. Pairs with Case A. |
+
 Default structure (adapt to the artifact):
 
 ```markdown

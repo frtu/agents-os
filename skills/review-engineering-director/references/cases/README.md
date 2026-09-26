@@ -4,9 +4,10 @@ Recurring failure shapes and how the interrogation moves each from weak to defen
 
 | Case | Shape to match                                                                            | File                       |
 | ---- | ----------------------------------------------------------------------------------------- | -------------------------- |
-| A    | Commodity-looking work (migration, upgrade, refactor) claimed by category or output count | `a-commodity-migration.md` |
-| B    | A flat list of equal-weight bullets with no thesis                                        | `b-bullet-point-pile.md`   |
-| C    | Raw volume (MR count, tickets, hours) offered as proof of seniority                       | `c-effort-vs-seniority.md` |
+| A    | Product-definition / vision doc: expansive capability catalog, no wedge, no explicit ask   | `a-product-definition.md`  |
+| B    | Commodity-looking work (migration, upgrade, refactor) claimed by category or output count | `b-commodity-migration.md` |
+| C    | A flat list of equal-weight bullets with no thesis                                        | `c-bullet-point-pile.md`   |
+| D    | Raw volume (MR count, tickets, hours) offered as proof of seniority                       | `d-effort-vs-seniority.md` |
 
 Each case file carries: **Before** (the weak claim) → **Interrogation** (the challenge to fire, with heuristic numbers) → **What surfaces** → **Distilled** (the defensible form) → **Lesson**.
 
