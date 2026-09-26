@@ -73,14 +73,18 @@ Workflows & Dependencies
 │   ├── ├─ change-management-0-resume (Optional)
 │   ├── ├─ change-management-1-stage (Stage)
 │   ├── │  └─ change-management-9-log (Commit)
-│   ├── └─ change-management-2-refactor (Refactor)
-│   │     └─ change-management-9-log (Commit)
+│   ├── ├─ change-management-2-refactor (Refactor)
+│   ├── │  └─ change-management-9-log (Commit)
+│   ├── ├─ change-management-7-diff (Export patch)
+│   ├── └─ change-management-8-apply (Apply patch)
+│   │     └─ change-management-1-stage [Optional]
 │
 ├── Knowledge Management (Second Brain)
 │   ├── second-brain (Setup)
-│   └─ second-brain-ingest (Ingest)
-│      ├─ second-brain-lint (Health check)
-│      └─ second-brain-query (Search & synthesize)
+│   ├─ second-brain-ingest (Ingest)
+│   │  ├─ second-brain-lint (Health check)
+│   │  └─ second-brain-query (Search & synthesize)
+│   └─ second-brain-refactor (Split a folder into subcategories)
 │
 ├── Document Processing
 │   ├── transcribe-voice-memo
@@ -107,6 +111,7 @@ Workflows & Dependencies
 │
 ├── Review & Analysis
 │   ├── review-engineering-director (Director lens)
+│   │  └─ rewrite-clarity (Delegated word-level pass)
 │   └── review-product-strategy (Product lens)
 │
 └── Utilities
@@ -133,6 +138,8 @@ A multi-step workflow for staging, refactoring, and committing changes to git re
 - **[change-management-0-resume](./change-management-0-resume/)** — Optional first step. Reads recent git history to reconstruct what was previously done.
 - **[change-management-1-stage](./change-management-1-stage/)** — Stage git changes via `git add`.
 - **[change-management-2-refactor](./change-management-2-refactor/)** — Refactor file paths using `git mv` while preserving git history.
+- **[change-management-7-diff](./change-management-7-diff/)** — Export current changes (staged, else unstaged) to a patch file. See [`CHANGE_MANAGEMENT_REPO_PATH`](#patch-file-directory-change_management_repo_path).
+- **[change-management-8-apply](./change-management-8-apply/)** — Apply a patch file to the local repository.
 - **[change-management-9-log](./change-management-9-log/)** — Final step. Creates structured commit messages and appends to wiki/log.md.
 
 ### Knowledge Management (Second Brain)
@@ -143,6 +150,7 @@ Build and maintain an Obsidian-based knowledge base with LLM assistance.
 - **[second-brain-ingest](./second-brain-ingest/)** — Process raw source documents into wiki pages.
 - **[second-brain-lint](./second-brain-lint/)** — Health-check the wiki for contradictions, orphan pages, stale claims, and missing cross-references.
 - **[second-brain-query](./second-brain-query/)** — Answer questions against the knowledge base wiki and explore connections between topics.
+- **[second-brain-refactor](./second-brain-refactor/)** — Split a wiki folder into subcategories when a new taxonomy is needed.
 
 ### Document Linting & Formatting
 
@@ -185,29 +193,104 @@ Two-phase workflow for aggregating and consolidating weekly team updates.
 - **[weekly-1-aggregate](./weekly-1-aggregate/)** — Phase 1: Aggregate contributor updates into per-product wiki pages.
 - **[weekly-2-consolidate](./weekly-2-consolidate/)** — Phase 2: Consolidate per-product pages into a single Slack-ready report.
 
-## Skill Anatomy
+## Skill Internal Structure & Composition
 
-Each skill folder contains:
+This section is the **skill factory** convention: how a skill is laid out, and how skills reuse each other instead of copying content. Agents creating or changing a skill follow [`AGENTS.md`](./AGENTS.md), which builds on this section.
+
+### Folder layout
+
+Only `SKILL.md` is required. Add the other folders when the skill needs them:
 
 ```text
 skill-name/
-├── SKILL.md              # Skill metadata and documentation
-├── scripts/              # Implementation scripts and handlers
-│   ├── main.md           # Entry point (executed when skill is invoked)
-│   └── *.py/*.sh         # Supporting scripts
-└── references/           # Templates, examples, and reference materials
+├── SKILL.md                  # Required. Frontmatter + the process the agent follows
+├── references/               # Loaded on demand, never all up front
+│   ├── templates/            # Generic output structures (report, doc, page)
+│   │   └── {artifact}.md
+│   ├── cases/                # Specific instances: teams, failure shapes, worked examples
+│   │   ├── README.md         # Registry: index table + rules for adding a case
+│   │   └── {letter}-{slug}.md
+│   └── {topic}.md            # Methodology, schema, rules, patterns
+├── scripts/                  # Deterministic work (Python/shell) + tests (test_*.py)
+└── config/                   # Data the scripts read (JSON dictionaries, thresholds)
 ```
 
-### SKILL.md Structure
+| Skill | What it shows |
+| --- | --- |
+| `review-engineering-director` | `templates/` + `cases/` (failure shapes) with a registry; delegates to `rewrite-clarity` |
+| `lint-unformat`, `diagram-architecture` | `scripts/` with a test file next to each script |
+| `lint-transcript-normalise` | `config/corrections.json` read by a script |
+| `change-management`, `interview-eval`, `weekly-digest` | Router + numbered sub-skills |
 
-The `SKILL.md` file contains YAML frontmatter with:
+### SKILL.md frontmatter
 
-- **name** — Skill identifier (used by Claude Code)
-- **description** — When to use this skill (triggers for skill invocation)
-- **allowed-tools** — Tools this skill is permitted to use
-- **version** — Semantic version
-- **compatibility** — Any system requirements
-- **metadata** — Additional configuration
+```yaml
+---
+name: skill-name                 # must match the folder name
+description: >                   # WHAT it does + WHEN to use it (trigger phrases in quotes)
+  Produce or review X. Use when the user says "…", "…", or shares a …
+allowed-tools: Bash Read Glob Grep Edit Write   # add Skill if it invokes other skills
+version: 0.1.0                   # optional, bump on behaviour change
+---
+```
+
+The `description` is the only part the harness always sees. It decides when the skill triggers, so list the trigger phrases and say how the skill differs from its neighbours (e.g. `research-deep` vs `second-brain-ingest`).
+
+### SKILL.md body — recommended sections
+
+1. **Purpose / posture:** 2–3 lines on what good output looks like.
+2. **Files:** which `references/` files exist and **when to load each one**.
+3. **Determine the mode:** e.g. Produce vs Review. Ask one question if unclear.
+4. **Process:** numbered steps.
+5. **Output format:** a fenced skeleton of the deliverable.
+6. **Rules / boundaries:** including hand-offs to other skills.
+7. **Chaining:** what runs next (e.g. `/change-management-1-stage`).
+
+Keep `SKILL.md` about **process**. Put long content (templates, methodology, examples) in `references/` so it only loads when needed.
+
+### Generic vs specific: template + case registry
+
+When a skill applies one structure to many subjects (teams, doc types, failure shapes):
+
+- `references/templates/{artifact}.md` stays **generic**. It has no team names, systems or real numbers. For each section it gives the **insight to deliver**, the **style & format**, and the **questions to answer**.
+- `references/cases/{letter}-{slug}.md` holds the **specifics**: one file per team or per failure shape.
+- `references/cases/README.md` is the **registry**: an index table (case → shape/team → file) plus the rules for adding a case. New cases only add a file and a row; `SKILL.md` doesn't change.
+- `SKILL.md` says: *read the registry, then load only the matching case.*
+- If a finding recurs across cases, move it into the template as a generic rule.
+
+### Reuse between skills — compose, don't copy
+
+Pick the first option that works:
+
+| # | Mechanism | Use when | How | Example |
+| --- | --- | --- | --- | --- |
+| 1 | **Invoke a sub-skill** | Another skill already does the job (a behaviour, a pass, a step) | Name it in the process: *"run `/rewrite-clarity` on the result"*. Add `Skill` to `allowed-tools` if it runs automatically | `review-engineering-director` → `rewrite-clarity`; ingest/interview → `change-management-1-stage` |
+| 2 | **Router + numbered sub-skills** | A workflow has ordered phases that are each useful alone | Router skill `{family}`, steps `{family}-{n}-{verb}`; the router only sequences and passes parameters | `weekly-digest` → `weekly-1-aggregate` → `weekly-2-consolidate` |
+| 3 | **Division of labour** | Two skills work on the same doc at different levels | A table in both skills: who owns what, and in which order they run | `review-engineering-director` (judgement) vs `rewrite-clarity` (words) |
+| 4 | **Point to the owning skill's reference** | You need the same schema or template, not the same behaviour | Link it by skill name + path (`second-brain/references/wiki-schema.md`) and say "read from"; both skills must be linked | wiki schema shared across `second-brain*` |
+| 5 | **Copy** | Last resort only, e.g. a script that must run without the other skill installed | Add a header comment `# Copied from {skill}/{path} — keep in sync` | ⚠️ `second-brain/scripts/relink-wiki.py` and `lint-unformat/scripts/relink-wiki.py` have already **drifted** apart |
+
+Rules:
+
+- **One owner per piece of content.** Each rule, template or script lives in exactly one skill. Others invoke it or link to it.
+- **Declare the dependency.** Every invoke/link edge is added to [Skill Dependencies](#skill-dependencies) (tree + Mermaid), and the dependent skill says it needs the other one linked.
+- **Hand off, don't re-implement.** If a step belongs to another skill, name that skill and stop. Don't copy its rules.
+- **Reuse only IF relevant.** Don't add a dependency for a one-line overlap. A small, self-contained skill is better than a forced composition.
+
+### Naming conventions
+
+| Pattern | Meaning | Example |
+| --- | --- | --- |
+| `{family}` | Router or entry point | `change-management`, `weekly-digest` |
+| `{family}-{n}-{verb}` | Ordered step; gaps leave room (`0` optional first, `9` final) | `change-management-9-log` |
+| `review-{lens}` | Critique or produce through a lens | `review-product-strategy` |
+| `lint-{target}` | Deterministic clean-up, script-backed | `lint-unformat` |
+| `rewrite-{goal}` | Word-level rewrite | `rewrite-clarity` |
+| `{domain}-{verb}` | Standalone utility | `people-ingest`, `transcribe-voice-memo` |
+
+### Git
+
+The root `.gitignore` ignores `SKILL.md`, so a new skill's `SKILL.md` has to be force-added: `git add -f {skill}/SKILL.md` (every tracked skill was added this way).
 
 ## Script Usage Reference
 
@@ -286,8 +369,14 @@ graph TD
         
         CM --> CM0
         CM --> CM1
+        CM7["change-management-7-diff"]
+        CM8["change-management-8-apply"]
+
         CM1 --> CM9
         CM2 --> CM9
+        CM --> CM7
+        CM7 -.->|patch file| CM8
+        CM8 -.->|optional| CM1
     end
     
     subgraph SecondBrain["Knowledge Management"]
@@ -300,6 +389,10 @@ graph TD
         SBINGEST --> SBLINT
         SBINGEST --> SBQUERY
         SBLINT --> SBQUERY
+        SBREF["second-brain-refactor"]
+        RESEARCH["research-deep"]
+        RESEARCH -.->|structure discipline| SBREF
+        RESEARCH -->|then| SBLINT
     end
     
     subgraph Lint["Document Cleanup"]
@@ -332,6 +425,7 @@ graph TD
     subgraph Review["Review & Analysis"]
         REV_ENG["review-engineering-director"]
         REV_PROD["review-product-strategy"]
+        REV_RETRO -.->|exec framing| REV_ENG
     end
     
     subgraph Util["Utility Skills"]
@@ -347,6 +441,7 @@ graph TD
     LUNFORMAT -.->|optional cleanup| IE2
     CLARITY -.->|polish any text| REV_ENG
     CLARITY -.->|polish any text| REV_PROD
+    CLARITY -.->|polish any text| REV_RETRO
     PEOPLE -->|feeds role data| IE1
     CM1 -->|post-process| SBINGEST
     CM1 -->|post-process| IE
@@ -435,18 +530,18 @@ rm ~/.claude/skills/skill-name
 
 ## Contributing
 
-To add a new skill:
+To add a new skill, follow the skill factory checklist in [`AGENTS.md`](./AGENTS.md). In short:
 
-1. Create a new folder following the naming convention
-2. Add a `SKILL.md` with proper frontmatter
-3. Create `scripts/main.md` as the entry point
-4. Document in this README under the appropriate category
-5. Test with `./link-skills.sh new-skill-name`
+1. Check the [Skills Library](#skills-library): extend or compose an existing skill before creating a new one.
+2. Create `{name}/SKILL.md` following [Skill Internal Structure & Composition](#skill-internal-structure--composition).
+3. Add it to the Skills Library, [Skill Dependencies](#skill-dependencies) (tree + Mermaid) and, if relevant, [Recommendation](#recommendation).
+4. `git add -f {name}/SKILL.md` (the root `.gitignore` ignores `SKILL.md`).
+5. Test with `./link-skills.sh {name}` and trigger it in Claude Code.
 
 ## Resources
 
 - [Claude Code Documentation](https://github.com/anthropics/claude-code)
-- [Skill Development Guide](./SKILL.md) (template)
+- [Skill factory guide](./AGENTS.md) — how agents create and compose skills
 - [Obsidian](https://obsidian.md/) — Knowledge base platform
 - [Mermaid Diagrams](https://mermaid.js.org/) — Diagram syntax
 
