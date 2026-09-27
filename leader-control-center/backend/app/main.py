@@ -75,7 +75,12 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Leader Control Center", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(
+        title="Leader Control Center",
+        version="0.1.0",
+        lifespan=lifespan,
+        docs_url="/api",  # Swagger UI; routes live under /api/v1
+    )
 
     app.add_middleware(
         CORSMiddleware,

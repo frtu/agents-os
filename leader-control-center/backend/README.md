@@ -59,7 +59,7 @@ uv run uvicorn app.main:app --reload --port 8010
 
 - API base: `http://localhost:8010/api/v1`
 - WebSocket stream: `ws://localhost:8010/api/v1/stream`
-- OpenAPI docs: `http://localhost:8010/docs`
+- OpenAPI docs: `http://localhost:8010/api`
 
 A background loop ticks every `SIMULATION_TICK_SECONDS` (default 2.5s), advancing
 running executions: raising Human Requests, producing Artifacts, appending
