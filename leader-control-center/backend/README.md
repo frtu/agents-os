@@ -24,6 +24,18 @@ technology and its deltas from the canonical Postgres data model are defined in
   aggregates persist as JSON documents, written through on the event bus; state
   survives restarts and seeds only on first run
 
+## Dependencies
+
+External services are **optional** in the MVP (the simulation engine runs
+in-process). Start them on demand when working on the adapter that needs them.
+
+| Dependency | Location (relative to `backend/`) | Start | Stop | Endpoints |
+| ---------- | --------------------------------- | ----- | ---- | --------- |
+| Temporal (+ Postgres, UI) | [`../../docker/temporal`](../../docker/temporal) | `docker compose -f ../../docker/temporal/docker-compose.yml up -d` | `docker compose -f ../../docker/temporal/docker-compose.yml down` | gRPC `localhost:7233` · UI `http://localhost:8080` · Postgres `localhost:5432` |
+
+The compose file reads its image versions from the `.env` next to it; `-f`
+resolves that `.env` from the compose file's folder, so it works from `backend/`.
+
 ## Run
 
 ```bash

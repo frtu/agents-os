@@ -52,7 +52,18 @@ Core domain (read the specs before changing any of it):
 ## Project-wide rules
 
 - **Stay in this folder.** Do not read or modify anything outside
-  `leader-control-center/`.
+  `leader-control-center/`. **Exception:** the external dependencies listed in
+  [`README.md` → Dependencies](README.md#dependencies) (e.g. Temporal at
+  `../../docker/temporal`) may be started/stopped on demand with the commands
+  given there. Run them only; do not edit files in those folders.
+
+## Dependencies (start on demand)
+
+When a task needs an external service (e.g. the Temporal adapter), start it
+yourself using the Start command in [`README.md` → Dependencies](README.md#dependencies),
+check it is up (`docker compose -f ../../docker/temporal/docker-compose.yml ps`),
+and stop it when finished unless the user wants it left running. The simulation
+engine needs no dependencies.
 - **Command-oriented, not CRUD.** The API and UI expose business commands
   (Start, Approve, Retry…), never workflow-engine internals.
 - **Engine independence.** Never leak Temporal/engine concepts outside the
