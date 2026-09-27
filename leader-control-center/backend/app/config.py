@@ -13,7 +13,7 @@ def _origins() -> list[str]:
 @dataclass(frozen=True)
 class Settings:
     host: str = field(default_factory=lambda: os.getenv("HOST", "0.0.0.0"))
-    port: int = field(default_factory=lambda: int(os.getenv("PORT", "8000")))
+    port: int = field(default_factory=lambda: int(os.getenv("PORT", "8010")))
     sqlite_path: str = field(
         default_factory=lambda: os.getenv(
             "SQLITE_PATH", "../data/leader-control-center.db"

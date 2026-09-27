@@ -41,14 +41,25 @@ starts Temporal with the backend and frontend, and stops it on Ctrl+C.
 
 ## Run
 
+Whole stack (backend + frontend, optional Temporal) from the project root:
+
 ```bash
-uv sync                                       # install deps
-uv run uvicorn app.main:app --reload --port 8000
+./start.sh                                    # backend :8010, frontend :5173
+./start.sh -p 8100 -f 5180                    # custom backend / frontend ports
+./start.sh --temporal                         # also start Temporal
+./start.sh --help                             # all options
 ```
 
-- API base: `http://localhost:8000/api/v1`
-- WebSocket stream: `ws://localhost:8000/api/v1/stream`
-- OpenAPI docs: `http://localhost:8000/docs`
+Backend only, from `backend/`:
+
+```bash
+uv sync                                       # install deps
+uv run uvicorn app.main:app --reload --port 8010
+```
+
+- API base: `http://localhost:8010/api/v1`
+- WebSocket stream: `ws://localhost:8010/api/v1/stream`
+- OpenAPI docs: `http://localhost:8010/docs`
 
 A background loop ticks every `SIMULATION_TICK_SECONDS` (default 2.5s), advancing
 running executions: raising Human Requests, producing Artifacts, appending
@@ -165,13 +176,25 @@ The API exposes **business commands**, not CRUD. All paths are prefixed with
 
 ## Configuration
 
-See [`.env.example`](.env.example). Copy to `.env` to customize, or set inline:
-`PORT=9000 uv run uvicorn app.main:app --reload`.
+[`.env.example`](.env.example) is the committed template. For local settings,
+copy it to `.env`, which is gitignored, so your ports and paths are never committed:
+
+```bash
+cp .env.example .env                          # then edit .env
+```
+
+`../start.sh` loads `backend/.env`. The app itself does not read `.env`: when
+you run `uvicorn` directly, set variables inline instead, e.g.
+`PORT=9000 uv run uvicorn app.main:app --reload --port 9000`.
+
+Precedence in `start.sh`: CLI flags > shell environment > `backend/.env` > defaults.
 
 | Variable | Default | Purpose |
 | -------- | ------- | ------- |
-| `HOST` | `0.0.0.0` | bind address |
-| `PORT` | `8000` | bind port (vite proxy targets `:8000`) |
+| `HOST` | `0.0.0.0` | backend bind address (`start.sh -h`) |
+| `PORT` | `8010` | backend port (`start.sh -p`); `start.sh` points the vite `/api` proxy at it |
+| `FRONTEND_PORT` | `5173` | vite dev server port (`start.sh -f`) |
+| `WITH_TEMPORAL` | `0` | `1` makes `start.sh` start and stop Temporal (see [Dependencies](#dependencies)) |
 | `SQLITE_PATH` | `../data/leader-control-center.db` | SQLite file path (project-root `data/`); dir is created on startup |
 | `SIMULATION_TICK_SECONDS` | `2.5` | seconds between simulation ticks; `0` disables |
-| `CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | allowed origins |
+| `CORS_ORIGINS` | `http://localhost:$FRONTEND_PORT,http://127.0.0.1:$FRONTEND_PORT` | allowed origins; `start.sh` derives it from `FRONTEND_PORT` when unset |

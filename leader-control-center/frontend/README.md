@@ -35,7 +35,7 @@ echo "VITE_USE_MOCKS=true" > .env.local
 npm run dev
 ```
 
-Vite proxies `/api` (REST + WebSocket) to `http://localhost:8000` in dev, so no
+Vite proxies `/api` (REST + WebSocket) to `http://localhost:8010` in dev, so no
 CORS setup is needed. To point at a different backend, copy `.env.example` and
 adjust `VITE_API_BASE_URL` / `VITE_WS_URL`.
 

@@ -10,11 +10,12 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    // Ports are set by ../start.sh (from backend/.env); defaults otherwise.
+    port: Number(process.env.FRONTEND_PORT ?? 5173),
     // Proxy real backend calls in dev when VITE_USE_MOCKS=false.
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        target: `http://localhost:${process.env.BACKEND_PORT ?? 8010}`,
         changeOrigin: true,
         ws: true,
       },

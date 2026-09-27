@@ -71,12 +71,12 @@ Run the backend and frontend in two terminals.
 ```bash
 cd backend
 uv sync                                   # install dependencies
-uv run uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8010
 ```
 
-- API base: `http://localhost:8000/api/v1`
-- WebSocket stream: `ws://localhost:8000/api/v1/stream`
-- Interactive docs (OpenAPI): `http://localhost:8000/docs`
+- API base: `http://localhost:8010/api/v1`
+- WebSocket stream: `ws://localhost:8010/api/v1/stream`
+- Interactive docs (OpenAPI): `http://localhost:8010/docs`
 
 A background simulation advances running executions every ~2.5s (raising human
 requests, producing artifacts, emitting realtime events).
@@ -90,7 +90,7 @@ npm install
 npm run dev                               # http://localhost:5173
 ```
 
-Vite proxies `/api` (REST + WebSocket) to `http://localhost:8000`, so no CORS
+Vite proxies `/api` (REST + WebSocket) to `http://localhost:8010`, so no CORS
 setup is needed in dev. Open `http://localhost:5173`.
 
 ---
@@ -102,7 +102,7 @@ setup is needed in dev. Open `http://localhost:5173`.
 | Variable                  | Default                                       | Purpose                                           |
 | ------------------------- | --------------------------------------------- | ------------------------------------------------- |
 | `HOST`                    | `0.0.0.0`                                     | bind address                                      |
-| `PORT`                    | `8000`                                        | bind port (vite proxy targets `:8000`)            |
+| `PORT`                    | `8010`                                        | bind port (vite proxy targets `:8010`)            |
 | `SIMULATION_TICK_SECONDS` | `2.5`                                         | seconds between simulation ticks; `0` disables it |
 | `CORS_ORIGINS`            | `http://localhost:5173,http://127.0.0.1:5173` | comma-separated allowed origins                   |
 
@@ -129,9 +129,9 @@ Backend, from `backend/`:
 ```bash
 uv sync --extra dev
 uv run pytest                             # smoke tests
-curl http://localhost:8000/api/v1/initiatives           # board projection
-curl http://localhost:8000/api/v1/attention             # open decisions-to-make
-curl http://localhost:8000/api/v1/workflow-definitions   # workflow blueprints
+curl http://localhost:8010/api/v1/initiatives           # board projection
+curl http://localhost:8010/api/v1/attention             # open decisions-to-make
+curl http://localhost:8010/api/v1/workflow-definitions   # workflow blueprints
 ```
 
 Frontend, from `frontend/`:
