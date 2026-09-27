@@ -1,6 +1,6 @@
 # Retro formats → template mapping
 
-Teams run retros in many board formats. The report always uses the same spine (`retrospective-report.md`); this file says where each board column lands. Read it in **Step 1** when the raw input isn't already in Went well / Needs improvement / Start-Stop-Continue form.
+Teams run retros in many board formats. The report always uses the same spine (`retrospective-report.md`); this file says where each board column lands. Owned by `retrospective-3-report` (read when mapping a board into the report); also read by `retrospective-2-questions` to pick a format. Use it when the raw input isn't already in Went well / Needs improvement / Start-Stop-Continue form.
 
 ## Mapping table
 

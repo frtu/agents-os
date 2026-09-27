@@ -95,7 +95,8 @@ Workflows & Dependencies
 │   │  └─ interview-2-capture-interview-q-a [Optional]
 │   └── rewrite-clarity (Polish)
 │      ├─ review-engineering-director
-│      └─ review-product-strategy
+│      ├─ review-product-strategy
+│      └─ retrospective-3-report
 │
 ├── Interview Workflow
 │   ├── interview-eval (Router)
@@ -103,6 +104,15 @@ Workflows & Dependencies
 │   ├── ├─ interview-2-capture-interview-q-a (Capture)
 │   ├── └─ interview-3-post-review (Evaluate)
 │   └── people-ingest (Feeds role data to prep)
+│
+├── Retrospective Workflow
+│   ├── retrospective (Router)
+│   ├── ├─ retrospective-1-gather (Pre-meeting: dossier + carry-over)
+│   ├── ├─ retrospective-2-questions (Pre-meeting: questions by theme)
+│   ├── └─ retrospective-3-report (Post-meeting: report / review)
+│   │      ├─ lint-transcript-normalise [Optional]
+│   │      └─ review-engineering-director (Exec framing) [Optional]
+│   └── change-management-1-stage (Post-process each step)
 │
 ├── Weekly Digest
 │   ├── weekly-digest (Router)
@@ -175,6 +185,7 @@ Critical reviews from different perspectives (engineering, product, etc.).
 
 - **[review-engineering-director](./review-engineering-director/)** — Act as a seasoned Engineering Director. Adversarially pressure-test proposals, board updates, promotion packets, and funding asks. Focuses on ROI, developer velocity, stability, and cost-efficiency.
 - **[review-product-strategy](./review-product-strategy/)** — Review documents through the lens of product strategy.
+- **Retrospective** — see [Retrospective Workflow](#retrospective-workflow).
 
 ### Utility Skills
 
@@ -184,6 +195,23 @@ Miscellaneous tools for specific tasks.
 - **[diagram-architecture](./diagram-architecture/)** — Generate architecture or integration diagrams using Mermaid syntax. Convert existing diagrams (PNG/JPG/SVG) to Mermaid.
 - **[people-ingest](./people-ingest/)** — Process people-related sources (career ladders, competencies, SDLC documents) into structured wiki pages.
 - **[transcribe-voice-memo](./transcribe-voice-memo/)** — Transcribe Apple Voice Memos using Whisper. Supports batch processing with language selection.
+
+### Retrospective Workflow
+
+Router + three steps for a team retrospective, from preparation to final report. Files live in `$RETROSPECTIVE_FOLDER` (default `wiki/projects/_retrospective_`).
+
+- **[retrospective](./retrospective/)** — Router: picks team and meeting date, detects the phase from the prep file's `status:`, routes to the step.
+- **[retrospective-1-gather](./retrospective-1-gather/)** — Pre-meeting: gathers team-raised problems, signals, open questions and the previous retro's carry-over into `{date}-{team}-retrospective.md`; offers an async pre-retro survey when there's no team input.
+- **[retrospective-2-questions](./retrospective-2-questions/)** — Pre-meeting: writes the facilitation guide into the prep file — format, agenda, questions numbered 1…N by theme.
+- **[retrospective-3-report](./retrospective-3-report/)** — Post-meeting: notes, board export, transcripts and 1:1/interview notes → final report from the template (`{date}-{team}-retrospective-report.md`), with carry-over for the next retro. Also reviews an existing report. Owns the report template, format mapping and synthetic worked cases.
+
+  ```text
+  /retrospective                                   # router
+  /retrospective-1-gather team=checkout-squad date=2026-10-02
+  /retrospective-2-questions team=checkout-squad date=2026-10-02 duration=60
+  /retrospective-3-report team=checkout-squad date=2026-10-02
+  /retrospective-3-report mode=review <path or pasted text>
+  ```
 
 ### Weekly Digest Workflow
 
@@ -217,10 +245,11 @@ skill-name/
 
 | Skill | What it shows |
 | --- | --- |
+| `retrospective-3-report` | `templates/` (generic) + `cases/` (synthetic worked examples by format/pattern) with a registry |
 | `review-engineering-director` | `templates/` + `cases/` (failure shapes) with a registry; delegates to `rewrite-clarity` |
 | `lint-unformat`, `diagram-architecture` | `scripts/` with a test file next to each script |
 | `lint-transcript-normalise` | `config/corrections.json` read by a script |
-| `change-management`, `interview-eval`, `weekly-digest` | Router + numbered sub-skills |
+| `change-management`, `interview-eval`, `weekly-digest`, `retrospective` | Router + numbered sub-skills |
 
 ### SKILL.md frontmatter
 
@@ -425,7 +454,23 @@ graph TD
     subgraph Review["Review & Analysis"]
         REV_ENG["review-engineering-director"]
         REV_PROD["review-product-strategy"]
-        REV_RETRO -.->|exec framing| REV_ENG
+        SAT["sat-author"]
+    end
+
+    subgraph Retro["Retrospective Workflow"]
+        RT["retrospective<br/>(Router)"]
+        RT1["retrospective-1-gather"]
+        RT2["retrospective-2-questions"]
+        RT3["retrospective-3-report"]
+
+        RT --> RT1
+        RT --> RT2
+        RT --> RT3
+        RT1 --> RT2
+        RT2 -.->|meeting| RT3
+        RT3 -.->|carry-over| RT1
+        RT1 -.->|reads retro-formats| RT3
+        RT2 -.->|reads retro-formats| RT3
     end
     
     subgraph Util["Utility Skills"]
@@ -441,7 +486,10 @@ graph TD
     LUNFORMAT -.->|optional cleanup| IE2
     CLARITY -.->|polish any text| REV_ENG
     CLARITY -.->|polish any text| REV_PROD
-    CLARITY -.->|polish any text| REV_RETRO
+    CLARITY -.->|polish any text| RT3
+    RT3 -.->|exec framing| REV_ENG
+    LTRANS -.->|optional cleanup| RT3
+    CM1 -->|post-process| RT
     PEOPLE -->|feeds role data| IE1
     CM1 -->|post-process| SBINGEST
     CM1 -->|post-process| IE
@@ -475,6 +523,7 @@ Some skills read shared environment variables to avoid repeating configuration o
 | Variable | Used by | Purpose | Default |
 |----------|---------|---------|---------|
 | `CHANGE_MANAGEMENT_REPO_PATH` | `change-management-7-diff`, `change-management-8-apply` | Persistent directory where patch files are written and read. Lets you share patches across projects or keep them outside the repo. | `.` (current working directory) |
+| `RETROSPECTIVE_FOLDER` | `retrospective`, `retrospective-1-gather`, `retrospective-2-questions`, `retrospective-3-report` | Vault folder holding retro prep files and reports. Precedence: `folder=` parameter → this var → default. | `wiki/projects/_retrospective_` |
 
 ### Patch file directory (`CHANGE_MANAGEMENT_REPO_PATH`)
 

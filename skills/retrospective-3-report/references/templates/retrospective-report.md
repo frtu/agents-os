@@ -1,6 +1,6 @@
 # Retrospective Report — template & authoring guide
 
-A reusable structure for a **team retrospective report**: the doc that turns a retro session (board, sticky notes, meeting notes) into a short, decision-ready record of what worked, what hurt, and what the team commits to change. Team-agnostic — the specifics of any one team (sub-areas, recurring themes, past retros) live in `../cases/`.
+A reusable structure for a **team retrospective report**: the doc that turns a retro session (board, sticky notes, meeting notes) into a short, decision-ready record of what worked, what hurt, and what the team commits to change. Team-agnostic — a team's own history lives in the vault's retrospective folder (prep files and past reports); `../cases/` holds synthetic worked examples.
 
 Use it in **Produce mode** to author a report from raw retro input, or as a checklist in **Review mode** to see what a draft is missing.
 
@@ -28,9 +28,10 @@ Each section below has three parts:
    5b. Risks to watch (optional — when the board has a risks column)
 6. Start / Stop / Continue
 7. Action items
-8. Appendix — raw input (optional)
+8. Carry-over for next retro
+9. Appendix — prep file & raw input
 
-A reader with one minute reads 2 and 7 and knows what the team learned and what changes. Sections 4–6 are the evidence; 3 is the accountability loop.
+A reader with one minute reads 2 and 7 and knows what the team learned and what changes. Sections 4–6 are the evidence; 3 and 8 are the accountability loop (8 is what the next retro's prep checks).
 
 ---
 
@@ -46,6 +47,7 @@ A reader with one minute reads 2 and 7 and knows what the team learned and what 
   **Facilitator:** {name}
   **Participants:** {names or headcount}
   **Previous retro:** {link}
+  **Prep file:** {link to the pre-meeting dossier, if any}
   **Format:** {board format, e.g. Sailboat, 4Ls, WRAP} · **Goal (if the retro was called for one):** {question to answer}
   ```
 - **Questions to answer:**
@@ -72,7 +74,7 @@ A reader with one minute reads 2 and 7 and knows what the team learned and what 
 ## 3. Previous action items — follow-up
 
 - **Insight it must deliver:** did last retro's commitments happen? A retro that never checks its own actions teaches the team that retros don't matter.
-- **Style & format:** a short table carried from the previous retro.
+- **Style & format:** a short table carried from the previous retro (the prep file's carry-over section, with statuses confirmed in the meeting).
 
   | # | Action item (from {previous date}) | Owner | Status | Outcome / note |
   |---|---|---|---|---|
@@ -157,10 +159,18 @@ A reader with one minute reads 2 and 7 and knows what the team learned and what 
   - Is anything here too big for one cycle? Break it down or name the first step.
 - **Depth trap:** a dozen-row table with every owner `TBD` and half the rows High. That is a backlog dump, not a commitment.
 
-## 8. Appendix — raw input (optional)
+## 8. Carry-over for next retro
 
-- **Insight it must deliver:** traceability — the original board/notes, so nothing the team said is lost in curation.
-- **Style & format:** link to the board or collapse the raw sticky notes under a heading. No editing.
+- **Insight it must deliver:** exactly what the next retro must check — so the loop closes without anyone re-reading this report.
+- **Style & format:** one short list: each action (with its success signal), each risk's early signal, each open decision with who decides by when, and any recurring pain to watch.
+- **Questions to answer:**
+  - For each High action, what number or observable will we look at next time?
+  - Which pain, if it shows up again, should become the next headline?
+
+## 9. Appendix — prep file & raw input
+
+- **Insight it must deliver:** traceability — the prep dossier, the original board/notes/interviews, so nothing the team said is lost in curation.
+- **Style & format:** links to the prep file and raw files; facilitation-guide questions **not reached** in the meeting; collapse raw sticky notes under a heading if useful. No editing of the raw text.
 
 ---
 
@@ -180,6 +190,7 @@ A reader with one minute reads 2 and 7 and knows what the team learned and what 
 
 - Can a reader get the cycle's story from the first paragraph?
 - Were last retro's action items reviewed?
+- Is there a carry-over list the next retro can check without re-reading the report?
 - Does every High action trace to a top pain point, with a named owner and a date?
 - Are there ≤ 3 High priority items?
 - Is every win backed by evidence and correctly scoped?

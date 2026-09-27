@@ -1,6 +1,6 @@
-# Team Cases — registry
+# Worked cases — registry
 
-Team-specific context and past retros. The template (`../templates/retrospective-report.md`) stays generic; everything specific to one team lives here. **Load only one case file** — the team's own, or the one worked example that matches the input — never all of them up front.
+Synthetic, anonymised retros that show how a board format maps onto the template, what a review finds, and what the fixed output looks like. The template (`../templates/retrospective-report.md`) stays generic. **A real team's history does not live here** — it lives in the vault's retrospective folder (prep files and past reports), which `retrospective-1-gather` reads for carry-over. **Load at most one case**, the one whose format or pattern matches the input.
 
 | Case | Team                                        | Format                               | Pattern it illustrates                                                                  | Retros captured        | File                   |
 | ---- | ------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------- | ---------------------- | ---------------------- |
@@ -10,12 +10,9 @@ Team-specific context and past retros. The template (`../templates/retrospective
 | D    | Mobile App Team                             | WRAP (Wishes/Risks/Appreciations/Puzzles) | Future-only board, no evidence; misfiled stickies; puzzle = decision request       | 2026-05-08             | `d-mobile-app.md`      |
 | E    | Customer Conference Programme (cross-functional) | 4Ls (Liked/Learned/Lacked/Longed for) | One-off event retro; luck as a win; many small items, one upstream cause; long carry-over gap | 2026-09-11   | `e-customer-event.md`  |
 
-All cases are **synthetic**, generified to industry-standard systems and roles (no real teams, companies, vendors or people). Replace or add real team cases alongside them.
+All cases are **synthetic**, generified to industry-standard systems and roles (no real teams, companies, vendors or people). Real team retros stay in the vault, not here.
 
-**Two ways to use a case:**
-
-- **Team case** — the user's team has a file here: load it for team context and the last **Carry-over** list.
-- **Worked example** — the team is new, or the input uses an unfamiliar format: load the **one** case whose *Format* or *Pattern* matches, and follow how it maps, reviews and produces. Don't import its team context.
+Use a case as a **worked example** when the input uses an unfamiliar format or shows a known failure pattern: follow how it maps, reviews and produces. Don't import its team context.
 
 Each case file carries:
 
@@ -26,15 +23,9 @@ Each case file carries:
 
 ## Adding to the registry
 
-**Same team, new retro:**
-1. Append a `## Retro YYYY-MM-DD` section to the team's file.
-2. Start its review by checking the previous section's **Carry-over** list (template §3).
-3. Update the team context if sub-areas, themes, or metrics changed.
-4. Add the date to the frontmatter `retros` list and to the table row above.
+1. Only add a case for a **new format or a new failure pattern** — not for every real retro (those stay in the vault).
+2. Create `{next-letter}-{slug}.md` in this folder, following the structure above.
+3. Add one row to the table above, with its format and the pattern it illustrates.
+4. Anonymise: name systems by category ("LLM gateway", "lakehouse", "event bus"), people by role, and never copy company-internal names, links or dashboards.
 
-**New team:**
-1. Create `{next-letter}-{team-slug}.md` in this folder, following the structure above.
-2. Add one row to the table above, with its format and the pattern it illustrates.
-3. Anonymise: name systems by category ("LLM gateway", "lakehouse", "event bus"), people by role, and never copy company-internal names, links or dashboards.
-
-Keep team specifics (names of systems, metrics, owners) **here**, never in the template or `SKILL.md`. If a review finding recurs across several teams, promote it to a generic rule in the template instead.
+If a review finding recurs across several cases, promote it to a generic rule in the template.
