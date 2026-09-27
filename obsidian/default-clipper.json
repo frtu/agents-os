@@ -42,5 +42,5 @@
 	],
 	"triggers": [],
 	"noteNameFormat": "{{title}}",
-	"path": "Vault/raw/clippings"
+	"path": "global-inbox/vault/raw/clippings"
 }
