@@ -36,6 +36,9 @@ in-process). Start them on demand when working on the adapter that needs them.
 The compose file reads its image versions from the `.env` next to it; `-f`
 resolves that `.env` from the compose file's folder, so it works from `backend/`.
 
+From the project root, `./start.sh --temporal` (or `WITH_TEMPORAL=1 ./start.sh`)
+starts Temporal with the backend and frontend, and stops it on Ctrl+C.
+
 ## Run
 
 ```bash
