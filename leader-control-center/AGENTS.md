@@ -1,6 +1,6 @@
-# CLAUDE.md — Leader Control Center
+# AGENTS.md — Leader Control Center
 
-Guidance for Claude Code when working in this repository. Keep it short; the
+Guidance for coding agents working in this repository. Keep it short; the
 authoritative detail lives in the specs and docs linked below.
 
 ## What this project is
@@ -36,9 +36,9 @@ Core domain (read the specs before changing any of it):
 ## Repository layout
 
 - [`backend/`](backend) — FastAPI control-plane API + simulation engine. See
-  [`backend/CLAUDE.md`](backend/CLAUDE.md).
+  [`backend/AGENTS.md`](backend/AGENTS.md).
 - [`frontend/`](frontend) — React supervision console. See
-  [`frontend/CLAUDE.md`](frontend/CLAUDE.md).
+  [`frontend/AGENTS.md`](frontend/AGENTS.md).
 - `_specs_/`, `_docs_/` — specifications and design docs (source of truth).
 
 ## How to start writing code
@@ -46,13 +46,20 @@ Core domain (read the specs before changing any of it):
 1. Read the root `README.md` and the relevant `_specs_/` section for the area
    you're touching.
 2. Work in the subfolder (`backend/` or `frontend/`) and follow that folder's
-   `CLAUDE.md` for setup, run, and test commands.
+   `AGENTS.md` for setup, run, and test commands.
 3. Run the stack per `getting-started.md` and verify behavior before finishing.
 
 ## Project-wide rules
 
 - **Stay in this folder.** Do not read or modify anything outside
   `leader-control-center/`.
+- **Dependencies on demand.** External services (Temporal, in
+  [`_infra_/docker-temporal`](_infra_/docker-temporal)) are listed in
+  [`backend/README.md` → Dependencies](backend/README.md#dependencies). Start
+  them yourself when a task needs them, and stop them when finished unless the
+  user wants them left running. To call their APIs, see
+  [`backend/dependencies.md`](backend/dependencies.md). The simulation engine
+  needs no dependencies.
 - **Command-oriented, not CRUD.** The API and UI expose business commands
   (Start, Approve, Retry…), never workflow-engine internals.
 - **Engine independence.** Never leak Temporal/engine concepts outside the

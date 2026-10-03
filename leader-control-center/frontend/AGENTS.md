@@ -1,7 +1,7 @@
-# CLAUDE.md — Frontend
+# AGENTS.md — Frontend
 
 React supervision console for the Leader Control Center. Read this repo's root
-[`../CLAUDE.md`](../CLAUDE.md) first for the domain model and project rules.
+[`../AGENTS.md`](../AGENTS.md) first for the domain model and project rules.
 
 ## Docs & specs
 
