@@ -6,7 +6,7 @@ set -e
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEMPORAL_COMPOSE="$SCRIPT_DIR/../docker/temporal/docker-compose.yml"
+TEMPORAL_COMPOSE="$SCRIPT_DIR/_infra_/docker-temporal/docker-compose.yml"
 
 # Load local, uncommitted config (copy backend/.env.example to backend/.env).
 # Variables already set in the shell win over the file.
@@ -21,7 +21,7 @@ fi
 PORT="${PORT:-8010}"
 HOST="${HOST:-0.0.0.0}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
-WITH_TEMPORAL="${WITH_TEMPORAL:-0}"
+WITH_TEMPORAL="${WITH_TEMPORAL:-1}"
 SKIP_SYNC=false
 
 usage() {
@@ -32,8 +32,9 @@ Options:
     -p, --port PORT            Backend API port (default: 8010)
     -h, --host HOST            Backend bind address (default: 0.0.0.0)
     -f, --frontend-port PORT   Frontend dev server port (default: 5173)
-    --temporal                 Also start Temporal docker compose (../docker/temporal)
-                               and stop it again on Ctrl+C
+    --temporal                 Also start Temporal docker compose (_infra_/docker-temporal)
+                               and stop it again on Ctrl+C (default: on)
+    --no-temporal             Do not start Temporal
     --skip-sync                Skip 'uv sync' / 'npm install'
     --help                     Show this help message
 
@@ -44,7 +45,8 @@ Environment variables (or backend/.env):
 Examples:
     $0                         # Backend :8010, frontend :5173
     $0 -p 8100 -f 5180         # Backend :8100, frontend :5180
-    $0 --temporal              # Also start Temporal
+    $0 --temporal              # Start Temporal explicitly (default)
+    $0 --no-temporal           # Skip Temporal
 EOF
     exit 0
 }
@@ -55,6 +57,7 @@ while [[ $# -gt 0 ]]; do
         -h|--host) HOST="$2"; shift 2 ;;
         -f|--frontend-port) FRONTEND_PORT="$2"; shift 2 ;;
         --temporal) WITH_TEMPORAL=1; shift ;;
+        --no-temporal) WITH_TEMPORAL=0; shift ;;
         --skip-sync) SKIP_SYNC=true; shift ;;
         --help) usage ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;

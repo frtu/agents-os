@@ -31,7 +31,7 @@ in-process). Start them on demand when working on the adapter that needs them.
 
 | Dependency | Location (relative to `backend/`) | Start | Stop | Endpoints |
 | ---------- | --------------------------------- | ----- | ---- | --------- |
-| Temporal (+ Postgres, UI) | [`../../docker/temporal`](../../docker/temporal) | `docker compose -f ../../docker/temporal/docker-compose.yml up -d` | `docker compose -f ../../docker/temporal/docker-compose.yml down` | gRPC `localhost:7233` · UI `http://localhost:8080` · Postgres `localhost:5432` |
+| Temporal (+ Postgres, UI) | [`../_infra_/docker-temporal`](../_infra_/docker-temporal) | `docker compose -f ../_infra_/docker-temporal/docker-compose.yml up -d` | `docker compose -f ../_infra_/docker-temporal/docker-compose.yml down` | gRPC `localhost:7233` (host port, `TEMPORAL_GRPC_PORT`) · UI `http://localhost:8080` · Postgres `localhost:5432` |
 
 The compose file reads its image versions from the `.env` next to it; `-f`
 resolves that `.env` from the compose file's folder, so it works from `backend/`.
