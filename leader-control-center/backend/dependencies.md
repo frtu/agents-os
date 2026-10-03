@@ -1,0 +1,84 @@
+# Dependencies — external service API specs
+
+Quick reference for coding agents: how to reach each external service, call its
+API, and refresh the local API snapshot. How to start and stop the services is
+in [`README.md` → Dependencies](README.md).
+
+## Temporal (gRPC)
+
+| | |
+| --- | --- |
+| Address (host) | `localhost:7233` (`TEMPORAL_GRPC_PORT`, see [`../_infra_/docker-temporal`](../_infra_/docker-temporal)) |
+| Address (docker network `temporal-network`) | `temporal:7233` |
+| Namespace | `default` |
+| TLS / auth | none (plaintext, local dev) |
+| Web UI | `http://localhost:8080` |
+| Contract source | gRPC server reflection (live) · upstream protos: [temporalio/api](https://github.com/temporalio/api) |
+| Local snapshot | [`_api_/temporal/`](_api_/temporal) — see `VERSION` for server version and refresh date |
+
+Start it first: `../start.sh` (Temporal on by default) or
+`docker compose -f ../_infra_/docker-temporal/docker-compose.yml up -d`.
+
+### Call it — `scripts/temporal-api.sh`
+
+The helper uses a local `grpcurl` if installed, otherwise the
+`fullstorydev/grpcurl` docker image on `temporal-network`. Short method names
+default to `WorkflowService`.
+
+```bash
+scripts/temporal-api.sh list                                   # services
+scripts/temporal-api.sh list temporal.api.operatorservice.v1.OperatorService
+scripts/temporal-api.sh describe temporal.api.workflowservice.v1.WorkflowService.StartWorkflowExecution
+scripts/temporal-api.sh describe .temporal.api.workflowservice.v1.StartWorkflowExecutionRequest   # message fields
+scripts/temporal-api.sh call GetSystemInfo
+scripts/temporal-api.sh call ListNamespaces
+scripts/temporal-api.sh call ListWorkflowExecutions '{"namespace":"default"}'
+scripts/temporal-api.sh call DescribeWorkflowExecution '{"namespace":"default","execution":{"workflowId":"<id>"}}'
+```
+
+Request JSON uses protobuf JSON names (lowerCamelCase), e.g. `workflowId`,
+`signalName`.
+
+### Refresh the snapshot
+
+```bash
+scripts/temporal-api.sh refresh     # rewrites _api_/temporal/*
+```
+
+Run it after bumping `TEMPORAL_VERSION` in `../_infra_/docker-temporal/.env`,
+and commit the diff. Snapshot files:
+
+- `services.txt` — services exposed by the server
+- `WorkflowService.txt` — public client/worker API: every rpc with request/response types and REST bindings
+- `OperatorService.txt` — cluster operations (search attributes, Nexus endpoints, clusters)
+- `AdminService.txt` — server internals; not a stable API, do not depend on it
+- `VERSION` — server version and refresh timestamp
+
+Grep the snapshot instead of querying the live server when you only need a
+signature, e.g. `grep -n "rpc Signal" _api_/temporal/WorkflowService.txt`.
+Message definitions are not snapshotted; use `describe .<message>` live.
+
+### Methods relevant to this project
+
+All on `temporal.api.workflowservice.v1.WorkflowService`:
+
+| Need | Methods |
+| --- | --- |
+| Start | `StartWorkflowExecution`, `SignalWithStartWorkflowExecution` |
+| Answer a Human Request / steer | `SignalWorkflowExecution`, `UpdateWorkflowExecution`, `QueryWorkflow` |
+| Stop / retry | `RequestCancelWorkflowExecution`, `TerminateWorkflowExecution`, `ResetWorkflowExecution`, `PauseWorkflowExecution`, `UnpauseWorkflowExecution` |
+| Observe | `ListWorkflowExecutions`, `CountWorkflowExecutions`, `DescribeWorkflowExecution`, `GetWorkflowExecutionHistory` |
+| Activities | `PauseActivity`, `UnpauseActivity`, `ResetActivity`, `UpdateActivityOptions` |
+| Health | `GetSystemInfo`, `DescribeNamespace` |
+
+### HTTP alternative
+
+Most rpcs declare REST bindings (`/api/v1/namespaces/{namespace}/...`, visible
+in the snapshot). The server serves them on port 7243, which the compose file
+does **not** publish; add `7243:7243` to the `temporal` service if you need it.
+
+### Rules
+
+- Only the backend `workflow/` adapter talks to Temporal; business code depends
+  on `workflow/port.py`. The frontend never calls Temporal directly.
+- The CLI (`temporal --address localhost:7233 ...`) is fine for manual checks.

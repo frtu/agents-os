@@ -56,7 +56,7 @@ services:
     networks:
       - temporal-network
     ports:
-      - '7233:7233'
+      - '${TEMPORAL_GRPC_PORT:-7233}:7233'
     volumes:
       - ./dynamicconfig:/etc/temporal/config/dynamicconfig
     healthcheck:

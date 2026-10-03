@@ -22,6 +22,7 @@ PORT="${PORT:-8010}"
 HOST="${HOST:-0.0.0.0}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 WITH_TEMPORAL="${WITH_TEMPORAL:-1}"
+TEMPORAL_GRPC_PORT="${TEMPORAL_GRPC_PORT:-7233}"
 SKIP_SYNC=false
 
 usage() {
@@ -39,7 +40,8 @@ Options:
     --help                     Show this help message
 
 Environment variables (or backend/.env):
-    PORT, HOST, FRONTEND_PORT, WITH_TEMPORAL=1, CORS_ORIGINS, SQLITE_PATH,
+    PORT, HOST, FRONTEND_PORT, WITH_TEMPORAL=1, TEMPORAL_GRPC_PORT (default 7233),
+    CORS_ORIGINS, SQLITE_PATH,
     SIMULATION_TICK_SECONDS  (see backend/.env.example)
 
 Examples:
@@ -65,7 +67,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # The backend reads PORT/HOST/CORS_ORIGINS; vite reads BACKEND_PORT/FRONTEND_PORT.
-export PORT HOST FRONTEND_PORT
+export PORT HOST FRONTEND_PORT TEMPORAL_GRPC_PORT
 export BACKEND_PORT="$PORT"
 export CORS_ORIGINS="${CORS_ORIGINS:-http://localhost:$FRONTEND_PORT,http://127.0.0.1:$FRONTEND_PORT}"
 
@@ -154,7 +156,7 @@ echo "Services running:"
 echo "  Backend:  http://localhost:$PORT (API docs: http://localhost:$PORT/api)"
 echo "  Frontend: http://localhost:$FRONTEND_PORT"
 if [[ "$WITH_TEMPORAL" == "1" ]]; then
-    echo "  Temporal: localhost:7233 (UI: http://localhost:8080)"
+    echo "  Temporal: gRPC localhost:$TEMPORAL_GRPC_PORT (UI: http://localhost:8080)"
 fi
 echo ""
 echo "Press Ctrl+C to stop all services"
