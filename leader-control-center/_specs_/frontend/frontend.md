@@ -115,6 +115,14 @@ Workflow Definition), session history, and a live realtime event log. Always
 targets the real backend. See
 [../features/001-api-console/spec.md](../features/001-api-console/spec.md).
 
+### Backend Console (Gradio)
+Not part of this React app: a read-only console served by the backend at `/ui`
+for browsing without the Node toolchain. Left sidebar menus **Board**
+(Initiatives → Stories → Tasks), **Definitions** (Workflows, Activities,
+Schedules) and **Executions** (Executions, Notifications, Attention); no
+commands. See
+[../features/002-backend-console/spec.md](../features/002-backend-console/spec.md).
+
 ### Story Detail
 Opens when a Story is selected. Shows:
 - Planning (Tasks, dependencies, acceptance criteria)

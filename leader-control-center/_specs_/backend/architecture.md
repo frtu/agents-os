@@ -81,6 +81,8 @@ SchedulingStrategy, ExecutionStrategy). Concrete engines/providers are adapters.
 - FastAPI
 - OpenAPI (generated contract)
 - PostgreSQL
+- Gradio — read-only backend console at `/ui`, a client of the REST API only
+  (amended by [feature 002](../features/002-backend-console/spec.md))
 
 **Workflow**
 - Temporal (initial target)
@@ -106,6 +108,7 @@ app/
   strategies/     # scheduling + execution strategies
   projections/    # read models
   infra/          # persistence, messaging, secrets
+  ui/             # Gradio console; reads /api/v1 over HTTP only (feature 002)
 ```
 
 Dependencies point inward: `api → application → domain`; adapters depend on

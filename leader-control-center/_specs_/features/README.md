@@ -34,6 +34,7 @@ _specs_/features/
 | Feature | Status | Summary |
 | ------- | ------ | ------- |
 | [001-api-console](./001-api-console/spec.md) | Draft | Developer API Console: endpoint explorer, scenarios, realtime log. |
+| [002-backend-console](./002-backend-console/spec.md) | Draft | Read-only Gradio console at `/ui`: Board, Definitions, Executions. |
 
 ## Before this model (area specs only)
 

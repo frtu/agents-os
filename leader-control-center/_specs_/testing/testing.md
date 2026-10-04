@@ -20,6 +20,7 @@ cd frontend && npm run typecheck && npm run build   # frontend contract + build 
 | Problem+JSON errors | P6, P9 | unknown id → 404 Problem+JSON with a meaningful `detail` | `test_smoke.py::test_unknown_execution_returns_problem_json` |
 | Engine concepts stay in `workflow/` | P4 | no `temporalio` import outside `app/workflow/`; application imports only the ports | `test_constitution.py::test_engine_concepts_stay_in_workflow_p4` · `::test_business_code_depends_on_ports_only_p4` |
 | Thin routers | P3 | `app/api/` never imports `infra/` or `workflow/` | `test_constitution.py::test_routers_only_reach_the_application_layer_p3` |
+| Backend console is an API client only | P3, P4 | `app/ui/` never imports `application/`, `infra/`, `workflow/`, `domain/` or `api/` | `test_backend_console.py::test_console_uses_rest_api_only_ac8` |
 | Every resource model is camelCase | P6 | every `domain/models.py` model inherits the camelCase base | `test_constitution.py::test_domain_models_serialize_camel_case_p6` |
 | Planning never mutated by runtime | P2 | a scheduled occurrence creates a *new* Story; Completed Stories are not re-opened | `test_schedules.py::test_occurrence_creates_and_starts_a_story` |
 | Referential integrity of catalog | P2 | deleting a referenced Workflow Definition → 409 | `test_smoke.py::test_delete_referenced_workflow_definition_conflicts` |

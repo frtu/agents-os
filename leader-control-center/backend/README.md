@@ -82,6 +82,9 @@ uv run uvicorn app.main:app --reload --port 8010
 - API base: `http://localhost:8010/api/v1`
 - WebSocket stream: `ws://localhost:8010/api/v1/stream`
 - OpenAPI docs: `http://localhost:8010/api`
+- Backend console (Gradio, read-only): `http://localhost:8010/ui` — sidebar
+  menus Board / Definitions / Executions
+  ([spec 002](../_specs_/features/002-backend-console/spec.md))
 
 A background loop ticks every `SIMULATION_TICK_SECONDS` (default 2.5s), advancing
 running executions: raising Human Requests, producing Artifacts, appending
@@ -138,6 +141,12 @@ app/
     store.py         in-memory working set (aggregates + indexes) + event bus
     db.py            SQLite persistence (write-through on the bus); see storage.md
     seed.py          sample portfolio/initiatives/stories/tasks on first run
+
+  ui/                Gradio console mounted at /ui (spec 002); a pure client of
+                     /api/v1 over HTTP — never imports the other layers
+    client.py        ConsoleApi (labelled reads, ApiError with status + detail)
+    render.py        JSON -> sidebar HTML trees and detail views (pure)
+    console.py       gr.Blocks: sidebar (Board/Definitions/Executions) + detail
 
   workflow/
     port.py          WorkflowEngine Protocol (engine-agnostic contract)
@@ -233,4 +242,6 @@ Precedence in `start.sh`: CLI flags > shell environment > `backend/.env` > defau
 | `SQLITE_PATH` | `../data/leader-control-center.db` | SQLite file path (project-root `data/`); dir is created on startup |
 | `SIMULATION_TICK_SECONDS` | `2.5` | seconds between simulation ticks; `0` disables |
 | `SCHEDULER_TICK_SECONDS` | `5` | seconds between scheduler ticks (fire due Schedule occurrences, settle runs); `0` disables firing |
+| `CONSOLE_UI_ENABLED` | `true` | mount the Gradio console at `/ui` (spec 002) |
+| `CONSOLE_API_BASE` | `http://127.0.0.1:$PORT` | base URL the console reads `/api/v1` from |
 | `CORS_ORIGINS` | `http://localhost:$FRONTEND_PORT,http://127.0.0.1:$FRONTEND_PORT` | allowed origins; `start.sh` derives it from `FRONTEND_PORT` when unset |

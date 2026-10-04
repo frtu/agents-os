@@ -26,6 +26,18 @@ class Settings:
         default_factory=lambda: float(os.getenv("SCHEDULER_TICK_SECONDS", "5"))
     )
     cors_origins: list[str] = field(default_factory=_origins)
+    # spec 002 FR-1: the Gradio console at /ui, and the base URL it reads the API
+    # from (defaults to this process on loopback).
+    console_ui_enabled: bool = field(
+        default_factory=lambda: os.getenv("CONSOLE_UI_ENABLED", "true").lower() not in ("0", "false", "no")
+    )
+    console_api_base: str = field(default_factory=lambda: os.getenv("CONSOLE_API_BASE", ""))
+
+    def console_base_url(self) -> str:
+        if self.console_api_base:
+            return self.console_api_base.rstrip("/")
+        host = "127.0.0.1" if self.host in ("0.0.0.0", "") else self.host
+        return f"http://{host}:{self.port}"
 
 
 settings = Settings()

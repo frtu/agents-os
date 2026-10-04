@@ -9,6 +9,7 @@ import asyncio
 import contextlib
 import logging
 from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,7 +32,11 @@ from app.api.routers import (
 from app.application.service import build_control_center
 from app.config import settings
 
+if TYPE_CHECKING:
+    from app.ui.client import ConsoleApi
+
 _API_PREFIX = "/api/v1"
+CONSOLE_PATH = "/ui"  # spec 002 FR-1
 
 # Log under uvicorn's own logger so our lines share its formatting and level.
 log = logging.getLogger("uvicorn.error")
@@ -129,7 +134,22 @@ def create_app() -> FastAPI:
     ):
         app.include_router(router, prefix=_API_PREFIX)
 
+    # spec 002 FR-1: mount the Gradio console last, under its own prefix, so it
+    # never shadows /api (Swagger) or /api/v1 (REST + WebSocket).
+    if settings.console_ui_enabled:
+        mount_console(app)
+
     return app
+
+
+def mount_console(app: FastAPI, api: "ConsoleApi | None" = None) -> FastAPI:
+    import gradio as gr  # heavy import; only when the console is enabled
+
+    from app.ui.client import default_api
+    from app.ui.console import build_console
+
+    console = build_console(api or default_api(settings.console_base_url()))
+    return gr.mount_gradio_app(app, console, path=CONSOLE_PATH)
 
 
 app = create_app()
