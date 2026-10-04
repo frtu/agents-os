@@ -67,6 +67,22 @@ export function useWorkflowDefinition(wdId: string | undefined) {
   });
 }
 
+export function useActivityDefinitions() {
+  return useQuery({ queryKey: qk.activityDefinitions, queryFn: () => api.getActivityDefinitions() });
+}
+
+export function useSchedules() {
+  return useQuery({ queryKey: qk.schedules, queryFn: () => api.getSchedules() });
+}
+
+export function useScheduleRuns(scheduleId: string | undefined) {
+  return useQuery({
+    queryKey: qk.scheduleRuns(scheduleId ?? ""),
+    queryFn: () => api.getScheduleRuns(scheduleId!),
+    enabled: !!scheduleId,
+  });
+}
+
 export function useStoryTasks(storyId: string | undefined) {
   return useQuery({
     queryKey: qk.storyTasks(storyId ?? ""),

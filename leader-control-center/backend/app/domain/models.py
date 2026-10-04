@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 from app.domain.enums import (
+    ActivityKind,
     ArtifactType,
     BoardColumn,
     CapabilityExecutionStatus,
@@ -15,15 +16,21 @@ from app.domain.enums import (
     HumanRequestStatus,
     HumanRequestType,
     NotificationStatus,
+    OverlapPolicy,
     PlanningMode,
     PlanningStatus,
     Priority,
     ProviderExecutionStatus,
     ProviderType,
+    SchedulePauseReason,
+    ScheduleRunStatus,
+    ScheduleSpecKind,
+    ScheduleStatus,
     TaskExecutionStatus,
     TaskPlanningStatus,
     StoryExecutionStatus,
     TimelineEventCategory,
+    WebhookMethod,
 )
 
 
@@ -66,6 +73,9 @@ class Story(Resource):
     # Set when the story was authored from a workflow definition template.
     workflow_definition_id: str | None = None
     template_input: dict | None = None
+    # Set when the story was created by a Schedule occurrence (planning ids only).
+    schedule_id: str | None = None
+    scheduled_for: str | None = None
 
 
 class StoryDraft(Schema):
@@ -114,6 +124,109 @@ class WorkflowDefinition(Resource):
     name: str
     input: dict = {}
     definition: str = ""
+
+
+class ActivityDefinition(Resource):
+    """Reusable bash/webhook building block a Temporal workflow runs as an
+    Activity (UI menu "Tasks"). `input` is a JSON Schema for its parameters."""
+
+    portfolio_id: str
+    name: str
+    description: str = ""
+    kind: ActivityKind
+    input: dict = {}
+    timeout_seconds: int = 300
+    # Bash
+    script: str | None = None
+    # Webhook
+    method: WebhookMethod = WebhookMethod.POST
+    url: str | None = None
+    headers: dict[str, str] = {}
+    content_type: str = "application/json"
+    body_template: str | None = None
+
+
+class RenderedActivity(Schema):
+    """Preview of an Activity Definition with parameters applied (no side effects).
+    Header secrets stay as ${env:NAME} references."""
+
+    kind: ActivityKind
+    script: str | None = None
+    method: WebhookMethod | None = None
+    url: str | None = None
+    headers: dict[str, str] = {}
+    body: str | None = None
+
+
+class WebhookTestResult(Schema):
+    request: RenderedActivity
+    status: int | None = None
+    duration_ms: int
+    response_headers: dict[str, str] = {}
+    response_body: str | None = None
+    error: str | None = None
+
+
+# --- Schedules (specs/planning/schedules.md) -----------------------------
+class ScheduleSpec(Schema):
+    """When a Schedule fires. Once: `at`; Interval: `every` (+ `anchor`);
+    Cron: `expression` + IANA `timezone`. Durations/instants are ISO 8601."""
+
+    kind: ScheduleSpecKind
+    at: str | None = None
+    every: str | None = None
+    anchor: str | None = None
+    expression: str | None = None
+    timezone: str | None = None
+
+
+class Schedule(Resource):
+    """Planning intent: create + start a new Story from a Workflow Definition at
+    each occurrence. Holds Planning ids only; runtime-aware rules live in the
+    ScheduleService process manager."""
+
+    initiative_id: str
+    name: str
+    workflow_definition_id: str
+    template_input: dict = {}
+    story_title_template: str = "{name} · {date}"
+    spec: ScheduleSpec
+    overlap_policy: OverlapPolicy = OverlapPolicy.SKIP
+    catch_up_window: str = "PT1H"
+    keep_completed: int = 5
+    status: ScheduleStatus = ScheduleStatus.ACTIVE
+    pause_reason: SchedulePauseReason | None = None
+    consecutive_failures: int = 0
+    next_occurrence_at: str | None = None
+    created_by: str
+
+
+class ScheduleRun(Schema):
+    """Permanent record of one occurrence. `outcome` (the Story Execution's
+    status) is filled in by queries only; it is never a stored fact."""
+
+    id: str
+    schedule_id: str
+    scheduled_for: str
+    fired_at: str
+    status: ScheduleRunStatus
+    reason: str | None = None
+    story_id: str | None = None
+    error: str | None = None
+    settled_at: str | None = None  # set once the run's terminal outcome was processed
+    outcome: StoryExecutionStatus | None = None
+
+
+class ScheduleView(Schema):
+    schedule: Schedule
+    sentence: str
+    next_occurrences: list[str] = []
+    last_run: ScheduleRun | None = None
+
+
+class SchedulePreview(Schema):
+    sentence: str
+    next_occurrences: list[str]
 
 
 # --- Runtime --------------------------------------------------------------

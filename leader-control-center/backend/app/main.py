@@ -16,12 +16,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import ws
 from app.api.errors import register_error_handlers
 from app.api.routers import (
+    activity_definitions,
     artifacts,
     attention,
     boards,
     catalog,
     executions,
     notifications,
+    schedules,
     stories,
     tasks,
     workflows,
@@ -47,6 +49,18 @@ async def _simulation_loop(app: FastAPI) -> None:
             log.exception("Simulation tick failed; continuing")
 
 
+async def _scheduler_loop(app: FastAPI) -> None:
+    interval = settings.scheduler_tick_seconds
+    while True:
+        await asyncio.sleep(interval)
+        # Fire due Schedule occurrences and settle finished runs; a failing tick
+        # is logged and retried on the next one.
+        try:
+            app.state.control_center.schedules.tick()
+        except Exception:
+            log.exception("Scheduler tick failed; continuing")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log.info(
@@ -61,14 +75,21 @@ async def lifespan(app: FastAPI):
         log.info("Simulation engine ticking every %.1fs", settings.simulation_tick_seconds)
     else:
         log.info("Simulation engine disabled (SIMULATION_TICK_SECONDS<=0)")
+    scheduler_task: asyncio.Task | None = None
+    if settings.scheduler_tick_seconds > 0:
+        scheduler_task = asyncio.create_task(_scheduler_loop(app))
+        log.info("Scheduler ticking every %.1fs", settings.scheduler_tick_seconds)
+    else:
+        log.info("Scheduler disabled (SCHEDULER_TICK_SECONDS<=0)")
     try:
         yield
     finally:
-        log.info("Shutting down — cancelling tick loop and closing SQLite")
-        if tick_task is not None:
-            tick_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await tick_task
+        log.info("Shutting down — cancelling tick loops and closing SQLite")
+        for task in (tick_task, scheduler_task):
+            if task is not None:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
         db = app.state.control_center.store.db
         if db is not None:
             db.close()
@@ -102,6 +123,8 @@ def create_app() -> FastAPI:
         catalog.router,
         notifications.router,
         workflows.router,
+        activity_definitions.router,
+        schedules.router,
         ws.router,
     ):
         app.include_router(router, prefix=_API_PREFIX)

@@ -75,6 +75,24 @@ DELETE /workflow-definitions/{id}         delete a definition
 
 ---
 
+## Activity Definitions
+
+Reusable bash / webhook building blocks for Temporal workflows (UI menu
+"Tasks"). Catalog data, edited directly. See
+[../execution/activity-definitions.md](../execution/activity-definitions.md).
+
+```
+GET    /activity-definitions               list
+GET    /activity-definitions/{id}          full definition
+POST   /activity-definitions               create
+PATCH  /activity-definitions/{id}          update
+DELETE /activity-definitions/{id}          delete
+POST   /activity-definitions/{id}/render   preview with parameters (no side effects)
+POST   /activity-definitions/{id}/test     send a webhook once (Webhook only)
+```
+
+---
+
 ## Schedules
 
 Time-triggered creation of Stories from a Workflow Definition. See

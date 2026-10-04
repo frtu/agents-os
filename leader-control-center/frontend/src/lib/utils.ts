@@ -31,3 +31,10 @@ export function formatTime(iso: string): string {
 export function uid(prefix = "id"): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
+
+/** Human-readable message for a failed API call (problem+json `detail` first). */
+export function errorText(e: unknown): string {
+  const problem = (e as { problem?: { detail?: string } })?.problem;
+  if (problem?.detail) return problem.detail;
+  return e instanceof Error ? e.message : "Something went wrong";
+}

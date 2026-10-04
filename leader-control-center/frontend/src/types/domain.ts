@@ -49,6 +49,9 @@ export interface Story extends Resource {
   // Set when the story was authored from a workflow definition template.
   workflowDefinitionId?: string;
   templateInput?: Record<string, unknown>;
+  // Set when the story was created by a Schedule occurrence.
+  scheduleId?: string;
+  scheduledFor?: string;
 }
 
 export interface AcceptanceCriteria {
@@ -144,6 +147,138 @@ export interface UpdateWorkflowDefinitionInput {
   name?: string;
   input?: Record<string, unknown>;
   definition?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Activity Definitions (UI menu "Tasks") — specs/execution/activity-definitions.md
+// ---------------------------------------------------------------------------
+
+export type ActivityKind = "Bash" | "Webhook";
+export type WebhookMethod = "POST" | "PUT" | "PATCH";
+
+export interface ActivityDefinition extends Resource {
+  portfolioId: string;
+  name: string;
+  description: string;
+  kind: ActivityKind;
+  input: Record<string, unknown>; // JSON Schema for parameters
+  timeoutSeconds: number;
+  script?: string | null; // Bash
+  method: WebhookMethod; // Webhook
+  url?: string | null;
+  headers: Record<string, string>; // values may hold ${env:NAME}
+  contentType: string;
+  bodyTemplate?: string | null;
+}
+
+export type ActivityDefinitionInput = Partial<
+  Pick<
+    ActivityDefinition,
+    | "name" | "description" | "kind" | "input" | "timeoutSeconds" | "script"
+    | "method" | "url" | "headers" | "contentType" | "bodyTemplate"
+  >
+>;
+
+export interface RenderedActivity {
+  kind: ActivityKind;
+  script?: string | null;
+  method?: WebhookMethod | null;
+  url?: string | null;
+  headers: Record<string, string>;
+  body?: string | null;
+}
+
+export interface WebhookTestResult {
+  request: RenderedActivity;
+  status?: number | null;
+  durationMs: number;
+  responseHeaders: Record<string, string>;
+  responseBody?: string | null;
+  error?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Schedules (time-triggered Stories) — specs/planning/schedules.md
+// ---------------------------------------------------------------------------
+
+export type ScheduleSpecKind = "Once" | "Interval" | "Cron";
+export type ScheduleStatus = "Active" | "Paused" | "Completed" | "Archived";
+export type SchedulePauseReason = "Manual" | "ConsecutiveFailures" | "InvalidTemplate";
+export type OverlapPolicy = "Skip" | "BufferOne" | "AllowParallel";
+export type ScheduleRunStatus = "Started" | "Buffered" | "Skipped" | "Missed" | "FailedToStart";
+
+export interface ScheduleSpec {
+  kind: ScheduleSpecKind;
+  at?: string; // Once: ISO 8601 instant with offset
+  every?: string; // Interval: ISO 8601 duration (>= PT5M)
+  anchor?: string; // Interval: optional ISO 8601 start
+  expression?: string; // Cron: 5 fields
+  timezone?: string; // Cron: IANA zone (required)
+}
+
+export interface Schedule extends Resource {
+  initiativeId: string;
+  name: string;
+  workflowDefinitionId: string;
+  templateInput: Record<string, unknown>;
+  storyTitleTemplate: string;
+  spec: ScheduleSpec;
+  overlapPolicy: OverlapPolicy;
+  catchUpWindow: string;
+  keepCompleted: number;
+  status: ScheduleStatus;
+  pauseReason?: SchedulePauseReason | null;
+  consecutiveFailures: number;
+  nextOccurrenceAt?: string | null;
+  createdBy: string;
+}
+
+export interface ScheduleRun {
+  id: string;
+  scheduleId: string;
+  scheduledFor: string;
+  firedAt: string;
+  status: ScheduleRunStatus;
+  reason?: string | null;
+  storyId?: string | null;
+  error?: string | null;
+  settledAt?: string | null;
+  outcome?: StoryExecutionStatus | null; // projection of the Story Execution
+}
+
+export interface ScheduleView {
+  schedule: Schedule;
+  sentence: string;
+  nextOccurrences: string[];
+  lastRun?: ScheduleRun | null;
+}
+
+export interface SchedulePreview {
+  sentence: string;
+  nextOccurrences: string[];
+}
+
+export interface CreateScheduleInput {
+  initiativeId: string;
+  name: string;
+  workflowDefinitionId: string;
+  templateInput: Record<string, unknown>;
+  spec: ScheduleSpec;
+  overlapPolicy?: OverlapPolicy;
+  catchUpWindow?: string;
+  keepCompleted?: number;
+  storyTitleTemplate?: string;
+  runNow?: boolean;
+}
+
+export type UpdateScheduleInput = Partial<Omit<CreateScheduleInput, "initiativeId" | "runNow">>;
+
+export interface SchedulePreviewInput {
+  initiativeId: string;
+  name: string;
+  spec: ScheduleSpec;
+  overlapPolicy?: OverlapPolicy;
+  storyTitleTemplate?: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -20,6 +20,8 @@ import type {
 } from "@/types/domain";
 import type { ApiClient, DecisionInput } from "@/api/types";
 import { mockServer } from "@/api/mock/server";
+import { mockSchedules } from "@/api/mock/schedules";
+import { mockActivities } from "@/api/mock/activities";
 
 // Seed eagerly so any query (including deep-linked pages that never hit
 // getInitiatives) returns data on its first call, not only after a realtime tick.
@@ -83,4 +85,24 @@ export const mockClient: ApiClient = {
   updateWorkflowDefinition: (wdId: string, input: UpdateWorkflowDefinitionInput): Promise<WorkflowDefinition> =>
     delay(mockServer.updateWorkflowDefinition(wdId, input)),
   deleteWorkflowDefinition: (wdId: string): Promise<void> => delay(mockServer.deleteWorkflowDefinition(wdId)),
+
+  // Schedules (commands only; time-based firing is backend-only)
+  getSchedules: (initiativeId) => delay(mockSchedules.list(initiativeId)),
+  getSchedule: (scheduleId) => delay(mockSchedules.get(scheduleId)),
+  getScheduleRuns: (scheduleId) => delay(mockSchedules.runs(scheduleId)),
+  previewSchedule: (input) => delay(mockSchedules.preview(input)),
+  createSchedule: (input) => delay(mockSchedules.create(input)),
+  updateSchedule: (scheduleId, input) => delay(mockSchedules.update(scheduleId, input)),
+  pauseSchedule: (scheduleId) => delay(mockSchedules.pause(scheduleId)),
+  resumeSchedule: (scheduleId) => delay(mockSchedules.resume(scheduleId)),
+  triggerSchedule: (scheduleId) => delay(mockSchedules.trigger(scheduleId)),
+  archiveSchedule: (scheduleId) => delay(mockSchedules.archive(scheduleId)),
+
+  // Activity Definitions (UI "Tasks")
+  getActivityDefinitions: () => delay(mockActivities.list()),
+  createActivityDefinition: (input) => delay(mockActivities.create(input)),
+  updateActivityDefinition: (id, input) => delay(mockActivities.update(id, input)),
+  deleteActivityDefinition: (id) => delay(mockActivities.remove(id)),
+  renderActivityDefinition: (id, input) => delay(mockActivities.render(id, input)),
+  testActivityDefinition: (id, input) => delay(mockActivities.test(id, input)),
 };

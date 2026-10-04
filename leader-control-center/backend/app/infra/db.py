@@ -16,6 +16,7 @@ import threading
 from typing import TYPE_CHECKING
 
 from app.domain.models import (
+    ActivityDefinition,
     Artifact,
     Capability,
     Decision,
@@ -23,6 +24,8 @@ from app.domain.models import (
     Initiative,
     Notification,
     Provider,
+    Schedule,
+    ScheduleRun,
     Story,
     StoryExecution,
     Task,
@@ -54,6 +57,9 @@ _MAPPED = (
     ("executions", "story_executions", StoryExecution),
     ("human_requests", "human_requests", HumanRequest),
     ("decisions", "decisions", Decision),
+    ("activity_definitions", "activity_definitions", ActivityDefinition),
+    ("schedules", "schedules", Schedule),
+    ("schedule_runs", "schedule_runs", ScheduleRun),
 )
 
 

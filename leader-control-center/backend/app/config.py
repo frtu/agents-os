@@ -22,6 +22,9 @@ class Settings:
     simulation_tick_seconds: float = field(
         default_factory=lambda: float(os.getenv("SIMULATION_TICK_SECONDS", "2.5"))
     )
+    scheduler_tick_seconds: float = field(
+        default_factory=lambda: float(os.getenv("SCHEDULER_TICK_SECONDS", "5"))
+    )
     cors_origins: list[str] = field(default_factory=_origins)
 
 

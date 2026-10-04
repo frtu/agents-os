@@ -37,6 +37,7 @@ grouped by bounded context (see
 | **Acceptance Criteria** | Conditions defining completion for a Story or Task. |
 | **Capability** | A stable business ability the platform can perform (Research, Write, Review, Code…). Provider-independent. |
 | **Capability Catalog** | The reusable set of Capabilities managed at Portfolio/Workspace level. |
+| **Activity Definition** | A reusable, parameterized building block a Temporal workflow runs as an Activity: a **Bash** script or a **Webhook** (HTTP request with a templated payload). Portfolio-level Catalog data; parameters are a JSON Schema. Shown in the UI menu as "Tasks", but distinct from planning **Task**. See [../execution/activity-definitions.md](../execution/activity-definitions.md). |
 | **Workflow Definition** | A reusable, Portfolio-level blueprint (authoring-time DSL): a `name`, an `input` JSON Schema for instance parameters, and a `definition` DSL body. Optionally linked from an Initiative; a templated Story references one and captures `templateInput`. Distinct from the Temporal **Workflow Engine** (runtime execution behind a port). |
 
 ---

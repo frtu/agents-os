@@ -14,6 +14,12 @@ import type {
   Task,
   TimelineEvent,
   WorkflowDefinition,
+  ScheduleView,
+  SchedulePreview,
+  ScheduleRun,
+  ActivityDefinition,
+  RenderedActivity,
+  WebhookTestResult,
 } from "@/types/domain";
 import type { ApiClient, DecisionInput } from "@/api/types";
 
@@ -143,4 +149,29 @@ export const httpClient: ApiClient = {
   updateWorkflowDefinition: (wdId, input) =>
     patch<WorkflowDefinition>(`/workflow-definitions/${wdId}`, input),
   deleteWorkflowDefinition: (wdId) => del<void>(`/workflow-definitions/${wdId}`),
+
+  // Schedules
+  getSchedules: (initiativeId) =>
+    get<ScheduleView[]>(
+      initiativeId ? `/schedules?initiativeId=${encodeURIComponent(initiativeId)}` : "/schedules",
+    ),
+  getSchedule: (scheduleId) => get<ScheduleView>(`/schedules/${scheduleId}`),
+  getScheduleRuns: (scheduleId) => get<ScheduleRun[]>(`/schedules/${scheduleId}/runs`),
+  previewSchedule: (input) => post<SchedulePreview>("/schedules/preview", input),
+  createSchedule: (input) => post<ScheduleView>("/schedules", input),
+  updateSchedule: (scheduleId, input) => patch<ScheduleView>(`/schedules/${scheduleId}`, input),
+  pauseSchedule: (scheduleId) => post<ScheduleView>(`/schedules/${scheduleId}/pause`),
+  resumeSchedule: (scheduleId) => post<ScheduleView>(`/schedules/${scheduleId}/resume`),
+  triggerSchedule: (scheduleId) => post<ScheduleRun>(`/schedules/${scheduleId}/trigger`),
+  archiveSchedule: (scheduleId) => post<ScheduleView>(`/schedules/${scheduleId}/archive`),
+
+  // Activity Definitions
+  getActivityDefinitions: () => get<ActivityDefinition[]>("/activity-definitions"),
+  createActivityDefinition: (input) => post<ActivityDefinition>("/activity-definitions", input),
+  updateActivityDefinition: (id, input) => patch<ActivityDefinition>(`/activity-definitions/${id}`, input),
+  deleteActivityDefinition: (id) => del<void>(`/activity-definitions/${id}`),
+  renderActivityDefinition: (id, input) =>
+    post<RenderedActivity>(`/activity-definitions/${id}/render`, { input }),
+  testActivityDefinition: (id, input) =>
+    post<WebhookTestResult>(`/activity-definitions/${id}/test`, { input }),
 };

@@ -51,6 +51,18 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         case "WorkflowDefinitionUpdated":
           qc.invalidateQueries({ queryKey: qk.workflowDefinitions });
           break;
+        case "ActivityDefinitionUpdated":
+          qc.invalidateQueries({ queryKey: qk.activityDefinitions });
+          break;
+        case "ScheduleUpdated":
+          qc.invalidateQueries({ queryKey: qk.schedules });
+          break;
+        case "ScheduleRunRecorded": {
+          qc.invalidateQueries({ queryKey: qk.schedules });
+          const scheduleId = msg.payload?.scheduleId as string | undefined;
+          if (scheduleId) qc.invalidateQueries({ queryKey: qk.scheduleRuns(scheduleId) });
+          break;
+        }
       }
     };
 

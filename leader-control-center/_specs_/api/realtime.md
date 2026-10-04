@@ -46,6 +46,7 @@ AttentionUpdated
 NotificationCreated
 ScheduleUpdated
 ScheduleRunRecorded
+ActivityDefinitionUpdated
 ```
 
 Each message carries the aggregate id, a `sequence`, and a minimal payload the

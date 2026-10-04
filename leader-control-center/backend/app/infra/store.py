@@ -16,6 +16,7 @@ from app.domain.enums import NotificationStatus, PlanningStatus
 from app.domain.events import MessageType, RealtimeMessage
 from app.domain.models import (
     AcceptanceCriteria,
+    ActivityDefinition,
     Artifact,
     Capability,
     Decision,
@@ -23,6 +24,8 @@ from app.domain.models import (
     Initiative,
     Notification,
     Provider,
+    Schedule,
+    ScheduleRun,
     Story,
     StoryExecution,
     Task,
@@ -96,6 +99,9 @@ class Store:
         self.capabilities: dict[str, Capability] = {}
         self.providers: dict[str, Provider] = {}
         self.workflow_definitions: dict[str, WorkflowDefinition] = {}
+        self.activity_definitions: dict[str, ActivityDefinition] = {}
+        self.schedules: dict[str, Schedule] = {}
+        self.schedule_runs: dict[str, ScheduleRun] = {}
         self.executions: dict[str, StoryExecution] = {}
         self.execution_by_story: dict[str, str] = {}
         self.human_requests: dict[str, HumanRequest] = {}
@@ -240,6 +246,8 @@ class Store:
         priority: int = 1, acceptance_criteria: list[str] | None = None,
         workflow_definition_id: str | None = None,
         template_input: dict | None = None,
+        schedule_id: str | None = None,
+        scheduled_for: str | None = None,
     ) -> Story:
         """Create a Draft story on an epic (lands in the Todo column)."""
         story_id = uid("story")
@@ -253,6 +261,8 @@ class Store:
             ],
             workflow_definition_id=workflow_definition_id,
             template_input=template_input,
+            schedule_id=schedule_id,
+            scheduled_for=scheduled_for,
             created_at=now(), updated_at=now(),
         )
         self.stories[story_id] = story
@@ -281,6 +291,14 @@ class Store:
         self.stories[story_id] = updated
         self.bus.emit(MessageType.STORY_UPDATED, story_id)
         return updated
+
+    def archive_story(self, story_id: str) -> None:
+        """Planning state -> Archived: hidden from the board, history kept."""
+        existing = self.stories[story_id]
+        self.stories[story_id] = existing.model_copy(
+            update={"status": PlanningStatus.ARCHIVED, "updated_at": now()}
+        )
+        self.bus.emit(MessageType.STORY_UPDATED, story_id)
 
     def soft_delete_story(self, story_id: str) -> None:
         """Mark a story DELETED so it drops out of every board projection.
@@ -326,3 +344,27 @@ class Store:
     def delete_workflow_definition(self, wd_id: str) -> None:
         del self.workflow_definitions[wd_id]
         self.bus.emit(MessageType.WORKFLOW_DEFINITION_UPDATED, wd_id)
+
+    # -- schedules ----------------------------------------------------------
+    def put_schedule(self, schedule: Schedule) -> Schedule:
+        """Insert or replace a Schedule (callers bump version/updated_at)."""
+        self.schedules[schedule.id] = schedule
+        self.bus.emit(MessageType.SCHEDULE_UPDATED, schedule.id)
+        return schedule
+
+    def put_schedule_run(self, run: ScheduleRun) -> ScheduleRun:
+        self.schedule_runs[run.id] = run
+        self.bus.emit(
+            MessageType.SCHEDULE_RUN_RECORDED, run.id, {"scheduleId": run.schedule_id}
+        )
+        return run
+
+    # -- activity definitions ----------------------------------------------
+    def put_activity_definition(self, definition: ActivityDefinition) -> ActivityDefinition:
+        self.activity_definitions[definition.id] = definition
+        self.bus.emit(MessageType.ACTIVITY_DEFINITION_UPDATED, definition.id)
+        return definition
+
+    def delete_activity_definition(self, definition_id: str) -> None:
+        del self.activity_definitions[definition_id]
+        self.bus.emit(MessageType.ACTIVITY_DEFINITION_UPDATED, definition_id)

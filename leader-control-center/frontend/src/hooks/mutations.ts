@@ -8,6 +8,10 @@ import type {
   UpdateStoryInput,
   CreateWorkflowDefinitionInput,
   UpdateWorkflowDefinitionInput,
+  CreateScheduleInput,
+  SchedulePreviewInput,
+  UpdateScheduleInput,
+  ActivityDefinitionInput,
 } from "@/types/domain";
 import { qk } from "@/hooks/queryKeys";
 
@@ -221,5 +225,87 @@ export function useCloseNotification() {
   return useMutation({
     mutationFn: (id: string) => api.closeNotification(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.notifications }),
+  });
+}
+
+// -- Schedules ---------------------------------------------------------------
+// Schedule commands can create Stories (Run now), so boards refresh too.
+function useScheduleInvalidation() {
+  const qc = useQueryClient();
+  return (scheduleId?: string) => {
+    qc.invalidateQueries({ queryKey: qk.schedules });
+    if (scheduleId) qc.invalidateQueries({ queryKey: qk.scheduleRuns(scheduleId) });
+    qc.invalidateQueries({ queryKey: qk.initiatives });
+    qc.invalidateQueries({ queryKey: ["board"] });
+  };
+}
+
+export function usePreviewSchedule() {
+  return useMutation({
+    mutationFn: (input: SchedulePreviewInput) => api.previewSchedule(input),
+  });
+}
+
+export function useCreateSchedule() {
+  const invalidate = useScheduleInvalidation();
+  return useMutation({
+    mutationFn: (input: CreateScheduleInput) => api.createSchedule(input),
+    onSuccess: (view) => invalidate(view.schedule.id),
+  });
+}
+
+export function useUpdateSchedule() {
+  const invalidate = useScheduleInvalidation();
+  return useMutation({
+    mutationFn: ({ scheduleId, input }: { scheduleId: string; input: UpdateScheduleInput }) =>
+      api.updateSchedule(scheduleId, input),
+    onSuccess: (_r, { scheduleId }) => invalidate(scheduleId),
+  });
+}
+
+export type ScheduleCommand = "pause" | "resume" | "trigger" | "archive";
+
+export function useScheduleCommand() {
+  const invalidate = useScheduleInvalidation();
+  return useMutation({
+    mutationFn: async ({ scheduleId, command }: { scheduleId: string; command: ScheduleCommand }) => {
+      if (command === "pause") await api.pauseSchedule(scheduleId);
+      else if (command === "resume") await api.resumeSchedule(scheduleId);
+      else if (command === "trigger") await api.triggerSchedule(scheduleId);
+      else await api.archiveSchedule(scheduleId);
+    },
+    onSuccess: (_r, { scheduleId }) => invalidate(scheduleId),
+  });
+}
+
+// -- Activity Definitions (UI "Tasks") ----------------------------------------
+export function useSaveActivityDefinition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string | null; input: ActivityDefinitionInput }) =>
+      id ? api.updateActivityDefinition(id, input) : api.createActivityDefinition(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.activityDefinitions }),
+  });
+}
+
+export function useDeleteActivityDefinition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteActivityDefinition(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.activityDefinitions }),
+  });
+}
+
+export function useRenderActivityDefinition() {
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Record<string, unknown> }) =>
+      api.renderActivityDefinition(id, input),
+  });
+}
+
+export function useTestActivityDefinition() {
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Record<string, unknown> }) =>
+      api.testActivityDefinition(id, input),
   });
 }

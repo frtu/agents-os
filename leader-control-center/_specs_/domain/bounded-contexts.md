@@ -61,7 +61,7 @@ resolve capabilities/providers).
 ## 3. Catalog Context
 
 **Owns:** Capability, Capability Catalog, Provider, Provider credentials/config,
-Execution Strategy definitions.
+Execution Strategy definitions, Activity Definitions.
 
 **Responsibilities:** provide the reusable, provider-independent set of
 capabilities and the interchangeable providers that implement them.

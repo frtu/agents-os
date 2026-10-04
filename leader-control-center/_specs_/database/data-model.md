@@ -44,6 +44,18 @@ workflow_definition(id, portfolio_id, name,
                     created_at, updated_at, version)
 ```
 
+### activity_definition
+Reusable bash / webhook building block (see
+[../execution/activity-definitions.md](../execution/activity-definitions.md)).
+```
+activity_definition(id, portfolio_id, name, description, kind,  -- Bash|Webhook
+                    input jsonb, timeout_seconds,
+                    script,                                      -- Bash
+                    method, url, headers jsonb,                  -- Webhook; headers may hold ${env:NAME} refs
+                    content_type, body_template,
+                    created_at, updated_at, version)
+```
+
 ---
 
 ## Planning (immutable intent)

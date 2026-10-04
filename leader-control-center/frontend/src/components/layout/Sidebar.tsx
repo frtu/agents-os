@@ -1,11 +1,13 @@
 import { NavLink } from "react-router-dom";
-import { LayoutGrid, Inbox, Boxes, Workflow } from "lucide-react";
+import { LayoutGrid, Inbox, Boxes, Workflow, CalendarClock, SquareTerminal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAttention } from "@/hooks/queries";
 
 const nav = [
   { to: "/", label: "Board", icon: LayoutGrid, end: true },
   { to: "/workflow", label: "Workflow", icon: Workflow, end: false },
+  { to: "/tasks", label: "Tasks", icon: SquareTerminal, end: false },
+  { to: "/schedules", label: "Schedules", icon: CalendarClock, end: false },
   { to: "/attention", label: "Attention", icon: Inbox, end: false },
 ];
 

@@ -151,7 +151,9 @@ read Runtime projections; the Schedule aggregate never does.
 
 ```
 1. Load the Schedule. If it is not Active → record Skipped (reason: NotActive). Stop.
-2. If firedAt − scheduledFor > catchUpWindow → record Missed. Stop.
+2. If firedAt − scheduledFor > catchUpWindow → record Missed (OutsideCatchUpWindow). Stop.
+   If a later occurrence is already due (latest occurrence ≤ firedAt is after
+   scheduledFor) → record Missed (Superseded). Stop.
 3. Idempotency: if a Schedule Run exists for (scheduleId, scheduledFor) → stop.
 4. active = Story Executions (Runtime projection) of Stories with this
    scheduleId, in Created|Running|Waiting
@@ -171,10 +173,11 @@ read Runtime projections; the Schedule aggregate never does.
 - **BufferOne release:** on `StoryExecutionCompleted|Failed|Cancelled` for a
   Story created by the Schedule, the service starts the Buffered run (steps 5–6)
   if the Schedule is still Active.
-- **Catch-up after downtime:** adapters deliver missed Occurrences with their
-  original `scheduledFor`. Only the latest Occurrence inside the window starts;
-  older ones are recorded Missed. This mirrors OpenClaw's coalescing and
-  Temporal's `catchupWindow`.
+- **Catch-up after downtime:** the in-process adapter coalesces missed
+  Occurrences and delivers only the latest one (with its original
+  `scheduledFor`), which then starts if it is inside the window. An adapter that
+  replays every missed Occurrence (Temporal) gets the same result: the older
+  ones are recorded Missed (Superseded). This mirrors OpenClaw's coalescing.
 - **Exactly one Story per Occurrence:** `(scheduleId, scheduledFor)` is a
   unique key on Schedule Run, and it is the idempotency key for `CreateStory`.
   A duplicate tick (adapter retry, restart, two adapters) is a no-op.
@@ -201,7 +204,9 @@ read Runtime projections; the Schedule aggregate never does.
 3. Leader confirms → CreateSchedule (status Active).
 4. Optional "Run once now" → TriggerSchedule: a real, out-of-band Occurrence
    (scheduledFor = now). Its Story appears on the board immediately.
-   It does not move the next natural Occurrence.
+   It does not move the next natural Occurrence. Because it is explicit human
+   intent, it bypasses the Overlap Policy and the catch-up window, and it is
+   allowed while Paused (a test run).
 ```
 
 Following OpenClaw, Schedules are created **Active**, never "disabled pending
@@ -242,16 +247,19 @@ retry the execution manually.
 
 ```
 SchedulerPort
+  bind(callback)                # set the application callback
   register(schedule)            # create or replace the timer for a Schedule
   pause(scheduleId)
-  resume(scheduleId)
+  resume(schedule)              # from now; paused time is not caught up
   remove(scheduleId)
-  nextOccurrences(spec, n, from) → [datetime]   # pure; also used by /preview
 callback (application side):
   ScheduleService.on_occurrence_due(scheduleId, scheduledFor, firedAt)
 ```
 
-The port carries domain types only (`Schedule`, `ScheduleSpec`). Temporal
+Occurrence math (`next_occurrences`, `latest_at_or_before`, validation, the
+preview sentence) is pure domain code in `app/domain/schedule_spec.py`, shared
+by both adapters and `/preview`. The port carries domain types only
+(`Schedule`, `ScheduleSpec`). Temporal
 schedule IDs, actions and policies stay inside the adapter, per the rule in
 [../workflow-engine/workflow-engine.md](../workflow-engine/workflow-engine.md).
 `TriggerSchedule` does not go through the port: the application calls
@@ -260,12 +268,14 @@ schedule IDs, actions and policies stay inside the adapter, per the rule in
 ### In-process adapter (default; SimulationEngine)
 
 - Stores `next_occurrence_at` per Schedule in SQLite. An asyncio loop in the app
-  lifespan (next to the simulation tick) wakes at the earliest due time
-  (capped at 30 s) and delivers every due Occurrence.
-- On startup, it delivers missed Occurrences with their original
-  `scheduledFor`. The application applies the catch-up window.
-- Cron parsing and next-time computation use a library (`croniter`),
-  wrapped so a library swap does not affect the port.
+  lifespan (next to the simulation tick) ticks every `SCHEDULER_TICK_SECONDS`
+  (default 5; `0` disables firing). Each tick delivers the latest due
+  Occurrence per Schedule, then `ScheduleService.reconcile()` settles finished
+  runs and releases buffered ones.
+- After a restart, the persisted cursor is in the past, so the first tick
+  delivers the latest missed Occurrence. The application applies the catch-up window.
+- Cron parsing uses `cronsim` (timezone-aware, DST-correct), wrapped in
+  `schedule_spec.py` so a library swap does not affect the port.
 
 ### Temporal adapter
 

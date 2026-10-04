@@ -20,6 +20,16 @@ import type {
   WorkflowDefinition,
   CreateWorkflowDefinitionInput,
   UpdateWorkflowDefinitionInput,
+  CreateScheduleInput,
+  ScheduleView,
+  SchedulePreview,
+  SchedulePreviewInput,
+  ScheduleRun,
+  UpdateScheduleInput,
+  ActivityDefinition,
+  ActivityDefinitionInput,
+  RenderedActivity,
+  WebhookTestResult,
 } from "@/types/domain";
 
 export interface DecisionInput {
@@ -96,4 +106,27 @@ export interface ApiClient {
   ): Promise<WorkflowDefinition>;
   // Blocked with 409 if the definition is still referenced by planning objects.
   deleteWorkflowDefinition(wdId: string): Promise<void>;
+
+  // Schedules (time-triggered Stories)
+  getSchedules(initiativeId?: string): Promise<ScheduleView[]>;
+  getSchedule(scheduleId: string): Promise<ScheduleView>;
+  getScheduleRuns(scheduleId: string): Promise<ScheduleRun[]>;
+  previewSchedule(input: SchedulePreviewInput): Promise<SchedulePreview>;
+  createSchedule(input: CreateScheduleInput): Promise<ScheduleView>;
+  updateSchedule(scheduleId: string, input: UpdateScheduleInput): Promise<ScheduleView>;
+  pauseSchedule(scheduleId: string): Promise<ScheduleView>;
+  resumeSchedule(scheduleId: string): Promise<ScheduleView>;
+  // "Run now": one out-of-band occurrence; the next natural one is unchanged.
+  triggerSchedule(scheduleId: string): Promise<ScheduleRun>;
+  archiveSchedule(scheduleId: string): Promise<ScheduleView>;
+
+  // Activity Definitions (UI "Tasks"): reusable bash / webhook building blocks
+  getActivityDefinitions(): Promise<ActivityDefinition[]>;
+  createActivityDefinition(input: ActivityDefinitionInput): Promise<ActivityDefinition>;
+  updateActivityDefinition(id: string, input: ActivityDefinitionInput): Promise<ActivityDefinition>;
+  deleteActivityDefinition(id: string): Promise<void>;
+  // Apply parameters with no side effects (secrets stay masked).
+  renderActivityDefinition(id: string, input: Record<string, unknown>): Promise<RenderedActivity>;
+  // Send a webhook once (Webhook only; bash runs on a Temporal worker).
+  testActivityDefinition(id: string, input: Record<string, unknown>): Promise<WebhookTestResult>;
 }

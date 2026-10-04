@@ -17,6 +17,9 @@ class MessageType(StrEnum):
     ATTENTION_UPDATED = "AttentionUpdated"
     NOTIFICATION_CREATED = "NotificationCreated"
     WORKFLOW_DEFINITION_UPDATED = "WorkflowDefinitionUpdated"
+    SCHEDULE_UPDATED = "ScheduleUpdated"
+    SCHEDULE_RUN_RECORDED = "ScheduleRunRecorded"
+    ACTIVITY_DEFINITION_UPDATED = "ActivityDefinitionUpdated"
 
 
 class RealtimeMessage(Schema):

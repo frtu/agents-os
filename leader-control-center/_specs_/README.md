@@ -36,7 +36,7 @@ specs/
   planning/       planning-model · planning-modes · capabilities · scheduling ·
                   schedules
   execution/      execution-model · execution-strategy · providers ·
-                  human-requests · artifacts
+                  human-requests · artifacts · activity-definitions
   workflow-engine/ workflow-engine
   backend/        architecture · services-and-commands
   api/            rest-api · realtime
@@ -88,6 +88,7 @@ Full detail: [domain/domain-model.md](./domain/domain-model.md).
 | Runtime Objects / Execution | [execution/execution-model.md](./execution/execution-model.md) |
 | Execution Strategy | [execution/execution-strategy.md](./execution/execution-strategy.md) |
 | Provider Model | [execution/providers.md](./execution/providers.md) |
+| Activity Definitions (UI "Tasks": bash / webhook building blocks) | [execution/activity-definitions.md](./execution/activity-definitions.md) |
 | Human Requests / Decisions / Attention Queue | [execution/human-requests.md](./execution/human-requests.md) |
 | Artifact Model | [execution/artifacts.md](./execution/artifacts.md) |
 | Architecture | [backend/architecture.md](./backend/architecture.md) |

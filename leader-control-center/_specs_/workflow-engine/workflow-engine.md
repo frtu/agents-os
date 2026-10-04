@@ -145,8 +145,7 @@ and the application applies overlap and catch-up rules.
 
 ```
 SchedulerPort
-  register(schedule) · pause(id) · resume(id) · remove(id)
-  nextOccurrences(spec, n, from) → [datetime]
+  bind(callback) · register(schedule) · pause(id) · resume(schedule) · remove(id)
 ```
 
 ```

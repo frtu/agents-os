@@ -61,6 +61,9 @@ Provider {
 }
 ```
 
+An `activity` Provider runs **Activity Definitions** (bash scripts and webhooks)
+on a Temporal worker — see [activity-definitions.md](./activity-definitions.md).
+
 Providers, credentials, and config are owned by the Catalog context at
 Portfolio/Workspace level. See
 [../domain/bounded-contexts.md](../domain/bounded-contexts.md).

@@ -1,4 +1,5 @@
-import { AlertCircle, Play } from "lucide-react";
+import { AlertCircle, CalendarClock, Play } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { StoryCardView } from "@/types/domain";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,17 @@ export function StoryCard({ card }: { card: StoryCardView }) {
 
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {story.scheduleId && (
+            <Link
+              to={`/schedules?focus=${story.scheduleId}`}
+              onClick={(e) => e.stopPropagation()}
+              title="Created by a schedule"
+              className="inline-flex items-center gap-1 hover:text-primary"
+            >
+              <CalendarClock className="h-3.5 w-3.5" />
+              Scheduled
+            </Link>
+          )}
           {openHumanRequests > 0 && (
             <span className="inline-flex items-center gap-1 text-status-blocked">
               <AlertCircle className="h-3.5 w-3.5" />

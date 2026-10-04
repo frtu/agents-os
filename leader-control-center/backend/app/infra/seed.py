@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.domain.models import (
+    ActivityDefinition,
     AcceptanceCriteria,
     Capability,
     Initiative,
@@ -64,6 +65,49 @@ _WORKFLOW_DEFINITIONS = [
             },
         },
         "definition": "research(topic) -> draft(depth) -> review",
+    },
+]
+
+# Reusable bash/webhook building blocks (UI menu "Tasks").
+_ACTIVITY_DEFINITIONS = [
+    {
+        "id": "act_disk_report",
+        "name": "Disk usage report",
+        "description": "Summarize disk usage for a directory on the worker host.",
+        "kind": "Bash",
+        "timeout_seconds": 120,
+        "input": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+                "path": {"type": "string", "title": "Directory", "default": "/var/log"},
+                "top": {"type": "integer", "title": "Top entries", "default": 10},
+            },
+        },
+        "script": "#!/usr/bin/env bash\nset -euo pipefail\ndu -sh {{path}}/* 2>/dev/null | sort -rh | head -n {{top}}\n",
+    },
+    {
+        "id": "act_notify_webhook",
+        "name": "Notify webhook",
+        "description": "POST a status update to a chat or automation webhook.",
+        "kind": "Webhook",
+        "timeout_seconds": 30,
+        "input": {
+            "type": "object",
+            "required": ["message"],
+            "properties": {
+                "message": {"type": "string", "title": "Message"},
+                "severity": {
+                    "type": "string", "title": "Severity",
+                    "enum": ["info", "warning", "critical"], "default": "info",
+                },
+            },
+        },
+        "method": "POST",
+        "url": "https://example.invalid/hooks/status",
+        "headers": {"Authorization": "Bearer ${env:STATUS_HOOK_TOKEN}"},
+        "content_type": "application/json",
+        "body_template": '{\n  "text": {{message}},\n  "severity": {{severity}}\n}',
     },
 ]
 
@@ -185,6 +229,12 @@ def seed(store: Store, engine: "SimulationEngine") -> None:
         store.capabilities[cid] = Capability(
             id=cid, name=name, description=desc,
             inputs=inputs, outputs=outputs, supported_providers=provs,
+        )
+
+    for act in _ACTIVITY_DEFINITIONS:
+        store.activity_definitions[act["id"]] = ActivityDefinition(
+            portfolio_id="portfolio_default",
+            created_at=now(-86_400_000), updated_at=now(), **act,
         )
 
     for wd in _WORKFLOW_DEFINITIONS:

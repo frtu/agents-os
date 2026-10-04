@@ -160,3 +160,49 @@ class BoardColumn(StrEnum):
     RUNNING = "Running"
     BLOCKED = "Blocked"
     COMPLETED = "Completed"
+
+
+# --- Schedules (specs/planning/schedules.md) -----------------------------
+class ScheduleSpecKind(StrEnum):
+    ONCE = "Once"
+    INTERVAL = "Interval"
+    CRON = "Cron"
+
+
+class ScheduleStatus(StrEnum):
+    ACTIVE = "Active"
+    PAUSED = "Paused"
+    COMPLETED = "Completed"
+    ARCHIVED = "Archived"
+
+
+class SchedulePauseReason(StrEnum):
+    MANUAL = "Manual"
+    CONSECUTIVE_FAILURES = "ConsecutiveFailures"
+    INVALID_TEMPLATE = "InvalidTemplate"
+
+
+class OverlapPolicy(StrEnum):
+    SKIP = "Skip"
+    BUFFER_ONE = "BufferOne"
+    ALLOW_PARALLEL = "AllowParallel"
+
+
+class ScheduleRunStatus(StrEnum):
+    STARTED = "Started"
+    BUFFERED = "Buffered"
+    SKIPPED = "Skipped"
+    MISSED = "Missed"
+    FAILED_TO_START = "FailedToStart"
+
+
+# --- Activity Definitions (specs/execution/activity-definitions.md) ------
+class ActivityKind(StrEnum):
+    BASH = "Bash"
+    WEBHOOK = "Webhook"
+
+
+class WebhookMethod(StrEnum):
+    POST = "POST"
+    PUT = "PUT"
+    PATCH = "PATCH"

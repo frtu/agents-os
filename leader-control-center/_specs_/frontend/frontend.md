@@ -45,10 +45,12 @@ with its latest execution status — they are not stored planning states (see
 The left sidebar lists the top-level destinations, in order:
 
 ```
-Board · Workflow · Schedules · Attention
+Board · Workflow · Tasks · Schedules · Attention
 ```
 
 `Workflow` sits directly below `Board` and opens the Workflow Definitions manager.
+`Tasks` opens the Activity Definitions manager (bash / webhook building blocks,
+see [../execution/activity-definitions.md](../execution/activity-definitions.md)).
 `Schedules` opens the Schedules manager.
 
 ---

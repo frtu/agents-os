@@ -94,12 +94,18 @@ app/
     ws.py            /stream WebSocket: broadcasts realtime bus messages
 
   application/
+    activities.py    ActivityDefinitionService — CRUD, template render, webhook
+                     test (bash is syntax-checked only, never run here)
+    schedules.py     ScheduleService — Schedule commands + the process manager
+                     that turns due occurrences into Stories (overlap, catch-up,
+                     failure count, auto-archive)
     service.py       ControlCenter — the use-case facade the API calls.
                      Queries read store projections; commands validate intent
                      and delegate runtime effects to the engine. build_control_
                      center() composes store + engine + seed.
 
   domain/            pure business model (no I/O)
+    activity_template.py  {{param}} rendering per slot (shell/URL/JSON) + ${env:NAME}
     models.py        Pydantic projections; serialize snake_case -> camelCase to
                      match frontend/src/types/domain.ts exactly
     enums.py         all status/type enums (the state-machine vocabulary)
@@ -114,6 +120,8 @@ app/
 
   workflow/
     port.py          WorkflowEngine Protocol (engine-agnostic contract)
+    scheduler_port.py  SchedulerPort Protocol (time triggers)
+    in_process_scheduler.py  default SchedulerPort adapter (SQLite cursor + tick)
     simulation.py    SimulationEngine — MVP adapter; all runtime state
                      transitions live here (Temporal adapter slots in later)
 
@@ -160,6 +168,11 @@ The API exposes **business commands**, not CRUD. All paths are prefixed with
 | Attention | `GET /attention` | global open Human Requests |
 | Artifacts | `GET /artifacts/{id}` | artifact (with content) |
 | Catalog | `GET /capabilities` · `GET /providers` | capability/provider catalog |
+| Activity definitions | `GET/POST /activity-definitions` · `GET/PATCH/DELETE /activity-definitions/{id}` | UI "Tasks": reusable bash / webhook building blocks (see [`_specs_/execution/activity-definitions.md`](../_specs_/execution/activity-definitions.md)) |
+| | `POST /activity-definitions/{id}/render` · `/test` | preview with parameters; send a webhook once (secrets from `${env:NAME}`) |
+| Schedules | `GET /schedules` · `GET /schedules/{id}` · `GET /schedules/{id}/runs` | time-triggered Stories (see [`_specs_/planning/schedules.md`](../_specs_/planning/schedules.md)) |
+| | `POST /schedules/preview` · `POST /schedules` · `PATCH /schedules/{id}` | preview sentence + next occurrences, create, update |
+| | `POST /schedules/{id}/pause` · `/resume` · `/trigger` · `/archive` | lifecycle commands; `trigger` = Run now |
 | Notifications | `GET /notifications` | open notifications |
 | | `POST /notifications/{id}/open` · `/ack` · `/close` | lifecycle: UNREAD→READ→ACKED→CLOSED |
 | Realtime | `WS /stream` | broadcast bus (client invalidates queries on messages) |
@@ -198,4 +211,5 @@ Precedence in `start.sh`: CLI flags > shell environment > `backend/.env` > defau
 | `WITH_TEMPORAL` | `0` | `1` makes `start.sh` start and stop Temporal (see [Dependencies](#dependencies)) |
 | `SQLITE_PATH` | `../data/leader-control-center.db` | SQLite file path (project-root `data/`); dir is created on startup |
 | `SIMULATION_TICK_SECONDS` | `2.5` | seconds between simulation ticks; `0` disables |
+| `SCHEDULER_TICK_SECONDS` | `5` | seconds between scheduler ticks (fire due Schedule occurrences, settle runs); `0` disables firing |
 | `CORS_ORIGINS` | `http://localhost:$FRONTEND_PORT,http://127.0.0.1:$FRONTEND_PORT` | allowed origins; `start.sh` derives it from `FRONTEND_PORT` when unset |

@@ -5,7 +5,12 @@ from __future__ import annotations
 
 from app.domain.board import column_for, empty_columns
 from app.domain.decisions import actions_for
-from app.domain.enums import DecisionKind, NotificationStatus, PlanningStatus
+from app.domain.enums import (
+    DecisionKind,
+    NotificationStatus,
+    PlanningStatus,
+    ScheduleStatus,
+)
 from app.domain.events import MessageType
 from app.domain.models import (
     Artifact,
@@ -25,12 +30,23 @@ from app.domain.models import (
     TimelineEvent,
     WorkflowDefinition,
 )
+from typing import TYPE_CHECKING
+
+from app.application.activities import ActivityDefinitionService
+from app.application.errors import ConflictError, InvariantError, NotFoundError
 from app.infra.store import Store
+if TYPE_CHECKING:
+    from app.application.schedules import ScheduleService
+
 from app.workflow.simulation import (
     ExecutionNotFound,
     HumanRequestNotFound,
     SimulationEngine,
 )
+
+# Archived (e.g. auto-archived scheduled Stories) and deleted Stories stay out of
+# the board; their history remains reachable by id.
+_HIDDEN_STORY_STATUSES = (PlanningStatus.ARCHIVED, PlanningStatus.DELETED)
 
 _PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}
 
@@ -60,29 +76,6 @@ def _draft_from_message(message: str) -> StoryDraft:
     )
 
 
-class NotFoundError(Exception):
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
-        self.message = message
-
-
-class InvariantError(Exception):
-    """A command that violates an aggregate invariant (maps to HTTP 422)."""
-
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
-        self.message = message
-
-
-class ConflictError(Exception):
-    """A command blocked by the current state of related data (maps to HTTP 409),
-    e.g. deleting a workflow definition still referenced by a planning object."""
-
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
-        self.message = message
-
-
 # Open notification states in display order; CLOSED is terminal (excluded).
 _NOTIFICATION_ORDER = {
     NotificationStatus.UNREAD: 0,
@@ -95,6 +88,9 @@ class ControlCenter:
     def __init__(self, store: Store, engine: SimulationEngine) -> None:
         self.store = store
         self.engine = engine
+        # Set by build_control_center (needs the SchedulerPort adapter).
+        self.schedules: "ScheduleService | None" = None
+        self.activities = ActivityDefinitionService(store)
 
     # -- queries -----------------------------------------------------------
     def get_initiatives(self) -> list[InitiativeSummary]:
@@ -108,7 +104,7 @@ class ControlCenter:
                 continue
             stories = [
                 s for s in self.store.stories.values()
-                if s.epic_id == epic.id and s.status != PlanningStatus.DELETED
+                if s.epic_id == epic.id and s.status not in _HIDDEN_STORY_STATUSES
             ]
             open_total = sum(self.store.open_requests_for_story(s.id) for s in stories)
             summaries.append(
@@ -132,7 +128,7 @@ class ControlCenter:
         stories = sorted(
             (
                 s for s in self.store.stories.values()
-                if s.epic_id == epic.id and s.status != PlanningStatus.DELETED
+                if s.epic_id == epic.id and s.status not in _HIDDEN_STORY_STATUSES
             ),
             key=lambda s: s.priority,
         )
@@ -199,6 +195,8 @@ class ControlCenter:
         if initiative_id == MISC_INITIATIVE_ID:
             raise InvariantError("The Misc initiative cannot be deleted")
         self.store.soft_delete_initiative(initiative_id)
+        if self.schedules is not None:
+            self.schedules.archive_for_initiative(initiative_id)
         return self.get_initiatives()
 
     def create_story(
@@ -293,6 +291,9 @@ class ControlCenter:
         ] + [
             s.title for s in self.store.stories.values()
             if s.workflow_definition_id == wd_id
+        ] + [
+            f"schedule '{s.name}'" for s in self.store.schedules.values()
+            if s.workflow_definition_id == wd_id and s.status != ScheduleStatus.ARCHIVED
         ]
         if referencing:
             raise ConflictError(
@@ -483,4 +484,19 @@ def build_control_center() -> ControlCenter:
     # is a single write, not one per seeded aggregate.
     store.bus.subscribe(lambda _message: db.save(store))
 
-    return ControlCenter(store, engine)
+    cc = ControlCenter(store, engine)
+    cc.schedules = build_schedule_service(cc)
+    return cc
+
+
+def build_schedule_service(cc: ControlCenter) -> "ScheduleService":
+    """Schedules on the in-process SchedulerPort adapter (the default)."""
+    from datetime import datetime, timezone
+
+    from app.application.schedules import ScheduleService
+    from app.workflow.in_process_scheduler import InProcessScheduler
+
+    def clock() -> datetime:
+        return datetime.now(timezone.utc)
+
+    return ScheduleService(cc, InProcessScheduler(cc.store, clock), clock)

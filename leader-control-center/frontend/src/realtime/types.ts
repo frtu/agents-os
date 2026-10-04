@@ -8,7 +8,10 @@ export type RealtimeMessageType =
   | "ArtifactProduced"
   | "AttentionUpdated"
   | "NotificationCreated"
-  | "WorkflowDefinitionUpdated";
+  | "WorkflowDefinitionUpdated"
+  | "ScheduleUpdated"
+  | "ScheduleRunRecorded"
+  | "ActivityDefinitionUpdated";
 
 export interface RealtimeMessage {
   type: RealtimeMessageType;

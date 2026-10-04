@@ -322,6 +322,17 @@ class SimulationEngine:
             if not story:
                 continue
 
+            if not exec.task_executions:
+                # Nothing to run (e.g. a templated Story without Tasks): complete.
+                exec.status = ExecStatus.COMPLETED
+                exec.progress = 1.0
+                exec.completed_at = now()
+                self.store.add_timeline(exec.id, "Execution Completed", Cat.RUNTIME, "no tasks to run")
+                self.store.push_notification("Completed", f"Completed: {story.title}")
+                self.store.bus.emit(MessageType.EXECUTION_UPDATED, exec.id)
+                self.store.bus.emit(MessageType.STORY_UPDATED, story.id)
+                continue
+
             active = next((t for t in exec.task_executions if t.status == TaskStatus.RUNNING), None)
             if not active:
                 nxt = next((t for t in exec.task_executions if t.status == TaskStatus.CREATED), None)
