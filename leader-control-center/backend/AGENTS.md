@@ -27,10 +27,12 @@ and project rules.
 uv sync                                          # install deps
 uv run uvicorn app.main:app --reload --port 8010 # API at /api/v1, docs at /api
 uv sync --extra dev && uv run pytest             # tests
-../start.sh                                      # whole stack (+ Temporal)
+./start.sh                                       # Temporal + backend (Ctrl+C stops both)
+./start.sh --no-temporal                         # backend only; --help for all options
+../start.sh                                      # whole stack (+ frontend)
 ```
 
-Local config: copy `.env.example` to `.env` (gitignored), read by `../start.sh`.
+Local config: copy `.env.example` to `.env` (gitignored), read by `./start.sh` and `../start.sh`.
 
 ## Dependencies
 

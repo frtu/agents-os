@@ -42,16 +42,37 @@ starts Temporal with the backend and frontend, and stops it on Ctrl+C.
 
 ## Run
 
-Whole stack (backend + frontend, optional Temporal) from the project root:
+Whole stack (backend + frontend, optional Temporal) from the project root. It
+runs `backend/start.sh` and `frontend/start.sh` side by side; Ctrl+C stops both,
+and if either exits the other is stopped too:
 
 ```bash
-./start.sh                                    # backend :8010, frontend :5173
+./start.sh                                    # backend :8010 (+ Temporal), frontend :5173
 ./start.sh -p 8100 -f 5180                    # custom backend / frontend ports
-./start.sh --temporal                         # also start Temporal
+./start.sh --no-temporal                      # skip Temporal
+./start.sh --keep-temporal                    # leave Temporal up after Ctrl+C
 ./start.sh --help                             # all options
 ```
 
-Backend only, from `backend/`:
+The three scripts share their helpers (`.env` loading, port checks, process
+cleanup) through `../scripts/start-lib.sh`.
+
+Backend + Temporal (no frontend), from `backend/`:
+
+```bash
+./start.sh                                    # Temporal (docker compose) + backend :8010
+./start.sh -p 8100                            # custom backend port
+./start.sh --keep-temporal                    # leave Temporal up after Ctrl+C
+./start.sh --no-temporal                      # backend only, no Docker
+./start.sh --help                             # all options
+```
+
+It loads `backend/.env`, refuses busy ports, and reuses a Temporal that is
+already healthy, in which case it leaves it running on exit. Ctrl+C otherwise
+stops the backend and the Temporal containers it started. Once Temporal is
+healthy it refreshes the local `_api_/temporal` snapshot.
+
+Backend only, by hand:
 
 ```bash
 uv sync                                       # install deps
@@ -197,7 +218,7 @@ copy it to `.env`, which is gitignored, so your ports and paths are never commit
 cp .env.example .env                          # then edit .env
 ```
 
-`../start.sh` loads `backend/.env`. The app itself does not read `.env`: when
+`./start.sh`, `../frontend/start.sh` and `../start.sh` load `backend/.env`. The app itself does not read `.env`: when
 you run `uvicorn` directly, set variables inline instead, e.g.
 `PORT=9000 uv run uvicorn app.main:app --reload --port 9000`.
 

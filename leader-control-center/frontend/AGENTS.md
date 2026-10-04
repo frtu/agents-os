@@ -20,6 +20,7 @@ React supervision console for the Leader Control Center. Read this repo's root
 ## Setup / run
 
 ```bash
+./start.sh         # nvm Node + npm install + vite :5173 (proxy /api → :8010); --help
 npm install
 npm run dev        # http://localhost:5173 (vite proxies /api → :8010)
 npm run typecheck  # tsc --noEmit

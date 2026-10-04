@@ -21,9 +21,14 @@ workflow-engine internals. Condensed design rationale lives in
 ## Run
 
 ```bash
-npm install
-npm run dev      # http://localhost:5173
+./start.sh                  # npm install + vite on :5173, proxy -> backend :8010
+./start.sh -f 5180 -b 8100  # custom frontend port / backend port
+./start.sh --help           # all options
 ```
+
+`start.sh` picks Node from `.nvmrc` via nvm, refuses a busy port, and reads the
+shared ports from `../backend/.env`. Plain `npm install && npm run dev` works too.
+`../start.sh` runs it together with the backend.
 
 By default a fresh checkout points at a **real backend** — `.env.local` sets
 `VITE_USE_MOCKS=false` (start the backend first, see `../getting-started.md`).

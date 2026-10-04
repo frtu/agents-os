@@ -1,54 +1,50 @@
 #!/usr/bin/env bash
-# Start both backend and frontend for Leader Control Center
-# See backend/README.md (Configuration, Dependencies) for full documentation
+# Start the whole Leader Control Center stack by running backend/start.sh
+# (API + optional Temporal) and frontend/start.sh (vite) side by side.
+# Each script owns its own setup and cleanup; this one only coordinates them.
+# See backend/README.md (Configuration, Dependencies) for full documentation.
 
-set -e
+set -euo pipefail
 
-# Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEMPORAL_COMPOSE="$SCRIPT_DIR/_infra_/docker-temporal/docker-compose.yml"
+# shellcheck source=scripts/start-lib.sh
+source "$SCRIPT_DIR/scripts/start-lib.sh"
 
-# Load local, uncommitted config (copy backend/.env.example to backend/.env).
-# Variables already set in the shell win over the file.
-if [[ -f "$SCRIPT_DIR/backend/.env" ]]; then
-    while IFS='=' read -r key value; do
-        [[ -z "$key" || "$key" == \#* ]] && continue
-        [[ -z "${!key+x}" ]] && export "$key=$value"
-    done < "$SCRIPT_DIR/backend/.env"
-fi
+lcc_load_env
 
-# Default configuration (shell env > backend/.env > defaults; CLI flags win)
+# shell env > backend/.env > defaults; CLI flags win.
 PORT="${PORT:-8010}"
-HOST="${HOST:-0.0.0.0}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 WITH_TEMPORAL="${WITH_TEMPORAL:-1}"
-TEMPORAL_GRPC_PORT="${TEMPORAL_GRPC_PORT:-7233}"
-SKIP_SYNC=false
+BACKEND_ARGS=()
+FRONTEND_ARGS=()
 
 usage() {
     cat <<EOF
 Usage: $0 [OPTIONS]
 
+Runs backend/start.sh and frontend/start.sh together; Ctrl+C stops both.
+If either one exits, the other is stopped too.
+
 Options:
     -p, --port PORT            Backend API port (default: 8010)
     -h, --host HOST            Backend bind address (default: 0.0.0.0)
     -f, --frontend-port PORT   Frontend dev server port (default: 5173)
-    --temporal                 Also start Temporal docker compose (_infra_/docker-temporal),
-                               refresh backend/_api_/temporal once it is healthy,
-                               and stop it again on Ctrl+C (default: on)
-    --no-temporal             Do not start Temporal
+    --temporal                 Also start Temporal (default: on, or WITH_TEMPORAL)
+    --no-temporal              Do not start Temporal
+    --keep-temporal            Leave Temporal running after Ctrl+C
     --skip-sync                Skip 'uv sync' / 'npm install'
     --help                     Show this help message
 
 Environment variables (or backend/.env):
     PORT, HOST, FRONTEND_PORT, WITH_TEMPORAL=1, TEMPORAL_GRPC_PORT (default 7233),
-    CORS_ORIGINS, SQLITE_PATH,
-    SIMULATION_TICK_SECONDS  (see backend/.env.example)
+    CORS_ORIGINS, SQLITE_PATH, SIMULATION_TICK_SECONDS  (see backend/.env.example)
+
+Each part can also run alone: backend/start.sh --help, frontend/start.sh --help.
 
 Examples:
-    $0                         # Backend :8010, frontend :5173
+    $0                         # Backend :8010 (+ Temporal), frontend :5173
     $0 -p 8100 -f 5180         # Backend :8100, frontend :5180
-    $0 --temporal              # Start Temporal explicitly (default)
     $0 --no-temporal           # Skip Temporal
 EOF
     exit 0
@@ -56,129 +52,78 @@ EOF
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -p|--port) PORT="$2"; shift 2 ;;
-        -h|--host) HOST="$2"; shift 2 ;;
-        -f|--frontend-port) FRONTEND_PORT="$2"; shift 2 ;;
+        -p|--port) lcc_need_value "$@"; PORT="$2"; shift 2 ;;
+        -h|--host) lcc_need_value "$@"; BACKEND_ARGS+=(--host "$2"); shift 2 ;;
+        -f|--frontend-port) lcc_need_value "$@"; FRONTEND_PORT="$2"; shift 2 ;;
         --temporal) WITH_TEMPORAL=1; shift ;;
         --no-temporal) WITH_TEMPORAL=0; shift ;;
-        --skip-sync) SKIP_SYNC=true; shift ;;
+        --keep-temporal) BACKEND_ARGS+=(--keep-temporal); shift ;;
+        --skip-sync) BACKEND_ARGS+=(--skip-sync); FRONTEND_ARGS+=(--skip-sync); shift ;;
         --help) usage ;;
-        *) echo "Unknown option: $1" >&2; exit 1 ;;
+        *) echo "Unknown option: $1 (see --help)" >&2; exit 1 ;;
     esac
 done
 
-# The backend reads PORT/HOST/CORS_ORIGINS; vite reads BACKEND_PORT/FRONTEND_PORT.
-export PORT HOST FRONTEND_PORT TEMPORAL_GRPC_PORT
-export BACKEND_PORT="$PORT"
-export CORS_ORIGINS="${CORS_ORIGINS:-http://localhost:$FRONTEND_PORT,http://127.0.0.1:$FRONTEND_PORT}"
+[[ "$WITH_TEMPORAL" == "1" ]] || BACKEND_ARGS+=(--no-temporal)
+BACKEND_ARGS+=(--port "$PORT")
+FRONTEND_ARGS+=(--port "$FRONTEND_PORT" --backend-port "$PORT")
 
-MIN_NODE_MAJOR=18
+# The backend derives CORS_ORIGINS from FRONTEND_PORT.
+export FRONTEND_PORT
 
-# Pick the Node version from frontend/.nvmrc via nvm when available, then
-# fail early if node is still too old for vite.
-use_node() {
-    local nvm_sh="${NVM_DIR:-$HOME/.nvm}/nvm.sh"
-    if [[ -s "$nvm_sh" && -f "$SCRIPT_DIR/frontend/.nvmrc" ]]; then
-        # shellcheck disable=SC1090
-        source "$nvm_sh"
-        nvm use "$(cat "$SCRIPT_DIR/frontend/.nvmrc")" >/dev/null 2>&1 || true
-    fi
-    local major
-    major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
-    if (( major < MIN_NODE_MAJOR )); then
-        echo "Error: Node >= $MIN_NODE_MAJOR required for the frontend (found: $(node -v 2>/dev/null || echo none))." >&2
-        echo "  Install it with nvm:  nvm install $(cat "$SCRIPT_DIR/frontend/.nvmrc" 2>/dev/null || echo 20)" >&2
-        exit 1
-    fi
-}
+# Fail fast, before anything starts, if either port is taken.
+lcc_check_port "$PORT" "Backend"
+lcc_check_port "$FRONTEND_PORT" "Frontend"
 
-# Refuse to start on a busy port (usually a leftover from a previous run).
-check_port() {
-    local port="$1" name="$2" pid
-    pid="$(lsof -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | head -1)"
-    if [[ -n "$pid" ]]; then
-        echo "Error: $name port $port is already in use by PID $pid ($(ps -o comm= -p "$pid"))." >&2
-        echo "  Stop it with:  ./stop-kill-port.sh $port   or pick another port (--help)." >&2
-        exit 1
-    fi
-}
+BACKEND_PID=""
+FRONTEND_PID=""
 
-# Kill a process and all its descendants (uv/npm spawn uvicorn/vite as children).
-kill_tree() {
-    local pid="$1" child
-    [[ -z "$pid" ]] && return
-    for child in $(pgrep -P "$pid" 2>/dev/null); do
-        kill_tree "$child"
-    done
-    kill "$pid" 2>/dev/null || true
-}
-
-# Regenerate the local Temporal API snapshot (backend/_api_/temporal, gitignored)
-# once the temporal container is healthy. Runs in the background; never fatal.
-refresh_temporal_api() {
-    local i status
-    for ((i = 0; i < 90; i++)); do
-        status="$(docker inspect -f '{{.State.Health.Status}}' temporal 2>/dev/null || true)"
-        if [[ "$status" == "healthy" ]]; then
-            "$SCRIPT_DIR/backend/scripts/temporal-api.sh" refresh \
-                || echo "Warning: Temporal API snapshot refresh failed." >&2
-            return 0
-        fi
-        sleep 2
-    done
-    echo "Warning: Temporal not healthy after 3 min; skipped API snapshot refresh." >&2
-}
-
-cleanup() {
+# Background jobs of a script ignore SIGINT, so Ctrl+C reaches this script only;
+# forward SIGTERM to each child script and let it run its own cleanup (stopping
+# uvicorn/vite and, for the backend, the Temporal containers it started).
+stop_children() {
     trap - SIGINT SIGTERM
+    local pid
+    for pid in "$BACKEND_PID" "$FRONTEND_PID"; do
+        [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null || true
+    done
+    for pid in "$BACKEND_PID" "$FRONTEND_PID"; do
+        [[ -n "$pid" ]] && wait "$pid" 2>/dev/null || true
+    done
+}
+
+on_signal() {
+    echo ""
     echo "Stopping services..."
-    kill_tree "$BACKEND_PID"
-    kill_tree "$FRONTEND_PID"
-    kill_tree "$TEMPORAL_API_PID"
-    if [[ "$WITH_TEMPORAL" == "1" ]]; then
-        docker compose -f "$TEMPORAL_COMPOSE" down || true
-    fi
+    stop_children
     exit 0
 }
-
-use_node
-check_port "$PORT" "Backend"
-check_port "$FRONTEND_PORT" "Frontend"
-
-trap cleanup SIGINT SIGTERM
+trap on_signal SIGINT SIGTERM
 
 echo "Starting Leader Control Center..."
-
-# Start Temporal (optional)
-if [[ "$WITH_TEMPORAL" == "1" ]]; then
-    echo "Starting Temporal (docker compose)..."
-    docker compose -f "$TEMPORAL_COMPOSE" up -d
-    refresh_temporal_api &
-    TEMPORAL_API_PID=$!
-fi
-
-# Start backend
-echo "Starting backend on http://localhost:$PORT..."
-cd "$SCRIPT_DIR/backend"
-[[ "$SKIP_SYNC" == false ]] && uv sync --quiet
-uv run uvicorn app.main:app --reload --host "$HOST" --port "$PORT" &
+"$SCRIPT_DIR/backend/start.sh" ${BACKEND_ARGS[@]+"${BACKEND_ARGS[@]}"} &
 BACKEND_PID=$!
-
-# Start frontend
-echo "Starting frontend on http://localhost:$FRONTEND_PORT..."
-cd "$SCRIPT_DIR/frontend"
-[[ "$SKIP_SYNC" == false ]] && npm install --silent
-npm run dev &
+"$SCRIPT_DIR/frontend/start.sh" ${FRONTEND_ARGS[@]+"${FRONTEND_ARGS[@]}"} &
 FRONTEND_PID=$!
 
 echo ""
-echo "Services running:"
+echo "Services:"
 echo "  Backend:  http://localhost:$PORT (API docs: http://localhost:$PORT/api)"
 echo "  Frontend: http://localhost:$FRONTEND_PORT"
 if [[ "$WITH_TEMPORAL" == "1" ]]; then
-    echo "  Temporal: gRPC localhost:$TEMPORAL_GRPC_PORT (UI: http://localhost:8080)"
+    echo "  Temporal: gRPC localhost:${TEMPORAL_GRPC_PORT:-7233} (UI: http://localhost:8080)"
 fi
 echo ""
 echo "Press Ctrl+C to stop all services"
 
-wait
+# Bash 3.2 has no `wait -n`: poll until either side exits, then stop the other.
+while kill -0 "$BACKEND_PID" 2>/dev/null && kill -0 "$FRONTEND_PID" 2>/dev/null; do
+    sleep 1
+done
+if kill -0 "$BACKEND_PID" 2>/dev/null; then
+    echo "Frontend stopped; stopping backend..." >&2
+else
+    echo "Backend stopped; stopping frontend..." >&2
+fi
+stop_children
+exit 1

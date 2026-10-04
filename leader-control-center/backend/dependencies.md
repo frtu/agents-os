@@ -46,7 +46,7 @@ Request JSON uses protobuf JSON names (lowerCamelCase), e.g. `workflowId`,
 scripts/temporal-api.sh refresh     # rewrites _api_/temporal/*
 ```
 
-The snapshot is local only (gitignored). `../start.sh` regenerates it in the
+The snapshot is local only (gitignored). `./start.sh` (also run by `../start.sh`) regenerates it in the
 background each time it starts Temporal (once the container is healthy). Run it
 by hand if `_api_/temporal/` is missing or Temporal was started another way.
 Snapshot files:
