@@ -4,6 +4,7 @@ import { AttentionPage } from "@/pages/AttentionPage";
 import { WorkflowPage } from "@/pages/WorkflowPage";
 import { SchedulesPage } from "@/pages/SchedulesPage";
 import { TasksPage } from "@/pages/TasksPage";
+import { ConsolePage } from "@/pages/ConsolePage";
 
 const router = createBrowserRouter([
   { path: "/", element: <BoardPage /> },
@@ -11,6 +12,7 @@ const router = createBrowserRouter([
   { path: "/tasks", element: <TasksPage /> },
   { path: "/schedules", element: <SchedulesPage /> },
   { path: "/attention", element: <AttentionPage /> },
+  { path: "/console", element: <ConsolePage /> },
 ]);
 
 export function App() {

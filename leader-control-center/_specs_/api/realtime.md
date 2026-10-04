@@ -78,3 +78,15 @@ client uses to update its cache.
 1. Realtime messages are projections of events — never a second source of truth.
 2. A dropped connection never loses data; REST reconciliation is authoritative.
 3. The client never receives WorkflowId/RunId/Activity or provider secrets.
+
+---
+
+## Acceptance Criteria
+
+- AC-1: Every server message type is listed above and mirrored in the frontend
+  realtime types (P6).
+- AC-2: No message carries WorkflowId/RunId/Activity or provider secrets (P4).
+- AC-3: Each message carries the aggregate id and a monotonic `sequence`.
+- AC-4: After a dropped connection, REST refetch restores the same state the
+  stream would have produced.
+

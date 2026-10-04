@@ -13,6 +13,8 @@ into buildable, aligned, non-contradictory specifications.
 
 Start here, then follow the reading order:
 
+0. **[constitution.md](./constitution.md)** — the ratified, versioned principles
+   every spec, plan, and change is checked against.
 1. **overview/** — why the product exists and the shared language.
 2. **domain/** — the canonical model everything else derives from.
 3. **planning/** — how intent is expressed (stable).
@@ -22,15 +24,24 @@ Start here, then follow the reading order:
 7. **frontend/** — how leaders supervise.
 8. **auth/ · permissions/ · notifications/ · observability/ · deployment/** —
    cross-cutting concerns (MVP depth).
+9. **testing/** — invariant test matrix and acceptance gate.
+10. **features/** — the buildable layer: `NNN-*/spec.md → plan.md → tasks.md`.
 
-If two documents ever disagree, **domain/** wins, then the root README.
+If two documents ever disagree: the **constitution** wins, then **domain/**,
+then the root README, then the later feature spec. Open questions and known
+code-vs-spec deviations live in [clarification.md](./clarification.md).
 
 ---
 
 ## Folder Map
 
 ```
-specs/
+_specs_/
+  constitution.md ratified principles (versioned) — the compliance gate
+  clarification.md open questions · known deviations (code lags spec)
+  _templates/     spec-template · plan-template · tasks-template
+  features/       NNN-<feature>/ spec.md · plan.md · tasks.md
+  testing/        testing (invariant matrix, levels, acceptance gate)
   overview/       vision · principles · roadmap · glossary · user-stories
   domain/         domain-model · state-machines · bounded-contexts · event-model
   planning/       planning-model · planning-modes · capabilities · scheduling ·
@@ -111,6 +122,29 @@ Full detail: [domain/domain-model.md](./domain/domain-model.md).
 7. Artifact viewing.
 
 Scope and phase gates: [overview/roadmap.md](./overview/roadmap.md).
+
+---
+
+## Development Model (spec-first)
+
+Every behavioural change follows **spec → code → tests**, in one change set
+([constitution](./constitution.md) P7, P8):
+
+1. **Spec.** Create `features/NNN-short-name/` from [`_templates/`](./_templates)
+   (`spec.md` with numbered **FR-N**, User Scenarios, **AC-N**; plus `plan.md`
+   with a Constitution Check and Test Plan, and `tasks.md`, when scope warrants).
+   Amend the area specs it touches — always `api/rest-api.md` /
+   `api/realtime.md` for a contract change. A principle change amends
+   `constitution.md` first, with a version bump.
+2. **Code.** Implement to the spec; cite requirements in comments
+   (`# spec 002 FR-3`).
+3. **Tests.** Land tests in the same change, one per AC, named/commented with the
+   id (`test_…_ac3`, `# spec 002 AC-3`). See [testing/testing.md](./testing/testing.md).
+4. **Sync.** Spec, code, and tests agree at the end; if the implementation forced
+   a design change, update the spec.
+
+Pure chores (formatting, typos, dependency bumps) may skip step 1. Feature
+conventions: [features/README.md](./features/README.md).
 
 ---
 

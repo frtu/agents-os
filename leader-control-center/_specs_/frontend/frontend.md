@@ -45,13 +45,14 @@ with its latest execution status — they are not stored planning states (see
 The left sidebar lists the top-level destinations, in order:
 
 ```
-Board · Workflow · Tasks · Schedules · Attention
+Board · Workflow · Tasks · Schedules · Attention · Console
 ```
 
 `Workflow` sits directly below `Board` and opens the Workflow Definitions manager.
 `Tasks` opens the Activity Definitions manager (bash / webhook building blocks,
 see [../execution/activity-definitions.md](../execution/activity-definitions.md)).
-`Schedules` opens the Schedules manager.
+`Schedules` opens the Schedules manager. `Console` opens the developer API
+Console ([features/001-api-console](../features/001-api-console/spec.md)).
 
 ---
 
@@ -105,6 +106,14 @@ completed on board". It shows a live preview sentence with the next 5
 occurrences before Confirm, plus an optional **Run once now**. Board cards
 created by a Schedule show a clock badge linking to it. See
 [../planning/schedules.md](../planning/schedules.md).
+
+### API Console
+Developer test bench at `/console` (not a leader-facing view). Lists every
+backend operation from the OpenAPI document with a prefilled request builder,
+one-click scenarios (Schedule lifecycle, Activity Definition, Story execution,
+Workflow Definition), session history, and a live realtime event log. Always
+targets the real backend. See
+[../features/001-api-console/spec.md](../features/001-api-console/spec.md).
 
 ### Story Detail
 Opens when a Story is selected. Shows:

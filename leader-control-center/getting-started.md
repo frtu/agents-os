@@ -104,6 +104,7 @@ setup is needed in dev. Open `http://localhost:5173`.
 | `HOST`                    | `0.0.0.0`                                     | bind address                                      |
 | `PORT`                    | `8010`                                        | bind port (vite proxy targets `:8010`)            |
 | `SIMULATION_TICK_SECONDS` | `2.5`                                         | seconds between simulation ticks; `0` disables it |
+| `SCHEDULER_TICK_SECONDS`  | `5`                                           | seconds between scheduler ticks (fire due Schedules); `0` disables it |
 | `CORS_ORIGINS`            | `http://localhost:5173,http://127.0.0.1:5173` | comma-separated allowed origins                   |
 
 Copy `backend/.env.example` to `backend/.env` to customize. Environment

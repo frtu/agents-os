@@ -13,6 +13,19 @@ Base path: `/api/v1`
 - Queries return projections (read models), never raw aggregates.
 - Workflow engines remain hidden behind the backend.
 
+### Rules ([constitution](../constitution.md) P3, P4, P6, P7)
+
+- **One path in.** Every route is a thin call into the application facade
+  (`ControlCenter` / its services). Routers never touch `infra/` or `workflow/`
+  directly.
+- **Spec owns the contract.** A new or changed endpoint is added to this file
+  (and to the feature `plan.md` interface table) *before* it is coded; the
+  backend `models.py` and frontend `types/domain.ts` change in the same change.
+- **OpenAPI is generated, not authored.** FastAPI publishes it at `/api`; this
+  file states intent and rules, OpenAPI states exact shapes.
+- **Traceability.** Route handlers for feature endpoints cite the requirement
+  they implement (`# spec NNN FR-N`).
+
 ---
 
 ## Planning
@@ -253,3 +266,19 @@ Problem+JSON style: `{ type, title, status, detail, instance }`.
 
 Live updates are delivered over WebSocket (see [realtime.md](./realtime.md)); the
 REST API is for commands and initial/loading queries.
+
+---
+
+## Acceptance Criteria
+
+- AC-1: Every route is reachable only through the application facade; `app/api/`
+  imports neither `app.infra` nor `app.workflow` (`test_constitution.py`).
+- AC-2: Every response body is camelCase and every resource carries the envelope
+  `id · version · createdAt · updatedAt` (`test_smoke.py`).
+- AC-3: Every error is Problem+JSON with the status codes above and a `detail`
+  that states the actual cause (P9) (`test_smoke.py`).
+- AC-4: No response exposes a workflow-engine concept (WorkflowId, RunId,
+  Activity, task queue) (P4).
+- AC-5: State changes happen only through commands; queries never mutate.
+- AC-6: Each endpoint listed here has at least one API-level test.
+

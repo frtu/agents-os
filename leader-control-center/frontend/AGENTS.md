@@ -5,6 +5,11 @@ React supervision console for the Leader Control Center. Read this repo's root
 
 ## Docs & specs
 
+- **Constitution + spec-first workflow:** [`../_specs_/constitution.md`](../_specs_/constitution.md)
+  · root [`../AGENTS.md`](../AGENTS.md#workflow--spec-first-mandatory). UI
+  behaviour changes start in the feature spec (`../_specs_/features/NNN-*/`) and
+  [`../_specs_/frontend/frontend.md`](../_specs_/frontend/frontend.md).
+
 - Frontend overview & file tree: [`README.md`](README.md)
 - Frontend spec: [`../_specs_/frontend/frontend.md`](../_specs_/frontend/frontend.md)
 - API contract: [`../_specs_/api/rest-api.md`](../_specs_/api/rest-api.md) ·
@@ -36,9 +41,9 @@ src/
   realtime/         WebSocket manager + RealtimeProvider
   hooks/            TanStack Query queries + command mutations + queryKeys
   store/ui.ts       Zustand UI state (selection, open drawers/sheets)
-  pages/            BoardPage, AttentionPage
+  pages/            BoardPage, AttentionPage, … ConsolePage (developer API Console)
   components/       ui/ (shadcn-style primitives), layout/ (AppShell…)
-  features/         board · story · decisions · artifacts · notifications
+  features/         board · story · decisions · artifacts · notifications · console
 ```
 
 ## How data flows
@@ -65,3 +70,10 @@ src/
 - **Contract lockstep.** `types/domain.ts` must match the backend camelCase JSON.
 - `components/ui` are dependency-light shadcn-style primitives (no Radix); they
   can be swapped 1:1 with `npx shadcn@latest add ...` later.
+- **Cite the spec.** Components/hooks implementing a feature requirement carry
+  `// spec NNN FR-N`.
+- **Verification gate.** `npm run typecheck && npm run build` must pass; the
+  typecheck is the contract test for `types/domain.ts` (P6). Exercise the
+  feature's User Scenarios against the real backend (`VITE_USE_MOCKS=false`)
+  and keep `api/mock/` in step so the mock backend shows the same behaviour.
+
