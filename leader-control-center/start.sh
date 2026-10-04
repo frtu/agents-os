@@ -33,7 +33,8 @@ Options:
     -p, --port PORT            Backend API port (default: 8010)
     -h, --host HOST            Backend bind address (default: 0.0.0.0)
     -f, --frontend-port PORT   Frontend dev server port (default: 5173)
-    --temporal                 Also start Temporal docker compose (_infra_/docker-temporal)
+    --temporal                 Also start Temporal docker compose (_infra_/docker-temporal),
+                               refresh backend/_api_/temporal once it is healthy,
                                and stop it again on Ctrl+C (default: on)
     --no-temporal             Do not start Temporal
     --skip-sync                Skip 'uv sync' / 'npm install'
@@ -112,11 +113,28 @@ kill_tree() {
     kill "$pid" 2>/dev/null || true
 }
 
+# Regenerate the local Temporal API snapshot (backend/_api_/temporal, gitignored)
+# once the temporal container is healthy. Runs in the background; never fatal.
+refresh_temporal_api() {
+    local i status
+    for ((i = 0; i < 90; i++)); do
+        status="$(docker inspect -f '{{.State.Health.Status}}' temporal 2>/dev/null || true)"
+        if [[ "$status" == "healthy" ]]; then
+            "$SCRIPT_DIR/backend/scripts/temporal-api.sh" refresh \
+                || echo "Warning: Temporal API snapshot refresh failed." >&2
+            return 0
+        fi
+        sleep 2
+    done
+    echo "Warning: Temporal not healthy after 3 min; skipped API snapshot refresh." >&2
+}
+
 cleanup() {
     trap - SIGINT SIGTERM
     echo "Stopping services..."
     kill_tree "$BACKEND_PID"
     kill_tree "$FRONTEND_PID"
+    kill_tree "$TEMPORAL_API_PID"
     if [[ "$WITH_TEMPORAL" == "1" ]]; then
         docker compose -f "$TEMPORAL_COMPOSE" down || true
     fi
@@ -135,6 +153,8 @@ echo "Starting Leader Control Center..."
 if [[ "$WITH_TEMPORAL" == "1" ]]; then
     echo "Starting Temporal (docker compose)..."
     docker compose -f "$TEMPORAL_COMPOSE" up -d
+    refresh_temporal_api &
+    TEMPORAL_API_PID=$!
 fi
 
 # Start backend

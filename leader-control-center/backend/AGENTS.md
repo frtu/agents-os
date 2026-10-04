@@ -9,7 +9,8 @@ and project rules.
 - Backend overview, architecture, endpoints, config: [`README.md`](README.md)
 - Storage (SQLite overlay on the data model): [`storage.md`](storage.md)
 - **External service APIs (Temporal gRPC):** [`dependencies.md`](dependencies.md) —
-  how to call it and refresh the snapshot in [`_api_/temporal/`](_api_/temporal).
+  how to call it and generate the local, gitignored snapshot in `_api_/temporal/`
+  (`scripts/temporal-api.sh refresh`).
   Read it before writing or changing the Temporal adapter in `workflow/`.
 - API contract: [`../_specs_/api/rest-api.md`](../_specs_/api/rest-api.md) ·
   realtime: [`../_specs_/api/realtime.md`](../_specs_/api/realtime.md)
