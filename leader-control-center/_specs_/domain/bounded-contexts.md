@@ -28,7 +28,7 @@ Planning stable while Runtime evolves independently.
 ## 1. Planning Context
 
 **Owns:** Portfolio, Initiative, Epic, Story, Task, Dependency, Acceptance
-Criteria.
+Criteria, Schedule, Schedule Run.
 
 **Aggregate roots:**
 - **Initiative** — consistency boundary for its Epics/Stories/Tasks planning.

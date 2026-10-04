@@ -36,7 +36,9 @@ User → Login → Session Token → REST + WebSocket
 
 - OIDC / SSO integration
 - Multiple Portfolios with per-Portfolio membership
-- Service accounts for automation (AI Planning, scheduled runs)
+- Service accounts for automation (AI Planning, scheduled runs — Schedules use
+  `system:scheduler` on behalf of their creator, see
+  [../planning/schedules.md](../planning/schedules.md))
 - Token refresh + revocation
 
 Identity is owned by the Identity & Access bounded context — see

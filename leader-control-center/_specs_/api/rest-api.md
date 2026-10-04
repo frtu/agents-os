@@ -70,7 +70,28 @@ DELETE /workflow-definitions/{id}         delete a definition
 
 - `input` is a JSON Schema object; `definition` is the DSL body (string).
 - `DELETE` is rejected with `409` if the definition is still referenced by an
-  Initiative or Story (`workflowDefinitionId`); callers must detach first.
+  Initiative, Story, or non-archived Schedule (`workflowDefinitionId`); callers
+  must detach first.
+
+---
+
+## Schedules
+
+Time-triggered creation of Stories from a Workflow Definition. See
+[../planning/schedules.md](../planning/schedules.md).
+
+```
+GET    /schedules?initiativeId=          list (status, spec summary, nextOccurrenceAt, lastRun)
+GET    /schedules/{id}                   detail + next 5 occurrences
+GET    /schedules/{id}/runs              Schedule Run history (newest first)
+POST   /schedules/preview                plain-language sentence + next occurrences
+POST   /schedules                        create (confirmed by the leader)
+PATCH  /schedules/{id}                   update spec / templateInput / policies
+POST   /schedules/{id}/pause
+POST   /schedules/{id}/resume
+POST   /schedules/{id}/trigger           run one Occurrence now
+POST   /schedules/{id}/archive
+```
 
 ---
 

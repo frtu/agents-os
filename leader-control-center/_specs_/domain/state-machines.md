@@ -136,6 +136,27 @@ Draft → Published → (new version → Draft → Published …)
 
 ---
 
+## Schedule
+
+```
+Active ⇄ Paused          (pause / resume; auto-pause after 3 consecutive failures
+  │                       or when templateInput no longer validates)
+  ├──▶ Completed         (Once spec, after its Occurrence)
+  └──▶ Archived          (from any state; terminal)
+```
+
+## Schedule Run
+
+```
+Due → Started | Buffered | Skipped | Missed | FailedToStart
+Buffered → Started | Skipped
+```
+
+A Started run's outcome is a projection of its Story Execution's terminal state.
+See [../planning/schedules.md](../planning/schedules.md).
+
+---
+
 ## Transition Rules Summary
 
 | From context | Trigger | Effect |
@@ -145,6 +166,7 @@ Draft → Published → (new version → Draft → Published …)
 | Human Request `Resolved` | Decision applied | Task Execution → `Running` |
 | Provider Execution `Failed` | strategy = Retry | new Provider Execution `Scheduled` |
 | Story Execution all tasks terminal | aggregation | → `Completed` / `Failed` |
+| Schedule `Active` | Occurrence due | `CreateStory` + `StartStory` (per Overlap Policy) → Schedule Run |
 
 Every transition emits an immutable Timeline event — see
 [event-model.md](./event-model.md).

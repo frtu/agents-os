@@ -41,8 +41,21 @@ Portfolio-scoped catalog data, distinct from the Temporal Workflow Engine.
 | `UpdateWorkflowDefinition` | WorkflowDefinition | `WorkflowDefinitionUpdated` |
 | `DeleteWorkflowDefinition` | WorkflowDefinition | `WorkflowDefinitionDeleted` |
 
-`DeleteWorkflowDefinition` fails (`409`) while any Initiative or Story references
-the definition.
+`DeleteWorkflowDefinition` fails (`409`) while any Initiative, Story, or
+non-archived Schedule references the definition.
+
+### Schedules
+| Command | Aggregate | Emits |
+| ------- | --------- | ----- |
+| `CreateSchedule` | Schedule | `ScheduleCreated` |
+| `UpdateSchedule` | Schedule | `ScheduleUpdated` |
+| `PauseSchedule` / `ResumeSchedule` | Schedule | `SchedulePaused` / `ScheduleResumed` |
+| `TriggerSchedule` | Schedule | `ScheduleOccurrenceDue`, then a `ScheduleRun*` event |
+| `ArchiveSchedule` | Schedule | `ScheduleArchived` |
+
+Occurrences are handled by the `ScheduleService` process manager: it applies
+the Overlap Policy and catch-up window, then issues `CreateStory` + `StartStory`
+as `system:scheduler`. See [../planning/schedules.md](../planning/schedules.md).
 
 ### Runtime
 | Command | Effect | Emits |

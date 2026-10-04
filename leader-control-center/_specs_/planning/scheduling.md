@@ -1,5 +1,10 @@
 # Scheduling Strategy
 
+> Not to be confused with **Schedules** (time-triggered creation of new
+> Stories: once, interval, cron), which are specified in
+> [schedules.md](./schedules.md). This page is about which Task starts next
+> *inside* a Story.
+
 The application separates **scheduling policy** (when a Task starts) from
 **execution** (how a Capability runs). Scheduling strategies evolve without
 changing the workflow hierarchy.

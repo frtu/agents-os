@@ -78,6 +78,8 @@ See [../planning/planning-modes.md](../planning/planning-modes.md).
 
 Without changing the architecture, future versions can introduce:
 
+- Time-triggered Schedules (once / interval / cron Stories from a Workflow
+  Definition) — specified in [../planning/schedules.md](../planning/schedules.md)
 - Dependency-based scheduling
 - AI planning and dynamic task creation
 - Multi-provider execution strategies (parallel, consensus, loop, fan-out)

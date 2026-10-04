@@ -44,6 +44,8 @@ DecisionApplied
 ArtifactProduced
 AttentionUpdated
 NotificationCreated
+ScheduleUpdated
+ScheduleRunRecorded
 ```
 
 Each message carries the aggregate id, a `sequence`, and a minimal payload the

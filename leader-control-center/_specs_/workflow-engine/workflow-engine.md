@@ -137,6 +137,28 @@ See [../planning/scheduling.md](../planning/scheduling.md).
 
 ---
 
+## Scheduler Port (time triggers)
+
+Time-triggered Schedules use a second port next to `WorkflowEngine`. Adapters
+are clocks only: they deliver `OccurrenceDue(scheduleId, scheduledFor, firedAt)`
+and the application applies overlap and catch-up rules.
+
+```
+SchedulerPort
+  register(schedule) · pause(id) · resume(id) · remove(id)
+  nextOccurrences(spec, n, from) → [datetime]
+```
+
+```
+Application → SchedulerPort → In-process adapter (SQLite + asyncio)   # default
+                            ↘ Temporal adapter → Temporal Schedules
+```
+
+Temporal schedule IDs and policies never leave the adapter. See
+[../planning/schedules.md](../planning/schedules.md).
+
+---
+
 ## Testability
 
 Business rules (state machines, strategy decisions, scheduling) must be testable

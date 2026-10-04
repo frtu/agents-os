@@ -20,6 +20,7 @@ technology and its deltas from the canonical Postgres data model are defined in
 
 - Python 3.11+ · FastAPI · Pydantic v2 · Uvicorn
 - [uv](https://docs.astral.sh/uv/) for env + running
+- [`temporalio`](https://github.com/temporalio/sdk-python) Python SDK for the Temporal adapter (see [`dependencies.md`](dependencies.md))
 - **SQLite** file at `../data/leader-control-center.db` (see [`storage.md`](storage.md)):
   aggregates persist as JSON documents, written through on the event bus; state
   survives restarts and seeds only on first run

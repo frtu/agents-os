@@ -24,6 +24,8 @@ Execution completed
 Approval required        (mirror of a Human Request, for awareness)
 Workflow failed
 Artifact generated
+Schedule run failed      (FailedToStart, or the scheduled Story Execution failed)
+Schedule paused          (auto-pause: consecutive failures / invalid template)
 ```
 
 ---

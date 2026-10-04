@@ -45,10 +45,11 @@ with its latest execution status — they are not stored planning states (see
 The left sidebar lists the top-level destinations, in order:
 
 ```
-Board · Workflow · Attention
+Board · Workflow · Schedules · Attention
 ```
 
 `Workflow` sits directly below `Board` and opens the Workflow Definitions manager.
+`Schedules` opens the Schedules manager.
 
 ---
 
@@ -91,6 +92,17 @@ Leaders can **create**, **modify**, and **delete** definitions. The editor edits
 
 Deleting a definition still referenced by an Initiative or Story is blocked
 (surfaces the `409` from the API); the user detaches references first.
+
+### Schedules
+Lists Schedules grouped by Initiative: name, plain-language spec, next
+occurrence, last-run status, and status. Actions: Pause/Resume, Run now, Edit,
+Archive. The create/edit drawer renders the Workflow Definition's `input` schema
+(as in Create Story), a spec picker (Once / Interval / Cron + timezone), the
+Overlap Policy (default *Skip if previous run is active*), and "Keep last N
+completed on board". It shows a live preview sentence with the next 5
+occurrences before Confirm, plus an optional **Run once now**. Board cards
+created by a Schedule show a clock badge linking to it. See
+[../planning/schedules.md](../planning/schedules.md).
 
 ### Story Detail
 Opens when a Story is selected. Shows:

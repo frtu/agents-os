@@ -63,7 +63,26 @@ epic(id, initiative_id, title, description, status)       -- Draft|Ready|Archive
 ```
 story(id, epic_id, title, description, priority, status,  -- Draft|Ready|Archived
       workflow_definition_id,                             -- nullable FK, set when created from template
-      template_input jsonb)                               -- instance params captured from the definition's JSON Schema
+      template_input jsonb,                               -- instance params captured from the definition's JSON Schema
+      schedule_id, scheduled_for)                         -- nullable; set when created by a Schedule
+```
+
+### schedule / schedule_run
+Time-triggered Story creation (see [../planning/schedules.md](../planning/schedules.md)).
+```
+schedule(id, initiative_id, name,
+         workflow_definition_id,              -- FK, required
+         template_input jsonb, story_title_template,
+         spec jsonb,                           -- {kind: Once|Interval|Cron, ...}
+         overlap_policy,                       -- Skip|BufferOne|AllowParallel
+         catch_up_window_seconds, keep_completed,
+         status, pause_reason,                 -- Active|Paused|Completed|Archived
+         consecutive_failures, next_occurrence_at, created_by)
+
+schedule_run(id, schedule_id, scheduled_for, fired_at,
+             status,                           -- Started|Buffered|Skipped|Missed|FailedToStart
+             reason, story_id, error,
+             unique (schedule_id, scheduled_for))
 ```
 
 ### task
@@ -190,6 +209,10 @@ See [../auth/auth.md](../auth/auth.md) and
   catalog intent, so Planning may reference it just like `capability_id`).
 - `story.template_input` must validate against the referenced
   `workflow_definition.input` JSON Schema when `workflow_definition_id` is set.
+- `schedule.workflow_definition_id` → `workflow_definition.id` (required), and
+  `schedule.template_input` must validate against its `input` schema.
+- `schedule_run (schedule_id, scheduled_for)` is unique: one Story per
+  Occurrence. Schedule tables hold Planning ids only (no runtime ids).
 - `dependency` forms a DAG within a Story (no cycles).
 - Runtime tables reference Planning by id but Planning has **no** FK to Runtime
   (Planning never depends on Runtime).

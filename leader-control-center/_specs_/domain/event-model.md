@@ -45,7 +45,23 @@ TaskCreated
 TaskUpdated
 TaskReady
 TaskCancelled
+ScheduleCreated
+ScheduleUpdated
+SchedulePaused            # payload.reason: Manual | ConsecutiveFailures | InvalidTemplate
+ScheduleResumed
+ScheduleCompleted
+ScheduleArchived
+ScheduleOccurrenceDue
+ScheduleRunStarted        # payload.storyId
+ScheduleRunBuffered
+ScheduleRunSkipped        # payload.reason
+ScheduleRunMissed
+ScheduleRunFailedToStart
 ```
+
+Stories and executions started by a Schedule carry `origin.scheduleId` and
+`origin.scheduledFor` in their event payloads, and the actor `system:scheduler`
+with `onBehalfOf` = the Schedule's creator.
 
 ### Runtime
 ```

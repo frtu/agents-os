@@ -158,6 +158,25 @@ a template references one and captures `templateInput` validated against its
 [../workflow-engine/workflow-engine.md](../workflow-engine/workflow-engine.md)) —
 it is Portfolio-level catalog intent, like Capability.
 
+### Schedule
+Time-based planning intent owned by an Initiative: at each Occurrence (Once,
+Interval, or Cron with timezone), create a **new** Story from a Workflow
+Definition + fixed `templateInput` and start it.
+
+```
+Schedule { id, initiativeId, name, workflowDefinitionId, templateInput,
+           spec, overlapPolicy, catchUpWindow, keepCompleted, status }
+ScheduleRun { scheduleId, scheduledFor, status, storyId? }
+```
+
+- Each Occurrence yields a new Story, so planning is never re-opened.
+- Every Occurrence leaves exactly one permanent Schedule Run.
+- The Schedule holds Planning IDs only; runtime-aware rules (overlap, release of
+  a buffered run, auto-archive) live in an application process manager.
+- Not the Scheduling Strategy (which Task starts next inside a Story).
+
+See [../planning/schedules.md](../planning/schedules.md).
+
 ---
 
 ## Runtime Entities

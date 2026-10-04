@@ -52,6 +52,9 @@ grouped by bounded context (see
 | **Execution Strategy** | *How* a Capability is executed across Providers: Single, Retry, Parallel, Consensus, Human Review, Pipeline, Loop, Fan-Out. |
 | **Provider** | An interchangeable implementation that executes Capabilities via a common contract (`supports/estimate/execute/cancel/resume`). |
 | **Scheduling Strategy** | Policy deciding *when* Tasks start: Manual (MVP), Dependency, AI Planning. |
+| **Schedule** | Time-based intent owned by an Initiative: at each Occurrence (Once / Interval / Cron), create a new Story from a Workflow Definition and start it. Not to be confused with the Scheduling Strategy (which Task starts next inside a Story). See [../planning/schedules.md](../planning/schedules.md). |
+| **Schedule Run** | Permanent record of one Occurrence of a Schedule: Started (with its Story), Buffered, Skipped, Missed, or FailedToStart. |
+| **Overlap Policy** | Per-Schedule rule for an Occurrence due while an earlier run is still active: Skip (default), BufferOne, AllowParallel. |
 
 ---
 

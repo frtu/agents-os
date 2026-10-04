@@ -16,6 +16,9 @@ Per the Security NFR, only authorized Users may:
 - approve/submit decisions (`Approve`, `Reject`, `Clarify`, `Continue`, `Abort`,
   `SelectOption`)
 - cancel workflows (`CancelExecution`)
+- manage Schedules (`CreateSchedule`, `UpdateSchedule`, `PauseSchedule`,
+  `ResumeSchedule`, `TriggerSchedule`, `ArchiveSchedule`); Occurrences then run
+  as `system:scheduler` on behalf of the Schedule's creator
 - manage the Catalog (Capabilities, Providers, credentials)
 
 Read/monitor operations (board, timeline, artifacts) are available to all
