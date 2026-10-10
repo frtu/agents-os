@@ -29,7 +29,7 @@ Three directories, three roles:
 - `wiki/projects/product-{product-name}/` — product or platform (e.g., search-platform)
 - `wiki/projects/product-{product-name}/{project-name}/` — specific project to create or extend product capabilities
 
-**People** — all content related to team members and their processes. **See `people-ingest` skill's `references/people-schema.md` for detailed people page formats.**
+**People** — all content related to team members and their processes. **See `people-ingest` skill's `references/people-schema.md` for detailed people page formats** (member pages: `people-2-member-reports`, `people-3-leaders`).
 - `wiki/people/processes/` — step of actions to achieve an outcome (e.g., software engineering, regulatory audit)
 - `wiki/people/steps/` — a particular step of a process, a particular action to a particular system (e.g., development, deployment)
 - `wiki/people/roles/` — career ladder roles with levels and tracks (e.g., role-ic-3, role-mgmt-2)

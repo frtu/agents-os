@@ -179,5 +179,5 @@ Append to `wiki/log.md`:
 ## Related Skills
 
 - `/second-brain-ingest` — process new sources into wiki pages
-- `/people-ingest` — process people-related sources (career ladders, competencies, processes)
+- `/people-ingest` — router for people sources: structure (career ladders, competencies, processes), direct reports, leaders
 - `/second-brain-query` — ask questions against the wiki

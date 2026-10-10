@@ -1,211 +1,69 @@
 ---
 name: people-ingest
 description: >
-  Process people-related sources (career ladders, competencies, processes) into
-  structured wiki pages. Use when the user adds career ladder files, skill frameworks,
-  SDLC documents, or team member info to raw/notes/people/ and wants them ingested
-  with proper cross-linking between roles, skills, and processes.
-allowed-tools: Bash Read Write Edit Glob Grep
+  Router for people wiki work. Classifies the source or request and runs the
+  right step: people-1-structure (career ladders, competencies, processes),
+  people-2-member-reports (a direct report mapped to role, level and skills),
+  people-3-leaders (profile of a leader, peer or stakeholder, multi-vault).
+  Use when the user says "ingest people sources", "process raw/notes/people",
+  "add {name} to people", or drops a people-related source without naming a step.
+allowed-tools: Bash Read Glob AskUserQuestion Skill
 ---
 
-# People Ingest
+# People Ingest (Router)
 
-Process people-related source documents into structured, interlinked wiki pages under `wiki/people/`.
+Routes people sources to one of three steps. The rules live in the sub-skills.
 
-**Schema Reference:** Read `references/people-schema.md` for complete page formats and conventions.
+**Shared reference:** `references/people-schema.md` — `wiki/people/` directory layout, page
+formats and link conventions (role/skill anchors, naming). Owned here so every step and
+`second-brain-lint` reads one copy; load it only when a step or check needs it.
 
-## Identify Sources to Process
+| Step | Skill | Input | Produces |
+| --- | --- | --- | --- |
+| 1 — Structure | `people-1-structure` | Career ladder, competency framework, process / SDLC docs | `wiki/people/{roles,competencies,processes,steps}/` |
+| 2 — Member reports | `people-2-member-reports` | 1:1 notes, feedback, self-assessment for a direct report | `members/{slug}.md` linked to role, skills, steps |
+| 3 — Leaders | `people-3-leaders` | Any evidence about a leader, peer or stakeholder | `members/{slug}.md` (+ `{slug}-ref-{topic}.md` in topic vaults) |
 
-Determine which files need ingestion:
+Step 2 depends on step 1 (it links to role and skill pages). Step 3 links to step 1's
+pages only when relevant.
 
-1. If the user specifies files, use those
-2. If the user says "process people sources" or similar, detect unprocessed files:
-   - List all files in `raw/notes/people/` and subdirectories
-   - Read `wiki/log.md` and extract previously ingested source filenames
-   - Any file in `raw/notes/people/` not listed in the log is unprocessed
-3. If no unprocessed files are found, tell the user
+## Workflow
 
-## Content Categories
+### 1. Collect the sources
 
-People content maps to these wiki directories:
+- Files the user named, or
+- Unprocessed files: everything under `raw/notes/people/` not listed in `wiki/log.md`.
 
-| Source Content | Wiki Location | Naming Pattern |
-|----------------|---------------|----------------|
-| Career ladder levels | `wiki/people/roles/` | `role-ic-{level}.md` or `role-mgmt-{level}.md` |
-| Career ladder overview | `wiki/people/roles/` | `engineering-career-ladder.md` |
-| Competency categories | `wiki/people/competencies/` | `{category}.md` |
-| Individual skills | `wiki/people/competencies/` | `{skill-name}.md` |
-| Processes (SDLC, etc.) | `wiki/people/processes/` | `{process-name}.md` |
-| Process steps | `wiki/people/steps/` | `step-{name}.md` |
-| Team members | `wiki/people/members/` | `{name}.md` |
+No sources and no named person → tell the user and stop.
 
-## Process Each Source
+### 2. Classify each source
 
-For each source file, follow this workflow:
+| Signal | Route |
+| --- | --- |
+| Levels, tracks, competency definitions, depth progressions, process steps | `/people-1-structure` |
+| A named person **in the user's reporting line**, assessed against the ladder (level, growth, feedback) | `/people-2-member-reports` |
+| A named person who is a leader, peer or stakeholder; or a `-ref-{topic}` page in a topic vault | `/people-3-leaders` |
 
-### 1. Read and categorize the source
+If a person's relationship to the user is unclear, ask (direct report vs leader/peer).
+Announce the plan in one line, e.g. `2 sources → people-1-structure; Jane Doe → people-2-member-reports`.
 
-Read the entire file and identify:
-- **Type**: Career ladder? Competency framework? Process definition? Member profile?
-- **Scope**: Single role? Multiple roles? Single skill? Skill category?
-- **Track**: IC only? M only? Both tracks?
+### 3. Run in order
 
-### 2. Discuss key takeaways
+1. `/people-1-structure` for all structure sources first.
+2. Then `/people-2-member-reports {name}` per direct report. If step 2 reports missing
+   role or competency pages and no structure source is at hand, stop and say which are missing.
+3. Then `/people-3-leaders {name}` per leader.
 
-Before writing, share 3-5 key takeaways:
-- For career ladders: levels covered, key competencies, track progression
-- For competencies: skills covered, depth progression, measurement indicators
-- For processes: steps involved, skills applied, workflow structure
+### 4. Final report
 
-Wait for user confirmation before proceeding.
+List per step: pages created / updated, people skipped and why, and the files to stage
+with `/change-management-1-stage`.
 
-### 3. Create or update wiki pages
+## Quick Reference
 
-**For Career Ladder Sources:**
-
-1. Create/update role pages following the Role Page format in `references/people-schema.md`
-2. Include Level Differentiation section with:
-   - Comparison table (← previous, → next)
-   - Focus areas for this level
-   - Key transitions achieved and next
-3. Create 3-column competency tables:
-   - Competency (with section anchor: `[[skill#IC Track Depth Progression|Skill Name]]`)
-   - Depth (bold indicator)
-   - Expectations
-4. Update `engineering-career-ladder.md` overview page
-
-**For Competency/Skill Sources:**
-
-1. Create category page if new category
-2. Create/update individual skill pages with:
-   - IC Track Depth Progression table
-   - M-Track Depth Progression table (if applicable)
-   - Measurement Indicators table
-   - Red Flags section
-   - Growth Actions table
-   - SDLC Application section
-3. Link skills to roles using `[[role-{track}-{level}|{Level}]]` format
-
-**For Process Sources:**
-
-1. Create/update process page with steps overview
-2. Create/update step pages linking to:
-   - Skills applied in that step
-   - Previous/next steps
-   - Parent process
-3. Update skill pages' SDLC Application sections
-
-### 4. Enrich existing pages
-
-When processing new sources, also update related existing pages:
-
-**Cross-link roles and skills:**
-- In role pages: add skill links with section anchors
-- In skill pages: add role references in depth progression tables
-
-**Cross-link processes and skills:**
-- In skill pages: update SDLC Application section
-- In step pages: update Skills Applied section
-
-**Update category pages:**
-- Add new skills to category skill tables
-
-### 5. Update wiki/portal.md
-
-Add entries under **People** section:
-
-```markdown
-### Roles
-- [[role-ic-3|Senior Software Engineer]] — Feature ownership with cross-team influence
-
-### Competencies
-- [[coding-expertise|Coding Expertise]] — Delivering value through code
-
-### Processes
-- [[software-development-lifecycle|Software Development Lifecycle]] — End-to-end delivery process
-
-### Steps
-- [[step-design|Design]] — Technical and solution design phase
-```
-
-### 6. Update wiki/log.md
-
-Append:
-
-```markdown
-## [YYYY-MM-DD] people-ingest | Source Title
-Processed [[source-filename.md]]. Created N new pages, updated M existing pages.
-New: [[page-1]], [[page-2]].
-Updated: [[page-3]] (added depth progression), [[page-4]] (new skill links).
-```
-
-### 7. Report results
-
-Tell the user:
-- Pages created (with categories)
-- Pages updated (with what changed)
-- Cross-links added
-- Any missing information that needs additional sources
-
-## Enrichment Operations
-
-When asked to enrich existing pages without new sources:
-
-### Enrich Roles with Skills
-
-For each role page:
-
-1. Read all competency skill files to understand depth levels
-2. Add Level Differentiation section after Role Summary
-3. Update competency tables to 3 columns with:
-   - Skill links using `[[skill#IC Track Depth Progression|Skill Name]]` or `[[skill#M-Track Depth Progression|Skill Name]]`
-   - Depth indicator matching the skill's progression table
-   - Existing expectations text
-
-### Enrich Skills with Roles
-
-For each skill page:
-
-1. Read all role files to understand expectations
-2. Update depth progression tables with role links: `[[role-ic-1|Software Engineer]]`
-3. Ensure each level has accurate depth indicator and behaviors
-4. Add SDLC Application section linking to relevant steps
-
-### Cross-link Processes
-
-For each process/step page:
-
-1. Identify skills applied in each step
-2. Update step pages with skill links
-3. Update skill pages with SDLC Application references
-
-## Validation Checklist
-
-Before completing ingestion, verify:
-
-- [ ] All role pages have Level Differentiation section
-- [ ] All role competency tables have 3 columns
-- [ ] All skill pages have depth progression tables with role links
-- [ ] All skill references in roles use section anchors
-- [ ] All role references in skills use `[[role-{track}-{level}|{Level}]]` format
-- [ ] Terminal levels don't reference "next" level
-- [ ] M shows transition from IC track
-- [ ] wiki/portal.md updated with new pages
-- [ ] wiki/log.md updated with operation
-
-## Conventions
-
-- **Role naming**: `role-ic-{level}.md` for IC track, `role-mgmt-{level}.md` for M track
-- **Skill section anchors**: `#IC Track Depth Progression` and `#M-Track Depth Progression`
-- **Depth indicators**: Bold text like `**Best practices expert**`
-- **Level references**: Always use full wikilink `[[role-ic-1|Software Engineer]]` not just `Software Engineer`
-- **Inside tables**: Escape `|` in wikilinks: `[[role-ic-1\|Software Engineer]]` to avoid collision with table column separators
-- **Prefer updates over creates**: Update existing pages when information overlaps
-- **Cross-link bidirectionally**: Roles → Skills and Skills → Roles
-
-## What's Next
-
-After ingesting people sources:
-- **Query** with `/second-brain-query` to explore career paths or skill requirements
-- **Lint** with `/second-brain-lint` to check for broken links or missing cross-references
-- **Ingest more** — add additional career ladder or competency sources
+| User says | Route to |
+| --- | --- |
+| "ingest people sources" / "process raw/notes/people" | full router |
+| "ingest this career ladder" / "add these competencies" | `/people-1-structure` |
+| "add my report {name}" / "map {name} against the ladder" | `/people-2-member-reports` |
+| "create a profile for {name}" / "ref page for {name} in {vault}" | `/people-3-leaders` |

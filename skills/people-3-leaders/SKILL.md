@@ -1,18 +1,20 @@
 ---
-name: people-member-create
+name: people-3-leaders
 description: >
   Create or update a person's wiki pages from whatever sources are in the
   current execution context (raw notes, transcripts, Slack exports, meeting
   threads, other vaults). Extracts a template from existing member pages,
   fills only what the evidence supports, and supports a two-tier
-  canonical-profile + workspace-scoped-ref pattern. Use when the user says
-  "create a profile for {name}", "add {name} to the wiki", "new member page",
-  or asks to fill a people page from a source at hand.
+  canonical-profile + workspace-scoped-ref pattern. Step 3 of people-ingest,
+  for leaders, peers and stakeholders (not assessed against the ladder). Use
+  when the user says "create a profile for {name}", "add {name} to the wiki",
+  "new member page", or asks to fill a people page from a source at hand.
+  Direct reports mapped to role/skills go to people-2-member-reports.
 allowed-tools: Bash Read Write Edit Glob Grep
 risk-level: low
 ---
 
-# People Member Create
+# People 3 — Leaders
 
 Create a member page (and, in multi-vault setups, its workspace-scoped
 companion) for one named person, filling from evidence available in the
@@ -27,6 +29,9 @@ vault).
 Core vault named : `{core-people}`=`management`
 
 ## When to use
+
+Leaders, peers, stakeholders — people you profile, not assess. For a **direct report**
+mapped against role, level and skills, use `/people-2-member-reports` instead.
 
 - "Create a profile for {Name}" / "add {Name} to people"
 - A source thread mentions a new person prominently and the user wants their page
@@ -106,6 +111,13 @@ each section:
   link per the two-tier pattern.
 - End the page (or the risky section) with a short **Note on evidence** when
   attribution was hard: what source, what is uncertain, what would settle it.
+
+**Link to the people structure — only when relevant.** If the vault has
+`wiki/people/roles/` or `competencies/` (built by `/people-1-structure`) and the
+evidence states the person's ladder level or shows a named competency, link it
+using the formats in `people-ingest/references/people-schema.md`
+(`[[role-{track}-{level}|…]]`, `[[{skill}#…Depth Progression|…]]`). Don't build a
+competency table or assess depth — that is `/people-2-member-reports`' job.
 
 ## Two-tier pattern: canonical profile + scoped ref (step 4)
 

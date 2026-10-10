@@ -21,8 +21,9 @@ wiki/people/
 │   └── {process-name}.md    # e.g., software-development-lifecycle.md
 ├── steps/            # Individual process steps
 │   └── step-{name}.md       # e.g., step-planning.md, step-design.md
-└── members/          # Individual team members
-    └── {name}.md            # e.g., fred.md
+└── members/          # Individual team members — format owned by people-2 / people-3
+    ├── {name}.md            # e.g., fred.md
+    └── {name}-ref-{topic}.md  # scoped ref page (people-3-leaders two-tier pattern)
 ```
 
 ### Raw Source Locations
@@ -34,7 +35,7 @@ People-related raw sources are typically found in:
 - `raw/notes/people/steps/` — process step definitions
 - `raw/notes/people/competencies/` — skill definitions, progression frameworks
 - `raw/notes/people/roles/` — career ladder roles with levels and tracks (e.g., role-ic-1)
-- `raw/notes/people/members/` — individual role descriptions, career ladder levels
+- `raw/notes/people/members/` — individual member notes (ingested by `people-2-member-reports` / `people-3-leaders`, not this step)
 
 ## Page Formats
 
@@ -385,7 +386,7 @@ In skill pages, link to role pages in the depth progression tables:
 | M Role | `role-mgmt-{level}.md` | `# {Level} — {Title}` |
 | Process | `{process-name}.md` | `# {Process Name}` |
 | Step | `step-{name}.md` | `# {Step Name}` |
-| Member | `{name}.md` | `# {Name}` |
+| Member | `{name}.md` | `# {Name}` — see `people-2-member-reports` (direct reports) / `people-3-leaders` (leaders) |
 
 ## Enrichment Patterns
 

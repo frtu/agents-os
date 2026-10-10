@@ -258,7 +258,7 @@ For each atomic unit identified in step 3:
 - `wiki/resources/dependencies/` — external systems we depend on (bank, hr-system)
 - `wiki/resources/tools/` — ready-to-use applications (jira, seloger)
 
-For career ladder, competency, and process sources, prefer `/people-ingest` for specialized formats.
+For career ladder, competency, process and member sources, prefer `/people-ingest` (routes to `people-1-structure`, `people-2-member-reports` or `people-3-leaders`).
 
 **Categorization tie-breakers (the chronic miscategorization).** The artifact ↔ component ↔ pattern ↔ feature boundary is where pages get mis-filed and later relocated. Before filing, apply this test:
 - **Runs or gets imported** (SDK, service, engine, UI module) → **component** (`resources/components/`). An SDK is a component even though it ships as a library.
