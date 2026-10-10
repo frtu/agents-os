@@ -9,64 +9,64 @@ allowed-tools: Bash Read Write Edit Glob Grep AskUserQuestion
 
 # Interview Preparation (Pre-Interview)
 
-Create comprehensive candidate evaluation materials with profile analysis, leveling assessment, and tailored interview questions.
+Create candidate evaluation materials: profile analysis, floor/target/stretch leveling, and a tailored interview guide.
+
+This skill is generic and belongs to **one dedicated vault**. The vault owns everything company-specific: levels, step gates, durations, rubrics, bands, assessment frameworks and challenge banks. [`references/vault-map.md`](references/vault-map.md) says where each one lives. Read it first, and pull details from the vault pages; never hard-code them here.
+
+## References (load on demand)
+
+| File | Load when |
+|------|-----------|
+| [`references/vault-map.md`](references/vault-map.md) | Step 1, always |
+| [`references/steps/README.md`](references/steps/README.md) → `steps/{step}.md` | Step 3b, only for the chosen step and only if its file exists |
+| [`references/templates/candidate-page.md`](references/templates/candidate-page.md) | Step 5 |
+| [`references/templates/question-guide.md`](references/templates/question-guide.md) | Step 6 |
+| [`references/templates/source-page.md`](references/templates/source-page.md) | Step 7 |
+| [`references/templates/wiki-updates.md`](references/templates/wiki-updates.md) | Steps 8–11 |
+| [`references/cases/README.md`](references/cases/README.md) | Optional, before step 6: load one case only if its step and shape match |
 
 ## Input
 
-Raw materials in: `raw/People/Candidates/{Candidate Name}/`
+Raw materials in the candidate folder (vault map → Inputs).
 
-Required files:
-- Resume (PDF or Markdown) — Experience, skills, education
-
+Required: résumé (PDF or Markdown).
+- Experience, skills, education
 Optional files:
-- Interview briefing — Role context, team, hiring manager
+- Interview briefing or JD — Role context, team, hiring manager
 - LinkedIn profile — Current role, tenure
 - Recruiting intake form — Success metrics, challenges
 - Previous feedback — Prior interview rounds
 
-## Output Structure
+## Output
 
-```
-wiki/projects/product-{product}/_interviews_/
-└── candidate-{slug}/
-    ├── 1-candidate-{slug}.md          # Candidate evaluation page
-    └── 2-{step}-questions-{slug}.md   # Interview guide with tailored questions
-```
-
-Also creates/updates:
-- `wiki/sources/source-{slug}.md` — Raw profile source
-- Product page candidate pipeline table
-- `wiki/portal.md` candidate evaluations section
-- `wiki/log.md`
+- `{candidate folder}/1-candidate-{slug}.md`: candidate evaluation page
+- `{candidate folder}/2-{step}-questions-{slug}.md`: interview guide
+- `source-{slug}.md`, a product pipeline row, a portal entry and a log entry (vault map → Outputs)
 
 ## Workflow
 
 ### 1. Gather Context
 
+Read `references/vault-map.md`. Then check context to get these answers (ONLY ask if not clear):
+
 **Question 1: Product/Team**
 > "Which product/team is this candidate interviewing for?"
 
-List all projects from `wiki/projects/` as options. User can select one or provide a new product name.
+List the product folders under the vault's projects folder as options. The user can pick one or give a new name.
 
 **Question 2: Role and Level**
 > "What role and level is this candidate interviewing for?"
 
-Examples:
-- "Senior Software Engineer, Product (IC Level 3)"
-- "Engineering Lead, Product (Manager Level 1)"
-
-For IC {Level} evaluated vs {Level+1} level range: "Level {Level}-{Level+1} evaluation" — skill generates leveling comparison.
+Offer the level codes from the vault's role pages / competency ladders (e.g. "{Title} ({level code})"). If the recruiter suggested a level, or the JD gives a range, note it. Step 3b turns this into floor / target / stretch.
 
 **Question 3: Interview Step**
 > "Which interview step are you preparing for?"
 
-Options: `engineering-screen`, `coding`, `system-design`, `hiring-manager` or `team-match`, `bar-raiser`
-
-Some steps have eligibility gates. Check the **Gate** in each step's file listed in `references/steps/README.md` and offer only the steps that pass. Example: `engineering-screen` runs only for IC lvl 4+ or Manager lvl 2+.
+Options are the steps in the vault's hiring process after the recruiter screen, using the step keys in the vault map. For a conditional step, read the step page's **Applies to** line and offer it only if the target level passes.
 
 **Question 4: Focus Areas (Optional)**
 
-Check previous feedback for any identified concerns or strengths. Ask:
+Check prior feedback for identified concerns or strengths, ONLY in case of doubt ask :
 
 > "Any specific areas you want to probe? Leave blank for standard assessment."
 
@@ -74,421 +74,65 @@ Check previous feedback for any identified concerns or strengths. Ask:
 
 For each file in the candidate folder:
 
-| File Type           | What to Extract                                                      |
-| ------------------- | -------------------------------------------------------------------- |
-| **Resume PDF**      | Experience timeline, skills, education, accomplishments with metrics |
-| **Resume Markdown** | Same as above, but in Markdown format                                |
-| **Briefing**        | Role context, hiring manager, team structure, interview panel        |
-| **LinkedIn**        | Current role, tenure, career trajectory                              |
-| **Intake form**     | Success metrics, challenges, interview focus areas                   |
+| File Type | What to Extract |
+|-----------|-----------------|
+| **Résumé** (PDF/Markdown) | Experience timeline, skills, education, accomplishments with metrics, verbatim summary line |
+| **Briefing** | Role context, hiring manager, team structure, interview panel |
+| **LinkedIn** | Current role, tenure, career trajectory |
+| **Intake form** | Success metrics, challenges, interview focus areas |
+| **Prior feedback** | Scores, interviewer, verbatim concerns and strengths |
 
-### 3. Find Related Wiki Pages
+### 3. Read the Vault Pages for This Round
 
-Look for existing pages to link:
-- Role definition: `wiki/people/roles/role-{track}-{level}.md`
-- Interview step: `wiki/people/steps/step-hire-{n}-{name}.md`
-- Rubric: `wiki/resources/artifacts/interview-rubric-{step}.md`
-- Competencies: `wiki/people/competencies/{competency}.md`
-- Interview guide (synthesis): `wiki/synthesis/{step}-{level}-{domain}.md`
-- Question bank: `wiki/resources/artifacts/question-bank-{step}.md` — reuse its problems/probes as a base
-- Rubric variants: `wiki/resources/artifacts/rubric-{step}-*.md`, `rubric-fork-{step}.md` — name which instrument to score with
-- Stretch/floor levels: `wiki/people/roles/role-{track}-{level±1}.md`
-- Other candidates' evaluations in the same product — any comparison ("same gap as X") **must be a wikilink** to that candidate's page, never a bare first name
-- Product interviews: `wiki/projects/product-{product}/interviews-{product}.md`
+Using the vault map, read **only** what this round needs:
+
+- Step page and step rubric for `{step}`: duration, question/challenge bank, red flags, criteria + weights, recommendation bands, level calibration
+- The track's competency ladder (its dimensions become the leveling rows) and the role pages for floor, target and stretch
+- The assessment framework, for the candidate page's pre-assessment
+- The JD and any team-specific interview page for the product
+- An existing interview synthesis for this step × level × domain, if one exists
+- Prior candidates in the same product: any comparison ("same gap as X") **must be a wikilink** to that candidate's page, never a bare first name
 
 ### 3b. Decide the Round's Load (before writing anything)
 
 Write down, for yourself, these four answers. Every section of both output files must serve them:
 
-1. **Floor / target / stretch level** — target = recruiter-suggested level (else Question 2); floor = target−1; stretch = target+1.
-2. **The single highest-priority probe** — usually the recruiter's or prior interviewer's named concern. Quote it verbatim.
+1. **Floor / target / stretch level**: target = recruiter-suggested level (else Question 2; if only a range is given, its upper bound). Floor and stretch are the adjacent levels on the vault's ladder, one below and one above. Include intermediate tiers such as a "-II" level if the ladder has them.
+2. **The single highest-priority probe**: usually the recruiter's or prior interviewer's named concern. Quote it verbatim.
 3. **The candidate's strongest asset** for this role (the JD/mission line it maps to).
-4. **What is NOT this round's job** — concerns to route to a later step (name the step).
+4. **What is NOT this round's job**: concerns to route to a later step (name the step).
 
-Then load the step file if one exists (`references/steps/{step}.md`, see "Step-Specific Preparation"). It says how the step uses these four answers. For example, `system-design` builds its Primary Challenge where (2) and (3) meet.
+Then load `references/steps/{step}.md` if it exists (see the registry). It says how this step uses the four answers, overrides parts of the generic guide, and adds checklist items.
 
 ### 4. Create Output Directory
 
 ```bash
-mkdir -p wiki/projects/product-{product}/_interviews_/candidate-{slug}
+mkdir -p {candidate folder}
 ```
 
 ### 5. Create Candidate Evaluation Page
 
-Write `wiki/projects/product-{product}/_interviews_/candidate-{slug}/1-candidate-{slug}.md`:
-
-```markdown
----
-Category: projects
-Tags: [hiring, candidate, evaluation, {product}, {level}, {step}]
-Source links:
-  - [[source-{slug}]]
-Created: {date}
-Last Updated: {date}
----
-
-# Candidate Evaluation: {Full Name}
-
-**Role:** {Title} ({Level})
-**Team:** {Product}
-**Interview Steps:** [[step-hire-1-recruiter|Recruiter]] | [[step-hire-2-coding|Coding]] | [[step-hire-3-system|System Design]] | [[{step}-questions-{slug}|{Step} Guide]]
-**Status:** Pre-Interview
-
-## Candidate Profile
-
-| Attribute | Details |
-|-----------|---------|
-| **Current Role** | {Role} @ {Company} |
-| **Experience** | {X}+ years |
-| **Education** | {Degree}, {School} |
-| **Location** | {City} ({Visa/Citizenship if relevant}) |
-| **Target Level** | {Level} ({Title}) |
-
-## Background Summary
-
-> "{Verbatim 1-2 sentences from the resume summary — do not paraphrase inside the quote}"
-
-{2-3 sentences in your own words: what they built, with the 2-3 biggest numbers, and which JD/mission line it maps to — link the hiring page.}
-
-## Experience Highlights
-
-### {Company} ({Dates}) — {Title}
-
-- **{Theme}** — {Accomplishment with metrics}
-- **{Theme}** — {Accomplishment}
-...
-
-{Repeat for each relevant role}
-
-## Strengths ({Product} Fit)
-
-### {Strength Category}
-{Evidence from resume with metrics. Why it matters for the role.}
-
-### {Strength Category}
-...
-
-## Weaknesses (Areas to Probe)
-
-### {Concern} — **the central round load**
-{Quote the source of the concern verbatim (recruiter / prior interviewer). Why it matters against a specific JD line. How this round tests it. End with **Highest-priority probe.**}
-
-### {Concern}
-{Why / how to probe. If partial counter-evidence exists, name it — "partially rebutted by X, needs depth verification".}
-
-### {Concern} (route to {Later Step})
-{Concerns this round cannot resolve: one line, then **Not this round's job — flag for {step}.**}
-
-## Role Match Analysis
-
-| {Product} Requirement | Candidate Evidence | Fit |
-|-----------------------|-------------------|-----|
-| **{Requirement}** | {Evidence} | Strong/Probe/Gap |
-...
-
-## Pre-Interview Assessment
-
-### 5 Buckets Framework
-
-| Bucket | Assessment | Priority |
-|--------|------------|----------|
-| 1. Problem Solving | {Strong/Probe/Gap} — {reason} | {Low/Medium/High} |
-| 2. Leadership & Strategy | {Assessment} | {Priority} |
-| 3. Operational Excellence | {Assessment} | {Priority} |
-| 4. Culture & Collaboration | {Assessment} | {Priority} |
-| 5. Talent & Team Building | {Assessment} | {Priority} |
-
-## {Target} Leveling (with {Stretch} stretch)
-
-Always bracket the target: floor (target−1) / target / stretch (target+1). Tag the file with the **target** level only (e.g. `ic level 4`), not a range.
-
-### What "Yes at {Target}" requires — and where {Stretch} begins
-
-| Dimension | [[role-{track}-{floor}\|{Floor}]] baseline | **[[role-{track}-{target}\|{Target}]] must show** | [[role-{track}-{stretch}\|{Stretch}]] stretch | Current signal |
-|-----------|------------------|-----------------------|------------------|----------------|
-| [[system-design\|System Design]] | {from role page} | **{from role page}** | {from role page} | {≤15 words, evidence + what is unvalidated} |
-| [[ownership\|Ownership]] | ... | ... | ... | ... |
-| [[strategy\|Strategy]] | ... | ... | ... | ... |
-| [[domain-expertise\|Domain Expertise]] | ... | ... | ... | ... |
-| [[communication\|Communication]] | ... | ... | ... | ... |
-| [[decision-making\|Decision Making]] | ... | ... | ... | ... |
-
-Pull level text from the role pages — do not invent it. "Current signal" cells stay short; put reasoning in prose, not in the table.
-
-### Leveling Decision Questions (answer after the round)
-
-4-5 questions **specific to this candidate**, each a binary that maps to floor / target / stretch. Pattern:
-1. Did they {do the thing the central probe tests}, or {the failure mode the concern predicts}?
-2. Did they **set** {named platform}'s direction and drive its adoption, or **execute** a direction handed to them?
-3. Is {their biggest scope claim} evidence of **{stretch}-shaped** or **{target}-shaped** ownership?
-4. {Build-vs-buy / context-fit question grounded in the team's real stack}
-5. Is {their strongest asset} **production-hardened** or an impressive exploration?
-
-## Recommendation
-
-**{Action} — anchor the round on {the central probe}.**
-
-One paragraph: why this candidate matters (strongest asset, prior scores), the 1-2 questions that decide floor vs target vs stretch, what the round must contain, then **conditional outcomes**: "If {X} *and* {Y}, a {Stretch} conversation is warranted; if {failure mode}, land at {Target} (or {Floor}) and route {Z} to {later step}."
-
-**Never predict the outcome** ("expected Strong Yes") — prior scores inform the load, they do not pre-decide it.
-
-## Related
-
-- [[source-{slug}|Candidate Profile]] — Full source materials
-- [[interviews-{product}|{Product} Hiring]] — Team hiring
-- [[role-{track}-{target}|{Target} {Title}]] — Target level
-- [[role-{track}-{stretch}|{Stretch} {Title}]] — Stretch level
-- [[{step}-questions-{slug}|{Step} Interview Guide]] — Tailored questions
-```
+Fill `references/templates/candidate-page.md`.
 
 ### 6. Create Interview Questions Guide
 
-Write `wiki/projects/product-{product}/_interviews_/candidate-{slug}/2-{step}-questions-{slug}.md`:
-
-```markdown
----
-Category: projects
-Tags: [hiring, {step}, candidate, {slug}, {product}, {level}, interview-guide]
-Source links:
-  - [[1-candidate-{slug}]]
-  - [[source-{slug}]]
-  - [[interview-rubric-{step}]]
-  - [[step-hire-{n}-{step}]]
-Created: {date}
-Last Updated: {date}
----
-
-# {Step} Guide: {Full Name}
-
-Tailored {step} question bank for [[1-candidate-{slug}|{Full Name}]] ({Level} {Title} candidate, {Product}).
-
-## Calibration Framing
-
-### {Target} Expectations — What "Yes at {Target}" requires (and where {Stretch} begins)
-
-| Dimension | [[role-{track}-{floor}\|{Floor}]] baseline | **[[role-{track}-{target}\|{Target}]] must show** | [[role-{track}-{stretch}\|{Stretch}]] stretch |
-|-----------|------------------|-----------------------|------------------|
-| [[system-design\|System Design]] | ... | **...** | ... |
-{4-5 rows, same text as the candidate page leveling table}
-
-### Risk Profile (from prior rounds)
-
-**Confirmed strengths:**
-- {Prior score + interviewer, with the concrete behavior observed}
-...
-
-**Open concerns to probe:**
-- **{Central concern}** — {verbatim quote}. **The single most important signal to resolve this round.**
-- {Other concern} — {one line}
-...
-
-> **Interviewer note.** {The specific way this candidate could pass the round without being tested — e.g. "résumé so aligned the failure mode is a comfortable retrospective". Tell the interviewer how to force them onto new ground and demand numbers, not nouns.}
-
-{Step-specific section: if `references/steps/{step}.md` defines one (e.g. Primary Challenge for system-design, Gap Routing for engineering-screen), insert it here. Otherwise omit.}
-
-## Question Bank (Tailored to Resume)
-
-### A. {Category} — {Focus}
-
-*Focus: {one line — what this category decides for this candidate}*
-
-1. **"{Question as you would say it aloud to the candidate}"**
-   - *Listening for:* {concrete content of a good answer — nouns, mechanisms, numbers}
-   - *{Target} signal:* {the behavior that separates {Target} from {Floor}; tie to a resume claim or concern where possible}
-
-2. **"{Question}"**
-   - *Listening for:* ...
-   - *{Target} signal:* ...
-
-...
-
-### B. {Category} — {Focus} — **CRITICAL FOCUS**
-
-{Mark the 1-2 categories that carry the central probe with **CRITICAL FOCUS**.}
-
-...
-
-{5-7 categories, 3-5 questions each. Number questions **continuously Q1…Qn across all categories** (not A1, B1) so the flow, red-flag and signal tables can cite them.}
-
-## Recommended Interview Flow ({duration} min)
-
-| Time | Section | Top Picks | Purpose |
-|------|---------|-----------|---------|
-| 0–5 min | Warmup / {…} | Q1, Q2 | {Purpose} |
-| 5–15 min | {Category} | Q{n}, Q{n} | {Purpose — **bold the critical sections**} |
-...
-
-*Pick {N} in the flow; Q{x}, Q{y}, … are backups by theme.*
-
-{Use cumulative time ranges; the last range must end exactly at {duration}. Allocate the most minutes to the CRITICAL FOCUS categories.}
-
-## Red Flags to Watch For
-
-| Question | Red Flag | What It Indicates |
-|----------|----------|-------------------|
-| Q{n} / Q{m} | {Observable pattern} | {Which concern it confirms — bold the central one} |
-...
-
-## Positive Signals to Confirm "Strong Yes" (and open the {Stretch} conversation)
-
-- {Observable behavior, ideally "unprompted"} ({which concern it rebuts})
-...
-- {Behavior that signals {Stretch}} → **{Stretch} signal**
-
-## Decision Framework
-
-| Recommendation | Threshold | When to Apply |
-|----------------|-----------|---------------|
-| **Strong Yes ({Target}; open {Stretch})** | 4.0+ | {Concrete, candidate-specific criteria} |
-| **Yes ({Target})** | 3.5–3.9 | {Criteria} |
-| **Yes (down-level {Floor})** | 3.0–3.4 | {Criteria — usually "central concern persists / interviewer-steered"} |
-| **No** | <3.0 | {Criteria} |
-
-## Scoring Reminder
-
-Score against [[interview-rubric-{step}|the {Step} rubric]]. If a rubric fork exists, say so, name the instrument to use and its weights. Close with one bolded line: **{Target} key differentiator for {First Name}:** {what they have clearly shown already} — the round decides {the 1-2 open questions}.
-
-## Related
-
-- [[1-candidate-{slug}|Candidate Evaluation: {Full Name}]]
-- [[source-{slug}|Source: {Full Name} Profile]]
-- [[interviews-{product}|{Product} Hiring]]
-- [[step-hire-{n}-{step}|{Step} Interview Step]]
-- [[interview-rubric-{step}|{Step} Rubric]]
-- [[question-bank-{step}|{Step} Question Bank]] (if it exists)
-- [[role-{track}-{target}|{Target} {Title}]] · [[role-{track}-{stretch}|{Stretch} {Title}]]
-```
+Fill `references/templates/question-guide.md`, applying the step file's overrides if there is one.
 
 ### 7. Create Source Page
 
-Write `wiki/sources/source-{slug}.md`:
+Fill `references/templates/source-page.md`.
 
-```markdown
----
-Category: sources
-Tags: [candidate, resume, {level}, {product}, hiring]
-Created: {date}
-Last Updated: {date}
----
+### 8–10. Update Product Page, Portal, Log
 
-# Source: {Full Name} Profile
-
-**Source:** {Folder path} (Resume, Briefing, Previous Feedback, etc.)
-**Date ingested:** {date}
-**Type:** candidate profile
-
-## Summary
-
-{1-2 sentence overview}
-
-## Candidate Overview
-
-| Field | Value |
-|-------|-------|
-| **Name** | {Full Name} |
-| **Current Role** | {Title} @ {Company} |
-| **Location** | {Location} |
-| **Target Role** | {Title} |
-| **Target Level** | {Level} ({Description}) |
-
-## Full Experience
-
-{Complete experience extracted from resume with all details}
-
-## Education
-
-{All education details}
-
-## Technical Skills
-
-{Complete skills list}
-
-## Raw Extracts
-
-### From Resume
-{Key quotes/details}
-
-### From Briefing
-{Role context, success metrics}
-
-### From Previous Feedback
-{Summary of prior round scores and notes}
-
-## Related
-
-- [[1-candidate-{slug}|Candidate Evaluation]]
-- [[2-{step}-questions-{slug}|Interview Guide]]
-```
-
-### 8. Update Product Page
-
-Find `wiki/projects/product-{product}/product-{product}.md` and add/update Candidate Pipeline table:
-
-```markdown
-## Candidate Pipeline
-
-| Candidate | Role | Status | Score |
-|-----------|------|--------|-------|
-| [[1-candidate-{slug}\|{Full Name}]] | {Title} ({Level}) | **Pre-Interview** | — |
-```
-
-### 9. Update Portal
-
-Find `wiki/portal.md` and add under `#### Candidate Evaluations` → `##### product-{product}`:
-
-```markdown
-- [[1-candidate-{slug}|{Full Name}]] — {Level} candidate, {Brief background} — **Pre-Interview**
-  - [[2-{step}-questions-{slug}|{Step} Guide]] — Tailored questions
-```
-
-### 10. Update Log
-
-Append to `wiki/log.md`:
-
-```markdown
-## [{date}] ingest | Candidate {Name} (pre-interview)
-
-Processed candidate materials for {Name} ({Role}, {Level}).
-
-**Phase:** pre-interview
-**Step:** {Step}
-**Product:** {Product}
-
-**Created:**
-- [[1-candidate-{slug}|Candidate Evaluation]]
-- [[2-{step}-questions-{slug}|{Step} Interview Guide]]
-- [[source-{slug}|Source Profile]]
-
-**Updated:**
-- product-{product}.md — Candidate Pipeline table
-- portal.md — Candidate Evaluations section
-```
+Use the snippets in `references/templates/wiki-updates.md`.
 
 ### 11. Report Results
 
-```
-Created: wiki/projects/product-{product}/_interviews_/candidate-{slug}/
-├── 1-candidate-{slug}.md
-└── 2-{step}-questions-{slug}.md
-
-Source: wiki/sources/source-{slug}.md
-
-Candidate: {Full Name}
-Role: {Title} ({Level})
-Product: {Product}
-Interview Step: {Step}
-
-5 Buckets: {Strong count} Strong, {Probe count} Probe, {Gap count} Gap
-{If leveling}: {Level} vs {Level + 1} comparison included
-
-Questions: {N} tailored questions across {M} categories
-
-Ready for {Step} interview.
-```
+Use the report block in `references/templates/wiki-updates.md`.
 
 ### 12. Stage Changes
 
-Call `/change-management-1-stage` to stage all changes:
+Call `/change-management-1-stage`:
 
 ```
 /change-management-1-stage
@@ -497,59 +141,52 @@ Call `/change-management-1-stage` to stage all changes:
   subject: {Candidate Name}
   input_files: {all raw files in candidate folder}
   created_files: {all pages created}
-  updated_files: {product page, portal.md, log.md}
+  updated_files: {product page, portal, log}
 ```
 
-Do not commit unless user explicitly asks.
-
-## Step-Specific Preparation
-
-Some steps override the generic question guide. The registry is [`references/steps/README.md`](references/steps/README.md).
-
-- **Load** `references/steps/{step}.md` after step 3b, and only for the chosen step. If no file exists, use the generic guide unchanged.
-- **Apply** its overrides: question mode, categories, interview shape, and the block for the guide's `{Step-specific section}` slot.
-- **Append** its *Checklist additions* to the Quality Checklist below.
-
-To specialise a new step, follow "Adding a step" in the registry.
+Do not commit unless the user explicitly asks.
 
 ## Quality Checklist (run before writing each file)
 
 Fix any "no" before saving:
 
-- [ ] Background quote is **verbatim** from the resume; interpretation lives outside the quote.
+- [ ] Background quote is **verbatim** from the résumé; interpretation lives outside the quote.
 - [ ] Every claim is traceable to the source files (no inferred skills, no invented numbers).
-- [ ] Leveling uses **floor / target / stretch**, target = recruiter-suggested level; tags carry the target only.
+- [ ] Level codes, dimensions, buckets, durations, weights and bands come from vault pages, not memory.
+- [ ] Leveling uses **floor / target / stretch**; tags carry the target only.
 - [ ] Exactly **one** concern is marked as the central/highest-priority probe, with a verbatim quote of its source.
 - [ ] Concerns this round can't resolve are routed to a named later step.
 - [ ] Other candidates are referenced by **wikilink**, never bare names.
-- [ ] Quoted questions contain **no internal names or notes** (recruiter, interviewer, other candidates, "your file says") — they are spoken to the candidate.
+- [ ] Quoted questions contain **no internal names or notes** (recruiter, interviewer, other candidates, "your file says"): they are spoken to the candidate.
 - [ ] Each question has *Listening for:* **and** *{Target} signal:*.
 - [ ] Questions numbered Q1…Qn continuously; flow/red-flag/signal tables cite Q numbers.
 - [ ] Flow time ranges end exactly at the round duration; backups listed.
 - [ ] Recommendation gives **conditional outcomes**, never a predicted verdict.
-- [ ] Table cells ≤ ~25 words — reasoning goes in prose below the table.
-- [ ] Step file's *Checklist additions* (if any) all pass.
+- [ ] Table cells ≤ ~25 words; reasoning goes in prose below the table.
+- [ ] The step file's *Checklist additions* (if any) all pass.
 
 ## Conventions
 
-- **Slug format:** Lowercase, hyphenated name (e.g., `fred-t`)
+- **Slug format:** lowercase, hyphenated name (e.g. `jane-d`)
 - **File numbering:** `1-` for candidate page, `2-` for questions guide
-- **Step names in files:** `engineering-screen`, `coding`, `system-design`, `hiring-manager` or `team-match`, `bar-raiser`
-- **Leveling:** Always floor / target / stretch (target−1 / target / target+1)
-- **Questions:** 25-35 tailored questions across 5-7 categories
-- **Evidence tables:** Always include specific examples from source materials
-- **Pre-assessment:** Mark each bucket as Strong/Probe/Gap with priority
+- **Step keys in file names:** as listed in the vault map
+- **Leveling:** always floor / target / stretch, using the vault ladder's level codes
+- **Questions:** 25-35 tailored questions across 5-7 categories, unless the step file says otherwise
+- **Evidence tables:** always include specific examples from source materials
+- **Pre-assessment:** mark each bucket Strong/Probe/Gap with a priority
 - **Red flags/signals:** 5-8 specific, observable patterns, each citing Q numbers
-- **Tone:** decisive and prioritized — bold the one thing that matters most in each section; concise over exhaustive
+- **Tone:** decisive and prioritized: bold the one thing that matters most in each section; concise over exhaustive
 
 ## Edge Cases
 
-**Missing briefing:** Focus on resume; ask user for role context.
+**Missing briefing:** focus on the résumé; ask the user for role context.
 
-**No product specified:** Ask user — needed for output location.
+**No product specified:** ask the user; it's needed for the output location.
 
-**Prior feedback exists:** Extract scores, concerns, strengths; build on them.
+**Prior feedback exists:** extract scores, concerns and strengths, and build on them.
 
-**Level range given (e.g. JD says ic level 3 or 4):** Target = recruiter-suggested level if any, else the upper bound; still bracket floor/stretch.
+**Level range given (e.g. JD says "{level A} or {level B}"):** target = recruiter-suggested level if any, else the upper bound; still bracket floor and stretch.
 
-**Synthesis doesn't exist:** Offer to create role-specific interview guide first.
+**Vault page missing** (no rubric, no ladder, no step page): say which one is missing, ask the user, and don't fill the gap from general knowledge.
+
+**Synthesis doesn't exist:** offer to create a role-specific interview guide first.

@@ -175,7 +175,7 @@ Clean up and normalize various document formats and sources.
 End-to-end candidate evaluation from preparation through final assessment.
 
 - **[interview-eval](./interview-eval/)** — Main interview evaluation workflow router.
-- **[interview-1-preparation](./interview-1-preparation/)** — Pre-interview preparation. Creates candidate source page with profile analysis, strengths/concerns, and tailored questions.
+- **[interview-1-preparation](./interview-1-preparation/)** — Pre-interview preparation. Creates candidate source page with profile analysis, strengths/concerns, floor/target/stretch leveling and tailored questions. Generic skill bound to one vault: `references/vault-map.md` points to the vault's step pages, rubrics and ladders; `templates/` hold the output pages; `steps/` hold per-step overrides (system-design, engineering-screen).
 - **[interview-2-capture-interview-q-a](./interview-2-capture-interview-q-a/)** — Capture interview transcripts into linked Q&A notes and condensed interview reports.
 - **[interview-3-post-review](./interview-3-post-review/)** — Post-interview evaluation. Creates structured evaluation page with scores, evidence, and recommendations.
 
@@ -247,6 +247,7 @@ skill-name/
 | --- | --- |
 | `retrospective-3-report` | `templates/` (generic) + `cases/` (synthetic worked examples by format/pattern) with a registry |
 | `review-engineering-director` | `templates/` + `cases/` (failure shapes) with a registry; delegates to `rewrite-clarity` |
+| `interview-1-preparation` | `templates/` + `steps/` registry (per-step overrides) + `vault-map.md` (pointers into the one vault that owns the specifics) + empty `cases/` registry |
 | `lint-unformat`, `diagram-architecture` | `scripts/` with a test file next to each script |
 | `lint-transcript-normalise` | `config/corrections.json` read by a script |
 | `change-management`, `interview-eval`, `weekly-digest`, `retrospective` | Router + numbered sub-skills |

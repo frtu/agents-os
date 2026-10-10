@@ -1,67 +1,55 @@
-# Step: Engineering Screen (Step 1b)
+# Step: Engineering Screen
 
-Loaded by `SKILL.md` when `{step}` is `engineering-screen`. Overrides the generic question guide (SKILL.md step 6) where stated.
+Relevant when `{step}` is `engineering-screen`. Overrides the generic question guide where stated.
 
-**Gate:** runs **only for IC lvl 4+ or Manager lvl 2+ reqs**. If the target level is below that, do not offer this step.
+**Gate:** conditional step. Offer it only if the target level passes the step page's **Applies to** line.
 
-**Read first:** [[step-hire-1b-engineering-screen|Step 1b]] and [[interview-rubric-engineering-screen|Engineering Screen Rubric]].
+**Read first** (vault map → Step key → vault pages): the step page (purpose, *What It Is Not*, assessment areas, interview shape, question bank, gap routing, red flags) and its rubric (marked as preliminary or not, evidence patterns, level calibration). Its source brief lists the assessment areas.
+
+## Core rule
+
+This round is **retrospective**: dig into systems the candidate actually shipped, one deep dive per résumé claim. The most common failure is drifting into hypothetical design, which is the system step's job.
 
 ## What changes vs the generic guide
 
-| Aspect | Other steps | Engineering Screen |
-|--------|-------------|--------------------|
-| Question mode | Hypothetical / live problem | **Retrospective**: dig into systems the candidate actually shipped |
-| Source of questions | Rubric criteria | **The candidate's own résumé claims**, one deep dive per claim |
-| Second deliverable | — | **Gap-routing list**: each gap named and assigned to a downstream stage |
-| Roadmap | Not referenced | Guide must name **the live roadmap problems** their experience maps onto |
-
-## Assessment areas
-
-From [[source-hiring-stage-engineering-screen|the stage brief]]. Every area must be covered by at least one category below.
-
-1. Strategic Thinking & Problem Solving
-2. Leadership & Influence
-3. Technical Depth
-4. Communication & Executive Presence
-5. Growth & Ownership Mindset
-6. Motivation & Alignment
-7. AI Mindset
+| Aspect | Generic guide | Engineering Screen |
+|--------|---------------|--------------------|
+| Question mode | Tailored to résumé | **Retrospective deep dives** on the candidate's own claims |
+| Source of questions | Rubric criteria | Each deep dive anchored on a **named résumé claim** |
+| Extra deliverable | — | **Gap Routing** table, the step's second output |
+| Roadmap | Not referenced | Name **the live roadmap problems** their experience maps onto |
 
 ## Question categories
 
-These replace the generic 5-7 categories:
+Take the categories and their order from the step page's **Question Bank** headings, and make sure every **assessment area** on the step page is covered by at least one category. Tailoring rules:
 
-- **Background & Motivation**: why now, why this domain
-- **Deep Dive: Mechanism**: pick 2-4 shipped systems from the résumé; ask *how it actually worked*, not what it did
-- **Deep Dive: Scale & Impact**: force numbers (rows, QPS, teams onboarded, cost delta)
-- **Deep Dive: Where It Broke**: the failure they own; the limit they hit
-- **Strategic Framing & Executive Presence**: can they pitch the system to a non-engineer in two sentences
-- **Roadmap Mapping & Build-vs-Buy**: put a real open problem in front of them
-- **AI Mindset**: do not ask a canned tooling question. **Mine it from the deep dives**: where did they reach for a model because conventional analysis failed?
-- **Candidate Questions (Scored)**: what they ask reveals what they think matters
+- **Deep dives:** at most as many systems as the step page's interview shape allows. Go mechanism → scale (force numbers) → where it broke.
+- **Every deep dive** needs a prepared "and how did that work underneath?" follow-up.
+- **AI mindset (if it's an area):** don't ask a canned tooling question. Mine it from the deep dives: where did they reach for a model because conventional analysis failed?
+- **Candidate questions are scored.** Keep a slot for them.
 
-**Interview shape:** ~45 min: 5 background / 25 deep dives / 10 roadmap mapping / 5 candidate questions.
+**Interview shape:** use the step page's *Interview Shape* table as the flow skeleton (segments and minutes).
 
 ## Step-specific section
 
-Insert at the `{Step-specific section}` slot of the question guide:
+Insert at the guide's `{Step-specific section}` slot. Take the gap kinds and the target steps from the step page's gap-routing table:
 
 ```markdown
-## Gap Routing
+## Gap Routing (pre-loaded hypotheses)
 
-| Gap | Why this round can't close it | Route to |
-|-----|-------------------------------|----------|
-| {Gap} | {reason} | [[step-hire-{n}-{step}\|{Step}]] |
+| Gap | Why this round can't close it | Route to | What that step should test |
+|-----|-------------------------------|----------|----------------------------|
+| {Gap specific to this candidate} | {reason} | [[step-hire-{n}-{name}\|{Step}]] | {test} |
 ```
 
 ## Red flag to pre-load
 
-Depth that evaporates one layer below the architecture diagram. Every deep dive needs a prepared "and how did that work underneath?" follow-up.
+Depth that evaporates one layer below the architecture diagram.
 
-> **Caveat:** this stage is **PRELIMINARY**: weights and scale bounds are unconfirmed. Do not present its scores as calibrated.
+If the rubric is marked preliminary, say so in the Scoring Reminder and don't present its scores as calibrated.
 
 ## Checklist additions
 
-- [ ] 2-4 deep dives, each anchored on a named résumé claim, each with an "underneath" follow-up.
-- [ ] All 7 assessment areas are covered.
-- [ ] Gap Routing table present; every gap names a downstream step.
+- [ ] Each deep dive is anchored on a named résumé claim and has an "underneath" follow-up.
+- [ ] Every assessment area on the step page is covered.
+- [ ] Gap Routing table present; every gap names a downstream step from the step page's routing table.
