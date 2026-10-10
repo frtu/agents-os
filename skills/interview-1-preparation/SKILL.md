@@ -62,7 +62,7 @@ For IC {Level} evaluated vs {Level+1} level range: "Level {Level}-{Level+1} eval
 
 Options: `engineering-screen`, `coding`, `system-design`, `hiring-manager` or `team-match`, `bar-raiser`
 
-`engineering-screen` maps to [[step-hire-1b-engineering-screen|Step 1b]] and runs **only for IC lvl 4+ or Manager lvl 2+ reqs**. If the target level from Question 2 is below IC lvl 4 or Manager lvl 2, do not offer it. See "Engineering Screen Preparation" below for how prep differs.
+Some steps have eligibility gates. Check the **Gate** in each step's file listed in `references/steps/README.md` and offer only the steps that pass. Example: `engineering-screen` runs only for IC lvl 4+ or Manager lvl 2+.
 
 **Question 4: Focus Areas (Optional)**
 
@@ -90,7 +90,22 @@ Look for existing pages to link:
 - Rubric: `wiki/resources/artifacts/interview-rubric-{step}.md`
 - Competencies: `wiki/people/competencies/{competency}.md`
 - Interview guide (synthesis): `wiki/synthesis/{step}-{level}-{domain}.md`
+- Question bank: `wiki/resources/artifacts/question-bank-{step}.md` — reuse its problems/probes as a base
+- Rubric variants: `wiki/resources/artifacts/rubric-{step}-*.md`, `rubric-fork-{step}.md` — name which instrument to score with
+- Stretch/floor levels: `wiki/people/roles/role-{track}-{level±1}.md`
+- Other candidates' evaluations in the same product — any comparison ("same gap as X") **must be a wikilink** to that candidate's page, never a bare first name
 - Product interviews: `wiki/projects/product-{product}/interviews-{product}.md`
+
+### 3b. Decide the Round's Load (before writing anything)
+
+Write down, for yourself, these four answers. Every section of both output files must serve them:
+
+1. **Floor / target / stretch level** — target = recruiter-suggested level (else Question 2); floor = target−1; stretch = target+1.
+2. **The single highest-priority probe** — usually the recruiter's or prior interviewer's named concern. Quote it verbatim.
+3. **The candidate's strongest asset** for this role (the JD/mission line it maps to).
+4. **What is NOT this round's job** — concerns to route to a later step (name the step).
+
+Then load the step file if one exists (`references/steps/{step}.md`, see "Step-Specific Preparation"). It says how the step uses these four answers. For example, `system-design` builds its Primary Challenge where (2) and (3) meet.
 
 ### 4. Create Output Directory
 
@@ -131,7 +146,9 @@ Last Updated: {date}
 
 ## Background Summary
 
-> "{1-2 sentence compelling summary from resume}"
+> "{Verbatim 1-2 sentences from the resume summary — do not paraphrase inside the quote}"
+
+{2-3 sentences in your own words: what they built, with the 2-3 biggest numbers, and which JD/mission line it maps to — link the hiring page.}
 
 ## Experience Highlights
 
@@ -153,11 +170,14 @@ Last Updated: {date}
 
 ## Weaknesses (Areas to Probe)
 
-### {Concern}
-{Why it's a concern for the role. How to probe in interview.}
+### {Concern} — **the central round load**
+{Quote the source of the concern verbatim (recruiter / prior interviewer). Why it matters against a specific JD line. How this round tests it. End with **Highest-priority probe.**}
 
 ### {Concern}
-...
+{Why / how to probe. If partial counter-evidence exists, name it — "partially rebutted by X, needs depth verification".}
+
+### {Concern} (route to {Later Step})
+{Concerns this round cannot resolve: one line, then **Not this round's job — flag for {step}.**}
 
 ## Role Match Analysis
 
@@ -178,40 +198,46 @@ Last Updated: {date}
 | 4. Culture & Collaboration | {Assessment} | {Priority} |
 | 5. Talent & Team Building | {Assessment} | {Priority} |
 
-{If {Level}-{Level+1} evaluation requested, include leveling section:}
+## {Target} Leveling (with {Stretch} stretch)
 
-## {Level}-{Level+1} Leveling
+Always bracket the target: floor (target−1) / target / stretch (target+1). Tag the file with the **target** level only (e.g. `ic level 4`), not a range.
 
-### Level Comparison
+### What "Yes at {Target}" requires — and where {Stretch} begins
 
-| Dimension | [[role-ic-{Level}|{Level}]] Signal | [[role-ic-{Level+1}|{Level+1}]] Signal | Evidence |
-|-----------|-------------------------------------|----------------------------------------|----------|
-| **Scope** | Feature/Team | Domain | {Assessment} |
-| **Ownership** | Features end-to-end | Domain technical direction | {Assessment} |
-| **Strategy** | Multi-phase projects | Domain roadmaps | {Assessment} |
-| **Design** | Components (well-defined) | Ambiguity, cross-boundary | {Assessment} |
-| **Domain Expertise** | Team domain | SME for domain | {Assessment} |
-| **Influence** | Cross-team | Cross-domain | {Assessment} |
+| Dimension | [[role-{track}-{floor}\|{Floor}]] baseline | **[[role-{track}-{target}\|{Target}]] must show** | [[role-{track}-{stretch}\|{Stretch}]] stretch | Current signal |
+|-----------|------------------|-----------------------|------------------|----------------|
+| [[system-design\|System Design]] | {from role page} | **{from role page}** | {from role page} | {≤15 words, evidence + what is unvalidated} |
+| [[ownership\|Ownership]] | ... | ... | ... | ... |
+| [[strategy\|Strategy]] | ... | ... | ... | ... |
+| [[domain-expertise\|Domain Expertise]] | ... | ... | ... | ... |
+| [[communication\|Communication]] | ... | ... | ... | ... |
+| [[decision-making\|Decision Making]] | ... | ... | ... | ... |
 
-### Leveling Decision Questions
+Pull level text from the role pages — do not invent it. "Current signal" cells stay short; put reasoning in prose, not in the table.
 
-After interview, answer:
-1. Did they *define* technical direction, or *execute* someone else's vision?
-2. Did they align stakeholders across domains, or within their team?
-3. Did they change engineers' career trajectories, or just help on tasks?
-4. Can they present to executives, or only technical peers?
+### Leveling Decision Questions (answer after the round)
+
+4-5 questions **specific to this candidate**, each a binary that maps to floor / target / stretch. Pattern:
+1. Did they {do the thing the central probe tests}, or {the failure mode the concern predicts}?
+2. Did they **set** {named platform}'s direction and drive its adoption, or **execute** a direction handed to them?
+3. Is {their biggest scope claim} evidence of **{stretch}-shaped** or **{target}-shaped** ownership?
+4. {Build-vs-buy / context-fit question grounded in the team's real stack}
+5. Is {their strongest asset} **production-hardened** or an impressive exploration?
 
 ## Recommendation
 
-**{Pre-interview recommendation}**
+**{Action} — anchor the round on {the central probe}.**
 
-{Brief rationale with suggested focus areas for interview.}
+One paragraph: why this candidate matters (strongest asset, prior scores), the 1-2 questions that decide floor vs target vs stretch, what the round must contain, then **conditional outcomes**: "If {X} *and* {Y}, a {Stretch} conversation is warranted; if {failure mode}, land at {Target} (or {Floor}) and route {Z} to {later step}."
+
+**Never predict the outcome** ("expected Strong Yes") — prior scores inform the load, they do not pre-decide it.
 
 ## Related
 
 - [[source-{slug}|Candidate Profile]] — Full source materials
 - [[interviews-{product}|{Product} Hiring]] — Team hiring
-- [[role-{track}-{level}|{Level} {Title}]] — Target level
+- [[role-{track}-{target}|{Target} {Title}]] — Target level
+- [[role-{track}-{stretch}|{Stretch} {Title}]] — Stretch level
 - [[{step}-questions-{slug}|{Step} Interview Guide]] — Tailored questions
 ```
 
@@ -238,80 +264,89 @@ Tailored {step} question bank for [[1-candidate-{slug}|{Full Name}]] ({Level} {T
 
 ## Calibration Framing
 
-{If leveling evaluation:}
+### {Target} Expectations — What "Yes at {Target}" requires (and where {Stretch} begins)
 
-### {Level} vs {Level+1} — What "Yes at {Level+1}" Requires
-
-| Dimension | {Level} baseline | **{Level+1} must show** |
-|-----------|------------------|-------------------------|
-| [[software-design|Software Design]] | Components in well-defined scenarios | **Designs in ambiguity, cross-boundary** |
-| [[system-design|System Design]] | Contributes to tech strategy | **Owns domain tech strategy** |
-| [[domain-expertise|Domain Expertise]] | Team domain | **SME for domain** |
-| [[strategy|Strategy]] | Multi-phase projects | **Domain roadmaps, secures buy-in** |
-| [[ownership|Ownership]] | Team ownership | **Domain ownership, sets roadmap** |
+| Dimension | [[role-{track}-{floor}\|{Floor}]] baseline | **[[role-{track}-{target}\|{Target}]] must show** | [[role-{track}-{stretch}\|{Stretch}]] stretch |
+|-----------|------------------|-----------------------|------------------|
+| [[system-design\|System Design]] | ... | **...** | ... |
+{4-5 rows, same text as the candidate page leveling table}
 
 ### Risk Profile (from prior rounds)
 
 **Confirmed strengths:**
-- {Strength from prior feedback}
+- {Prior score + interviewer, with the concrete behavior observed}
 ...
 
 **Open concerns to probe:**
-- {Concern to address}
+- **{Central concern}** — {verbatim quote}. **The single most important signal to resolve this round.**
+- {Other concern} — {one line}
 ...
+
+> **Interviewer note.** {The specific way this candidate could pass the round without being tested — e.g. "résumé so aligned the failure mode is a comfortable retrospective". Tell the interviewer how to force them onto new ground and demand numbers, not nouns.}
+
+{Step-specific section: if `references/steps/{step}.md` defines one (e.g. Primary Challenge for system-design, Gap Routing for engineering-screen), insert it here. Otherwise omit.}
 
 ## Question Bank (Tailored to Resume)
 
 ### A. {Category} — {Focus}
 
-{Brief rationale for this category based on candidate's background.}
+*Focus: {one line — what this category decides for this candidate}*
 
-1. **"{Question tailored to specific resume experience}"**
-   - *Listening for:* {What distinguishes good from great answer}
+1. **"{Question as you would say it aloud to the candidate}"**
+   - *Listening for:* {concrete content of a good answer — nouns, mechanisms, numbers}
+   - *{Target} signal:* {the behavior that separates {Target} from {Floor}; tie to a resume claim or concern where possible}
 
 2. **"{Question}"**
-   - *Listening for:* {Signals}
+   - *Listening for:* ...
+   - *{Target} signal:* ...
 
 ...
 
-### B. {Category} — {Focus}
+### B. {Category} — {Focus} — **CRITICAL FOCUS**
+
+{Mark the 1-2 categories that carry the central probe with **CRITICAL FOCUS**.}
 
 ...
 
-{Include 5-7 categories with 3-5 questions each, tailored to:
-- Specific resume accomplishments to probe deeper
-- Gaps identified in strengths assessment
-- Level-distinguishing behaviors
-- Role-specific requirements}
+{5-7 categories, 3-5 questions each. Number questions **continuously Q1…Qn across all categories** (not A1, B1) so the flow, red-flag and signal tables can cite them.}
 
 ## Recommended Interview Flow ({duration} min)
 
 | Time | Section | Top Picks | Purpose |
 |------|---------|-----------|---------|
-| 5 min | Warmup | Self-intro, Q{n} | Establish tone, motivation |
-| 10 min | {Category} | Q{n}, Q{n} | {Purpose} |
+| 0–5 min | Warmup / {…} | Q1, Q2 | {Purpose} |
+| 5–15 min | {Category} | Q{n}, Q{n} | {Purpose — **bold the critical sections**} |
 ...
+
+*Pick {N} in the flow; Q{x}, Q{y}, … are backups by theme.*
+
+{Use cumulative time ranges; the last range must end exactly at {duration}. Allocate the most minutes to the CRITICAL FOCUS categories.}
 
 ## Red Flags to Watch For
 
 | Question | Red Flag | What It Indicates |
 |----------|----------|-------------------|
-| Q{n} | {Pattern} | {Concern} |
+| Q{n} / Q{m} | {Observable pattern} | {Which concern it confirms — bold the central one} |
 ...
 
-## Positive Signals to Confirm "Strong Yes"
+## Positive Signals to Confirm "Strong Yes" (and open the {Stretch} conversation)
 
-- {Specific behavior to look for}
+- {Observable behavior, ideally "unprompted"} ({which concern it rebuts})
 ...
+- {Behavior that signals {Stretch}} → **{Stretch} signal**
 
 ## Decision Framework
 
 | Recommendation | Threshold | When to Apply |
 |----------------|-----------|---------------|
-| **Strong Yes** | 4.0+ | {Criteria} |
-| **Yes ({Level})** | 3.5-3.9 | {Criteria} |
-| **Yes (down-level)** | 3.0-3.4 | {Criteria} |
+| **Strong Yes ({Target}; open {Stretch})** | 4.0+ | {Concrete, candidate-specific criteria} |
+| **Yes ({Target})** | 3.5–3.9 | {Criteria} |
+| **Yes (down-level {Floor})** | 3.0–3.4 | {Criteria — usually "central concern persists / interviewer-steered"} |
 | **No** | <3.0 | {Criteria} |
+
+## Scoring Reminder
+
+Score against [[interview-rubric-{step}|the {Step} rubric]]. If a rubric fork exists, say so, name the instrument to use and its weights. Close with one bolded line: **{Target} key differentiator for {First Name}:** {what they have clearly shown already} — the round decides {the 1-2 open questions}.
 
 ## Related
 
@@ -320,8 +355,8 @@ Tailored {step} question bank for [[1-candidate-{slug}|{Full Name}]] ({Level} {T
 - [[interviews-{product}|{Product} Hiring]]
 - [[step-hire-{n}-{step}|{Step} Interview Step]]
 - [[interview-rubric-{step}|{Step} Rubric]]
-- [[role-{track}-{lower-level}|{Lower Level} {Title}]]
-- [[role-{track}-{upper-level}|{Upper Level} {Title}]]
+- [[question-bank-{step}|{Step} Question Bank]] (if it exists)
+- [[role-{track}-{target}|{Target} {Title}]] · [[role-{track}-{stretch}|{Stretch} {Title}]]
 ```
 
 ### 7. Create Source Page
@@ -467,56 +502,45 @@ Call `/change-management-1-stage` to stage all changes:
 
 Do not commit unless user explicitly asks.
 
-## Engineering Screen Preparation (Step 1b)
+## Step-Specific Preparation
 
-When `{step}` is `engineering-screen`, the question guide is built differently from the other steps. Read [[step-hire-1b-engineering-screen|Step 1b]] and [[interview-rubric-engineering-screen|Engineering Screen Rubric]] before writing.
+Some steps override the generic question guide. The registry is [`references/steps/README.md`](references/steps/README.md).
 
-**What changes:**
+- **Load** `references/steps/{step}.md` after step 3b, and only for the chosen step. If no file exists, use the generic guide unchanged.
+- **Apply** its overrides: question mode, categories, interview shape, and the block for the guide's `{Step-specific section}` slot.
+- **Append** its *Checklist additions* to the Quality Checklist below.
 
-| Aspect | Other steps | Engineering Screen |
-|--------|-------------|--------------------|
-| Question mode | Hypothetical / live problem | **Retrospective** — dig into systems the candidate actually shipped |
-| Source of questions | Rubric criteria | **The candidate's own resume claims**, one deep dive per claim |
-| Second deliverable | — | **Gap-routing list** — each gap named and assigned to a downstream stage |
-| Roadmap | Not referenced | Guide must name **the live roadmap problems** their experience maps onto |
+To specialise a new step, follow "Adding a step" in the registry.
 
-**Assessment areas to cover** (from [[source-hiring-stage-engineering-screen|the stage brief]]) — build one question category per area:
+## Quality Checklist (run before writing each file)
 
-1. Strategic Thinking & Problem Solving
-2. Leadership & Influence
-3. Technical Depth
-4. Communication & Executive Presence
-5. Growth & Ownership Mindset
-6. Motivation & Alignment
-7. AI Mindset
+Fix any "no" before saving:
 
-**Question-guide structure for this step** (replaces the generic 5-7 categories):
-
-- **Background & Motivation** — why now, why this domain
-- **Deep Dive: Mechanism** — pick 2-4 shipped systems from the resume; ask *how it actually worked*, not what it did
-- **Deep Dive: Scale & Impact** — force numbers (rows, QPS, teams onboarded, cost delta)
-- **Deep Dive: Where It Broke** — the failure they own; the limit they hit
-- **Strategic Framing & Executive Presence** — can they pitch the system to a non-engineer in two sentences
-- **Roadmap Mapping & Build-vs-Buy** — put a real open problem in front of them
-- **AI Mindset** — do not ask a canned tooling question; **mine it from the deep dives** (where did they reach for a model because conventional analysis failed)
-- **Candidate Questions (Scored)** — what they ask reveals what they think matters
-
-**Interview shape:** ~45 min — 5 background / 25 deep dives / 10 roadmap mapping / 5 candidate questions.
-
-**Red flag to pre-load:** depth that evaporates one layer below the architecture diagram. Every deep dive needs a "and how did that work underneath?" follow-up prepared.
-
-> **Caveat:** this stage is **PRELIMINARY** — weights and scale bounds unconfirmed. Do not present its scores as calibrated.
+- [ ] Background quote is **verbatim** from the resume; interpretation lives outside the quote.
+- [ ] Every claim is traceable to the source files (no inferred skills, no invented numbers).
+- [ ] Leveling uses **floor / target / stretch**, target = recruiter-suggested level; tags carry the target only.
+- [ ] Exactly **one** concern is marked as the central/highest-priority probe, with a verbatim quote of its source.
+- [ ] Concerns this round can't resolve are routed to a named later step.
+- [ ] Other candidates are referenced by **wikilink**, never bare names.
+- [ ] Quoted questions contain **no internal names or notes** (recruiter, interviewer, other candidates, "your file says") — they are spoken to the candidate.
+- [ ] Each question has *Listening for:* **and** *{Target} signal:*.
+- [ ] Questions numbered Q1…Qn continuously; flow/red-flag/signal tables cite Q numbers.
+- [ ] Flow time ranges end exactly at the round duration; backups listed.
+- [ ] Recommendation gives **conditional outcomes**, never a predicted verdict.
+- [ ] Table cells ≤ ~25 words — reasoning goes in prose below the table.
+- [ ] Step file's *Checklist additions* (if any) all pass.
 
 ## Conventions
 
 - **Slug format:** Lowercase, hyphenated name (e.g., `fred-t`)
 - **File numbering:** `1-` for candidate page, `2-` for questions guide
 - **Step names in files:** `engineering-screen`, `coding`, `system-design`, `hiring-manager` or `team-match`, `bar-raiser`
-- **Leveling:** Include {Level} vs {Level + 1} comparison when level range requested
+- **Leveling:** Always floor / target / stretch (target−1 / target / target+1)
 - **Questions:** 25-35 tailored questions across 5-7 categories
 - **Evidence tables:** Always include specific examples from source materials
 - **Pre-assessment:** Mark each bucket as Strong/Probe/Gap with priority
-- **Red flags/signals:** 4-6 specific patterns per section
+- **Red flags/signals:** 5-8 specific, observable patterns, each citing Q numbers
+- **Tone:** decisive and prioritized — bold the one thing that matters most in each section; concise over exhaustive
 
 ## Edge Cases
 
@@ -526,6 +550,6 @@ When `{step}` is `engineering-screen`, the question guide is built differently f
 
 **Prior feedback exists:** Extract scores, concerns, strengths; build on them.
 
-**Level range ({Level}-{Level + 1}):** Include full leveling comparison framework.
+**Level range given (e.g. JD says ic level 3 or 4):** Target = recruiter-suggested level if any, else the upper bound; still bracket floor/stretch.
 
 **Synthesis doesn't exist:** Offer to create role-specific interview guide first.
