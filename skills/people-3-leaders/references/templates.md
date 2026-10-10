@@ -6,7 +6,7 @@
 
 Core vault named : `{core-people}`=`management`
 
-## Tier 1 — canonical member page (management-style vault)
+## Tier 1 — canonical member page
 
 Skeleton observed in `{core-people}/vault/wiki/people/members/` (e.g.
  `fred-tu.md`):

@@ -20,7 +20,7 @@ wiki/people/
 ├── processes/        # Multi-step workflows
 │   └── {process-name}.md    # e.g., software-development-lifecycle.md
 ├── steps/            # Individual process steps
-│   └── step-{name}.md       # e.g., step-planning.md, step-design.md
+│   └── step-{process}-{number}-{name}.md  # e.g., step-sdlc-1-planning.md, step-hire-2-coding.md
 └── members/          # Individual team members — format owned by people-2 / people-3
     ├── {name}.md            # e.g., fred.md
     └── {name}-ref-{topic}.md  # scoped ref page (people-3-leaders two-tier pattern)
@@ -121,7 +121,7 @@ Last Updated: YYYY-MM-DD
 
 Which [[software-development-lifecycle|SDLC]] steps most apply this skill:
 
-- [[step-{name}|Step Name]] — how this skill applies
+- [[step-{process}-{n}-{name}|{N}. Step Name]] — how this skill applies
 ```
 
 ### Role Pages (Career Ladder)
@@ -282,7 +282,7 @@ Overview description.
 
 | Step | Description | Key Skills |
 |------|-------------|------------|
-| [[step-{name}\|{Name}]] | Brief description | [[skill1]], [[skill2]] |
+| [[step-{process}-{n}-{name}\|{N}. {Name}]] | Brief description | [[skill1]], [[skill2]] |
 | ... | ... | ... |
 
 ## Process Flow
@@ -296,14 +296,14 @@ Overview description.
 
 ### Step Pages
 
-**Filename:** `step-{name}.md` (e.g., `step-planning.md`, `step-design.md`)
+**Filename:** `step-{process}-{number}-{name}.md` (e.g., `step-sdlc-1-planning.md`, `step-hire-2-coding.md`)
 
 ```markdown
 ---
 Category: people/steps
 Tags:
   - step
-  - sdlc
+  - {process}
   - {specific-tags}
 Source links:
   - source-file.md
@@ -311,7 +311,7 @@ Created: YYYY-MM-DD
 Last Updated: YYYY-MM-DD
 ---
 
-# {Step Name}
+# {Number}. {Step Name}
 
 Brief description of this step.
 
@@ -341,8 +341,8 @@ What this step accomplishes and when it occurs.
 ## Related
 
 - [[{process}|Process]] — parent process
-- [[step-{prev}\|Previous Step]] — what comes before
-- [[step-{next}\|Next Step]] — what comes after
+- [[step-{process}-{prev-n}-{prev}\|{Prev-N}. Previous Step]] — what comes before
+- [[step-{process}-{next-n}-{next}\|{Next-N}. Next Step]] — what comes after
 ```
 
 ## Cross-Linking Rules
@@ -378,14 +378,14 @@ In skill pages, link to role pages in the depth progression tables:
 
 ## Naming Conventions
 
-| Content Type | Filename Pattern | Title Pattern |
-|--------------|------------------|---------------|
-| Category | `{category}.md` | `# {Category Name}` |
-| Skill | `{skill-name}.md` | `# {Skill Name}` |
-| IC Role | `role-ic-{level}.md` | `# {Level} — {Title}` |
-| M Role | `role-mgmt-{level}.md` | `# {Level} — {Title}` |
-| Process | `{process-name}.md` | `# {Process Name}` |
-| Step | `step-{name}.md` | `# {Step Name}` |
+| Content Type | Filename Pattern                    | Title Pattern             |
+| ------------ | ----------------------------------- | ------------------------- |
+| Category     | `{category}.md`                     | `# {Category Name}`       |
+| Skill        | `{skill-name}.md`                   | `# {Skill Name}`          |
+| IC Role      | `role-ic-{level}.md`                | `# {Level} — {Title}`     |
+| M Role       | `role-mgmt-{level}.md`              | `# {Level} — {Title}`     |
+| Process      | `{process-name}.md`                 | `# {Process Name}`        |
+| Step         | `step-{process}-{number}-{name}.md` | `# {Number}. {Step Name}` |
 | Member | `{name}.md` | `# {Name}` — see `people-2-member-reports` (direct reports) / `people-3-leaders` (leaders) |
 
 ## Enrichment Patterns
