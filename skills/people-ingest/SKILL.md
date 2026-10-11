@@ -18,6 +18,9 @@ Routes people sources to one of three steps. The rules live in the sub-skills.
 formats and link conventions (role/skill anchors, naming). Owned here so every step and
 `second-brain-lint` reads one copy; load it only when a step or check needs it.
 
+**Vault cases:** `references/cases/` — how specific case of vaults organized their `wiki/people/` tree (directory structure, articulations, scale adaptation). 
+Start at `references/cases/README.md`; load a case when deciding how to organize or restructure a vault, not for page formats.
+
 | Step | Skill | Input | Produces |
 | --- | --- | --- | --- |
 | 1 — Structure | `people-1-structure` | Career ladder, competency framework, process / SDLC docs | `wiki/people/{roles,competencies,processes,steps}/` |

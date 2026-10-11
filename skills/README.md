@@ -114,6 +114,13 @@ Workflows & Dependencies
 │   │      └─ review-engineering-director (Exec framing) [Optional]
 │   └── change-management-1-stage (Post-process each step)
 │
+├── People Workflow
+│   ├── people-ingest (Router)
+│   ├─ people-1-structure (Ladders, competencies, processes)
+│   │  └─ people-2-member-reports (Direct report → role, skills, steps)
+│   └─ people-3-leaders (Leader / stakeholder profile, multi-vault)
+│      └─ people-1-structure [Optional: links role/skill when relevant]
+│
 ├── Weekly Digest
 │   ├── weekly-digest (Router)
 │   ├─ weekly-1-aggregate (Phase 1)
@@ -127,7 +134,6 @@ Workflows & Dependencies
 └── Utilities
     ├── claude-permissions-compress
     ├── diagram-architecture
-    ├── people-ingest
     └── transcribe-voice-memo
 ```
 
@@ -193,7 +199,6 @@ Miscellaneous tools for specific tasks.
 
 - **[claude-permissions-compress](./claude-permissions-compress/)** — Interactively compress Claude Code permissions files (settings.local.json). Groups entries by topic with danger ratings.
 - **[diagram-architecture](./diagram-architecture/)** — Generate architecture or integration diagrams using Mermaid syntax. Convert existing diagrams (PNG/JPG/SVG) to Mermaid.
-- **[people-ingest](./people-ingest/)** — Process people-related sources (career ladders, competencies, SDLC documents) into structured wiki pages.
 - **[transcribe-voice-memo](./transcribe-voice-memo/)** — Transcribe Apple Voice Memos using Whisper. Supports batch processing with language selection.
 
 ### Retrospective Workflow
@@ -212,6 +217,15 @@ Router + three steps for a team retrospective, from preparation to final report.
   /retrospective-3-report team=checkout-squad date=2026-10-02
   /retrospective-3-report mode=review <path or pasted text>
   ```
+
+### People Workflow
+
+Router + three steps for `wiki/people/`: the ladder structure, then the people placed on it.
+
+- **[people-ingest](./people-ingest/)** — Router: classifies each source or person and runs the right step (structure first). Owns `references/people-schema.md`, the shared `wiki/people/` page formats and link conventions used by all steps and by `second-brain-lint`.
+- **[people-1-structure](./people-1-structure/)** — Career ladders, competencies, processes and SDLC steps → interlinked role/skill/step pages.
+- **[people-2-member-reports](./people-2-member-reports/)** — Direct report's member page: role and level, expected vs observed skill depth, growth actions to next level, process steps. Needs step 1's pages.
+- **[people-3-leaders](./people-3-leaders/)** — Leader, peer or stakeholder profile from evidence at hand; template extracted from the vault; canonical profile + `-ref-{topic}` pages across vaults. Links to step 1's pages only when relevant.
 
 ### Weekly Digest Workflow
 
@@ -250,7 +264,7 @@ skill-name/
 | `interview-1-preparation` | `templates/` + `steps/` registry (per-step overrides) + `vault-map.md` (pointers into the one vault that owns the specifics) + empty `cases/` registry |
 | `lint-unformat`, `diagram-architecture` | `scripts/` with a test file next to each script |
 | `lint-transcript-normalise` | `config/corrections.json` read by a script |
-| `change-management`, `interview-eval`, `weekly-digest`, `retrospective` | Router + numbered sub-skills |
+| `change-management`, `interview-eval`, `weekly-digest`, `retrospective`, `people-ingest` | Router + numbered sub-skills |
 
 ### SKILL.md frontmatter
 
@@ -316,7 +330,7 @@ Rules:
 | `review-{lens}` | Critique or produce through a lens | `review-product-strategy` |
 | `lint-{target}` | Deterministic clean-up, script-backed | `lint-unformat` |
 | `rewrite-{goal}` | Word-level rewrite | `rewrite-clarity` |
-| `{domain}-{verb}` | Standalone utility | `people-ingest`, `transcribe-voice-memo` |
+| `{domain}-{verb}` | Standalone utility | `transcribe-voice-memo` |
 
 ### Git
 
@@ -452,6 +466,20 @@ graph TD
         W1 --> W2
     end
     
+    subgraph People["People Workflow"]
+        PEOPLE["people-ingest<br/>(Router)"]
+        P1["people-1-structure"]
+        P2["people-2-member-reports"]
+        P3["people-3-leaders"]
+
+        PEOPLE --> P1
+        PEOPLE --> P2
+        PEOPLE --> P3
+        P1 --> P2
+        P3 -.->|role/skill links when relevant| P1
+        P2 -.->|evidence fill rule| P3
+    end
+
     subgraph Review["Review & Analysis"]
         REV_ENG["review-engineering-director"]
         REV_PROD["review-product-strategy"]
@@ -475,7 +503,6 @@ graph TD
     end
     
     subgraph Util["Utility Skills"]
-        PEOPLE["people-ingest"]
         DIAGRAM["diagram-architecture"]
         PERM["claude-permissions-compress"]
         VOICE["transcribe-voice-memo"]
@@ -491,7 +518,7 @@ graph TD
     RT3 -.->|exec framing| REV_ENG
     LTRANS -.->|optional cleanup| RT3
     CM1 -->|post-process| RT
-    PEOPLE -->|feeds role data| IE1
+    P1 -->|feeds role data| IE1
     CM1 -->|post-process| SBINGEST
     CM1 -->|post-process| IE
     VOICE -->|transcript source| LTRANS

@@ -420,3 +420,12 @@ When enriching skill files:
 5. All skill references in role pages must include section anchors
 6. Terminal levels should not have "→ next" comparison
 7. Entry levels should show transition from IC track for M track
+
+
+## Vault Cases
+
+How real vaults organized this structure — directory layouts, articulations, scale adaptation —
+lives in `references/cases/` (start at `references/cases/README.md`). Load a case when deciding
+**how to organize or restructure a vault's `wiki/people/` tree**; this file stays about page
+formats and link conventions.
+
