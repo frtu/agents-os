@@ -1,12 +1,12 @@
 ---
 name: rewrite-clarity
-description: Apply Amazon-style clear writing rules to a document. Use when the user says "rewrite for clarity", "apply writing guidelines", "clean up this doc", "remove weasel words", or wants to improve document clarity with data-driven language.
-version: 0.2.0
+description: Apply Amazon-style clear writing rules to a document, and presentation-clarity rules (legible / simple / obvious, concrete one-liners, claim titles, honest numbers, slide density) to pitch decks and product presentations. Use when the user says "rewrite for clarity", "apply writing guidelines", "clean up this doc", "remove weasel words", "clean up these slides / this deck", "remove marketing fluff", or wants to improve document or presentation clarity with data-driven language.
+version: 0.3.0
 ---
 
 # Rewrite for Clarity
 
-Apply `references/writing-communication.md` guidelines to improve document clarity. Based on Amazon's "Write Like an Amazonian" principles.
+Apply `references/writing-communication.md` guidelines to improve document clarity. Based on Amazon's "Write Like an Amazonian" principles. For pitches, product presentations and exec decks, also apply `references/presentation-clarity.md` (YC deck-design rules: legible, simple, obvious).
 
 ## Input
 
@@ -25,6 +25,21 @@ Read `references/writing-communication.md` to get:
 - **Word replacements** — from "Word Replacements" table (21 entries)
 - **Adjectives needing data** — from "Adjectives Needing Data" table
 - **Red flags** — from "Red Flags in Writing" section
+
+Then read `references/presentation-clarity.md` to get:
+- **Marketing language** — from "Marketing Language" table
+- **Jargon by audience** — from "Jargon by Audience" section
+- **One-liner tests** — from "One-Liner Tests" table
+- **Claim titles** — from "Claim Titles" table
+- **Number presentation** — from "Number Presentation" table
+- **Slide density** — from "Slide Density Rules" table (deck mode only)
+
+### 1b. Detect Document Type
+
+- **Doc mode** (default) — prose: memo, proposal, wiki page, email.
+- **Deck mode** — a slide outline or exported deck: markdown with `---` slide separators or `## Slide N` headings, a `.pptx`/`.key` text export, or the user says "deck", "slides", "pitch", "presentation".
+
+Themes marked *(deck)* in the registry only run in deck mode. If the document doesn't state its **audience** (customer vs investor / exec / cross-functional), ask once — it decides whether industry jargon is a finding.
 
 ### 2. Read the Target Document
 
@@ -47,6 +62,12 @@ Each theme declares: its reference section, its **fix mode**, and its priority. 
 | Weasel words     | Weasel Word Patterns + Common Offenders + Prohibited Phrases | assisted | High     | high (needs data)      |
 | Vague adjectives | Adjectives Needing Data table                                | assisted | Low      | high (needs data)      |
 | Long sentences   | Core Principles (>30 words rule)                             | assisted | Low      | medium (needs rewrite) |
+| Marketing language | presentation-clarity: Marketing Language                   | assisted | High     | medium (needs mechanism) |
+| Abstract one-liner | presentation-clarity: One-Liner Tests (title, subtitle, first sentence) | assisted | High | medium (needs mechanism) |
+| Undefined acronyms & jargon | writing-communication: Acronym Handling + presentation-clarity: Jargon by Audience | assisted | Medium | low (needs definition) |
+| Unclear numbers  | presentation-clarity: Number Presentation (undefined, cumulative, double-axis, uncaptioned) | assisted | Medium | high (needs data) |
+| Topic titles *(deck)* | presentation-clarity: Claim Titles                      | assisted | Medium   | medium (needs cut/split) |
+| Slide density *(deck)* | presentation-clarity: Slide Density Rules (bullets, words, screenshots, diagrams, animation) | assisted | Medium | medium (needs cut/split) |
 
 > **Extending:** to add a theme, append a row here with its reference section, fix mode, priority, and user-effort estimate. `auto` themes flow into step 5; `assisted` themes flow into step 6. No other part of the workflow changes.
 
@@ -65,6 +86,8 @@ Output a summary table, then one findings block per theme (only for themes with 
 | Weasel words     | N     | assisted | High     |
 | Vague adjectives | N     | assisted | Low      |
 | Long sentences   | N     | assisted | Low      |
+| Marketing language | N   | assisted | High     |
+| …                | N     | …        | …        |
 
 ### Verbose phrases (auto)
 | Line | Text | Replacement |
@@ -90,6 +113,8 @@ For **assisted** fix-mode themes, present the remaining work as options ordered 
 - **Quick wins** — assisted fixes where the needed input is small or you can infer a strong candidate for the user to confirm
 - **Needs data** — weasel words / vague adjectives requiring the user to supply actual metrics
 - **Needs rewrite** — long sentences requiring the user to split or restructure
+- **Needs mechanism** — marketing language and abstract one-liners: the user describes what actually happens (who does what, with what result)
+- **Needs cut/split** *(deck)* — topic titles to turn into claims, dense slides to split or move to the appendix
 - **Skip** — leave assisted findings as-is
 
 For whichever the user picks :
@@ -106,3 +131,5 @@ Never invent data.
 3. **Respect context** — Some hedge words are appropriate (uncertainty is real); classify these as assisted, never auto-replace
 4. **Auto vs assisted is the gate** — Only `auto` fix-mode themes apply without asking; every `assisted` theme waits for the user's choice in step 6
 5. **One pass** — Don't re-analyze after changes; user can re-run if needed
+6. **Audience decides jargon** — industry jargon is fine for a customer audience; flag it for investor / exec / cross-functional readers
+7. **Clarity, not substance** — if a slide's *argument* is weak (wrong audience, no evidence, missing ask), note it once and hand off to `review-product-strategy` (pitch checks P1–P12) or `review-engineering-director`; don't critique strategy here
