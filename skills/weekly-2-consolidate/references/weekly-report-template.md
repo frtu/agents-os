@@ -83,11 +83,18 @@ Bold markdown, in this exact order — **not** h2 (`##`) headers:
 
 ### Highlights / Lowlights
 
-- Filter only topics with significant end-user or domain-team impact (> hours saved/lost).
+- **Delivered outcomes only** — a highlight must be a `[:done:]` item with no open
+  follow-up. Never highlight in-progress work (partial rollouts, drafts, designs,
+  alignments); a rollout qualifies only at 100% completion.
+- **Direct company value only** — significant end-user or domain-team impact
+  (> hours saved/lost): revenue, cost saved, risk eliminated, customer commitment met,
+  compliance satisfied, or a named team unblocked by days. Indirect value — governance
+  for its own sake, visibility/observability gains, alignment, groundwork for future
+  value — does NOT qualify.
 - **Promote quantified shipped wins.** Before settling the highlights, scan the
   surviving `[:done:]` project lines for an outcome that (a) shipped and (b) carries
   a number or a named beneficiary — a latency/throughput improvement (`P99 >30s → <1s`),
-  a production cutover, a team adopting a platform. Lift the strongest 1-2 of these
+  a production cutover, a team adopting the platform. Lift the strongest 1-2 of these
   **up** into a highlight, naming who benefits. A strong metric buried in a project
   line is the most common missed highlight.
 - Emoji: `:tada-animated:` (preferred) or `:tada:` for wins; `:bomb:` /

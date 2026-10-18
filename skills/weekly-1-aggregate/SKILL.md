@@ -239,17 +239,21 @@ For each project mentioned this week:
 
 ### 2.2.1 Highlight admission criteria (Pattern: stakeholder filter)
 
-An item qualifies as a **Highlight / Lowlight** only if it has:
+An item qualifies as a **Highlight / Lowlight** only if it is a **delivered outcome** AND it brings **direct company value**:
 
+- **Delivered, not in progress.** Only `[:done:]` items with no open follow-up qualify — fully shipped/landed work. Anything still `[:work_in_progress:]` or `[:todo_new:]` (rollouts at partial %, drafts, alignments, designs, migrations in flight) stays in Key Projects. Rollouts may only be highlighted at **100% completion**.
 - **End-user impact** (a customer, domain team, or partner team is materially affected — new capability, behavior change, outage, regression), OR
 - **Significant release** (production cutover, GA milestone, major migration completed, RFC ratified, deprecation closed)
+- **Direct company value.** Value must be direct — revenue, cost saved, risk eliminated, customer commitment met, regulatory/compliance obligation satisfied, or a named internal team unblocked in a way that saves days of work. Indirect value (governance for its own sake, "improved visibility/observability", "better alignment", internal hygiene, groundwork enabling *future* value) does NOT qualify.
 
 Items that DO NOT qualify as highlights stay in their project's Key Projects section OR Eng Excellence:
 
+- In-progress or partially-completed work (any `[:work_in_progress:]` / `[:todo_new:]` state)
 - Internal efficiency wins (internal latency improvements, log volume reductions, code refactors)
 - Single-component fixes that don't change product behavior
 - Tooling / dev-platform improvements without user-facing change
 - Documentation produced
+- Governance, process, or visibility improvements whose benefit is indirect or deferred
 
 When in doubt: keep it OUT of highlights. Highlights aim for **2–4 items maximum** across both products.
 
@@ -504,7 +508,7 @@ Next: run /weekly-2-consolidate <date> to produce the Slack-ready final report.
   - `- [x]` — fully accomplished, no follow-up required (NEVER for intermediate progress)
   - Use subtasks when work is complex or multi-phase.
 - **Eng Excellence default:** Operational, incident, capacity, hiring, routing, and ticket work goes to Eng Excellence — UNLESS it materially advances a Key Feature of an in-progress project.
-- **Highlight admission:** `## Highlights / Lowlights` is reserved for items with end-user impact OR significant releases. Internal efficiency wins stay in project sections or Eng Excellence.
+- **Highlight admission:** `## Highlights / Lowlights` is reserved for **delivered** (`[:done:]`, no open follow-up) items with direct company value — end-user impact OR significant release. In-progress work and indirect value (governance, visibility, alignment) never qualify. Internal efficiency wins stay in project sections or Eng Excellence.
 - **Quarter tag:** `<year>-q<1-4>` based on date.
 - **Previous week link** in `## Related` if available.
 - **`:checked:`** indicator after a project name when the project is marked Complete

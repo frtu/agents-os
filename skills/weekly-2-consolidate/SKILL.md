@@ -172,11 +172,23 @@ from the mere presence of unfinished work.
 
 **C. Highlights — admit strictly, promote quantified wins, N/A only when empty**
 
-A highlight qualifies **only** if it has **end-user impact** (a customer, domain
-team, or partner is materially affected) **OR** a **significant release**
-(production cutover, GA, major migration complete, deprecation closed). A qualifying
-highlight can usually **name the team or customer who benefits**; if it can't, it
-probably doesn't qualify.
+A highlight qualifies **only** if it is a **delivered outcome** (`[:done:]` — fully
+shipped, no open follow-up) AND it brings **direct company value**: it has **end-user
+impact** (a customer, domain team, or partner is materially affected) **OR** a
+**significant release** (production cutover, GA, major migration complete,
+deprecation closed).
+
+- **Delivered only, never in progress.** Never highlight a `[:work_in_progress:]` or
+  `[:todo_new:]` item — partial rollouts, drafts, alignments, designs, and in-flight
+  migrations stay in Key Projects. A rollout may only be highlighted at **100%
+  completion**.
+- **Direct value only, never indirect.** Direct = revenue, cost saved, risk
+  eliminated, customer commitment met, compliance obligation satisfied, or a named
+  internal team unblocked in a way that saves days of work. Indirect value —
+  governance for its own sake, "improved visibility/observability", "better
+  alignment", internal hygiene, groundwork enabling future value — does NOT qualify.
+- A qualifying highlight can usually **name the team or customer who benefits**; if
+  it can't, it probably doesn't qualify.
 
 **Promote quantified shipped wins from the project lines.** The most commonly missed
 highlight is a strong result the draft leaves buried as a `[:done:]` project bullet.
@@ -188,10 +200,12 @@ the project list too, but it must also surface as a highlight.
 
 **Never** promote these to a highlight — they are internal wins, not audience news:
 
+- Anything `[:work_in_progress:]` / `[:todo_new:]` — partial rollouts, drafts, designs, alignments
 - Internal reviews, design "validated", PoC built or demoed => Design in progress
 - Refactoring new SDK/framework, tracing/observability upgrades => Internal improvement
 - Onboarding a feature internally, internal alignment reached => Preparing for external review
 - Tech document polished, architectural experiments, evaluation completed => Still in design phase
+- Governance, process, or visibility improvements whose benefit is indirect or deferred
 
 **N/A rule:** Write `- N/A` **ONLY** when there are zero qualifying highlights AND
 zero lowlights. If you have any lowlight bullets, do NOT add N/A — just list the
@@ -322,8 +336,10 @@ Source wiki pages:
   pull the "why" from project-page when unclear; strip internal jargon.
 - **Honest status:** `[:done:]` only for shipped, complete outcomes; PoCs/drafts/
   "validated" designs stay `[:work_in_progress:]`; keep target dates truthful.
-- **Highlight admission:** end-user impact OR significant release only, and it should
-  name who benefits; RFCs/PoCs/re-platforming never qualify.
+- **Highlight admission:** delivered outcomes only (`[:done:]`, no open follow-up —
+  never `[:work_in_progress:]`/`[:todo_new:]`; rollouts only at 100%) with direct
+  company value — end-user impact OR significant release, naming who benefits. Indirect
+  value (governance, visibility, alignment) and RFCs/PoCs/re-platforming never qualify.
 - **N/A rule:** Write `- N/A` ONLY when zero highlights AND zero lowlights. If any
   lowlight exists, list it without N/A.
 - **Lowlights — resolution-focused:** Frame around the fix, not the problem.
