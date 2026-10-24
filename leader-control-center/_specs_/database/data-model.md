@@ -7,6 +7,10 @@ truth for runtime projections.
 Conventions: every row has `id (uuid)`, `created_at`, `updated_at`, and a
 `version` for optimistic locking unless noted.
 
+See also: [api-storage-mapping.md](./api-storage-mapping.md) (API and as-built
+SQLite realization per table) and the Apache Ossie semantic model
+[ossie/leader-control-center.ossie.yaml](./ossie/leader-control-center.ossie.yaml).
+
 ---
 
 ## Catalog
@@ -41,6 +45,7 @@ Planning-catalog intent that seeds Initiatives and Stories.
 workflow_definition(id, portfolio_id, name,
                     input jsonb,          -- JSON Schema for instance parameters
                     definition text,      -- DSL body
+                    status,               -- Active|Archived (never hard-deleted)
                     created_at, updated_at, version)
 ```
 
@@ -53,6 +58,7 @@ activity_definition(id, portfolio_id, name, description, kind,  -- Bash|Webhook
                     script,                                      -- Bash
                     method, url, headers jsonb,                  -- Webhook; headers may hold ${env:NAME} refs
                     content_type, body_template,
+                    status,                                      -- Active|Archived
                     created_at, updated_at, version)
 ```
 
@@ -122,7 +128,8 @@ acceptance_criteria(id, story_id, task_id, description)   -- one of story/task s
 
 ### story_execution
 ```
-story_execution(id, story_id, status, started_at, completed_at)
+story_execution(id, story_id, attempt, status, started_at, completed_at)
+                                    -- one row per run; superseded runs are kept (read-only)
                                     -- Created|Running|Waiting|Completed|Cancelled|Failed
 ```
 

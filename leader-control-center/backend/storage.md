@@ -103,3 +103,60 @@ above — that (per-entity tables, FKs, event log) is deferred.
 - **Location & config.** File at `SQLITE_PATH` (default
   `../data/leader-control-center.db`); the `data/` directory is created on
   startup. Tests set `SQLITE_PATH=:memory:` for a fresh seed per app.
+
+---
+
+## Target design (decided 2026-10-18)
+
+Decisions that supersede "MVP implementation (as built)" above. Each is cited
+in code as `# spec backend/storage D<n>`. The code does not implement them yet;
+the gaps are tracked as KD-3…KD-9 in
+[`../_specs_/clarification.md`](../_specs_/clarification.md). Table-level
+mapping: [`../_specs_/database/api-storage-mapping.md`](../_specs_/database/api-storage-mapping.md).
+
+- **D1 — Superseded runs are archived, never deleted.** Start or retry of a
+  Story that already has an execution moves the previous `StoryExecution`
+  document, read-only, to collection `story_executions_archive` and creates the
+  new run with `attempt = previous + 1`. The working set holds only the latest
+  run per Story (`execution_by_story`). Timeline entries, Human Requests,
+  Decisions and Artifacts keep their `execution_id` and stay resolvable via
+  `GET /executions/{id}` against the archive.
+- **D2 — Append-only event table alongside the snapshot.** Every bus emission
+  is also inserted into
+  `event(id, type, category, aggregate_id, initiative_id, payload, actor, occurred_at, sequence)`
+  in the same transaction as the aggregate write. `sequence` is monotonic per
+  `aggregate_id`, with `UNIQUE(aggregate_id, sequence)`. Rows are never
+  updated or deleted. The aggregate snapshot stays the boot source; events
+  enable audit and later projection rebuilds. The realtime WS sequence stays
+  global and is not this column.
+- **D3 — Per-aggregate upsert with an optimistic version check.** The
+  full-snapshot `DELETE` + `INSERT` is replaced by one upsert per changed
+  aggregate. Each upsert is guarded by `version` for Resources: a stale write
+  fails with `409`, keeping its cause (P9). Table:
+  `aggregates(collection, id, ord, version, updated_at, data)`.
+- **D4 — Canonical SQL views.** For each canonical table, a read-only view of
+  the same name is defined over `aggregates` with `json_extract` or
+  `json_each`, for example `story`, `task_execution` and `dependency`. Views
+  are the local `source` for the Ossie model
+  ([`../_specs_/database/ossie/`](../_specs_/database/ossie/)) and for ad-hoc
+  SQL. Application code never reads them.
+- **D5 — Artifact content is in files.** Content is written content-addressed
+  to `../data/artifacts/<sha256>`. The artifact document keeps `location`
+  (relative path), `metadata` (`size`, `sha256`, `language`, `media_type`)
+  and no inline `content`. `GET /artifacts/{id}` still returns `content`,
+  read from the file, so the wire contract is unchanged.
+- **D6 — Catalog entries are archived, never deleted.** `DELETE` on
+  workflow and activity definitions sets `status = Archived`. Archived entries
+  are hidden from list endpoints but still resolve by id, so Story and
+  Schedule references never dangle.
+- **D7 — Ids are `prefix_` + ULID.** Ids are a readable prefix plus a 26-char
+  Crockford ULID (128 bits, time-sortable), for example
+  `story_01JA2…`. Existing 8-hex ids stay valid, so ids are treated as
+  opaque strings.
+- **D8 — Ids only, names resolved on read.** Denormalized display names
+  (`story_title`, `initiative_title`, `task_name`, `capability_name`,
+  `provider_name`) are not persisted. They are resolved from the referenced
+  aggregates when the response is built, and the wire model is unchanged.
+- **D9 — Epic is a full row, still implicit.** The epic document carries the
+  canonical columns (`description`, `status`, `created_at`, `updated_at`,
+  `version`). There is still one default epic per Initiative and no Epic API.
