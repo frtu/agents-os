@@ -90,6 +90,7 @@ Workflows & Dependencies
 │   ├── transcribe-voice-memo
 │   │  └─ lint-transcript-normalise (Normalize)
 │   │     └─ second-brain-ingest (Ingest) [Optional]
+│   ├── inbox-triage (Transcript copy status)
 │   ├── lint-unformat (Clean formatting)
 │   │  ├─ second-brain-ingest [Optional]
 │   │  └─ interview-2-capture-interview-q-a [Optional]
@@ -174,6 +175,12 @@ Clean up and normalize various document formats and sources.
 
 - **[lint-unformat](./lint-unformat/)** — Clean up Slack formatting, emoji images, Zoom speaker images, whitespace issues, code blocks, and missing wikilinks. Includes table alignment and auto-linking features.
 - **[lint-transcript-normalise](./lint-transcript-normalise/)** — Pre-ingest cleanup for auto-generated transcripts (Whisper/Zoom). Resolves garbled proper nouns against a JSON correction dictionary.
+- **[inbox-triage](./inbox-triage/)** — Check which transcripts in the origin vault (`global-inbox`) have been copied to a destination vault across the workspace root, display an origin→target table (sub-path after `raw/transcripts` only), and propose copies for the ones not yet filed. Read-only until the user approves.
+
+  ```text
+  /inbox-triage                             # scan default root, show table + proposals
+  /inbox-triage /path/to/Workspaces --origin other-inbox
+  ```
 - **[rewrite-clarity](./rewrite-clarity/)** — Apply Amazon-style clear writing rules to documents. Remove weasel words and improve clarity with data-driven language.
 
 ### Interview Workflow
@@ -443,6 +450,7 @@ graph TD
         LUNFORMAT["lint-unformat"]
         LTRANS["lint-transcript-normalise"]
         CLARITY["rewrite-clarity"]
+        INBOX["inbox-triage"]
     end
     
     subgraph Interview["Interview Workflow"]
@@ -522,6 +530,8 @@ graph TD
     CM1 -->|post-process| SBINGEST
     CM1 -->|post-process| IE
     VOICE -->|transcript source| LTRANS
+    INBOX -.->|proposes copies then| LTRANS
+    INBOX -.->|proposes copies then| SBINGEST
     
     style CM fill:#e1f5ff
     style CM0 fill:#e1f5ff
@@ -552,6 +562,7 @@ Some skills read shared environment variables to avoid repeating configuration o
 |----------|---------|---------|---------|
 | `CHANGE_MANAGEMENT_REPO_PATH` | `change-management-7-diff`, `change-management-8-apply` | Persistent directory where patch files are written and read. Lets you share patches across projects or keep them outside the repo. | `.` (current working directory) |
 | `RETROSPECTIVE_FOLDER` | `retrospective`, `retrospective-1-gather`, `retrospective-2-questions`, `retrospective-3-report` | Vault folder holding retro prep files and reports. Precedence: `folder=` parameter → this var → default. | `wiki/projects/_retrospective_` |
+| `WORKSPACES_ROOT` | `inbox-triage` | Root folder containing one folder per vault; the origin vault (`global-inbox`) and target vaults live here. Precedence: positional parameter → this var → default. | `/Users/fred.tu/Documents/___Note___/Workspaces` |
 
 ### Patch file directory (`CHANGE_MANAGEMENT_REPO_PATH`)
 
