@@ -107,3 +107,4 @@ These skills call change-management phases at their end:
 - `/interview-1-preparation` → calls `-1-stage` then `-9-log`
 - `/interview-3-post-review` → calls `-1-stage` then `-9-log`
 - `/second-brain-area` → calls `-2-refactor` then `-1-stage` then `-9-log`
+- `/second-brain-reorg` → calls `-1-stage` then `-9-log`

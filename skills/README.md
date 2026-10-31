@@ -85,6 +85,7 @@ Workflows & Dependencies
 │   │  ├─ second-brain-lint (Health check)
 │   │  └─ second-brain-query (Search & synthesize)
 │   └─ second-brain-refactor (Split a folder into subcategories)
+│   └─ second-brain-reorg (Reorganize: theme areas / user taxonomy / carve an area)
 │
 ├── Document Processing
 │   ├── transcribe-voice-memo
@@ -168,6 +169,13 @@ Build and maintain an Obsidian-based knowledge base with LLM assistance.
 - **[second-brain-lint](./second-brain-lint/)** — Health-check the wiki for contradictions, orphan pages, stale claims, and missing cross-references.
 - **[second-brain-query](./second-brain-query/)** — Answer questions against the knowledge base wiki and explore connections between topics.
 - **[second-brain-refactor](./second-brain-refactor/)** — Split a wiki folder into subcategories when a new taxonomy is needed.
+- **[second-brain-reorg](./second-brain-reorg/)** — One skill for all wiki restructuring: split a flat folder into theme areas derived from the vault purpose, impose a user-defined taxonomy, or carve a cross-cutting theme into its own domain. Supersedes `second-brain-area`, `second-brain-area-creation` and `second-brain-refactor` (kept for reference).
+
+  ```text
+  /second-brain-reorg resources/artifacts      # model proposes theme areas
+  /second-brain-reorg split into data, metadata, infra
+  /second-brain-reorg create area relevance-ranking
+  ```
 
 ### Document Linting & Formatting
 
@@ -441,9 +449,12 @@ graph TD
         SBINGEST --> SBQUERY
         SBLINT --> SBQUERY
         SBREF["second-brain-refactor"]
+        SBREORG["second-brain-reorg"]
         RESEARCH["research-deep"]
         RESEARCH -.->|structure discipline| SBREF
         RESEARCH -->|then| SBLINT
+        SBREORG -.->|routing table| SBINGEST
+        SBREORG -.->|stage| CM1
     end
     
     subgraph Lint["Document Cleanup"]
