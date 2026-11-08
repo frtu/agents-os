@@ -1,7 +1,7 @@
 ---
 name: rewrite-clarity
-description: Apply Amazon-style clear writing rules to a document, and presentation-clarity rules (legible / simple / obvious, concrete one-liners, claim titles, honest numbers, slide density) to pitch decks and product presentations. Use when the user says "rewrite for clarity", "apply writing guidelines", "clean up this doc", "remove weasel words", "clean up these slides / this deck", "remove marketing fluff", or wants to improve document or presentation clarity with data-driven language.
-version: 0.3.0
+description: Apply Amazon-style clear writing rules to a document, presentation-clarity rules (legible / simple / obvious, concrete one-liners, claim titles, honest numbers, slide density) to pitch decks and product presentations, and engagement-clarity rules (hook, takeaway, action, honest urgency) to announcements and invites. Use when the user says "rewrite for clarity", "apply writing guidelines", "clean up this doc", "remove weasel words", "clean up these slides / this deck", "remove marketing fluff", "make this announcement / invite engaging", or wants to improve document, presentation or announcement clarity.
+version: 0.4.0
 ---
 
 # Rewrite for Clarity
@@ -34,10 +34,19 @@ Then read `references/presentation-clarity.md` to get:
 - **Number presentation** — from "Number Presentation" table
 - **Slide density** — from "Slide Density Rules" table (deck mode only)
 
+For announcements and invites, read `references/engagement-clarity.md` to get:
+- **Engagement patterns** — from "Engagement Patterns" table
+- **Expectation-not-spoiler rule** — from "Set Expectations, Don't Spoil"
+- **Honest urgency** — from "Honest Urgency" table
+- **Announcement density** — from "Announcement Density" section
+
 ### 1b. Detect Document Type
 
 - **Doc mode** (default) — prose: memo, proposal, wiki page, email.
 - **Deck mode** — a slide outline or exported deck: markdown with `---` slide separators or `## Slide N` headings, a `.pptx`/`.key` text export, or the user says "deck", "slides", "pitch", "presentation".
+- **Announcement mode** — an invite or broadcast read in <1 minute: event announcement, meeting invite, FYI broadcast. Trigger: user says "announcement", "invite", "broadcast", or the doc is an event notice with time + place + audience.
+
+Announcement mode adds the engagement themes to the scan; doc and deck themes still apply where they hit.
 
 Themes marked *(deck)* in the registry only run in deck mode. If the document doesn't state its **audience** (customer vs investor / exec / cross-functional), ask once — it decides whether industry jargon is a finding.
 
@@ -68,6 +77,10 @@ Each theme declares: its reference section, its **fix mode**, and its priority. 
 | Unclear numbers  | presentation-clarity: Number Presentation (undefined, cumulative, double-axis, uncaptioned) | assisted | Medium | high (needs data) |
 | Topic titles *(deck)* | presentation-clarity: Claim Titles                      | assisted | Medium   | medium (needs cut/split) |
 | Slide density *(deck)* | presentation-clarity: Slide Density Rules (bullets, words, screenshots, diagrams, animation) | assisted | Medium | medium (needs cut/split) |
+| Buried hook *(announcement)* | engagement-clarity: Engagement Patterns (hook position, takeaway, action) | assisted | Medium | medium (needs hook) |
+| Topic headers *(announcement)* | engagement-clarity: Engagement Patterns (takeaway headers) | auto     | Low      | none                   |
+| Missing/unsupported action *(announcement)* | engagement-clarity: Engagement Patterns (action, excuse removal, honest urgency) | assisted | High | low (needs confirmation) |
+| Spoiler teaser *(announcement)* | engagement-clarity: Expectation-not-Spoiler | assisted | High | low (curiosity gap is a rewrite) |
 
 > **Extending:** to add a theme, append a row here with its reference section, fix mode, priority, and user-effort estimate. `auto` themes flow into step 5; `assisted` themes flow into step 6. No other part of the workflow changes.
 
@@ -115,6 +128,7 @@ For **assisted** fix-mode themes, present the remaining work as options ordered 
 - **Needs rewrite** — long sentences requiring the user to split or restructure
 - **Needs mechanism** — marketing language and abstract one-liners: the user describes what actually happens (who does what, with what result)
 - **Needs cut/split** *(deck)* — topic titles to turn into claims, dense slides to split or move to the appendix
+- **Needs hook** *(announcement)* — hook question to write, takeaway headers, CTA to confirm (date/place/agenda taken from the doc, never invented)
 - **Skip** — leave assisted findings as-is
 
 For whichever the user picks :
@@ -132,4 +146,4 @@ Never invent data.
 4. **Auto vs assisted is the gate** — Only `auto` fix-mode themes apply without asking; every `assisted` theme waits for the user's choice in step 6
 5. **One pass** — Don't re-analyze after changes; user can re-run if needed
 6. **Audience decides jargon** — industry jargon is fine for a customer audience; flag it for investor / exec / cross-functional readers
-7. **Clarity, not substance** — if a slide's *argument* is weak (wrong audience, no evidence, missing ask), note it once and hand off to `review-product-strategy` (pitch checks P1–P12) or `review-engineering-director`; don't critique strategy here
+7. **Clarity, not substance** — if a slide's *argument* is weak (wrong audience, no evidence, missing ask), note it once and hand off to `review-product-strategy` (pitch checks P1–P12, teaser check P13) or `review-engineering-director`; don't critique strategy here
