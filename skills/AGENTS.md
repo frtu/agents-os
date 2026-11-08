@@ -12,6 +12,8 @@ Instructions for any coding agent (Claude Code, Codex, Cursor, Gemini…) workin
 
 Don't duplicate those conventions here or in a skill. If a convention changes, update the README.
 
+**Optional — design concepts:** [`_references_/README.md`](./_references_/README.md) is a library of atomic design concepts (e.g. extensible dictionary, case studies), each pointing to a real skill that applies it. Load it at step 3 (*Design the structure*) or when modifying a skill, then load **only** the concept whose symptom matches.
+
 ## Skill factory — creating or changing a skill
 
 Work through these steps in order. Stop and ask the user if a step turns up a real design choice (e.g. extend vs create).

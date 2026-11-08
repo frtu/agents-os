@@ -254,6 +254,8 @@ Two-phase workflow for aggregating and consolidating weekly team updates.
 
 This section is the **skill factory** convention: how a skill is laid out, and how skills reuse each other instead of copying content. Agents creating or changing a skill follow [`AGENTS.md`](./AGENTS.md), which builds on this section.
 
+For deeper, pattern-level guidance with real exemplars, see the design concept library in [`_references_/`](./_references_/README.md). It is not a skill and is never linked.
+
 ### Folder layout
 
 Only `SKILL.md` is required. Add the other folders when the skill needs them:
