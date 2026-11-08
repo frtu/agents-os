@@ -192,7 +192,7 @@ Clean up and normalize various document formats and sources.
   /inbox-triage                             # scan default root, show table + proposals
   /inbox-triage /path/to/Workspaces --origin other-inbox
   ```
-- **[rewrite-clarity](./rewrite-clarity/)** — Apply Amazon-style clear writing rules to documents. Remove weasel words and improve clarity with data-driven language.
+- **[rewrite-clarity](./rewrite-clarity/)** — Apply Amazon-style clear writing rules to documents. Remove weasel words and improve clarity with data-driven language. Verbose phrases come from a committed dictionary (`config/word-replacements.json`) that `scripts/replace_words.py` applies without an agent; the skill grows it as new phrases are confirmed.
 
 ### Interview Workflow
 
@@ -284,6 +284,7 @@ skill-name/
 | `interview-1-preparation`                                                                | `templates/` + `steps/` registry (per-step overrides) + `vault-map.md` (pointers into the one vault that owns the specifics) + empty `cases/` registry |
 | `lint-unformat`, `diagram-architecture`                                                  | `scripts/` with a test file next to each script                                                                                                        |
 | `lint-transcript-normalise`                                                              | `config/corrections.json` read by a script                                                                                                             |
+| `rewrite-clarity`                                                                        | `config/word-replacements.json` (committed default set) read by a script, with a test that validates the shipped JSON                                  |
 | `change-management`, `interview-eval`, `weekly-digest`, `retrospective`, `people-ingest` | Router + numbered sub-skills                                                                                                                           |
 
 ### SKILL.md frontmatter

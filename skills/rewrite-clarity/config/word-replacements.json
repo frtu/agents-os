@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "description": "Verbose phrase -> direct word dictionary for rewrite-clarity (theme 'Verbose phrases'). Shipped with a committed default set; grown when a run discovers a new verbose phrase and the user confirms it. Applied by scripts/replace_words.py with no LLM.",
+  "rules": {
+    "verbose": "The wordy phrase, lower-case. Matched case-insensitively on whole-word boundaries; the replacement keeps the match's capitalisation (Title-case first letter, or ALL CAPS).",
+    "direct": "The direct replacement. Must be semantically equivalent wherever 'verbose' appears in the 'replacements' tier.",
+    "replacements": "AUTO tier: always equivalent, applied by the script on --write without asking.",
+    "suggestions": "REVIEW tier: usually better, but the replacement breaks in some contexts (e.g. a following gerund or noun, a tense change). Never applied by the script; reported with line numbers for the agent or the user to decide.",
+    "keep": "Phrases confirmed acceptable as written, so the agent's sweep stops proposing them. The script ignores this key.",
+    "note": "Free text: why an entry sits in its tier, or the context where it breaks.",
+    "skipped": "Never matched inside fenced code blocks, inline code, [[wikilinks]], markdown link targets or bare URLs."
+  },
+  "replacements": [
+    { "verbose": "due to the fact that", "direct": "because" },
+    { "verbose": "in order to", "direct": "to" },
+    { "verbose": "at this point in time", "direct": "now" },
+    { "verbose": "the majority of", "direct": "most" },
+    { "verbose": "in the event that", "direct": "if" },
+    { "verbose": "with regard to", "direct": "about" },
+    { "verbose": "prior to", "direct": "before" },
+    { "verbose": "subsequent to", "direct": "after" },
+    { "verbose": "in spite of the fact that", "direct": "although" },
+    { "verbose": "in the near future", "direct": "soon" },
+    { "verbose": "a large number of", "direct": "many" },
+    { "verbose": "on a daily basis", "direct": "daily" },
+    { "verbose": "at the present time", "direct": "now" },
+    { "verbose": "has the ability to", "direct": "can" },
+    { "verbose": "is able to", "direct": "can" },
+    { "verbose": "make a decision", "direct": "decide" },
+    { "verbose": "take into consideration", "direct": "consider" },
+    { "verbose": "give consideration to", "direct": "consider" }
+  ],
+  "suggestions": [
+    { "verbose": "for the purpose of", "direct": "to", "note": "Breaks before a gerund or noun: 'for the purpose of testing' -> 'to test', not 'to testing'." },
+    { "verbose": "in the process of", "direct": "currently", "note": "Breaks before a noun: 'in the process of elimination'. Fine before a gerund: 'in the process of migrating' -> 'currently migrating'." },
+    { "verbose": "totally lack the ability to", "direct": "could not", "note": "Changes tense; present-tense text needs 'cannot'." }
+  ],
+  "keep": []
+}

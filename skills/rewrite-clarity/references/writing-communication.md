@@ -49,29 +49,15 @@ Never use these in decision documents:
 
 ## Word Replacements
 
-| Verbose                     | Direct    |
-| --------------------------- | --------- |
-| due to the fact that        | because   |
-| in order to                 | to        |
-| at this point in time       | now       |
-| the majority of             | most      |
-| in the event that           | if        |
-| with regard to              | about     |
-| prior to                    | before    |
-| subsequent to               | after     |
-| in spite of the fact that   | although  |
-| for the purpose of          | to        |
-| in the near future          | soon      |
-| a large number of           | many      |
-| on a daily basis            | daily     |
-| at the present time         | now       |
-| in the process of           | currently |
-| has the ability to          | can       |
-| is able to                  | can       |
-| totally lack the ability to | could not |
-| make a decision             | decide    |
-| take into consideration     | consider  |
-| give consideration to       | consider  |
+Verbose phrase → direct word. The list lives in **`config/word-replacements.json`** (single
+source, committed with a default set, grown as new phrases are confirmed) and is applied by
+`scripts/replace_words.py`, no LLM needed. Two tiers:
+
+- **`replacements`** — always equivalent (`due to the fact that` → `because`), applied automatically.
+- **`suggestions`** — usually better but context-dependent (`for the purpose of testing` ≠ `to testing`),
+  only reported for review.
+
+Read the JSON for the current list; don't copy entries back into this file.
 
 ## The So-What Test
 

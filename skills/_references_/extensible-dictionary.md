@@ -1,7 +1,7 @@
 ---
 concept: extensible-dictionary
 summary: Move growing lookup data (word replacements, mappings, allow/deny lists) out of SKILL.md into a version-controlled JSON config that a script applies directly, with no LLM; the agent is an optional layer that grows the dictionary after every user confirmation.
-exemplars: [lint-transcript-normalise, transcribe-voice-memo]
+exemplars: [lint-transcript-normalise, transcribe-voice-memo, rewrite-clarity]
 related: [case-studies]
 ---
 
@@ -53,7 +53,7 @@ skill-name/
 
 - The "entries" are judgement-heavy examples that need prose, context and a narrative → use [case-studies](./case-studies.md).
 - The list is short and closed (3–5 fixed values that won't grow) → keep it inline in `SKILL.md`.
-- The entries are tabular but **applying** them needs judgement (word replacements that depend on context, weasel-word patterns) → keep the tables in a `references/{topic}.md` the agent reads and applies (see `rewrite-clarity/references/writing-communication.md`). Move to JSON + script once matching becomes mechanical.
+- The entries are tabular but **applying** them needs judgement (weasel-word patterns, adjectives needing data) → keep the tables in a `references/{topic}.md` the agent reads and applies (see `rewrite-clarity/references/writing-communication.md`). Move a table to JSON + script once its matching becomes mechanical, as that skill did for *Word Replacements*.
 - The data is someone else's source of truth (the vault's member pages, a team roster) → point to it; don't copy it into a dictionary.
 
 ## Anatomy
@@ -75,18 +75,18 @@ skill-name/
 
 Normalises garbled proper nouns in Whisper/Zoom transcripts before ingest.
 
-| Part                 | Where it lives                                                                                                                                                                                       |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dictionary           | `lint-transcript-normalise/config/corrections.json` — `version`, `description`, `rules` (one doc line per field), `known_noise`, `corrections[]`                                                     |
-| Confidence tiers     | `variants` (case-insensitive, auto-fixed) vs `ambiguous_variants` (case-sensitive, flag only)                                                                                                        |
-| Negative list        | top-level `known_noise` — ignored by the script, read by the manual sweep                                                                                                                            |
-| Canonical target     | `correct` (plain-text spelling) + `wikilink` (resolved `[[slug\|Display]]`, empty if no page exists)                                                                                                 |
-| Script               | `lint-transcript-normalise/scripts/normalise_transcript.py` — default config resolved next to the script, `--corrections` override, dry run by default, masks existing `[[…]]` spans, always exits 0 |
-| Apply-only script    | `lint-transcript-normalise/scripts/replace_from_dictionary.py` — files, folders (`*.md`) or stdin; `--write`, `--out-dir` (for `raw/`, which `--write` refuses), `--list-ambiguous`; imports the rules from `normalise_transcript.py`; tested in `test_replace_from_dictionary.py` |
-| Apply-only in `SKILL.md` | `SKILL.md` → *Without an agent (apply-only)*: commands, and the trade-off "used, never grown" |
-| Write-back rule      | `SKILL.md` → *5. Grow the dictionary — every time, without being asked*: the user-said → write table (new variant / ambiguous token / dead end)                                                      |
-| Silence caveat       | `SKILL.md` → *2. Confirm the ambiguous mentions* → "The dictionary is not the whole picture"                                                                                                         |
-| Schema in `SKILL.md` | `SKILL.md` → *Dictionary Schema* + *Matching Rules*: the contract, not the entries                                                                                                                   |
+| Part                     | Where it lives                                                                                                                                                                                                                                                                     |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dictionary               | `lint-transcript-normalise/config/corrections.json` — `version`, `description`, `rules` (one doc line per field), `known_noise`, `corrections[]`                                                                                                                                   |
+| Confidence tiers         | `variants` (case-insensitive, auto-fixed) vs `ambiguous_variants` (case-sensitive, flag only)                                                                                                                                                                                      |
+| Negative list            | top-level `known_noise` — ignored by the script, read by the manual sweep                                                                                                                                                                                                          |
+| Canonical target         | `correct` (plain-text spelling) + `wikilink` (resolved `[[slug\|Display]]`, empty if no page exists)                                                                                                                                                                               |
+| Script                   | `lint-transcript-normalise/scripts/normalise_transcript.py` — default config resolved next to the script, `--corrections` override, dry run by default, masks existing `[[…]]` spans, always exits 0                                                                               |
+| Apply-only script        | `lint-transcript-normalise/scripts/replace_from_dictionary.py` — files, folders (`*.md`) or stdin; `--write`, `--out-dir` (for `raw/`, which `--write` refuses), `--list-ambiguous`; imports the rules from `normalise_transcript.py`; tested in `test_replace_from_dictionary.py` |
+| Apply-only in `SKILL.md` | `SKILL.md` → *Without an agent (apply-only)*: commands, and the trade-off "used, never grown"                                                                                                                                                                                      |
+| Write-back rule          | `SKILL.md` → *5. Grow the dictionary — every time, without being asked*: the user-said → write table (new variant / ambiguous token / dead end)                                                                                                                                    |
+| Silence caveat           | `SKILL.md` → *2. Confirm the ambiguous mentions* → "The dictionary is not the whole picture"                                                                                                                                                                                       |
+| Schema in `SKILL.md`     | `SKILL.md` → *Dictionary Schema* + *Matching Rules*: the contract, not the entries                                                                                                                                                                                                 |
 
 **Why it succeeds:** every change to its `SKILL.md` so far has been a process or schema change; no entry has ever been added there. The ship-empty `corrections: []` makes the skill generic; each vault grows its own entries. The two tiers keep risky tokens (single letters, shared first names) from being silently rewritten, which is the failure that matters most in that domain: *a wrong name is worse than an unlinked one*.
 
@@ -106,11 +106,26 @@ Chooses GPU vs CPU for Whisper from a risk score; the thresholds are learned fro
 
 **Why it succeeds:** a failure feeds the next decision automatically (recent-failure factor + the log), so the skill gets safer with use without anyone editing `SKILL.md`. The batch script works with no agent, and the thresholds only move through an explicit, previewed calibration. **Sanity guard worth copying:** `analyze` refuses to suggest values when the data can't separate the cases (MPS also failing on 3-second memos once gave `safe = -57`). It prints `no_suggestion` and `calibrate` exits non-zero instead of writing an unusable config.
 
+## Exemplar walkthrough — `rewrite-clarity` (committed default set, migrated from a reference table)
+
+The *Word Replacements* table in `references/writing-communication.md` became a dictionary with a default set committed in git.
+
+| Part                 | Where it lives                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Dictionary           | `rewrite-clarity/config/word-replacements.json` — `rules`, `replacements` (auto), `suggestions` (review, with `note`), `keep` |
+| Confidence tiers     | 18 always-equivalent swaps auto; 3 context-dependent ones (`for the purpose of` + gerund, tense changes) review-only          |
+| Negative list        | `keep` — phrases the user confirmed are fine as written                                                                     |
+| Apply layer          | `rewrite-clarity/scripts/replace_words.py` — files, folders, stdin; skips code, wikilinks, URLs; keeps capitalisation; `test_replace_words.py` also validates the shipped JSON |
+| Intelligence layer   | `SKILL.md` → step 3 (note unknown verbose phrases), step 6 (Quick wins), *7. Grow the dictionary* (user-said → write table)  |
+| Old home             | `references/writing-communication.md` → *Word Replacements* now points to the JSON; no entries left there                   |
+
+**Why it works:** the theme was already marked `auto` ("deterministic 1:1 replacement"), yet the agent applied it by reading a table. Moving it to a script made the auto fix actually deterministic. The migration also surfaced 3 entries that were never safe to auto-apply.
+
 ## Adoption checklist
 
 1. **Find the data.** List everything in the skill (or the planned skill) that is a lookup: replacements, aliases, thresholds, routing. If it will grow, it moves out.
 2. **Design the schema first.** Fields, the confidence tiers, the negative list, the canonical target. Write the `rules` block in the JSON before any entry.
-3. **Ship it empty or with synthetic entries.** Real names, team terms and internal systems belong to the user's copy, not the template (AGENTS.md step 5 *Keep generic and specific apart*).
+3. **Ship it empty, synthetic, or with a generic default set.** Real names, team terms and internal systems belong to the user's copy, not the template (AGENTS.md step 5 *Keep generic and specific apart*). Generic vocabulary (plain-English replacements) can ship as a committed default that every user starts from and extends.
 4. **Write the apply layer first.** One script owns the matching rules from the schema, with a dry-run default, a config override and a report. Add an apply-only entry point (files/folders/stdin, no questions) that imports those rules. It must be useful on its own before any agent is involved. Add `test_{script}.py` with a fixture dictionary for each.
 5. **Rewrite `SKILL.md`** to describe the process, the schema and matching rules, the write-back table and the silence caveat (the optional intelligence layer), plus a short *Without an agent* section for the apply-only script. Remove every inline entry.
 6. **Verify:** add one entry to the JSON only, run the script, and confirm the new behaviour appears with no `SKILL.md` change.
@@ -118,6 +133,7 @@ Chooses GPU vs CPU for Whisper from a risk score; the thresholds are learned fro
 ## Anti-patterns
 
 - **Apply needs the agent.** If replacement only happens when an LLM reads the dictionary, the pattern collapses back into "read and remember": inconsistent matches, and nothing works outside the skill. The script must apply the dictionary alone.
+- **Migrating a table without re-tiering it.** Entries that lived in a prose table were never tested against every context. Re-check each one on migration and send context-dependent swaps to the flag-only tier.
 - **Copied matching rules.** An apply-only script with its own regexes drifts from the report script; import the rules from one owner.
 - **Entries in `SKILL.md`.** Any inline list "for convenience" becomes the second source of truth and drifts from the JSON.
 - **One tier for everything.** Auto-applying short or common tokens corrupts the output silently. Uncertain entries must default to *flag*.
