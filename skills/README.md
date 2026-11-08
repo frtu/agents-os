@@ -185,7 +185,7 @@ Build and maintain an Obsidian-based knowledge base with LLM assistance.
 Clean up and normalize various document formats and sources.
 
 - **[lint-unformat](./lint-unformat/)** — Clean up Slack formatting, emoji images, Zoom speaker images, whitespace issues, code blocks, and missing wikilinks. Includes table alignment and auto-linking features.
-- **[lint-transcript-normalise](./lint-transcript-normalise/)** — Pre-ingest cleanup for auto-generated transcripts (Whisper/Zoom). Resolves garbled proper nouns against a JSON correction dictionary.
+- **[lint-transcript-normalise](./lint-transcript-normalise/)** — Pre-ingest cleanup for auto-generated transcripts (Whisper/Zoom). Resolves garbled proper nouns against a JSON correction dictionary. `scripts/replace_from_dictionary.py` applies the dictionary without an agent (files, folders or stdin); the skill adds the optional layer that grows it.
 - **[inbox-triage](./inbox-triage/)** — Check which transcripts in the origin vault (`global-inbox`) have been copied to a destination vault across the workspace root, display an origin→target table (sub-path after `raw/transcripts` only), and propose copies for the ones not yet filed. Read-only until the user approves.
 
   ```text

@@ -35,14 +35,15 @@ so the reviewer / ingest can link confirmed mentions.
 | Path | Purpose |
 | ---- | ------- |
 | `config/corrections.json` | The correction dictionary (canonical entity ↔ variants ↔ ambiguous_variants ↔ wikilink). Version-controlled and grown over time. |
-| `scripts/normalise_transcript.py` | Applies confident fixes and reports ambiguous mentions. Stdlib only. |
+| `scripts/normalise_transcript.py` | Applies confident fixes and reports ambiguous mentions. Stdlib only. Owns the matching rules. |
+| `scripts/replace_from_dictionary.py` | Apply-only mode, no agent needed: replaces confident `variants` across files, folders or stdin with the dictionary as-is. See *Without an agent*. |
 
 ## Procedure
 
 ### 1. Run the report against the transcript
 
 ```bash
-python3 .claude/commands/lint-transcript-normalise/scripts/normalise_transcript.py \
+python3 <skills-dir>/lint-transcript-normalise/scripts/normalise_transcript.py \
     "raw/.../transcript.md"
 ```
 
@@ -128,6 +129,27 @@ visible and correctable.
 The transcript now has corrected plain-text names and a confirmed set of mentions.
 Run `/second-brain-ingest` — its step 1b now only has to link the resolved names,
 not resolve them from scratch.
+
+## Without an agent (apply-only)
+
+The dictionary works on its own: a script can apply it with no LLM. Use this for batch runs,
+pipelines, or a teammate without an agent. The trade-off is that the dictionary is **used,
+never grown**: ambiguous tokens are left alone, unlisted garbles pass through, and nothing is
+written back. Steps 2 and 5 above (manual sweep, confirmations, write-back) are the optional
+layer that makes it improve over time.
+
+```bash
+S=<skills-dir>/lint-transcript-normalise/scripts
+python3 $S/replace_from_dictionary.py notes/                          # dry run: report per file
+python3 $S/replace_from_dictionary.py notes/ --write                  # rewrite in place (refused inside raw/)
+python3 $S/replace_from_dictionary.py raw/transcripts --out-dir clean/ # corrected copies; raw/ untouched
+python3 $S/replace_from_dictionary.py - < in.md > out.md              # filter: stdin -> stdout
+```
+
+Options: `--corrections FILE` to use another dictionary, `--list-ambiguous` to print the
+ambiguous hits (`file:Lnn`) that were left unchanged. Directories are scanned for `*.md`
+recursively. The script imports its matching rules from `normalise_transcript.py`, so both
+scripts always match the same way. Tests: `scripts/test_replace_from_dictionary.py`.
 
 ## Dictionary Schema
 
