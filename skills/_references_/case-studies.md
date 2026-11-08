@@ -49,18 +49,18 @@ skill-name/
 
 ## Anatomy
 
-| Part | Rule |
-| ---- | ---- |
-| **Posture + heuristics in `SKILL.md`** | The stable lens. Heuristics are **numbered** so cases can cite them (`heuristics: [18, 3, 7]`) without restating them. |
-| **Pointer in `SKILL.md`** | One short section: where the library lives, a one-line summary of each case family, and the loading rule. Never the case content. |
-| **Registry `cases/README.md`** | Index table(s): case letter → *shape to match* → heuristics → file → guide/template. Grouped by family when cases differ in kind (e.g. doc-level vs situation-level). Includes the case file contract, provenance (synthetic vs anonymised) and *Growing the library* rules with the **next free letter**. |
-| **Case file** | Frontmatter: `case`, `name`, `shape`, `heuristics`, optional `guide`/`template`. Fixed body sections so every case reads the same way, e.g. **Before** (weak claim/move) → **Common approach** → **Why this one diverges** → **Interrogation** (challenges, citing heuristic numbers) → **What surfaces** → **Distilled (what to do)** → **Lesson**. |
-| **"Why this one diverges"** | The section that makes cases more than examples: it says when the textbook answer fails, so the role can disagree with the obvious move for a stated reason. |
-| **Guides (optional)** | A theme playbook (default moves, questions to fire, traps) that groups several cases. Add one when 2+ cases share a theme. |
-| **Templates (optional)** | Generic artifacts to produce, each paired with the cases that motivate it. |
-| **Loading rule** | Read the registry, then load **at most one case** (plus at most one guide/template). Never read the library up front or delegate selection to sub-agents. |
-| **Genericity rule** | No real names, companies, vendors, projects, links or numbers. Systems by category, people by role. |
-| **Promotion rule** | A finding that recurs across several cases moves up into a heuristic or a template rule. |
+| Part                                   | Rule                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Posture + heuristics in `SKILL.md`** | The stable lens. Heuristics are **numbered** so cases can cite them (`heuristics: [18, 3, 7]`) without restating them.                                                                                                                                                                                                                               |
+| **Pointer in `SKILL.md`**              | One short section: where the library lives, a one-line summary of each case family, and the loading rule. Never the case content.                                                                                                                                                                                                                    |
+| **Registry `cases/README.md`**         | Index table(s): case letter → *shape to match* → heuristics → file → guide/template. Grouped by family when cases differ in kind (e.g. doc-level vs situation-level). Includes the case file contract, provenance (synthetic vs anonymised) and *Growing the library* rules with the **next free letter**.                                           |
+| **Case file**                          | Frontmatter: `case`, `name`, `shape`, `heuristics`, optional `guide`/`template`. Fixed body sections so every case reads the same way, e.g. **Before** (weak claim/move) → **Common approach** → **Why this one diverges** → **Interrogation** (challenges, citing heuristic numbers) → **What surfaces** → **Distilled (what to do)** → **Lesson**. |
+| **"Why this one diverges"**            | The section that makes cases more than examples: it says when the textbook answer fails, so the role can disagree with the obvious move for a stated reason.                                                                                                                                                                                         |
+| **Guides (optional)**                  | A theme playbook (default moves, questions to fire, traps) that groups several cases. Add one when 2+ cases share a theme.                                                                                                                                                                                                                           |
+| **Templates (optional)**               | Generic artifacts to produce, each paired with the cases that motivate it.                                                                                                                                                                                                                                                                           |
+| **Loading rule**                       | Read the registry, then load **at most one case** (plus at most one guide/template). Never read the library up front or delegate selection to sub-agents.                                                                                                                                                                                            |
+| **Genericity rule**                    | No real names, companies, vendors, projects, links or numbers. Systems by category, people by role.                                                                                                                                                                                                                                                  |
+| **Promotion rule**                     | A finding that recurs across several cases moves up into a heuristic or a template rule.                                                                                                                                                                                                                                                             |
 
 ## Exemplar walkthrough
 
@@ -68,14 +68,14 @@ skill-name/
 
 The skill adopts an Engineering Director's posture to review docs and coach leadership situations.
 
-| Part | Where it lives |
-| ---- | -------------- |
-| Posture + numbered heuristics | `SKILL.md` → *Posture (non-negotiable)*, *High-Level Judgement Heuristics* (table 1–22) |
-| Pointer + loading rule | `SKILL.md` → *Worked Case Studies* ("load the matching case file only when a claim or situation fits its shape") |
-| Registry | `references/cases/README.md` — two index tables (doc-level A–D, leadership-situation E–S) with heuristics and guide per case; *Heuristic quick map*; *Growing the library* with next letter |
-| Case files | `references/cases/{a…s}-{slug}.md` — e.g. `f-symmetric-cost-cut.md`: frontmatter with `heuristics`, `guide`, `template`; body Before → Common approach → Why this one diverges → Interrogation → What surfaces → Distilled → Lesson |
-| Guides | `references/guides/*.md` (cost-and-budget, managing-up, …), each listing its cases |
-| Templates | `references/templates/*.md` (exec-cost-review, risk-assessment, …), each paired with cases |
+| Part                          | Where it lives                                                                                                                                                                                                                      |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Posture + numbered heuristics | `SKILL.md` → *Posture (non-negotiable)*, *High-Level Judgement Heuristics* (table 1–22)                                                                                                                                             |
+| Pointer + loading rule        | `SKILL.md` → *Worked Case Studies* ("load the matching case file only when a claim or situation fits its shape")                                                                                                                    |
+| Registry                      | `references/cases/README.md` — two index tables (doc-level A–D, leadership-situation E–S) with heuristics and guide per case; *Heuristic quick map*; *Growing the library* with next letter                                         |
+| Case files                    | `references/cases/{a…s}-{slug}.md` — e.g. `f-symmetric-cost-cut.md`: frontmatter with `heuristics`, `guide`, `template`; body Before → Common approach → Why this one diverges → Interrogation → What surfaces → Distilled → Lesson |
+| Guides                        | `references/guides/*.md` (cost-and-budget, managing-up, …), each listing its cases                                                                                                                                                  |
+| Templates                     | `references/templates/*.md` (exec-cost-review, risk-assessment, …), each paired with cases                                                                                                                                          |
 
 **Why it succeeds:** the director's posture is written once and every case applies it through cited heuristic numbers, so the attitude stays the same whether the input is a promotion packet or a vendor negotiation. The library grew from 4 doc-level cases to 19 cases plus guides and templates; the growth rules say that adding a case does not touch `SKILL.md` (only a new guide does). *Why this one diverges* lets the director push back on the textbook answer with a reason.
 

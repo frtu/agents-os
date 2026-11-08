@@ -277,14 +277,14 @@ skill-name/
 └── config/                   # Data the scripts read (JSON dictionaries, thresholds)
 ```
 
-| Skill | What it shows |
-| --- | --- |
-| `retrospective-3-report` | `templates/` (generic) + `cases/` (synthetic worked examples by format/pattern) with a registry |
-| `review-engineering-director` | `templates/` + `cases/` (failure shapes) with a registry; delegates to `rewrite-clarity` |
-| `interview-1-preparation` | `templates/` + `steps/` registry (per-step overrides) + `vault-map.md` (pointers into the one vault that owns the specifics) + empty `cases/` registry |
-| `lint-unformat`, `diagram-architecture` | `scripts/` with a test file next to each script |
-| `lint-transcript-normalise` | `config/corrections.json` read by a script |
-| `change-management`, `interview-eval`, `weekly-digest`, `retrospective`, `people-ingest` | Router + numbered sub-skills |
+| Skill                                                                                    | What it shows                                                                                                                                          |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `retrospective-3-report`                                                                 | `templates/` (generic) + `cases/` (synthetic worked examples by format/pattern) with a registry                                                        |
+| `review-engineering-director`                                                            | `templates/` + `cases/` (failure shapes) with a registry; delegates to `rewrite-clarity`                                                               |
+| `interview-1-preparation`                                                                | `templates/` + `steps/` registry (per-step overrides) + `vault-map.md` (pointers into the one vault that owns the specifics) + empty `cases/` registry |
+| `lint-unformat`, `diagram-architecture`                                                  | `scripts/` with a test file next to each script                                                                                                        |
+| `lint-transcript-normalise`                                                              | `config/corrections.json` read by a script                                                                                                             |
+| `change-management`, `interview-eval`, `weekly-digest`, `retrospective`, `people-ingest` | Router + numbered sub-skills                                                                                                                           |
 
 ### SKILL.md frontmatter
 
@@ -328,13 +328,13 @@ When a skill applies one structure to many subjects (teams, doc types, failure s
 
 Pick the first option that works:
 
-| # | Mechanism | Use when | How | Example |
-| --- | --- | --- | --- | --- |
-| 1 | **Invoke a sub-skill** | Another skill already does the job (a behaviour, a pass, a step) | Name it in the process: *"run `/rewrite-clarity` on the result"*. Add `Skill` to `allowed-tools` if it runs automatically | `review-engineering-director` → `rewrite-clarity`; ingest/interview → `change-management-1-stage` |
-| 2 | **Router + numbered sub-skills** | A workflow has ordered phases that are each useful alone | Router skill `{family}`, steps `{family}-{n}-{verb}`; the router only sequences and passes parameters | `weekly-digest` → `weekly-1-aggregate` → `weekly-2-consolidate` |
-| 3 | **Division of labour** | Two skills work on the same doc at different levels | A table in both skills: who owns what, and in which order they run | `review-engineering-director` (judgement) vs `rewrite-clarity` (words) |
-| 4 | **Point to the owning skill's reference** | You need the same schema or template, not the same behaviour | Link it by skill name + path (`second-brain/references/wiki-schema.md`) and say "read from"; both skills must be linked | wiki schema shared across `second-brain*` |
-| 5 | **Copy** | Last resort only, e.g. a script that must run without the other skill installed | Add a header comment `# Copied from {skill}/{path} — keep in sync` | ⚠️ `second-brain/scripts/relink-wiki.py` and `lint-unformat/scripts/relink-wiki.py` have already **drifted** apart |
+| #   | Mechanism                                 | Use when                                                                        | How                                                                                                                       | Example                                                                                                            |
+| --- | ----------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 1   | **Invoke a sub-skill**                    | Another skill already does the job (a behaviour, a pass, a step)                | Name it in the process: *"run `/rewrite-clarity` on the result"*. Add `Skill` to `allowed-tools` if it runs automatically | `review-engineering-director` → `rewrite-clarity`; ingest/interview → `change-management-1-stage`                  |
+| 2   | **Router + numbered sub-skills**          | A workflow has ordered phases that are each useful alone                        | Router skill `{family}`, steps `{family}-{n}-{verb}`; the router only sequences and passes parameters                     | `weekly-digest` → `weekly-1-aggregate` → `weekly-2-consolidate`                                                    |
+| 3   | **Division of labour**                    | Two skills work on the same doc at different levels                             | A table in both skills: who owns what, and in which order they run                                                        | `review-engineering-director` (judgement) vs `rewrite-clarity` (words)                                             |
+| 4   | **Point to the owning skill's reference** | You need the same schema or template, not the same behaviour                    | Link it by skill name + path (`second-brain/references/wiki-schema.md`) and say "read from"; both skills must be linked   | wiki schema shared across `second-brain*`                                                                          |
+| 5   | **Copy**                                  | Last resort only, e.g. a script that must run without the other skill installed | Add a header comment `# Copied from {skill}/{path} — keep in sync`                                                        | ⚠️ `second-brain/scripts/relink-wiki.py` and `lint-unformat/scripts/relink-wiki.py` have already **drifted** apart |
 
 Rules:
 
@@ -345,14 +345,14 @@ Rules:
 
 ### Naming conventions
 
-| Pattern | Meaning | Example |
-| --- | --- | --- |
-| `{family}` | Router or entry point | `change-management`, `weekly-digest` |
-| `{family}-{n}-{verb}` | Ordered step; gaps leave room (`0` optional first, `9` final) | `change-management-9-log` |
-| `review-{lens}` | Critique or produce through a lens | `review-product-strategy` |
-| `lint-{target}` | Deterministic clean-up, script-backed | `lint-unformat` |
-| `rewrite-{goal}` | Word-level rewrite | `rewrite-clarity` |
-| `{domain}-{verb}` | Standalone utility | `transcribe-voice-memo` |
+| Pattern               | Meaning                                                       | Example                              |
+| --------------------- | ------------------------------------------------------------- | ------------------------------------ |
+| `{family}`            | Router or entry point                                         | `change-management`, `weekly-digest` |
+| `{family}-{n}-{verb}` | Ordered step; gaps leave room (`0` optional first, `9` final) | `change-management-9-log`            |
+| `review-{lens}`       | Critique or produce through a lens                            | `review-product-strategy`            |
+| `lint-{target}`       | Deterministic clean-up, script-backed                         | `lint-unformat`                      |
+| `rewrite-{goal}`      | Word-level rewrite                                            | `rewrite-clarity`                    |
+| `{domain}-{verb}`     | Standalone utility                                            | `transcribe-voice-memo`              |
 
 ### Git
 
@@ -587,11 +587,11 @@ graph TD
 
 Some skills read shared environment variables to avoid repeating configuration on every invocation. Set these in your shell profile (`~/.zshrc`, `~/.bashrc`) or in a `.env` file sourced before starting your agent.
 
-| Variable | Used by | Purpose | Default |
-|----------|---------|---------|---------|
-| `CHANGE_MANAGEMENT_REPO_PATH` | `change-management-7-diff`, `change-management-8-apply` | Persistent directory where patch files are written and read. Lets you share patches across projects or keep them outside the repo. | `.` (current working directory) |
-| `RETROSPECTIVE_FOLDER` | `retrospective`, `retrospective-1-gather`, `retrospective-2-questions`, `retrospective-3-report` | Vault folder holding retro prep files and reports. Precedence: `folder=` parameter → this var → default. | `wiki/projects/_retrospective_` |
-| `WORKSPACES_ROOT` | `inbox-triage` | Root folder containing one folder per vault; the origin vault (`global-inbox`) and target vaults live here. Precedence: positional parameter → this var → default. | `/Users/fred.tu/Documents/___Note___/Workspaces` |
+| Variable                      | Used by                                                                                          | Purpose                                                                                                                                                            | Default                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| `CHANGE_MANAGEMENT_REPO_PATH` | `change-management-7-diff`, `change-management-8-apply`                                          | Persistent directory where patch files are written and read. Lets you share patches across projects or keep them outside the repo.                                 | `.` (current working directory)                  |
+| `RETROSPECTIVE_FOLDER`        | `retrospective`, `retrospective-1-gather`, `retrospective-2-questions`, `retrospective-3-report` | Vault folder holding retro prep files and reports. Precedence: `folder=` parameter → this var → default.                                                           | `wiki/projects/_retrospective_`                  |
+| `WORKSPACES_ROOT`             | `inbox-triage`                                                                                   | Root folder containing one folder per vault; the origin vault (`global-inbox`) and target vaults live here. Precedence: positional parameter → this var → default. | `/Users/fred.tu/Documents/___Note___/Workspaces` |
 
 ### Patch file directory (`CHANGE_MANAGEMENT_REPO_PATH`)
 
@@ -670,15 +670,15 @@ These skills are provided as-is for use with any LLM coding agent.
 
 The rest of this README is agent-agnostic. This section is the **only** place for harness-specific details: where each harness looks for skills, how it invokes them, and what it does with the optional frontmatter. `link-skills.sh` resolves the harness names below to these directories (keep the `harness_dir` function in the script in sync with this table).
 
-| Harness | `link-skills.sh` name | User `<skills-dir>` | Project-level dir | Invoke | Notes |
-| ------- | --------------------- | ------------------- | ----------------- | ------ | ----- |
-| Claude Code | `claude` (default) | `~/.claude/skills` | `.claude/skills/` | `/skill-name`, or auto-triggered from `description` | Honours `allowed-tools`; `Skill` tool lets one skill invoke another. Restart the session to reload. |
-| OpenCode | `opencode` | `~/.config/opencode/skills` (`$XDG_CONFIG_HOME` honoured) | `.opencode/skills/` | Loaded by the agent from `description` | Also reads `~/.claude/skills` and `~/.agents/skills`; `name` must match the folder. |
-| Codex CLI | `codex` | `~/.codex/skills` (`$CODEX_HOME` honoured) | `.agents/skills/` | Loaded from `description` | User path from community docs, not confirmed in the official docs; check your version. `~/.agents/skills` is the safer shared choice. |
-| Gemini CLI | `gemini` | `~/.gemini/skills` | `.gemini/skills/` or `.agents/skills/` | Loaded from `description` | Also has `gemini skills install`. |
-| Cursor | `cursor` | `~/.cursor/skills` | `.cursor/skills/` | `/skill-name` in Agent chat, or auto | Also reads `~/.claude/skills` and `~/.codex/skills`. |
-| Agent Skills standard (shared) | `agents` | `~/.agents/skills` | `.agents/skills/` | Depends on the harness | One folder read by several harnesses (OpenCode, Codex, Gemini, Cursor). Link once here to cover them. |
-| Any other agent | — (pass a path) | Your agent's skills dir | — | "Follow `{skill}/SKILL.md`" | No skill loading? Point the agent at the `SKILL.md` path. |
+| Harness                        | `link-skills.sh` name | User `<skills-dir>`                                       | Project-level dir                      | Invoke                                              | Notes                                                                                                                                 |
+| ------------------------------ | --------------------- | --------------------------------------------------------- | -------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code                    | `claude` (default)    | `~/.claude/skills`                                        | `.claude/skills/`                      | `/skill-name`, or auto-triggered from `description` | Honours `allowed-tools`; `Skill` tool lets one skill invoke another. Restart the session to reload.                                   |
+| OpenCode                       | `opencode`            | `~/.config/opencode/skills` (`$XDG_CONFIG_HOME` honoured) | `.opencode/skills/`                    | Loaded by the agent from `description`              | Also reads `~/.claude/skills` and `~/.agents/skills`; `name` must match the folder.                                                   |
+| Codex CLI                      | `codex`               | `~/.codex/skills` (`$CODEX_HOME` honoured)                | `.agents/skills/`                      | Loaded from `description`                           | User path from community docs, not confirmed in the official docs; check your version. `~/.agents/skills` is the safer shared choice. |
+| Gemini CLI                     | `gemini`              | `~/.gemini/skills`                                        | `.gemini/skills/` or `.agents/skills/` | Loaded from `description`                           | Also has `gemini skills install`.                                                                                                     |
+| Cursor                         | `cursor`              | `~/.cursor/skills`                                        | `.cursor/skills/`                      | `/skill-name` in Agent chat, or auto                | Also reads `~/.claude/skills` and `~/.codex/skills`.                                                                                  |
+| Agent Skills standard (shared) | `agents`              | `~/.agents/skills`                                        | `.agents/skills/`                      | Depends on the harness                              | One folder read by several harnesses (OpenCode, Codex, Gemini, Cursor). Link once here to cover them.                                 |
+| Any other agent                | — (pass a path)       | Your agent's skills dir                                   | —                                      | "Follow `{skill}/SKILL.md`"                         | No skill loading? Point the agent at the `SKILL.md` path.                                                                             |
 
 Paths change between harness versions. If a harness doesn't pick a skill up, check its docs, then pass the right directory as a path.
 

@@ -46,31 +46,31 @@ skill-name/
 
 ## Anatomy
 
-| Part | Rule |
-| ---- | ---- |
-| **`version`** | Integer. Bump on **schema** change only, never on each new entry. |
-| **`description` + `rules`** | The JSON documents itself: one line per field saying what it means and how it is matched. An agent editing the file without reading `SKILL.md` still writes valid entries. |
-| **Confidence tiers** | Separate entries the script may **auto-apply** (distinctive, unambiguous) from entries it may only **flag** for a human (short, real words, collisions). One tier per field, never a boolean per entry the script must interpret. |
-| **Negative list** | A top-level list of tokens confirmed to mean *nothing* (e.g. `known_noise`), so the agent's manual sweep stops re-asking. Only confirmed dead ends go here; merely unresolved items stay out so they surface again. |
-| **Canonical target** | Each entry names its one correct output (and, if relevant, its link target). Never list the target as its own variant. Resolve link targets against the existing source; never invent one. |
-| **Script** | Stdlib only; default path resolves the config relative to the script (`Path(__file__).parent.parent / "config" / …`) with a `--config`-style override. Dry-run by default; prints a report; exits 0 (report tool, not a gate) unless the skill is explicitly a gate. |
-| **Write-back rule** (in `SKILL.md`) | Each user confirmation → one dictionary write, in the same turn, without asking. A table maps *what the user said* → *which field to write*. Then tell the user, one line per entry, so growth stays visible and correctable. |
-| **Silence caveat** (in `SKILL.md`) | The script only knows listed entries. An empty report is not a clean bill of health, so `SKILL.md` adds a manual sweep for unlisted candidates and merges them into one list the user answers once. |
+| Part                                | Rule                                                                                                                                                                                                                                                                 |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`version`**                       | Integer. Bump on **schema** change only, never on each new entry.                                                                                                                                                                                                    |
+| **`description` + `rules`**         | The JSON documents itself: one line per field saying what it means and how it is matched. An agent editing the file without reading `SKILL.md` still writes valid entries.                                                                                           |
+| **Confidence tiers**                | Separate entries the script may **auto-apply** (distinctive, unambiguous) from entries it may only **flag** for a human (short, real words, collisions). One tier per field, never a boolean per entry the script must interpret.                                    |
+| **Negative list**                   | A top-level list of tokens confirmed to mean *nothing* (e.g. `known_noise`), so the agent's manual sweep stops re-asking. Only confirmed dead ends go here; merely unresolved items stay out so they surface again.                                                  |
+| **Canonical target**                | Each entry names its one correct output (and, if relevant, its link target). Never list the target as its own variant. Resolve link targets against the existing source; never invent one.                                                                           |
+| **Script**                          | Stdlib only; default path resolves the config relative to the script (`Path(__file__).parent.parent / "config" / …`) with a `--config`-style override. Dry-run by default; prints a report; exits 0 (report tool, not a gate) unless the skill is explicitly a gate. |
+| **Write-back rule** (in `SKILL.md`) | Each user confirmation → one dictionary write, in the same turn, without asking. A table maps *what the user said* → *which field to write*. Then tell the user, one line per entry, so growth stays visible and correctable.                                        |
+| **Silence caveat** (in `SKILL.md`)  | The script only knows listed entries. An empty report is not a clean bill of health, so `SKILL.md` adds a manual sweep for unlisted candidates and merges them into one list the user answers once.                                                                  |
 
 ## Exemplar walkthrough — `lint-transcript-normalise`
 
 Normalises garbled proper nouns in Whisper/Zoom transcripts before ingest.
 
-| Part | Where it lives |
-| ---- | -------------- |
-| Dictionary | `lint-transcript-normalise/config/corrections.json` — `version`, `description`, `rules` (one doc line per field), `known_noise`, `corrections[]` |
-| Confidence tiers | `variants` (case-insensitive, auto-fixed) vs `ambiguous_variants` (case-sensitive, flag only) |
-| Negative list | top-level `known_noise` — ignored by the script, read by the manual sweep |
-| Canonical target | `correct` (plain-text spelling) + `wikilink` (resolved `[[slug\|Display]]`, empty if no page exists) |
-| Script | `lint-transcript-normalise/scripts/normalise_transcript.py` — default config resolved next to the script, `--corrections` override, dry run by default, masks existing `[[…]]` spans, always exits 0 |
-| Write-back rule | `SKILL.md` → *5. Grow the dictionary — every time, without being asked*: the user-said → write table (new variant / ambiguous token / dead end) |
-| Silence caveat | `SKILL.md` → *2. Confirm the ambiguous mentions* → "The dictionary is not the whole picture" |
-| Schema in `SKILL.md` | `SKILL.md` → *Dictionary Schema* + *Matching Rules*: the contract, not the entries |
+| Part                 | Where it lives                                                                                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dictionary           | `lint-transcript-normalise/config/corrections.json` — `version`, `description`, `rules` (one doc line per field), `known_noise`, `corrections[]`                                                     |
+| Confidence tiers     | `variants` (case-insensitive, auto-fixed) vs `ambiguous_variants` (case-sensitive, flag only)                                                                                                        |
+| Negative list        | top-level `known_noise` — ignored by the script, read by the manual sweep                                                                                                                            |
+| Canonical target     | `correct` (plain-text spelling) + `wikilink` (resolved `[[slug\|Display]]`, empty if no page exists)                                                                                                 |
+| Script               | `lint-transcript-normalise/scripts/normalise_transcript.py` — default config resolved next to the script, `--corrections` override, dry run by default, masks existing `[[…]]` spans, always exits 0 |
+| Write-back rule      | `SKILL.md` → *5. Grow the dictionary — every time, without being asked*: the user-said → write table (new variant / ambiguous token / dead end)                                                      |
+| Silence caveat       | `SKILL.md` → *2. Confirm the ambiguous mentions* → "The dictionary is not the whole picture"                                                                                                         |
+| Schema in `SKILL.md` | `SKILL.md` → *Dictionary Schema* + *Matching Rules*: the contract, not the entries                                                                                                                   |
 
 **Why it succeeds:** every change to its `SKILL.md` so far has been a process or schema change; no entry has ever been added there. The ship-empty `corrections: []` makes the skill generic; each vault grows its own entries. The two tiers keep risky tokens (single letters, shared first names) from being silently rewritten, which is the failure that matters most in that domain: *a wrong name is worse than an unlinked one*.
 

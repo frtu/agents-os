@@ -14,25 +14,25 @@ The folder layout, frontmatter and reuse order in [`../README.md`](../README.md)
 
 ## Concepts
 
-| Concept | Symptom it fixes | Use when | Exemplar skill(s) | File |
-| ------- | ---------------- | -------- | ----------------- | ---- |
-| Extensible dictionary | `SKILL.md` is edited every time a new word, alias or mapping appears; users answer the same question twice | Lookup data grows with use and can be matched by rules a script applies | `lint-transcript-normalise` | [`extensible-dictionary.md`](./extensible-dictionary.md) |
-| Case studies | A role-playing skill drifts across contexts, or `SKILL.md` swells with one paragraph per new situation | A skill adopts a consistent attitude across many recurring shapes (situations, formats, failure patterns) | `review-engineering-director`, `retrospective-3-report`, `interview-1-preparation` | [`case-studies.md`](./case-studies.md) |
+| Concept               | Symptom it fixes                                                                                           | Use when                                                                                                  | Exemplar skill(s)                                                                  | File                                                     |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Extensible dictionary | `SKILL.md` is edited every time a new word, alias or mapping appears; users answer the same question twice | Lookup data grows with use and can be matched by rules a script applies                                   | `lint-transcript-normalise`                                                        | [`extensible-dictionary.md`](./extensible-dictionary.md) |
+| Case studies          | A role-playing skill drifts across contexts, or `SKILL.md` swells with one paragraph per new situation     | A skill adopts a consistent attitude across many recurring shapes (situations, formats, failure patterns) | `review-engineering-director`, `retrospective-3-report`, `interview-1-preparation` | [`case-studies.md`](./case-studies.md)                   |
 
 ## Concept file contract
 
 Every concept file has these sections, in this order:
 
-| Section | Content |
-| ------- | ------- |
-| **Frontmatter** | `concept` (slug = file name), `summary` (one line), `exemplars` (list of skill folders), `related` (other concept slugs) |
-| **Problem** | The recurring pain, phrased as the symptom an agent or user notices |
-| **Pattern** | The structural answer in 3–5 sentences, plus a folder/file sketch |
-| **Use when / Don't use when** | Decision criteria, including the neighbouring concept to pick instead |
-| **Anatomy** | The parts of the pattern and the rule each part follows |
-| **Exemplar walkthrough** | Where the real skill implements each part (file paths, section names), and what makes it succeed |
-| **Adoption checklist** | Numbered steps to apply the concept to a new or existing skill |
-| **Anti-patterns** | The failure shapes seen when the pattern is applied badly |
+| Section                       | Content                                                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Frontmatter**               | `concept` (slug = file name), `summary` (one line), `exemplars` (list of skill folders), `related` (other concept slugs) |
+| **Problem**                   | The recurring pain, phrased as the symptom an agent or user notices                                                      |
+| **Pattern**                   | The structural answer in 3–5 sentences, plus a folder/file sketch                                                        |
+| **Use when / Don't use when** | Decision criteria, including the neighbouring concept to pick instead                                                    |
+| **Anatomy**                   | The parts of the pattern and the rule each part follows                                                                  |
+| **Exemplar walkthrough**      | Where the real skill implements each part (file paths, section names), and what makes it succeed                         |
+| **Adoption checklist**        | Numbered steps to apply the concept to a new or existing skill                                                           |
+| **Anti-patterns**             | The failure shapes seen when the pattern is applied badly                                                                |
 
 ## Adding a concept
 
