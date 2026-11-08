@@ -192,8 +192,8 @@ Clean up and normalize various document formats and sources.
   /inbox-triage                             # scan default root, show table + proposals
   /inbox-triage /path/to/Workspaces --origin other-inbox
   ```
-- **[rewrite-clarity](./rewrite-clarity/)** — Apply Amazon-style clear writing rules to documents. Remove weasel words and improve clarity with data-driven language. Verbose phrases come from a committed dictionary (`config/word-replacements.json`) that `scripts/replace_words.py` applies without an agent; the skill grows it as new phrases are confirmed.
 
+- **[rewrite-clarity](./rewrite-clarity/)** — Apply Amazon-style clear writing rules to documents; deck-design rules to pitches; engagement rules (hook, takeaway, action, honest urgency) to announcements and invites. Remove weasel words and improve clarity with data-driven language. Verbose phrases come from a committed dictionary (`config/word-replacements.json`) that `scripts/replace_words.py` applies without an agent; the skill grows it as new phrases are confirmed.
 ### Interview Workflow
 
 End-to-end candidate evaluation from preparation through final assessment.
