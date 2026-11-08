@@ -26,6 +26,7 @@ Long form lives in the management Obsidian vault: `wiki/concepts/technologies/pi
 | H | Pain evidence = opinions, hypothetical surveys, demo compliments | P5, P3 | `h-opinions-as-evidence.md` | pain-points-and-evidence |
 | I | No ask, or the ask doesn't match what blocks growth | P11, P8 | `i-missing-ask.md` | pitch-narrative-and-structure |
 | J | Slide overload: many ideas per slide, dense, diagrams; no questions asked | P10, P12 | `j-slide-overload.md` | rehearsal-and-delivery |
+| K | Announcement/invite: info-dump or spoiler — logistics first, content given away, fake urgency, no reason to attend | P13, P1 | `k-spoiler-teaser-announcement.md` | rehearsal-and-delivery |
 
 **Case file structure.** Frontmatter has `case`, `name`, `shape`, `checks`, plus optional `guide` and `template`. The body runs **Before** → **Common approach** → **Why this one diverges** → **Interrogation** (the challenge, with check numbers) → **What surfaces** → **Distilled (what to do)** → **Lesson**.
 
@@ -38,7 +39,7 @@ Each guide has: *Load when* → *Default moves* → *Questions to fire* → *Tra
 | `pitch-narrative-and-structure.md` | Audience, spine, slide order, credibility → vision, the ask, internal-initiative mapping | A, B, D, F, I |
 | `pain-points-and-evidence.md` | Discovery interviews, workarounds, existing signals, evidence strength, testimonials | C, H |
 | `metrics-and-traction.md` | Hero facts, trends, metric definitions, unit economics, bottoms-up market | E, G |
-| `rehearsal-and-delivery.md` | Slide clarity, flash test, 20/20/20 practice, video, daily refinement | J |
+| `rehearsal-and-delivery.md` | Slide clarity, flash test, 20/20/20 practice, video, daily refinement; plus announcements/invites (teaser vs spoiler) | J, K |
 
 ## Templates — `../templates/`
 
@@ -51,14 +52,14 @@ Each guide has: *Load when* → *Default moves* → *Questions to fire* → *Tra
 
 ## Check quick map
 
-Numbers refer to the **Pitch Checks** table in `SKILL.md`: **P1** audience-fit · **P2** concrete one-liner · **P3** problem slice from the payer · **P4** quantified before/after · **P5** past-behaviour evidence · **P6** hero facts · **P7** bottoms-up market · **P8** credibility before vision · **P9** insight, moat, why now · **P10** legible/simple/obvious · **P11** explicit ask · **P12** overview + appendix.
+Numbers refer to the **Pitch Checks** table in `SKILL.md`: **P1** audience-fit · **P2** concrete one-liner · **P3** problem slice from the payer · **P4** quantified before/after · **P5** past-behaviour evidence · **P6** hero facts · **P7** bottoms-up market · **P8** credibility before vision · **P9** insight, moat, why now · **P10** legible/simple/obvious · **P11** explicit ask · **P12** overview + appendix · **P13** teaser sells the seat, not the content.
 
 ## Growing the library
 
 When you hit a **new recurring shape** no case captures, add it **without touching SKILL.md**:
 
 1. Confirm it is genuinely new (not a variant). A variant goes into the existing case's *What surfaces* or the relevant guide.
-2. Write `{next-letter}-{short-name}.md` here (next letter: **K**) with the frontmatter and body structure above.
+2. Write `{next-letter}-{short-name}.md` here (next letter: **L**) with the frontmatter and body structure above.
 3. Add one row to the Cases table with its checks and guide.
 4. If it opens a new theme, add a guide in `../guides/`, a row to the guides table here, and to SKILL.md's guide table (the only reason to edit SKILL.md).
 5. Keep it **generic**: no real names, companies, products or numbers — roles and shapes only.

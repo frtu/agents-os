@@ -41,7 +41,7 @@ A strategy doc that contains a problem statement can also get an Evidence audit 
 
 - `references/product-strategy-critique-methodology.md` — 6 strategic questions, competitor analysis, coherence & contradictions, market / why now, unit economics, bullseye, product-channel fit. **Strategy critique** draws from here.
 - `references/ai-prompting-product.md` — devil's-advocate prompting and AI limits.
-- `references/cases/README.md` — **pitch & pain-point library** index: cases A–J (failure shapes), theme guides, templates, and rules for adding cases. **Read the README first, then load only the matching case(s)** — never the whole library.
+- `references/cases/README.md` — **pitch & pain-point library** index: cases (recurring failure shapes, matched by *shape*), theme guides, templates, and rules for adding cases. **Read the README first, then load only the matching case(s)** — never the whole library. The registry is the only list of cases: adding one never changes this file.
 
 ### Theme guides (load on topic, at most one or two)
 
@@ -72,6 +72,7 @@ The test battery for any pitch or product presentation. Each carries the challen
 | P10 | **Legible, simple, obvious.** One idea per slide; title = claim; caption the conclusion; flash test. | "Flash it to a stranger — do they say your point immediately?" |
 | P11 | **Explicit ask.** Amount / headcount / mandate, use, the milestone it buys. | "How much, for what, reaching which milestone by when?" |
 | P12 | **Overview, not download.** 15–20 min to set up a conversation; appendix answers the predictable questions. | "Did your last audience ask questions? Where's the answer slide?" |
+| P13 | **Teaser sells the seat, not the content.** Announcements/invites tease the tension and the audience's part (Q&A, access); no spoilers, no unverified claims, urgency is real. | "After reading, do they know why to come — but still have a reason to show up?" |
 
 *(When giving feedback, never cite a bare "P6" — add its one-line meaning.)*
 
