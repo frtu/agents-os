@@ -1,27 +1,34 @@
-# Claude Code Skills Library
+# Agent Skills Library
 
-A collection of reusable skills for Claude Code that extend capabilities across document processing, knowledge management, interviews, code review, and workflow automation.
+A collection of reusable skills for LLM coding agents that extend capabilities across document processing, knowledge management, interviews, code review, and workflow automation.
 
 ## Overview
 
-This folder contains custom skills that can be symlinked to your Claude Code installation to add specialized functionality. Each skill is self-contained with its own configuration, scripts, and documentation.
+This folder contains custom skills that can be symlinked into your agent's skills directory to add specialized functionality. Each skill is self-contained with its own configuration, scripts, and documentation.
+
+Skills are **agent-agnostic**: a skill is a folder with a `SKILL.md` (YAML frontmatter + Markdown process) plus optional references and scripts. Any agent that can read files and run commands can use one: either its harness loads `SKILL.md` natively, or you point the agent at `{skill}/SKILL.md`. In this README, `<skills-dir>` is your agent's skills directory and `/skill-name` is the conventional way to invoke a skill (some agents use another syntax, or just "follow `skill-name/SKILL.md`").
 
 ## Installation
 
 ### Quick Start
 
-Use the included `link-skills.sh` script to symlink skills to your Claude Code skills folder:
+Use the included `link-skills.sh` script to symlink skills to your agent's skills directory:
 
 ```bash
-# Link a single skill to the default location (~/.claude/skills)
+# Link a single skill to the default harness's <skills-dir>
 ./link-skills.sh second-brain
 
 # Link multiple skills using wildcards
 ./link-skills.sh "second-brain*"
 
+# Link for a specific harness (claude, opencode, codex, gemini, cursor, agents)
+./link-skills.sh "second-brain*" opencode
+
 # Link to a custom location
 ./link-skills.sh lint-unformat /path/to/custom/skills
 ```
+
+Harness names and their skills directories are listed in [Agent-Specific Setup](#agent-specific-setup).
 
 ### Recommendation
 
@@ -46,20 +53,16 @@ Use the included `link-skills.sh` script to symlink skills to your Claude Code s
 
 1. Identify the skill folder you want to install (e.g., `second-brain`)
 
-2. Create a symlink from this folder to your Claude Code skills directory:
+2. Create a symlink from this folder to your agent's skills directory:
 
    ```bash
-   # Default Claude Code skills location
-   ln -s /path/to/agents-os-frtu/skills/second-brain ~/.claude/skills/second-brain
-
-   # Or to a custom location
-   ln -s /path/to/agents-os-frtu/skills/second-brain /custom/path/skills/second-brain
+   ln -s /path/to/agents-os-frtu/skills/second-brain <skills-dir>/second-brain
    ```
 
 3. Verify the symlink works:
 
    ```bash
-   ls -la ~/.claude/skills/  # Should show your linked skills
+   ls -la <skills-dir>/  # Should show your linked skills
    ```
 
 ## Skill Dependencies
@@ -212,7 +215,7 @@ Critical reviews from different perspectives (engineering, product, etc.).
 
 Miscellaneous tools for specific tasks.
 
-- **[claude-permissions-compress](./claude-permissions-compress/)** — Interactively compress Claude Code permissions files (settings.local.json). Groups entries by topic with danger ratings.
+- **[claude-permissions-compress](./claude-permissions-compress/)** — Interactively compress an agent harness's permission allowlist (`settings.local.json`). Groups entries by topic with danger ratings.
 - **[diagram-architecture](./diagram-architecture/)** — Generate architecture or integration diagrams using Mermaid syntax. Convert existing diagrams (PNG/JPG/SVG) to Mermaid.
 - **[transcribe-voice-memo](./transcribe-voice-memo/)** — Transcribe Apple Voice Memos using Whisper. Supports batch processing with language selection.
 
@@ -295,6 +298,8 @@ version: 0.1.0                   # optional, bump on behaviour change
 ---
 ```
 
+`name` and `description` are the portable core every agent understands. `allowed-tools` and `version` are optional hints: harnesses that support them apply them, others ignore them, so never put process rules in them.
+
 The `description` is the only part the harness always sees. It decides when the skill triggers, so list the trigger phrases and say how the skill differs from its neighbours (e.g. `research-deep` vs `second-brain-ingest`).
 
 ### SKILL.md body — recommended sections
@@ -358,25 +363,36 @@ The root `.gitignore` ignores `SKILL.md`, so a new skill's `SKILL.md` has to be 
 ### link-skills.sh
 
 ```bash
-./link-skills.sh [SKILL_NAME_PATTERN] [TARGET_SKILLS_DIR]
+./link-skills.sh [SKILL_NAME_PATTERN] [HARNESS | TARGET_SKILLS_DIR]
 
 Arguments:
   SKILL_NAME_PATTERN  - Name of skill(s) to link. Supports wildcards (e.g., "second-brain*")
-  TARGET_SKILLS_DIR   - (Optional) Target directory for symlinks.
-                        Defaults to ~/.claude/skills
+                        No argument → prints usage, known harnesses and available skills.
+  HARNESS | TARGET_SKILLS_DIR
+                      - (Optional) Where to link:
+                        * a directory path → linked there, as usual
+                          (a path contains "/", starts with "~" or ".", or already exists)
+                        * a known harness name → linked into that harness's skills dir
+                          (see Agent-Specific Setup)
+                        * anything else → error, nothing created (pass ./name to force a new dir)
+                        Defaults to the "claude" harness; override with
+                        LINK_SKILLS_DEFAULT_HARNESS=<harness>.
 
 Examples:
   ./link-skills.sh second-brain
-  ./link-skills.sh "second-brain*"
+  ./link-skills.sh "second-brain*" opencode
   ./link-skills.sh lint-unformat ~/custom/skills
+  ./link-skills.sh "interview*" ./my-skills
 ```
 
-## Claude Skills Directory Structure
+Tests: `./test-link-skills.sh` (runs against a throwaway `HOME`; never touches your real skills dirs).
 
-Once symlinked, your Claude Code skills directory structure looks like:
+## Linked Skills Directory Structure
+
+Once symlinked, your agent's skills directory looks like:
 
 ```text
-~/.claude/skills/
+<skills-dir>/
 ├── second-brain/          (symlink to agents-os-frtu/skills/second-brain)
 ├── second-brain-ingest/   (symlink to agents-os-frtu/skills/second-brain-ingest)
 ├── lint-unformat/         (symlink to agents-os-frtu/skills/lint-unformat)
@@ -389,14 +405,14 @@ Once symlinked, your Claude Code skills directory structure looks like:
 
 ```bash
 ./link-skills.sh "second-brain*"
-# Then use /second-brain in Claude Code to initialize vault
+# Then invoke /second-brain in your agent to initialize the vault
 ```
 
 ### Processing Interview Candidates
 
 ```bash
 ./link-skills.sh "interview*"
-# Then use /interview-eval in Claude Code
+# Then invoke /interview-eval in your agent
 ```
 
 ### Document Cleanup Pipeline
@@ -410,7 +426,7 @@ Once symlinked, your Claude Code skills directory structure looks like:
 
 ```bash
 ./link-skills.sh "weekly*"
-# Use /weekly-digest in Claude Code for full pipeline
+# Invoke /weekly-digest in your agent for the full pipeline
 ```
 
 
@@ -569,7 +585,7 @@ graph TD
 
 ## Environment Variables
 
-Some skills read shared environment variables to avoid repeating configuration on every invocation. Set these in your shell profile (`~/.zshrc`, `~/.bashrc`) or in a `.env` file sourced before starting Claude Code.
+Some skills read shared environment variables to avoid repeating configuration on every invocation. Set these in your shell profile (`~/.zshrc`, `~/.bashrc`) or in a `.env` file sourced before starting your agent.
 
 | Variable | Used by | Purpose | Default |
 |----------|---------|---------|---------|
@@ -604,10 +620,10 @@ A copy of this table is in [`skills/.env.example`](./.env.example).
 
 ```bash
 # Check if skill is already linked
-ls -la ~/.claude/skills/skill-name
+ls -la <skills-dir>/skill-name
 
 # Remove old symlink if needed
-rm ~/.claude/skills/skill-name
+rm <skills-dir>/skill-name
 ./link-skills.sh skill-name
 ```
 
@@ -615,18 +631,18 @@ rm ~/.claude/skills/skill-name
 
 ```bash
 # Verify symlink target
-readlink ~/.claude/skills/skill-name
+readlink <skills-dir>/skill-name
 
 # Recreate if necessary
-rm ~/.claude/skills/skill-name
+rm <skills-dir>/skill-name
 ./link-skills.sh skill-name /correct/path
 ```
 
-### Skill Not Found in Claude Code
+### Skill Not Found by Your Agent
 
-1. Verify symlink is in correct location: `ls ~/.claude/skills/`
+1. Verify symlink is in correct location: `ls <skills-dir>/`
 2. Ensure `SKILL.md` exists in the skill folder
-3. Restart Claude Code to reload skill cache
+3. Restart the agent session to reload its skill list (or point the agent at `{skill}/SKILL.md` directly)
 4. Check that the skill name in `SKILL.md` matches the folder name
 
 ## Contributing
@@ -637,15 +653,33 @@ To add a new skill, follow the skill factory checklist in [`AGENTS.md`](./AGENTS
 2. Create `{name}/SKILL.md` following [Skill Internal Structure & Composition](#skill-internal-structure--composition).
 3. Add it to the Skills Library, [Skill Dependencies](#skill-dependencies) (tree + Mermaid) and, if relevant, [Recommendation](#recommendation).
 4. `git add -f {name}/SKILL.md` (the root `.gitignore` ignores `SKILL.md`).
-5. Test with `./link-skills.sh {name}` and trigger it in Claude Code.
+5. Test with `./link-skills.sh {name}` and trigger it once in your agent.
 
 ## Resources
 
-- [Claude Code Documentation](https://github.com/anthropics/claude-code)
+- Your agent's documentation on skills / custom instructions
 - [Skill factory guide](./AGENTS.md) — how agents create and compose skills
 - [Obsidian](https://obsidian.md/) — Knowledge base platform
 - [Mermaid Diagrams](https://mermaid.js.org/) — Diagram syntax
 
 ## License
 
-These skills are provided as-is for use with Claude Code.
+These skills are provided as-is for use with any LLM coding agent.
+
+## Agent-Specific Setup
+
+The rest of this README is agent-agnostic. This section is the **only** place for harness-specific details: where each harness looks for skills, how it invokes them, and what it does with the optional frontmatter. `link-skills.sh` resolves the harness names below to these directories (keep the `harness_dir` function in the script in sync with this table).
+
+| Harness | `link-skills.sh` name | User `<skills-dir>` | Project-level dir | Invoke | Notes |
+| ------- | --------------------- | ------------------- | ----------------- | ------ | ----- |
+| Claude Code | `claude` (default) | `~/.claude/skills` | `.claude/skills/` | `/skill-name`, or auto-triggered from `description` | Honours `allowed-tools`; `Skill` tool lets one skill invoke another. Restart the session to reload. |
+| OpenCode | `opencode` | `~/.config/opencode/skills` (`$XDG_CONFIG_HOME` honoured) | `.opencode/skills/` | Loaded by the agent from `description` | Also reads `~/.claude/skills` and `~/.agents/skills`; `name` must match the folder. |
+| Codex CLI | `codex` | `~/.codex/skills` (`$CODEX_HOME` honoured) | `.agents/skills/` | Loaded from `description` | User path from community docs, not confirmed in the official docs; check your version. `~/.agents/skills` is the safer shared choice. |
+| Gemini CLI | `gemini` | `~/.gemini/skills` | `.gemini/skills/` or `.agents/skills/` | Loaded from `description` | Also has `gemini skills install`. |
+| Cursor | `cursor` | `~/.cursor/skills` | `.cursor/skills/` | `/skill-name` in Agent chat, or auto | Also reads `~/.claude/skills` and `~/.codex/skills`. |
+| Agent Skills standard (shared) | `agents` | `~/.agents/skills` | `.agents/skills/` | Depends on the harness | One folder read by several harnesses (OpenCode, Codex, Gemini, Cursor). Link once here to cover them. |
+| Any other agent | — (pass a path) | Your agent's skills dir | — | "Follow `{skill}/SKILL.md`" | No skill loading? Point the agent at the `SKILL.md` path. |
+
+Paths change between harness versions. If a harness doesn't pick a skill up, check its docs, then pass the right directory as a path.
+
+**Adding a harness:** add a `case` line to `harness_dir` and the name to `KNOWN_HARNESSES` in `link-skills.sh`, a check in `test-link-skills.sh`, and a row to the table above.

@@ -1,27 +1,33 @@
 #!/bin/bash
 
-# link-skills.sh - Symlink Claude Code skills from this folder to the user's skills directory
+# link-skills.sh - Symlink agent skills from this folder into an agent's skills directory
 #
 # Usage:
-#   ./link-skills.sh [SKILL_NAME_PATTERN] [TARGET_SKILLS_DIR]
+#   ./link-skills.sh [SKILL_NAME_PATTERN] [HARNESS | TARGET_SKILLS_DIR]
 #
 # Arguments:
 #   SKILL_NAME_PATTERN  - Name of skill(s) to link. Supports wildcards (e.g., "second-brain*")
-#                         If not provided, shows usage and available skills.
-#   TARGET_SKILLS_DIR   - (Optional) Target directory for symlinks.
-#                         Defaults to ~/.claude/skills
+#                         If not provided, shows usage, harnesses and available skills.
+#   HARNESS | TARGET_SKILLS_DIR
+#                       - (Optional) Where to link the skills:
+#                         * a directory path (contains "/", starts with "~" or ".",
+#                           or already exists) → linked there, as before
+#                         * a known harness name (claude, opencode, codex, gemini,
+#                           cursor, agents) → linked into that harness's skills dir
+#                         Defaults to the "claude" harness dir (DEFAULT_HARNESS).
 #
 # Examples:
 #   ./link-skills.sh second-brain
-#   ./link-skills.sh "second-brain*"
+#   ./link-skills.sh "second-brain*" opencode
 #   ./link-skills.sh lint-unformat ~/custom/skills
-#   ./link-skills.sh "interview*" /tmp/skills
+#   ./link-skills.sh "interview*" ./my-skills
 
 set -e
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULT_TARGET_DIR="${HOME}/.claude/skills"
+DEFAULT_HARNESS="${LINK_SKILLS_DEFAULT_HARNESS:-claude}"
+KNOWN_HARNESSES="claude opencode codex gemini cursor agents"
 
 # Color codes for output
 RED='\033[0;31m'
@@ -32,29 +38,90 @@ NC='\033[0m' # No Color
 
 # Functions
 
+# Print the user-level skills directory of a known harness, or fail.
+# Keep in sync with README → "Agent-Specific Setup".
+harness_dir() {
+    case "$1" in
+        claude)   echo "${HOME}/.claude/skills" ;;
+        opencode) echo "${XDG_CONFIG_HOME:-${HOME}/.config}/opencode/skills" ;;
+        codex)    echo "${CODEX_HOME:-${HOME}/.codex}/skills" ;;
+        gemini)   echo "${HOME}/.gemini/skills" ;;
+        cursor)   echo "${HOME}/.cursor/skills" ;;
+        agents)   echo "${HOME}/.agents/skills" ;;
+        *)        return 1 ;;
+    esac
+}
+
+# Resolve the 2nd argument to a target directory.
+# Path-like or existing directory → path; known harness → its dir; else error.
+resolve_target() {
+    local arg="$1"
+
+    if [ -z "$arg" ]; then
+        harness_dir "$DEFAULT_HARNESS"
+        return
+    fi
+
+    case "$arg" in
+        */* | "~"* | .*)
+            echo "${arg/#\~/$HOME}"
+            return
+            ;;
+    esac
+
+    if [ -d "$arg" ]; then
+        echo "$arg"
+        return
+    fi
+
+    if harness_dir "$arg"; then
+        return
+    fi
+
+    echo -e "${RED}✗ Unknown harness or directory: $arg${NC}" >&2
+    echo "  Known harnesses: $KNOWN_HARNESSES" >&2
+    echo "  To use a new directory with that name, pass it as a path: ./$arg" >&2
+    return 1
+}
+
+list_harnesses() {
+    echo ""
+    for h in $KNOWN_HARNESSES; do
+        local marker=""
+        [ "$h" = "$DEFAULT_HARNESS" ] && marker=" (default)"
+        printf "  • %-9s → %s%s\n" "$h" "$(harness_dir "$h")" "$marker"
+    done
+    echo ""
+}
+
 usage() {
     cat << EOF
-${BLUE}Claude Code Skills Linker${NC}
+$(echo -e "${BLUE}Agent Skills Linker${NC}")
 
-Link skills from this folder to your Claude Code skills directory.
+Link skills from this folder into an agent's skills directory.
 
-${YELLOW}Usage:${NC}
-  ./link-skills.sh [SKILL_NAME_PATTERN] [TARGET_SKILLS_DIR]
+$(echo -e "${YELLOW}Usage:${NC}")
+  ./link-skills.sh [SKILL_NAME_PATTERN] [HARNESS | TARGET_SKILLS_DIR]
 
-${YELLOW}Arguments:${NC}
+$(echo -e "${YELLOW}Arguments:${NC}")
   SKILL_NAME_PATTERN  - Name of skill(s) to link. Supports wildcards (e.g., "second-brain*")
                         If not provided, shows available skills.
-  TARGET_SKILLS_DIR   - (Optional) Target directory for symlinks.
-                        Defaults to: ${DEFAULT_TARGET_DIR}
+  HARNESS | TARGET_SKILLS_DIR
+                      - (Optional) A known harness name (see below) or a directory path.
+                        A path contains "/", starts with "~" or ".", or already exists.
+                        Defaults to the "${DEFAULT_HARNESS}" harness
+                        (override with LINK_SKILLS_DEFAULT_HARNESS).
 
-${YELLOW}Examples:${NC}
+$(echo -e "${YELLOW}Examples:${NC}")
   ./link-skills.sh second-brain
-  ./link-skills.sh "second-brain*"
+  ./link-skills.sh "second-brain*" opencode
   ./link-skills.sh lint-unformat ~/custom/skills
-  ./link-skills.sh "interview*" /tmp/skills
+  ./link-skills.sh "interview*" ./my-skills
 
-${YELLOW}Available Skills:${NC}
+$(echo -e "${YELLOW}Known Harnesses:${NC}")
 EOF
+    list_harnesses
+    echo -e "${YELLOW}Available Skills:${NC}"
     list_skills
 }
 
@@ -136,7 +203,7 @@ fi
 
 # Parse arguments
 SKILL_PATTERN="$1"
-TARGET_DIR="${2:-$DEFAULT_TARGET_DIR}"
+TARGET_DIR="$(resolve_target "${2:-}")" || exit 1
 
 # Expand the pattern to find matching skills
 matching_skills=()
@@ -168,9 +235,9 @@ failed_count=0
 
 for skill_dir in "${matching_skills[@]}"; do
     if create_symlink "$skill_dir" "$TARGET_DIR"; then
-        ((success_count++))
+        success_count=$((success_count + 1))
     else
-        ((failed_count++))
+        failed_count=$((failed_count + 1))
     fi
 done
 
@@ -181,8 +248,8 @@ if [ $failed_count -eq 0 ]; then
     echo ""
     echo "Next steps:"
     echo "  1. Verify symlinks: ls -la $TARGET_DIR/"
-    echo "  2. Restart Claude Code to reload skills"
-    echo "  3. Skills will appear in /list or autocomplete"
+    echo "  2. Restart your agent session to reload skills"
+    echo "  3. Invoke a skill (e.g. /skill-name) or point the agent at its SKILL.md"
     exit 0
 else
     echo -e "${YELLOW}⚠ Completed with $success_count linked, $failed_count skipped${NC}"

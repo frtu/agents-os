@@ -1,6 +1,16 @@
 # AGENTS.md — Skills library
 
-Instructions for any coding agent (Claude Code, Codex, Cursor, Gemini…) working in `skills/`.
+Instructions for any LLM coding agent working in `skills/`, whatever the vendor or harness.
+
+## Stay agent-agnostic
+
+Any LLM must be able to use and maintain these skills. When you write or edit a skill or these docs:
+
+- **Describe actions, not one vendor's tools.** Write "read the file", "run the script", "ask the user" rather than a harness-specific tool name. Shell commands and scripts are the portable layer.
+- **Keep the portable core in `SKILL.md`.** `name` + `description` + the Markdown process must be enough on their own. Harness-specific frontmatter (`allowed-tools`, …) is an optional hint other agents ignore; never put rules there.
+- **No vendor names or vendor paths** in `SKILL.md`, templates or these docs. Use `<skills-dir>` for the skills directory. Harness-specific paths and behaviour live only in README → *Agent-Specific Setup* and in `link-skills.sh`.
+- **`/skill-name` is a convention**, meaning "invoke that skill" (or "follow `skill-name/SKILL.md`" for agents without skill loading).
+- A skill whose **subject** is a specific harness (e.g. `claude-permissions-compress`) is fine; say so in its `description`.
 
 ## Read first
 
@@ -38,7 +48,7 @@ Check the README catalog and dependency graph, then decide:
 
 Follow README → *Skill Internal Structure & Composition*:
 
-- `SKILL.md`: frontmatter (`name` = folder name; `description` = what + when + trigger phrases + how it differs from its neighbours; `allowed-tools`), then the process.
+- `SKILL.md`: frontmatter (`name` = folder name; `description` = what + when + trigger phrases + how it differs from its neighbours; optional `allowed-tools` hint), then the process.
 - Generic output structure → `references/templates/{artifact}.md` (insight / style & format / questions to answer per section).
 - Specific instances → `references/cases/{letter}-{slug}.md` + `references/cases/README.md` registry.
 - Deterministic transforms → `scripts/` with a `test_*.py` next to each script.
@@ -50,7 +60,7 @@ Choose the reuse mechanism in the README's order: **invoke sub-skill → router 
 
 - Each piece of content has **one owner**. If you're about to paste another skill's rules, template or script, invoke it or link to it instead.
 - Only reuse **when relevant**. Don't add a dependency for a trivial overlap.
-- Name the hand-off explicitly in the new skill (*"run `/rewrite-clarity` next"*). Add `Skill` to `allowed-tools` if the skill invokes others automatically.
+- Name the hand-off explicitly in the new skill (*"run `/rewrite-clarity` next"*). If the skill invokes others automatically, say so in the process (and add the harness's skill-invocation tool to the optional `allowed-tools` hint, e.g. `Skill`).
 
 ### 5. Keep generic and specific apart
 
@@ -72,7 +82,7 @@ In the same change, update:
 - `name` matches the folder name; the frontmatter parses; every `references/` path mentioned in `SKILL.md` exists.
 - Scripts: run their tests.
 - Every dependency edge in the README matches a real reference in a `SKILL.md`. Check with `grep -rn '/{skill}' */SKILL.md`; don't draw edges from memory.
-- Optionally `./link-skills.sh {name}` and trigger the skill once with a real input.
+- Optionally `./link-skills.sh {name} [harness]` and trigger the skill once with a real input. If you changed `link-skills.sh`, run `./test-link-skills.sh`.
 
 ### 8. Stage
 
