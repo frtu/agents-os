@@ -16,6 +16,7 @@ The folder layout, frontmatter and reuse order in [`../README.md`](../README.md)
 
 | Concept | Symptom it fixes | Use when | Exemplar skill(s) | File |
 | ------- | ---------------- | -------- | ----------------- | ---- |
+| Extensible dictionary | `SKILL.md` is edited every time a new word, alias or mapping appears; users answer the same question twice | Lookup data grows with use and can be matched by rules a script applies | `lint-transcript-normalise` | [`extensible-dictionary.md`](./extensible-dictionary.md) |
 
 ## Concept file contract
 
