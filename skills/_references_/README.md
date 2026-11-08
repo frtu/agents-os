@@ -17,6 +17,7 @@ The folder layout, frontmatter and reuse order in [`../README.md`](../README.md)
 | Concept | Symptom it fixes | Use when | Exemplar skill(s) | File |
 | ------- | ---------------- | -------- | ----------------- | ---- |
 | Extensible dictionary | `SKILL.md` is edited every time a new word, alias or mapping appears; users answer the same question twice | Lookup data grows with use and can be matched by rules a script applies | `lint-transcript-normalise` | [`extensible-dictionary.md`](./extensible-dictionary.md) |
+| Case studies | A role-playing skill drifts across contexts, or `SKILL.md` swells with one paragraph per new situation | A skill adopts a consistent attitude across many recurring shapes (situations, formats, failure patterns) | `review-engineering-director`, `retrospective-3-report`, `interview-1-preparation` | [`case-studies.md`](./case-studies.md) |
 
 ## Concept file contract
 
