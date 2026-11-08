@@ -1,7 +1,7 @@
 ---
 concept: extensible-dictionary
 summary: Move growing lookup data (word replacements, mappings, allow/deny lists) out of SKILL.md into a version-controlled JSON config that a script reads and the agent grows after every user confirmation.
-exemplars: [lint-transcript-normalise]
+exemplars: [lint-transcript-normalise, transcribe-voice-memo]
 related: [case-studies]
 ---
 
@@ -42,6 +42,7 @@ skill-name/
 
 - The "entries" are judgement-heavy examples that need prose, context and a narrative → use [case-studies](./case-studies.md).
 - The list is short and closed (3–5 fixed values that won't grow) → keep it inline in `SKILL.md`.
+- The entries are tabular but **applying** them needs judgement (word replacements that depend on context, weasel-word patterns) → keep the tables in a `references/{topic}.md` the agent reads and applies (see `rewrite-clarity/references/writing-communication.md`). Move to JSON + script once matching becomes mechanical.
 - The data is someone else's source of truth (the vault's member pages, a team roster) → point to it; don't copy it into a dictionary.
 
 ## Anatomy
@@ -55,6 +56,7 @@ skill-name/
 | **Canonical target**                | Each entry names its one correct output (and, if relevant, its link target). Never list the target as its own variant. Resolve link targets against the existing source; never invent one.                                                                           |
 | **Script**                          | Stdlib only; default path resolves the config relative to the script (`Path(__file__).parent.parent / "config" / …`) with a `--config`-style override. Dry-run by default; prints a report; exits 0 (report tool, not a gate) unless the skill is explicitly a gate. |
 | **Write-back rule** (in `SKILL.md`) | Each user confirmation → one dictionary write, in the same turn, without asking. A table maps *what the user said* → *which field to write*. Then tell the user, one line per entry, so growth stays visible and correctable.                                        |
+| **Outcome write-back (variant)**    | When the right value is *measured*, not confirmed (a threshold, a risk score), the script appends each run's outcome to a log next to the config (CSV) and a `calibrate` command derives new values from it. Calibration is **dry-run first**, and the agent reports old → new values before applying.                                               |
 | **Silence caveat** (in `SKILL.md`)  | The script only knows listed entries. An empty report is not a clean bill of health, so `SKILL.md` adds a manual sweep for unlisted candidates and merges them into one list the user answers once.                                                                  |
 
 ## Exemplar walkthrough — `lint-transcript-normalise`
@@ -74,7 +76,20 @@ Normalises garbled proper nouns in Whisper/Zoom transcripts before ingest.
 
 **Why it succeeds:** every change to its `SKILL.md` so far has been a process or schema change; no entry has ever been added there. The ship-empty `corrections: []` makes the skill generic; each vault grows its own entries. The two tiers keep risky tokens (single letters, shared first names) from being silently rewritten, which is the failure that matters most in that domain: *a wrong name is worse than an unlinked one*.
 
-**Gap to avoid copying:** the script has no `test_normalise_transcript.py` yet. A new skill using this pattern should ship the test with a fixture dictionary (see README → *Folder layout*).
+**Gaps to avoid copying:** the script has no `test_normalise_transcript.py` yet. A new skill using this pattern should ship the test with a fixture dictionary (see README → *Folder layout*). Its `SKILL.md` also calls the script through a harness-specific path; use `<skills-dir>/{skill}/scripts/…` instead (AGENTS.md → *Stay agent-agnostic*).
+
+## Exemplar walkthrough — `transcribe-voice-memo` (outcome-calibrated variant)
+
+Chooses GPU vs CPU for Whisper from a risk score; the thresholds are learned from past runs rather than confirmed by the user.
+
+| Part                 | Where it lives                                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Dictionary           | `transcribe-voice-memo/config/risk_thresholds.json` — duration bounds, per-factor scores, risk-level cut-offs                          |
+| Outcome log          | `config/transcription_stats.csv`, written by the script at run time (local, not versioned) — one row per run: inputs, device, success, score |
+| Script               | `scripts/mode_selection/` — `analyze`, `calibrate --dry-run`, `calibrate`, `show-config`; tests in `scripts/tests/`                  |
+| Process in `SKILL.md` | *MPS Risk Evaluation* (the factor table and levels) + *Statistics & Calibration* (the commands) — never the current values          |
+
+**Why it succeeds:** a failure feeds the next decision automatically (recent-failure factor + the log), so the skill gets safer with use without anyone editing `SKILL.md`. **Watch:** the *MPS Risk Evaluation* table in `SKILL.md` restates the threshold values; after a calibration it drifts from the JSON. Describe the factors there and let `show-config` print the numbers.
 
 ## Adoption checklist
 
@@ -94,3 +109,5 @@ Normalises garbled proper nouns in Whisper/Zoom transcripts before ingest.
 - **Inventing targets.** A link or canonical form that doesn't exist in the source of truth creates a broken or wrong reference that looks authoritative.
 - **Version bump per entry.** Makes the version meaningless for detecting schema changes.
 - **Treating an empty report as "clean".** The script is only as good as its dictionary; keep the manual sweep.
+- **Values restated in `SKILL.md`.** A table of the current thresholds or entries "for readability" goes stale after the first write-back or calibration. Document fields and meaning; print values from the script.
+- **Silent calibration.** Applying derived values without a dry run hides a bad sample (one flaky run) behind an authoritative-looking config.

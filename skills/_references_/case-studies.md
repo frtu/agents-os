@@ -1,7 +1,7 @@
 ---
 concept: case-studies
 summary: Keep a role-playing skill's posture and heuristics stable in SKILL.md, and capture the many contexts it meets as small, generic case files indexed by a registry, loaded one at a time when the input matches a case's shape.
-exemplars: [review-engineering-director, retrospective-3-report, interview-1-preparation]
+exemplars: [review-engineering-director, review-product-strategy, retrospective-3-report, people-ingest, interview-1-preparation]
 related: [extensible-dictionary]
 ---
 
@@ -51,11 +51,12 @@ skill-name/
 
 | Part                                   | Rule                                                                                                                                                                                                                                                                                                                                                 |
 | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Posture + heuristics in `SKILL.md`** | The stable lens. Heuristics are **numbered** so cases can cite them (`heuristics: [18, 3, 7]`) without restating them.                                                                                                                                                                                                                               |
+| **Posture + heuristics in `SKILL.md`** | The stable lens. Heuristics are **numbered** so cases can cite them (`heuristics: [18, 3, 7]`) without restating them. The lens can also be a numbered **check battery** (`P1–P12`, each with the challenge to fire); cases then cite `checks: [P5, P3]`. In user-facing output, never cite a bare number — add its one-line meaning.                    |
 | **Pointer in `SKILL.md`**              | One short section: where the library lives, a one-line summary of each case family, and the loading rule. Never the case content.                                                                                                                                                                                                                    |
 | **Registry `cases/README.md`**         | Index table(s): case letter → *shape to match* → heuristics → file → guide/template. Grouped by family when cases differ in kind (e.g. doc-level vs situation-level). Includes the case file contract, provenance (synthetic vs anonymised) and *Growing the library* rules with the **next free letter**.                                           |
 | **Case file**                          | Frontmatter: `case`, `name`, `shape`, `heuristics`, optional `guide`/`template`. Fixed body sections so every case reads the same way, e.g. **Before** (weak claim/move) → **Common approach** → **Why this one diverges** → **Interrogation** (challenges, citing heuristic numbers) → **What surfaces** → **Distilled (what to do)** → **Lesson**. |
 | **"Why this one diverges"**            | The section that makes cases more than examples: it says when the textbook answer fails, so the role can disagree with the obvious move for a stated reason.                                                                                                                                                                                         |
+| **Cross-case rules (optional)**        | Guidance that applies to *every* case (e.g. "scale changes the tree's size, not its layers", with a size → shape table) lives **once** in the registry, so case files don't repeat it and a scale variant is not mistaken for a new shape.                                                                                                        |
 | **Guides (optional)**                  | A theme playbook (default moves, questions to fire, traps) that groups several cases. Add one when 2+ cases share a theme.                                                                                                                                                                                                                           |
 | **Templates (optional)**               | Generic artifacts to produce, each paired with the cases that motivate it.                                                                                                                                                                                                                                                                           |
 | **Loading rule**                       | Read the registry, then load **at most one case** (plus at most one guide/template). Never read the library up front or delegate selection to sub-agents.                                                                                                                                                                                            |
@@ -79,9 +80,17 @@ The skill adopts an Engineering Director's posture to review docs and coach lead
 
 **Why it succeeds:** the director's posture is written once and every case applies it through cited heuristic numbers, so the attitude stays the same whether the input is a promotion packet or a vendor negotiation. The library grew from 4 doc-level cases to 19 cases plus guides and templates; the growth rules say that adding a case does not touch `SKILL.md` (only a new guide does). *Why this one diverges* lets the director push back on the textbook answer with a reason.
 
+### `review-product-strategy` — a check battery instead of heuristics
+
+The lens is the *Pitch Checks (P1–P12)* table in `SKILL.md`, each row pairing a check with **the challenge to fire**. `references/cases/README.md` indexes cases A–J by *shape to match* → `checks` → file → guide, and states the loading rule ("usually one case and at most one guide, plus one template in Prepare mode"). It also records **where the library comes from** (public sources, plus a pointer to the long form in the vault), so provenance is auditable without leaking the source into the cases. Shows that the pattern works for a critique lens as well as a role.
+
+### `people-ingest` — structural cases with cross-case rules
+
+Cases are **how real vaults organised a knowledge base**, not situations, so the body contract changes: Context → Information structure → Articulations → Generic patterns → Anti-patterns. The registry adds *Adaptation guidance (applies to every case)* — a size → shape table — and its growth rules start with "confirm it's genuinely new (not a scale variant of an existing case)". Shows that the case file contract is chosen per skill; only the registry mechanics are fixed.
+
 ### `retrospective-3-report` — one template, many formats
 
-Cases are **worked examples by board format and failure pattern** (sailboat, 4Ls, WRAP, annual plan…). The registry `references/cases/README.md` indexes team → format → pattern → file, separates **synthetic** cases from **anonymised-from-real** ones, and states that a real team's history stays in the vault. Each case shows the format mapping, the review findings and the fixed output against the generic `references/templates/retrospective-report.md`. Rule worth reusing: *add a case only for a new format or failure pattern, not for every real retro*.
+Cases are **worked examples by board format and failure pattern** (sailboat, 4Ls, WRAP, goal-framed…). The registry `references/cases/README.md` indexes team → format → pattern → file, states that every case is **synthetic** (systems by category, people by role) and that a real team's history stays in the vault. Each case shows the format mapping, the review findings and the fixed output against the generic `references/templates/retrospective-report.md`. Rule worth reusing: *add a case only for a new format or failure pattern, not for every real retro*.
 
 ### `interview-1-preparation` — the registry as an extension point
 
@@ -108,3 +117,4 @@ Ships an **empty** `references/cases/README.md` registry and a sibling `referenc
 - **Reading the whole library** "to be safe" — defeats progressive disclosure and blurs which shape applies.
 - **No "why this one diverges".** The case collapses into the textbook answer and the role can't explain when to deviate.
 - **Registry without growth rules.** Without a contract and next letter, new cases drift in structure and the index goes stale.
+- **A process override disguised as a case.** A section that changes the *steps* or the scoring for one variant (e.g. a stage-specific scoring exception inline in `SKILL.md`) is not a case: move it to a steps registry (see `interview-1-preparation/references/steps/`) and keep `SKILL.md` generic.
