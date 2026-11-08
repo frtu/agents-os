@@ -88,60 +88,69 @@ The output path should be constructed as an **absolute path** in the user's curr
 Example: If invoked from `/Users/xxx`, output to:
 `/Users/xxx/raw/transcripts/2026-08-04 Meeting Notes.md`
 
-### MPS Risk Evaluation
+### MPS Risk Evaluation (apply layer: script only)
 
-The script evaluates MPS failure risk using multiple factors:
+With `device=auto`, the script scores the risk that Whisper fails on the GPU (MPS) and picks
+the device. The scoring reads `config/risk_thresholds.json` **as-is**. No agent or LLM is
+involved, and running a transcription never changes the thresholds.
 
-| Factor                   | Risk Points | Threshold                 |
-| ------------------------ | ----------- | ------------------------- |
-| Duration >30min          | +40         | High risk                 |
-| Duration >25min          | +20         | Moderate risk             |
-| Recent MPS failure (1hr) | +30         | GPU state may be unstable |
-| Low GPU memory (<2GB)    | +25         | Memory pressure           |
-| High bitrate (>256kbps)  | +10         | Complex audio             |
+| Factor | Why it adds risk |
+| ------ | ---------------- |
+| Long duration (above the *warn* / *safe* bounds) | NaN/inf errors accumulate over long audio in Whisper's attention layers |
+| Recent MPS failure (within the failure window) | GPU state may still be unstable |
+| Low free GPU memory | Memory pressure |
+| High bitrate | Complex audio |
 
-**Risk levels:**
-- **Low** (0-14): Use MPS
-- **Moderate** (15-29): Use MPS with fallback
-- **High** (30-49): Use CPU directly
-- **Critical** (50+): Use CPU directly
+The score maps to a level (low → MPS, moderate → MPS with CPU fallback, high or critical →
+CPU). The points, bounds and cut-offs live **only** in the JSON. Print them with:
 
-**Why MPS fails:** NaN/inf tensor errors in Whisper's attention layers due to numerical instability accumulating over long audio segments.
-
-### Auto-retry on MPS failure
-
-If MPS fails unexpectedly (tensor errors), the script:
-1. Records the failure (for future risk evaluation)
-2. Automatically retries with CPU
-3. No manual intervention needed
-
-Failure history persists for 1 hour, so subsequent transcriptions will detect the recent failure and use CPU preemptively.
-
-### Statistics & Calibration
-
-The script records every transcription outcome to `config/transcription_stats.csv`:
-- timestamp, duration, bitrate, device, success/failure, risk level/score
-- file_size_bytes, sample_rate_hz, channels, codec (for failure analysis)
-
-**Analyze statistics:**
-```bash
-PYTHONPATH=scripts python3 -m mode_selection analyze
-```
-
-Returns: total records, MPS success/failure counts, max successful duration, min failed duration, and suggested threshold updates.
-
-**Calibrate thresholds from statistics:**
-```bash
-PYTHONPATH=scripts python3 -m mode_selection calibrate --dry-run  # preview changes
-PYTHONPATH=scripts python3 -m mode_selection calibrate            # apply changes
-```
-
-Updates `config/risk_thresholds.json` with duration thresholds derived from actual success/failure patterns.
-
-**Show current config:**
 ```bash
 PYTHONPATH=scripts python3 -m mode_selection show-config
 ```
+
+### Auto-retry on MPS failure
+
+If MPS fails with a tensor error, the script records the failure in `.mps_failures` and
+retries on CPU, with no manual step. While the failure window is open, later runs see the
+recent failure and go to CPU directly.
+
+Every run also appends its outcome (duration, bitrate, codec, device, success, risk score) to
+`config/transcription_stats.csv`. That is local data for calibration, not versioned. Logging
+never changes the thresholds.
+
+## Without an agent (apply-only)
+
+Both scripts run from a plain shell, a cron job or a teammate's machine. They use the
+thresholds as they are; the dictionary is **used, never grown**.
+
+```bash
+S=<skills-dir>/transcribe-voice-memo/scripts
+bash $S/transcribe.sh "<recording.m4a>" English "<vault>/raw/transcripts/<YYYY-MM-DD> <name>.md"
+bash $S/batch_transcribe.sh "<vault>/raw/transcripts/" English 10   # newest memos without a transcript
+VOICE_MEMO_RISK_CONFIG=/path/to/pinned-thresholds.json bash $S/batch_transcribe.sh "<vault>/raw/transcripts/"
+```
+
+`batch_transcribe.sh` walks the newest recordings and stops at the first one that already has
+a transcript. `VOICE_MEMO_RISK_CONFIG` points both scripts at another thresholds file, e.g. a
+pinned copy shared across machines.
+
+## Maintain the thresholds (optional: agent layer)
+
+Calibration is the optional layer that makes the thresholds **evolve** from the logged
+outcomes. It is a nice-to-have. Run it when the user asks, or offer it once after a
+transcription reported an MPS failure. Never as a side effect of transcribing.
+
+1. **Analyze.** `PYTHONPATH=scripts python3 -m mode_selection analyze`: MPS success and failure
+   counts, longest success, shortest failure, suggested bounds.
+2. **Preview.** `PYTHONPATH=scripts python3 -m mode_selection calibrate --dry-run` prints
+   `old -> new` for the duration bounds.
+3. **Ask, then apply.** Show the user the `old -> new` lines and the sample size behind them.
+   Apply with `PYTHONPATH=scripts python3 -m mode_selection calibrate` only on their OK. Then
+   report one line per changed value.
+
+If the analysis prints `no_suggestion` (and `calibrate` refuses), duration does not separate
+MPS successes from failures on this machine, e.g. MPS also fails on very short memos. Don't
+force a value. Tell the user, and suggest `device=cpu` (or a pinned config) instead.
 
 ## Variables
 

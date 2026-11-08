@@ -192,6 +192,19 @@ class TranscriptionStats:
             result["suggested_safe"] = int(min(failures) * 0.7)
             result["suggested_warn"] = int(min(failures) * 0.85)
 
+        # Sanity guard: never suggest thresholds that can't be applied. When MPS
+        # fails at very short durations too, duration does not separate success
+        # from failure and the formulas above go to zero or negative.
+        if "suggested_safe" in result and (
+            result["suggested_safe"] <= 0 or result["suggested_warn"] <= result["suggested_safe"]
+        ):
+            result["no_suggestion"] = (
+                f"duration does not separate MPS success from failure "
+                f"(would suggest safe={result['suggested_safe']}, warn={result['suggested_warn']})"
+            )
+            del result["suggested_safe"]
+            del result["suggested_warn"]
+
         return result
 
 

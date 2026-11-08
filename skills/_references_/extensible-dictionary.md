@@ -100,10 +100,11 @@ Chooses GPU vs CPU for Whisper from a risk score; the thresholds are learned fro
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | Dictionary           | `transcribe-voice-memo/config/risk_thresholds.json` — duration bounds, per-factor scores, risk-level cut-offs                          |
 | Outcome log          | `config/transcription_stats.csv`, written by the script at run time (local, not versioned) — one row per run: inputs, device, success, score |
-| Script               | `scripts/mode_selection/` — `analyze`, `calibrate --dry-run`, `calibrate`, `show-config`; tests in `scripts/tests/`                  |
-| Process in `SKILL.md` | *MPS Risk Evaluation* (the factor table and levels) + *Statistics & Calibration* (the commands) — never the current values          |
+| Apply layer          | `scripts/transcribe.sh`, `scripts/batch_transcribe.sh` — no agent; read the JSON as-is (`VOICE_MEMO_RISK_CONFIG` to pin another file); log outcomes but never change thresholds |
+| Intelligence layer   | `scripts/mode_selection/` — `analyze`, `calibrate --dry-run`, `calibrate`, `show-config`; tests in `scripts/tests/`. `SKILL.md` → *Maintain the thresholds (optional: agent layer)*: analyze → preview → ask → apply |
+| Process in `SKILL.md` | *MPS Risk Evaluation* (factors and why they add risk, no values) + *Without an agent* + the maintenance steps                       |
 
-**Why it succeeds:** a failure feeds the next decision automatically (recent-failure factor + the log), so the skill gets safer with use without anyone editing `SKILL.md`. **Watch:** the *MPS Risk Evaluation* table in `SKILL.md` restates the threshold values; after a calibration it drifts from the JSON. Describe the factors there and let `show-config` print the numbers.
+**Why it succeeds:** a failure feeds the next decision automatically (recent-failure factor + the log), so the skill gets safer with use without anyone editing `SKILL.md`. The batch script works with no agent, and the thresholds only move through an explicit, previewed calibration. **Sanity guard worth copying:** `analyze` refuses to suggest values when the data can't separate the cases (MPS also failing on 3-second memos once gave `safe = -57`). It prints `no_suggestion` and `calibrate` exits non-zero instead of writing an unusable config.
 
 ## Adoption checklist
 
@@ -127,3 +128,4 @@ Chooses GPU vs CPU for Whisper from a risk score; the thresholds are learned fro
 - **Treating an empty report as "clean".** The script is only as good as its dictionary; keep the manual sweep.
 - **Values restated in `SKILL.md`.** A table of the current thresholds or entries "for readability" goes stale after the first write-back or calibration. Document fields and meaning; print values from the script.
 - **Silent calibration.** Applying derived values without a dry run hides a bad sample (one flaky run) behind an authoritative-looking config.
+- **Calibration without a sanity guard.** A formula fed data it can't separate (failures at every size) returns nonsense, zero or negative. Refuse to suggest, and say why.

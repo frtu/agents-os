@@ -11,6 +11,11 @@ set -euo pipefail
 #   output_path - Path for the output markdown file
 #   device      - (optional) "auto" (default), "mps", or "cpu"
 #                 auto: evaluates MPS failure risk and chooses optimal device
+#
+# Environment:
+#   VOICE_MEMO_RISK_CONFIG - (optional) thresholds JSON to use instead of
+#                 config/risk_thresholds.json. Read as-is, never modified here:
+#                 thresholds only change through `mode_selection calibrate`.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
@@ -70,6 +75,7 @@ if [[ "$DEVICE" == "auto" ]]; then
 
     # Build risk evaluation args
     RISK_ARGS="--failure-log $MPS_FAILURE_LOG"
+    [[ -n "${VOICE_MEMO_RISK_CONFIG:-}" ]] && RISK_ARGS="$RISK_ARGS --config $VOICE_MEMO_RISK_CONFIG"
     [[ "$DURATION" != "unknown" ]] && RISK_ARGS="$RISK_ARGS --duration $DURATION"
     [[ "$BITRATE" != "unknown" ]] && RISK_ARGS="$RISK_ARGS --bitrate $BITRATE"
 

@@ -128,6 +128,8 @@ def main():
             print(f"suggested_safe:{analysis['suggested_safe']}")
         if "suggested_warn" in analysis:
             print(f"suggested_warn:{analysis['suggested_warn']}")
+        if "no_suggestion" in analysis:
+            print(f"no_suggestion:{analysis['no_suggestion']}")
 
     elif args.command == "calibrate":
         stats_path = Path(args.stats_path) if args.stats_path else None
@@ -141,7 +143,8 @@ def main():
             sys.exit(1)
 
         if "suggested_safe" not in analysis:
-            print("Error: Not enough data to calibrate", file=sys.stderr)
+            reason = analysis.get("no_suggestion", "not enough data")
+            print(f"Error: cannot calibrate: {reason}", file=sys.stderr)
             sys.exit(1)
 
         config = RiskConfig.from_json(config_path)

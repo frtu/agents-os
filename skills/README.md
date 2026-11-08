@@ -217,7 +217,7 @@ Miscellaneous tools for specific tasks.
 
 - **[claude-permissions-compress](./claude-permissions-compress/)** — Interactively compress an agent harness's permission allowlist (`settings.local.json`). Groups entries by topic with danger ratings.
 - **[diagram-architecture](./diagram-architecture/)** — Generate architecture or integration diagrams using Mermaid syntax. Convert existing diagrams (PNG/JPG/SVG) to Mermaid.
-- **[transcribe-voice-memo](./transcribe-voice-memo/)** — Transcribe Apple Voice Memos using Whisper. Supports batch processing with language selection.
+- **[transcribe-voice-memo](./transcribe-voice-memo/)** — Transcribe Apple Voice Memos using Whisper. Supports batch processing with language selection. The scripts run without an agent using the thresholds as-is; calibrating them from logged outcomes is an optional agent step.
 
 ### Retrospective Workflow
 
@@ -591,6 +591,7 @@ Some skills read shared environment variables to avoid repeating configuration o
 | ----------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
 | `CHANGE_MANAGEMENT_REPO_PATH` | `change-management-7-diff`, `change-management-8-apply`                                          | Persistent directory where patch files are written and read. Lets you share patches across projects or keep them outside the repo.                                 | `.` (current working directory)                  |
 | `RETROSPECTIVE_FOLDER`        | `retrospective`, `retrospective-1-gather`, `retrospective-2-questions`, `retrospective-3-report` | Vault folder holding retro prep files and reports. Precedence: `folder=` parameter → this var → default.                                                           | `wiki/projects/_retrospective_`                  |
+| `VOICE_MEMO_RISK_CONFIG`      | `transcribe-voice-memo`                                                                          | Thresholds JSON for GPU/CPU selection, used as-is (e.g. a pinned copy shared across machines). Only `mode_selection calibrate` changes thresholds.                 | `transcribe-voice-memo/config/risk_thresholds.json` |
 | `WORKSPACES_ROOT`             | `inbox-triage`                                                                                   | Root folder containing one folder per vault; the origin vault (`global-inbox`) and target vaults live here. Precedence: positional parameter → this var → default. | `/Users/fred.tu/Documents/___Note___/Workspaces` |
 
 ### Patch file directory (`CHANGE_MANAGEMENT_REPO_PATH`)

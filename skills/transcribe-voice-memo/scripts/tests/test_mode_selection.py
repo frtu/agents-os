@@ -139,6 +139,20 @@ class TestTranscriptionStats(unittest.TestCase):
             self.assertIn("suggested_safe", analysis)
             self.assertIn("suggested_warn", analysis)
 
+    def test_analyze_no_suggestion_when_duration_not_predictive(self):
+        """MPS failing at very short durations must not yield <=0 thresholds."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            stats = TranscriptionStats(Path(tmpdir) / "stats.csv")
+            stats.record(duration=1360, bitrate=128, device="mps", success=True)
+            stats.record(duration=3, bitrate=128, device="mps", success=False)
+            stats.record(duration=1500, bitrate=128, device="mps", success=False)
+
+            analysis = stats.analyze()
+
+            self.assertNotIn("suggested_safe", analysis)
+            self.assertNotIn("suggested_warn", analysis)
+            self.assertIn("no_suggestion", analysis)
+
 
 class TestRiskEvaluatorFailures(unittest.TestCase):
     """Tests for MPS failure tracking."""
