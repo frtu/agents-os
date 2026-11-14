@@ -144,6 +144,7 @@ Workflows & Dependencies
 └── Utilities
     ├── claude-permissions-compress
     ├── diagram-architecture
+    ├── sec-audit
     └── transcribe-voice-memo
 ```
 
@@ -223,6 +224,10 @@ Miscellaneous tools for specific tasks.
 
 - **[claude-permissions-compress](./claude-permissions-compress/)** — Interactively compress an agent harness's permission allowlist (`settings.local.json`). Groups entries by topic with danger ratings.
 - **[diagram-architecture](./diagram-architecture/)** — Generate architecture or integration diagrams using Mermaid syntax. Convert existing diagrams (PNG/JPG/SVG) to Mermaid.
+- **[sec-audit](./sec-audit/)** — Read-only intrusion check of a Linux host over SSH. Takes a dated snapshot (logins, SSH keys, sshd, listeners, cron/systemd persistence, shell startup files, oh-my-zsh origin, packages, `dpkg -V` integrity) into `~/audit_history/<user@host>/`, flags red flags, and diffs against the previous snapshot. The script runs without an agent (cron/launchd); the agent triages and reports. Host-specific baselines (`case.md`, from `references/templates/host-case.md`) live next to the snapshots, outside the repo.
+  ```bash
+  sec-audit/scripts/sec-audit.sh collect [--quick] user@host   # then: list | diff
+  ```
 - **[transcribe-voice-memo](./transcribe-voice-memo/)** — Transcribe Apple Voice Memos using Whisper. Supports batch processing with language selection. The scripts run without an agent using the thresholds as-is; calibrating them from logged outcomes is an optional agent step.
 
 ### Retrospective Workflow
@@ -552,6 +557,7 @@ graph TD
     subgraph Util["Utility Skills"]
         DIAGRAM["diagram-architecture"]
         PERM["claude-permissions-compress"]
+        SECAUDIT["sec-audit"]
         VOICE["transcribe-voice-memo"]
     end
     
@@ -605,6 +611,8 @@ Some skills read shared environment variables to avoid repeating configuration o
 | ----------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
 | `CHANGE_MANAGEMENT_REPO_PATH` | `change-management-7-diff`, `change-management-8-apply`                                          | Persistent directory where patch files are written and read. Lets you share patches across projects or keep them outside the repo.                                 | `.` (current working directory)                  |
 | `RETROSPECTIVE_FOLDER`        | `retrospective`, `retrospective-1-gather`, `retrospective-2-questions`, `retrospective-3-report` | Vault folder holding retro prep files and reports. Precedence: `folder=` parameter → this var → default.                                                           | `wiki/projects/_retrospective_`                  |
+| `SEC_AUDIT_DIR`               | `sec-audit`                                                                                      | Where audit snapshots are written, one folder per `user@host`, with that host's `case.md` and `known-benign.txt`. Keep it outside any repo.                         | `~/audit_history`                                |
+| `SEC_AUDIT_HOST`              | `sec-audit`                                                                                      | Default `user@host` target when none is passed.                                                                                                                    | none                                             |
 | `VOICE_MEMO_RISK_CONFIG`      | `transcribe-voice-memo`                                                                          | Thresholds JSON for GPU/CPU selection, used as-is (e.g. a pinned copy shared across machines). Only `mode_selection calibrate` changes thresholds.                 | `transcribe-voice-memo/config/risk_thresholds.json` |
 | `WORKSPACES_ROOT`             | `inbox-triage`                                                                                   | Root folder containing one folder per vault; the origin vault (`global-inbox`) and target vaults live here. Precedence: positional parameter → this var → default. | `/Users/fred.tu/Documents/___Note___/Workspaces` |
 
