@@ -87,6 +87,11 @@ Workflows & Dependencies
 │   ├─ second-brain-ingest (Ingest)
 │   │  ├─ second-brain-lint (Health check)
 │   │  └─ second-brain-query (Search & synthesize)
+│   ├─ second-brain-ingest-advanced (Orchestrated 3-phase ingest, parallel writers)
+│   │  ├─ second-brain-ingest (Page shapes & categorization rules)
+│   │  ├─ lint-transcript-normalise [Optional: transcript sources]
+│   │  ├─ review-engineering-director / rewrite-clarity [Optional: phase-3 lens]
+│   │  └─ change-management-1-stage → change-management-9-log (On request)
 │   └─ second-brain-refactor (Split a folder into subcategories)
 │   └─ second-brain-reorg (Reorganize: theme areas / user taxonomy / carve an area)
 │
@@ -169,6 +174,7 @@ Build and maintain an Obsidian-based knowledge base with LLM assistance.
 
 - **[second-brain](./second-brain/)** — Set up a new Obsidian knowledge base with the LLM Wiki pattern. Interactive wizard for vault configuration.
 - **[second-brain-ingest](./second-brain-ingest/)** — Process raw source documents into wiki pages.
+- **[second-brain-ingest-advanced](./second-brain-ingest-advanced/)** — Orchestrate a large multi-source ingest with parallel writer sub-agents: atomic pages → bubble-up syntheses/references → optional external deliverable (e.g. a review). A pre-assigned slug contract (`plan.json`) plus script gates (scope, links, portal/log, staging lists) keep parallel writers safe and the run deterministic.
 - **[second-brain-lint](./second-brain-lint/)** — Health-check the wiki for contradictions, orphan pages, stale claims, and missing cross-references.
 - **[second-brain-query](./second-brain-query/)** — Answer questions against the knowledge base wiki and explore connections between topics.
 - **[second-brain-refactor](./second-brain-refactor/)** — Split a wiki folder into subcategories when a new taxonomy is needed.
@@ -466,6 +472,9 @@ graph TD
         SB --> SBINGEST
         SBINGEST --> SBLINT
         SBINGEST --> SBQUERY
+        SBADV["second-brain-ingest-advanced"]
+        SBADV -->|page rules| SBINGEST
+        SBADV -->|then| SBLINT
         SBLINT --> SBQUERY
         SBREF["second-brain-refactor"]
         SBREORG["second-brain-reorg"]
@@ -562,6 +571,10 @@ graph TD
     VOICE -->|transcript source| LTRANS
     INBOX -.->|proposes copies then| LTRANS
     INBOX -.->|proposes copies then| SBINGEST
+    LTRANS -.->|transcript sources| SBADV
+    SBADV -.->|phase-3 lens| REV_ENG
+    SBADV -.->|phase-3 lens| CLARITY
+    SBADV -.->|stage on request| CM1
     
     style CM fill:#e1f5ff
     style CM0 fill:#e1f5ff

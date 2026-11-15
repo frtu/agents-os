@@ -62,7 +62,8 @@ This protects context, parallelizes the slow reads, and is the intended reading 
 1. **Read-only inventory/extraction agents** — read a source (or a target vault's existing pages) and report back. They never write. Use them to parallelize slow reads and to snapshot a vault you're about to enrich.
 2. **A dedicated writer agent for an *independent* vault.** When an ingest spans two vaults (see section D), the writer for the **primary** vault is always the **main agent** (it owns cross-linking + naming). A **second, self-contained** vault (e.g. `security`) may be handed to one background writer sub-agent with a complete brief, because its pages don't cross-link back into the primary vault's fresh pages. Verify that writer's output afterward (read the files it claims to have changed).
 
-Never fan out multiple writers into the **same** vault in parallel — concurrent writers produce inconsistent slugs and duplicate pages.
+Never fan out multiple writers into the **same** vault in parallel — concurrent writers produce inconsistent slugs and duplicate pages. 
+Exception: `/second-brain-ingest-advanced`, which makes parallel writers safe with a pre-assigned slug contract, disjoint write scopes and script gates — use it for large multi-source runs.
 
 ### C. Honor a scoped ingest
 

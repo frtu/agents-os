@@ -1,0 +1,100 @@
+{
+  "run_id": "20260101-0900-example",
+  "date": "2026-01-01",
+  "vault": "/abs/path/to/vault",
+  "trigger": "<the user's instruction, verbatim>",
+  "target_system": "<one sentence: what this vault serves>",
+  "orchestrator_owned": ["wiki/portal.md", "wiki/log.md"],
+  "phases": [
+    {
+      "id": "1-atomic",
+      "parallel": true,
+      "lanes": [
+        {
+          "id": "members",
+          "template": "brief-atomic",
+          "sources": ["raw/<folder>/<team-synthesis>.md"],
+          "write_scope": ["wiki/people/members/person-a.md", "wiki/people/members/person-b.md"],
+          "creates": [
+            {"slug": "person-a", "dir": "wiki/people/members", "hint": "level, team"},
+            {"slug": "person-b", "dir": "wiki/people/members"}
+          ],
+          "updates": [],
+          "instructions": "One page per engineer: role line linking the level page, achievements with numbers exactly as sourced, challenges, competencies with track anchors, contribution weight, related features (use sibling slugs)."
+        },
+        {
+          "id": "features-specs",
+          "template": "brief-atomic",
+          "sources": ["raw/<folder>/<rollup>.md"],
+          "write_scope": ["wiki/product/features/", "wiki/product/specs/"],
+          "creates": [
+            {"slug": "feature-x", "dir": "wiki/product/features"},
+            {"slug": "spec-y", "dir": "wiki/product/specs"}
+          ],
+          "updates": [],
+          "instructions": "Problem (before) → what was built → outcomes before→after → business value (ROI / velocity / stability / cost) → contributors with split → decision owner."
+        },
+        {
+          "id": "patterns",
+          "template": "brief-atomic",
+          "sources": ["raw/<folder>/<rollup>.md"],
+          "write_scope": ["wiki/concepts/patterns/", "wiki/people/competencies/"],
+          "creates": [{"slug": "pattern-z", "dir": "wiki/concepts/patterns"}],
+          "updates": ["wiki/concepts/patterns/existing-pattern.md", "wiki/people/competencies/hiring.md"],
+          "instructions": "Frameworks coined or applied, as atomic patterns. Merge into an existing pattern when it already covers the idea (add a dated Field notes section)."
+        },
+        {
+          "id": "sources-profile",
+          "template": "brief-atomic",
+          "sources": ["raw/<folder>/<resume>.pdf", "raw/<folder>/<profile-export>.pdf"],
+          "write_scope": ["wiki/sources/", "wiki/people/members/subject.md", "wiki/people/members/subject-resume.md"],
+          "creates": [{"slug": "source-resume-subject", "dir": "wiki/sources"}],
+          "updates": ["wiki/people/members/subject.md", "wiki/people/members/subject-resume.md"],
+          "instructions": "One factual source page per raw source. Enrich the subject's profile; tag each fact by source; list contradictions between sources in the manifest gaps."
+        }
+      ]
+    },
+    {
+      "id": "2-bubble-up",
+      "parallel": true,
+      "lanes": [
+        {
+          "id": "product-rollup",
+          "template": "brief-bubble-up",
+          "sources": ["raw/<folder>/<rollup>.md"],
+          "write_scope": ["wiki/product/entities/", "wiki/synthesis/outcomes-rollup.md", "wiki/product/features/"],
+          "creates": [
+            {"slug": "platform-entity", "dir": "wiki/product/entities"},
+            {"slug": "outcomes-rollup", "dir": "wiki/synthesis"}
+          ],
+          "updates": [],
+          "instructions": "Entity page + outcomes synthesis; append a 'Bubbles up to' line to every feature page's Related."
+        },
+        {
+          "id": "evidence-map",
+          "template": "brief-bubble-up",
+          "sources": [],
+          "write_scope": ["wiki/synthesis/subject-evidence-map.md", "wiki/people/members/subject.md"],
+          "creates": [{"slug": "subject-evidence-map", "dir": "wiki/synthesis"}],
+          "updates": ["wiki/people/members/subject.md"],
+          "instructions": "Evidence → framework map (one table per dimension), top-10 hero facts, inconsistency ledger. Append one Related line to the profile."
+        }
+      ]
+    },
+    {
+      "id": "3-deliverable",
+      "parallel": false,
+      "lanes": [
+        {
+          "id": "deliverable",
+          "template": "brief-deliverable",
+          "sources": ["raw/<folder>/<resume>.pdf"],
+          "write_scope": ["output/review-subject.md"],
+          "creates": [{"slug": "review-subject", "dir": "output"}],
+          "updates": [],
+          "instructions": "Apply <skills-dir>/<lens-skill>/SKILL.md in adversarial mode, non-interactive; then the word-level clarity skill. Sections: bottom line, diagnosis, kill, downgrade, fix, missing, proposed rewrite with ↳ refs, before→after table, layout, unresolved, verdict, references."
+        }
+      ]
+    }
+  ]
+}
