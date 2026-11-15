@@ -5,6 +5,7 @@ learned. Match the user's ask to a case shape and load **only** that case, as a 
 
 | Case | Shape                                                                                                                                               | Phases                                 | File                                                                       |
 | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------- |
+| A    | Personal/team contribution sources plus a resume → member, feature, pattern and source pages → evidence map → resume review through a director lens | 1 (4 lanes) · 2 (2 lanes) · 3 (1 lane) | [a-contribution-to-resume-review.md](./a-contribution-to-resume-review.md) |
 
 ## Adding a case
 
