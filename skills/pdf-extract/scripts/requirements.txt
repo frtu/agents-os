@@ -1,0 +1,5 @@
+# Installed as binary wheels only (no compiler needed) by pdf-extract.sh
+pypdf>=4.0
+# AES-encrypted PDFs (pypdf uses it as crypto provider). Chosen over `cryptography`,
+# which may build from source with Rust on some platforms.
+pycryptodome>=3.18

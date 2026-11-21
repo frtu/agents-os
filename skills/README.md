@@ -100,6 +100,9 @@ Workflows & Dependencies
 │   │  └─ lint-transcript-normalise (Normalize)
 │   │     └─ second-brain-ingest (Ingest) [Optional]
 │   ├── inbox-triage (Transcript copy status)
+│   ├── pdf-extract (PDF → full-text .md next to each PDF)
+│   │  ├─ second-brain-ingest [Optional]
+│   │  └─ lint-unformat [Optional]
 │   ├── lint-unformat (Clean formatting)
 │   │  ├─ second-brain-ingest [Optional]
 │   │  └─ interview-2-capture-interview-q-a [Optional]
@@ -142,6 +145,7 @@ Workflows & Dependencies
 │   └── review-product-strategy (Product lens)
 │
 └── Utilities
+    ├── pdf-extract
     ├── claude-permissions-compress
     ├── diagram-architecture
     └── transcribe-voice-memo
@@ -221,6 +225,10 @@ Critical reviews from different perspectives (engineering, product, etc.).
 
 Miscellaneous tools for specific tasks.
 
+- **[pdf-extract](./pdf-extract/)** — Write a full-text Markdown file next to each PDF, with the same name (`a.pdf` → `a.md`). For each page it picks the better of the layout and plain text modes, falls back to OCR (macOS Vision, or tesseract), opens owner-locked or encrypted PDFs, and skips PDFs whose `.md` is unchanged (SHA-256). It never overwrites a `.md` it didn't write. `SKILL.md` only calls the scripts: `pdf_lib.py` holds the reusable functions and `pdf_to_md.py` orchestrates. Usage for humans and agents: [`references/usage.md`](./pdf-extract/references/usage.md).
+  ```bash
+  pdf-extract/scripts/pdf-extract.sh <file-or-dir> [-r] [--dry-run] [--json]   # --test runs the unit tests
+  ```
 - **[claude-permissions-compress](./claude-permissions-compress/)** — Interactively compress an agent harness's permission allowlist (`settings.local.json`). Groups entries by topic with danger ratings.
 - **[diagram-architecture](./diagram-architecture/)** — Generate architecture or integration diagrams using Mermaid syntax. Convert existing diagrams (PNG/JPG/SVG) to Mermaid.
 - **[transcribe-voice-memo](./transcribe-voice-memo/)** — Transcribe Apple Voice Memos using Whisper. Supports batch processing with language selection. The scripts run without an agent using the thresholds as-is; calibrating them from logged outcomes is an optional agent step.
@@ -550,6 +558,7 @@ graph TD
     end
     
     subgraph Util["Utility Skills"]
+        PDFX["pdf-extract"]
         DIAGRAM["diagram-architecture"]
         PERM["claude-permissions-compress"]
         VOICE["transcribe-voice-memo"]
@@ -569,6 +578,8 @@ graph TD
     CM1 -->|post-process| SBINGEST
     CM1 -->|post-process| IE
     VOICE -->|transcript source| LTRANS
+    PDFX -.->|optional ingest| SBINGEST
+    PDFX -.->|optional cleanup| LUNFORMAT
     INBOX -.->|proposes copies then| LTRANS
     INBOX -.->|proposes copies then| SBINGEST
     LTRANS -.->|transcript sources| SBADV
@@ -604,6 +615,10 @@ Some skills read shared environment variables to avoid repeating configuration o
 | Variable                      | Used by                                                                                          | Purpose                                                                                                                                                            | Default                                          |
 | ----------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
 | `CHANGE_MANAGEMENT_REPO_PATH` | `change-management-7-diff`, `change-management-8-apply`                                          | Persistent directory where patch files are written and read. Lets you share patches across projects or keep them outside the repo.                                 | `.` (current working directory)                  |
+| `PDF_EXTRACT_CACHE` | `pdf-extract` | Cache holding the compiled macOS OCR helper. | `~/.cache/pdf-extract` |
+| `PDF_EXTRACT_PASSWORD` | `pdf-extract` | Extra password tried on encrypted PDFs (keeps it out of command lines). | none |
+| `PDF_EXTRACT_PYTHON` | `pdf-extract` | Base interpreter used to create the venv. | `python3` |
+| `PDF_EXTRACT_VENV` | `pdf-extract` | Private venv the entry script creates and maintains. | `~/.cache/pdf-extract/venv` |
 | `RETROSPECTIVE_FOLDER`        | `retrospective`, `retrospective-1-gather`, `retrospective-2-questions`, `retrospective-3-report` | Vault folder holding retro prep files and reports. Precedence: `folder=` parameter → this var → default.                                                           | `wiki/projects/_retrospective_`                  |
 | `VOICE_MEMO_RISK_CONFIG`      | `transcribe-voice-memo`                                                                          | Thresholds JSON for GPU/CPU selection, used as-is (e.g. a pinned copy shared across machines). Only `mode_selection calibrate` changes thresholds.                 | `transcribe-voice-memo/config/risk_thresholds.json` |
 | `WORKSPACES_ROOT`             | `inbox-triage`                                                                                   | Root folder containing one folder per vault; the origin vault (`global-inbox`) and target vaults live here. Precedence: positional parameter → this var → default. | `/Users/fred.tu/Documents/___Note___/Workspaces` |
