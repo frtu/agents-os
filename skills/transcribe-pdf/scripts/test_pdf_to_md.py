@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit tests for pdf_to_md.py — the orchestrator's decisions (run: ./pdf-extract.sh --test)."""
+"""Unit tests for pdf_to_md.py — the orchestrator's decisions (run: ./transcribe-pdf.sh --test)."""
 
 import io
 import json
@@ -95,7 +95,7 @@ class TestDecisions(OrchestratorCase):
 
     def test_password_from_env(self):
         pdf = make_pdf(self.dir / "l.pdf", ["Locked text"], user_pwd="pw")
-        with mock.patch.dict("os.environ", {"PDF_EXTRACT_PASSWORD": "pw"}):
+        with mock.patch.dict("os.environ", {"TRANSCRIBE_PDF_PASSWORD": "pw"}):
             code, rep = self.report([str(pdf), "--ocr", "never"])
         self.assertEqual(rep["results"][0]["status"], "written")
 
@@ -115,7 +115,7 @@ class TestCli(OrchestratorCase):
         with redirect_stdout(out), self.assertRaises(SystemExit) as cm:
             orch.parse_args(["--help"])
         self.assertEqual(cm.exception.code, 0)
-        self.assertIn("pdf-extract.sh", out.getvalue())
+        self.assertIn("transcribe-pdf.sh", out.getvalue())
         self.assertIn("Exit code", out.getvalue())
         self.assertIn("invalid-input", out.getvalue())
 

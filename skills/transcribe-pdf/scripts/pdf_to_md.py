@@ -6,14 +6,14 @@ High-level only: discovery, loops, skip/overwrite decisions, choosing when
 to call OCR, reporting. All transformations live in `pdf_lib.py`; the Markdown
 body format lives in `references/templates/markdown-output.md`.
 
-    pdf-extract.sh <file-or-dir> [...] [options]
+    transcribe-pdf.sh <file-or-dir> [...] [options]
 
 Per input, the decision flow is:
 
     path missing, or a file that isn't a PDF . "invalid-input"
     target exists & not ours ............ skip "skipped-foreign" (unless --force)
     target ours & same source sha256 .... skip "skipped-up-to-date" (unless --force)
-    encrypted ........................... try "" then --password / $PDF_EXTRACT_PASSWORD
+    encrypted ........................... try "" then --password / $TRANSCRIBE_PDF_PASSWORD
                                           -> "locked" if none works
     per page: pypdf layout vs plain ..... keep the richer one
     page text < --min-chars ............. OCR that page (--ocr auto, default)
@@ -21,8 +21,8 @@ Per input, the decision flow is:
     write <same-name>.md atomically ..... "written" | "written-empty" (or "dry-run")
     unreadable / corrupt PDF ............ "error"
 
-Secrets: the password is read from $PDF_EXTRACT_PASSWORD, optionally pre-filled from
-~/.config/pdf-extract/.env by pdf-extract.sh (keys: references/.env.example).
+Secrets: the password is read from $TRANSCRIBE_PDF_PASSWORD, optionally pre-filled from
+~/.config/transcribe-pdf/.env by transcribe-pdf.sh (keys: references/.env.example).
 --password is an explicit override for one run. Nothing ever prompts.
 
 Exit code: 0 = all written or skipped
@@ -170,7 +170,7 @@ class _Parser(argparse.ArgumentParser):
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    ap = _Parser(prog="pdf-extract.sh", description=__doc__,
+    ap = _Parser(prog="transcribe-pdf.sh", description=__doc__,
                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("inputs", nargs="+", help="PDF files and/or directories")
     ap.add_argument("-r", "--recursive", action="store_true", help="descend into sub-directories")
@@ -193,7 +193,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                     help="output template (default references/templates/markdown-output.md)")
     ap.add_argument("--password", action="append", default=[],
                     help="explicit override: password to try on encrypted PDFs (repeatable). "
-                         "Normal source: $PDF_EXTRACT_PASSWORD")
+                         "Normal source: $TRANSCRIBE_PDF_PASSWORD")
     ap.add_argument("--json", action="store_true", help="print the report as JSON (for agents)")
     ap.add_argument("-q", "--quiet", action="store_true", help="print only the summary")
     return ap.parse_args(argv)
@@ -218,13 +218,13 @@ def print_report(results: list[dict], as_json: bool, quiet: bool) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     passwords = list(args.password)
-    if os.environ.get("PDF_EXTRACT_PASSWORD"):
-        passwords.append(os.environ["PDF_EXTRACT_PASSWORD"])
+    if os.environ.get("TRANSCRIBE_PDF_PASSWORD"):
+        passwords.append(os.environ["TRANSCRIBE_PDF_PASSWORD"])
 
     try:
         template = lib.load_template(args.template)
     except (OSError, ValueError) as exc:
-        print(f"pdf-extract.sh: error: cannot use template: {exc}", file=sys.stderr)
+        print(f"transcribe-pdf.sh: error: cannot use template: {exc}", file=sys.stderr)
         return 1
 
     results = [{"pdf": raw, "md": "", "status": "invalid-input", "pages": 0, "methods": "",

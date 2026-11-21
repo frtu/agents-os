@@ -1,7 +1,7 @@
 ---
 concept: secret-configuration
 summary: A skill reads every secret from an environment variable, optionally pre-filled from a private .env file (illustrated by references/.env.example), and lets a human override it explicitly, by a script parameter or by stating it to the agent, never by the agent guessing.
-exemplars: [pdf-extract]
+exemplars: [transcribe-pdf]
 related: [script-layering, extensible-dictionary]
 ---
 
@@ -55,8 +55,8 @@ Precedence, highest first:
 
 | Part | Rule |
 | --- | --- |
-| **Environment variable** | Named `{SKILL}_{THING}` (e.g. `PDF_EXTRACT_PASSWORD`). The only place the script reads a secret from, apart from the override. Read once (constants or `main`), never deep inside utils. Registered in the library README → *Environment Variables* |
-| **`references/.env.example`** | Committed. Lists every `{SKILL}_*` key the skill reads (secret or not), each with a comment and a **placeholder** (`PDF_EXTRACT_PASSWORD=change-me`). Never a real value. States where the real file goes and its permissions |
+| **Environment variable** | Named `{SKILL}_{THING}` (e.g. `TRANSCRIBE_PDF_PASSWORD`). The only place the script reads a secret from, apart from the override. Read once (constants or `main`), never deep inside utils. Registered in the library README → *Environment Variables* |
+| **`references/.env.example`** | Committed. Lists every `{SKILL}_*` key the skill reads (secret or not), each with a comment and a **placeholder** (`TRANSCRIBE_PDF_PASSWORD=change-me`). Never a real value. States where the real file goes and its permissions |
 | **`.env` file** (optional) | `~/.config/{skill}/.env`, `chmod 600`, created by the human (e.g. `cp references/.env.example ~/.config/{skill}/.env`, then edit). Never in the skill folder or the repo, never in `~/.cache/` (disposable). Path overridable with `{SKILL}_ENV_FILE` |
 | **Loader** (entry point) | Parses `KEY=VALUE` lines (never `source`s the file), loads only `{SKILL}_*` keys, never overwrites a variable already set, runs before any other setting is read. Implementation: [`skill-factory-scripts/bash.md`](./skill-factory-scripts/bash.md) §3 *Secrets and `.env`* |
 | **Override parameter** | An explicit flag (`--password`, `--token`), documented in `--help` as *explicit override*. It wins over the env var for that run only, and is never persisted |
@@ -66,11 +66,11 @@ Precedence, highest first:
 
 ## Exemplar walkthrough
 
-**`pdf-extract`** (encrypted-PDF password):
+**`transcribe-pdf`** (encrypted-PDF password):
 
-- Env var: `PDF_EXTRACT_PASSWORD`, read in `pdf-extract/scripts/pdf_to_md.py` `main()` and appended to the passwords tried by `pdf_lib.open_pdf`.
-- `.env.example`: `pdf-extract/references/.env.example` lists `PDF_EXTRACT_PASSWORD` and the optional path/cache keys with placeholders.
-- Optional `.env`: `pdf-extract/scripts/pdf-extract.sh` `load_env_file` loads `~/.config/pdf-extract/.env` (override with `PDF_EXTRACT_ENV_FILE`) before reading any other setting; only `PDF_EXTRACT_*` keys; shell wins. Tested in `test_pdf_extract_sh.py` (locked without it, written with it, shell value wins).
+- Env var: `TRANSCRIBE_PDF_PASSWORD`, read in `transcribe-pdf/scripts/pdf_to_md.py` `main()` and appended to the passwords tried by `pdf_lib.open_pdf`.
+- `.env.example`: `transcribe-pdf/references/.env.example` lists `TRANSCRIBE_PDF_PASSWORD` and the optional path/cache keys with placeholders.
+- Optional `.env`: `transcribe-pdf/scripts/transcribe-pdf.sh` `load_env_file` loads `~/.config/transcribe-pdf/.env` (override with `TRANSCRIBE_PDF_ENV_FILE`) before reading any other setting; only `TRANSCRIBE_PDF_*` keys; shell wins. Tested in `test_transcribe_pdf_sh.py` (locked without it, written with it, shell value wins).
 - Override parameter: `--password` (repeatable), help text *explicit override*.
 - Failure: no working password → status `locked`. `SKILL.md` maps it to "ask the user to set the env var or `.env`, or give it explicitly"; it never guesses.
 

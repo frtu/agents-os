@@ -1,4 +1,4 @@
-# pdf-extract — usage reference (humans & AI agents)
+# transcribe-pdf — usage reference (humans & AI agents)
 
 Writes `<name>.md` next to every `<name>.pdf`, holding the full text of every page.
 
@@ -8,16 +8,16 @@ Writes `<name>.md` next to every `<name>.pdf`, holding the full text of every pa
 ## Quick start
 
 ```bash
-S=<skills-dir>/pdf-extract/scripts
+S=<skills-dir>/transcribe-pdf/scripts
 
-$S/pdf-extract.sh ~/Documents/reports             # every PDF in the folder
-$S/pdf-extract.sh ~/Documents -r                  # … and in sub-folders
-$S/pdf-extract.sh a.pdf b.pdf                     # specific files
-$S/pdf-extract.sh ~/Documents/reports --dry-run   # what would happen, writes nothing
-$S/pdf-extract.sh --test                          # unit tests
+$S/transcribe-pdf.sh ~/Documents/reports             # every PDF in the folder
+$S/transcribe-pdf.sh ~/Documents -r                  # … and in sub-folders
+$S/transcribe-pdf.sh a.pdf b.pdf                     # specific files
+$S/transcribe-pdf.sh ~/Documents/reports --dry-run   # what would happen, writes nothing
+$S/transcribe-pdf.sh --test                          # unit tests
 ```
 
-On the first run, `pdf-extract.sh` creates a private venv (`~/.cache/pdf-extract/venv`) and installs
+On the first run, `transcribe-pdf.sh` creates a private venv (`~/.cache/transcribe-pdf/venv`) and installs
 `scripts/requirements.txt` from binary wheels only, so no compiler is needed. When
 `requirements.txt` changes, the next run reinstalls automatically.
 
@@ -38,7 +38,7 @@ Run it again at any time: unchanged PDFs are skipped (`skipped-up-to-date`).
 | `--squeeze` | off | Collapse runs of 3 or more spaces (smaller file, loses alignment) |
 | `--suffix S` | `.md` | Output suffix, e.g. `.pdf.md` to avoid clashing with existing notes |
 | `--template PATH` | `references/templates/markdown-output.md` | Output template for the Markdown body (see [Output format](#output-format)) |
-| `--password P` | none | **Explicit override** for one run: password to try on encrypted PDFs (repeatable). The normal source is `$PDF_EXTRACT_PASSWORD` |
+| `--password P` | none | **Explicit override** for one run: password to try on encrypted PDFs (repeatable). The normal source is `$TRANSCRIBE_PDF_PASSWORD` |
 | `--json` | off | Machine-readable report on stdout. Progress goes to stderr |
 | `-q`, `--quiet` | off | Print the summary line only |
 
@@ -46,29 +46,29 @@ Run it again at any time: unchanged PDFs are skipped (`skipped-up-to-date`).
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `PDF_EXTRACT_VENV` | `~/.cache/pdf-extract/venv` | Where the venv lives |
-| `PDF_EXTRACT_CACHE` | `~/.cache/pdf-extract` | Holds the compiled macOS OCR helper |
-| `PDF_EXTRACT_PASSWORD` | none | Password tried on encrypted PDFs: the default way to pass it |
-| `PDF_EXTRACT_ENV_FILE` | `~/.config/pdf-extract/.env` | Optional `KEY=VALUE` file loaded by `pdf-extract.sh` before anything else (only `PDF_EXTRACT_*` keys; a variable already set in the shell wins). Template: [`.env.example`](./.env.example) |
-| `PDF_EXTRACT_PYTHON` | `python3` | Interpreter used to create the venv |
-| `PDF_EXTRACT_TEST_OCR` | unset | Set to `1` to include the slow real-OCR test in `--test` |
+| `TRANSCRIBE_PDF_VENV` | `~/.cache/transcribe-pdf/venv` | Where the venv lives |
+| `TRANSCRIBE_PDF_CACHE` | `~/.cache/transcribe-pdf` | Holds the compiled macOS OCR helper |
+| `TRANSCRIBE_PDF_PASSWORD` | none | Password tried on encrypted PDFs: the default way to pass it |
+| `TRANSCRIBE_PDF_ENV_FILE` | `~/.config/transcribe-pdf/.env` | Optional `KEY=VALUE` file loaded by `transcribe-pdf.sh` before anything else (only `TRANSCRIBE_PDF_*` keys; a variable already set in the shell wins). Template: [`.env.example`](./.env.example) |
+| `TRANSCRIBE_PDF_PYTHON` | `python3` | Interpreter used to create the venv |
+| `TRANSCRIBE_PDF_TEST_OCR` | unset | Set to `1` to include the slow real-OCR test in `--test` |
 
 ### Passwords
 
-The script always reads the password from `PDF_EXTRACT_PASSWORD`. Highest precedence first:
+The script always reads the password from `TRANSCRIBE_PDF_PASSWORD`. Highest precedence first:
 
-1. **Explicit override:** `--password '…'` on the command line, or a password the user explicitly gives the agent (the agent passes it inline as `PDF_EXTRACT_PASSWORD='…'` for that run only)
-2. `PDF_EXTRACT_PASSWORD` already set in the shell
-3. Optional `~/.config/pdf-extract/.env`, loaded by `pdf-extract.sh`
+1. **Explicit override:** `--password '…'` on the command line, or a password the user explicitly gives the agent (the agent passes it inline as `TRANSCRIBE_PDF_PASSWORD='…'` for that run only)
+2. `TRANSCRIBE_PDF_PASSWORD` already set in the shell
+3. Optional `~/.config/transcribe-pdf/.env`, loaded by `transcribe-pdf.sh`
 
 ```bash
 # Optional, once: a private .env file (start from the example)
-mkdir -p ~/.config/pdf-extract
-cp <skills-dir>/pdf-extract/references/.env.example ~/.config/pdf-extract/.env
-chmod 600 ~/.config/pdf-extract/.env          # then edit PDF_EXTRACT_PASSWORD in your editor
+mkdir -p ~/.config/transcribe-pdf
+cp <skills-dir>/transcribe-pdf/references/.env.example ~/.config/transcribe-pdf/.env
+chmod 600 ~/.config/transcribe-pdf/.env          # then edit TRANSCRIBE_PDF_PASSWORD in your editor
 
 # One-off override
-$S/pdf-extract.sh locked.pdf --password '…'
+$S/transcribe-pdf.sh locked.pdf --password '…'
 ```
 
 No password works → status `locked`. Nothing ever prompts. Agents never guess a password. Rules: `_references_/secret-configuration.md` in the skills library.
@@ -77,7 +77,7 @@ No password works → status `locked`. Nothing ever prompts. Agents never guess 
 
 ```text
 path missing, or a file that isn't a PDF ..... invalid-input
-.md exists, not made by pdf-extract ......... skipped-foreign      (unless --force)
+.md exists, not made by transcribe-pdf ......... skipped-foreign      (unless --force)
 .md made by us from the same PDF (sha256) ... skipped-up-to-date   (unless --force)
 encrypted ................................... try "" (owner-only lock), then the passwords → else locked
 each page ................................... pypdf "layout" vs "plain": keep the richer one
@@ -96,7 +96,7 @@ The frontmatter is built in code (it's a machine contract: `source_sha256` and `
 ---
 source: "sample-report.pdf"
 source_sha256: "…"            # used to detect changes on re-run
-generator: "pdf-extract"      # marks the file as safe to regenerate
+generator: "transcribe-pdf"      # marks the file as safe to regenerate
 generator_version: "1.0.0"
 extracted_at: "2024-01-01T12:00:00"
 pages: 1
@@ -141,7 +141,7 @@ Run with `--json`. Stdout is a single JSON document:
 | `dry-run` | Would be written | none |
 | `skipped-up-to-date` | Already extracted from this exact PDF | none |
 | `skipped-foreign` | A `.md` the tool didn't write exists | Ask before `--force` |
-| `locked` | Encrypted, no working password | Ask the user to set `PDF_EXTRACT_PASSWORD` (shell or `.env`), or to give the password explicitly; then re-run. Never guess |
+| `locked` | Encrypted, no working password | Ask the user to set `TRANSCRIBE_PDF_PASSWORD` (shell or `.env`), or to give the password explicitly; then re-run. Never guess |
 | `error` | Unreadable or corrupt PDF; see `error` | Report it |
 | `invalid-input` | The input path doesn't exist, or is a file that isn't a PDF; see `error` (`not found` / `not a PDF or directory`) | Check the path with the user |
 
@@ -167,30 +167,30 @@ Exit codes: `0` = everything written or skipped · `1` = bad arguments, unreadab
 | `load_template(path=None)` · `fill(text, values)` | Read an output template (raises `ValueError` if a section is missing) · fill `{{PLACEHOLDERS}}` in one pass |
 
 ```python
-import sys; sys.path.insert(0, "<skills-dir>/pdf-extract/scripts")
+import sys; sys.path.insert(0, "<skills-dir>/transcribe-pdf/scripts")
 import pdf_lib as lib
 reader = lib.open_pdf("x.pdf")
 text, method = lib.extract_page_best(reader.pages[0])
 ```
 
-Run it with the skill's venv interpreter (`~/.cache/pdf-extract/venv/bin/python`) so `pypdf` is available.
+Run it with the skill's venv interpreter (`~/.cache/transcribe-pdf/venv/bin/python`) so `pypdf` is available.
 
 ## Files
 
 ```text
-pdf-extract/
+transcribe-pdf/
 ├── SKILL.md                 # caller only: when to run, which flags, how to report
 ├── references/
 │   ├── usage.md             # this file
-│   ├── .env.example         # every PDF_EXTRACT_* key, placeholders (copy to ~/.config/pdf-extract/.env)
+│   ├── .env.example         # every TRANSCRIBE_PDF_* key, placeholders (copy to ~/.config/transcribe-pdf/.env)
 │   └── templates/markdown-output.md   # body format of the generated .md (edit freely)
 └── scripts/
-    ├── pdf-extract.sh       # entry point: .env loading + venv bootstrap + run / --test
+    ├── transcribe-pdf.sh       # entry point: .env loading + venv bootstrap + run / --test
     ├── pdf_to_md.py         # orchestrator: discovery, loops, skip/OCR decisions, report
     ├── pdf_lib.py           # low-level reusable functions
     ├── ocr_macos.swift      # Vision OCR helper (compiled once into the cache)
     ├── requirements.txt     # pypdf, pycryptodome (binary wheels)
     ├── test_pdf_lib.py
     ├── test_pdf_to_md.py
-    └── test_pdf_extract_sh.py   # entry point: --help, .env loading
+    └── test_transcribe_pdf_sh.py   # entry point: --help, .env loading
 ```

@@ -49,7 +49,7 @@ scripts/
 ## 5. Paths, environment, dependencies
 
 - Resolve the skill's own files relative to the script (`Path(__file__).resolve().parent`), never the current directory. No hard-coded user paths; docs use `<skills-dir>`.
-- Env vars are named `{SKILL}_{THING}` (e.g. `PDF_EXTRACT_VENV`), listed in `--help` or `usage.md`, and registered in [`../../README.md`](../../README.md) → *Environment Variables*.
+- Env vars are named `{SKILL}_{THING}` (e.g. `TRANSCRIBE_PDF_VENV`), listed in `--help` or `usage.md`, and registered in [`../../README.md`](../../README.md) → *Environment Variables*.
 - Prefer the **Python 3 standard library**. Non-stdlib deps go in `requirements.txt`, installed by the entry point into a private venv at `~/.cache/{skill}/venv`, never into the user's global Python. Details: [`python.md`](./python.md) §1 and [`bash.md`](./bash.md) §3.
 - Runtime state (venv, compiled helpers, logs) goes under `~/.cache/{skill}/`, never into the skill folder.
 - Shell is for setup and glue; logic that needs tests goes in Python.

@@ -1,6 +1,6 @@
 # Skill factory — Python script conventions
 
-**Load in write mode** when you write or change a `.py` file in a skill's `scripts/`. General `scripts/` rules (what goes there, layers, CLI interface, tests) are in [`rules.md`](./rules.md); how a shell entry point launches Python is in [`bash.md`](./bash.md). Reference implementation: `pdf-extract/scripts/` (`pdf_lib.py`, `pdf_to_md.py`, `test_*.py`, `requirements.txt`).
+**Load in write mode** when you write or change a `.py` file in a skill's `scripts/`. General `scripts/` rules (what goes there, layers, CLI interface, tests) are in [`rules.md`](./rules.md); how a shell entry point launches Python is in [`bash.md`](./bash.md). Reference implementation: `transcribe-pdf/scripts/` (`pdf_lib.py`, `pdf_to_md.py`, `test_*.py`, `requirements.txt`).
 
 ## 1. Dependencies and the venv
 
@@ -115,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
 - **Build fixtures in code**, in a `tempfile.TemporaryDirectory()` created in `setUp` and cleaned in `tearDown`: generate the small PDF, vault or audio stub the test needs (`make_pdf` in `test_pdf_lib.py`). No binary fixtures committed, no real user data, no network.
 - Share fixture builders by importing them (`from test_pdf_lib import make_pdf`) or from a `_fixture.py`.
 - **Test the orchestrator through `main(argv)`** with `redirect_stdout` / `redirect_stderr`, and assert on exit code, JSON statuses and files on disk.
-- Use `unittest.mock` for external binaries and slow backends. Real slow or platform-specific runs are opt-in with an env var (`PDF_EXTRACT_TEST_OCR=1`) and skipped otherwise with `skipUnless`.
+- Use `unittest.mock` for external binaries and slow backends. Real slow or platform-specific runs are opt-in with an env var (`TRANSCRIBE_PDF_TEST_OCR=1`) and skipped otherwise with `skipUnless`.
 - Run everything with `python3 -m unittest discover -s scripts -p 'test_*.py'`, or `{skill}.sh --test` when there's a venv (tests need the same packages).
 
 ## 6. Checklist

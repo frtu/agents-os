@@ -100,7 +100,7 @@ Workflows & Dependencies
 │   │  └─ lint-transcript-normalise (Normalize)
 │   │     └─ second-brain-ingest (Ingest) [Optional]
 │   ├── inbox-triage (Transcript copy status)
-│   ├── pdf-extract (PDF → full-text .md next to each PDF)
+│   ├── transcribe-pdf (PDF → full-text .md next to each PDF)
 │   │  ├─ second-brain-ingest [Optional]
 │   │  └─ lint-unformat [Optional]
 │   ├── lint-unformat (Clean formatting)
@@ -298,7 +298,7 @@ skill-name/
 | `review-engineering-director`                                                            | `templates/` + `cases/` (failure shapes) with a registry; delegates to `rewrite-clarity`                                                               |
 | `interview-1-preparation`                                                                | `templates/` + `steps/` registry (per-step overrides) + `vault-map.md` (pointers into the one vault that owns the specifics) + empty `cases/` registry |
 | `lint-unformat`, `diagram-architecture`                                                  | `scripts/` with a test file next to each script                                                                                                        |
-| `pdf-extract`                                                                            | Layered `scripts/`: atomic utils (`pdf_lib.py`) + orchestrator (`pdf_to_md.py`) + entry point (`pdf-extract.sh`) + `references/usage.md`             |
+| `transcribe-pdf`                                                                            | Layered `scripts/`: atomic utils (`pdf_lib.py`) + orchestrator (`pdf_to_md.py`) + entry point (`transcribe-pdf.sh`) + `references/usage.md`             |
 | `lint-transcript-normalise`                                                              | `config/corrections.json` read by a script                                                                                                             |
 | `rewrite-clarity`                                                                        | `config/word-replacements.json` (committed default set) read by a script, with a test that validates the shipped JSON                                  |
 | `change-management`, `interview-eval`, `weekly-digest`, `retrospective`, `people-ingest` | Router + numbered sub-skills                                                                                                                           |
@@ -637,12 +637,12 @@ Some skills read shared environment variables to avoid repeating configuration o
 | Variable                      | Used by                                                                                          | Purpose                                                                                                                                                            | Default                                          |
 | ----------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
 | `CHANGE_MANAGEMENT_REPO_PATH` | `change-management-7-diff`, `change-management-8-apply`                                          | Persistent directory where patch files are written and read. Lets you share patches across projects or keep them outside the repo.                                 | `.` (current working directory)                  |
-| `PDF_EXTRACT_CACHE` | `pdf-extract` | Cache holding the compiled macOS OCR helper. | `~/.cache/pdf-extract` |
-| `PDF_EXTRACT_ENV_FILE` | `pdf-extract` | Optional `.env` the entry script loads first (keys: `pdf-extract/references/.env.example`). | `~/.config/pdf-extract/.env` |
-| `PDF_EXTRACT_PASSWORD` | `pdf-extract` | Password tried on encrypted PDFs (`--password` or a value the user gives explicitly overrides it for one run). | none |
-| `PDF_EXTRACT_PYTHON` | `pdf-extract` | Base interpreter used to create the venv. | `python3` |
-| `PDF_EXTRACT_VENV` | `pdf-extract` | Private venv the entry script creates and maintains. | `~/.cache/pdf-extract/venv` |
 | `RETROSPECTIVE_FOLDER`        | `retrospective`, `retrospective-1-gather`, `retrospective-2-questions`, `retrospective-3-report` | Vault folder holding retro prep files and reports. Precedence: `folder=` parameter → this var → default.                                                           | `wiki/projects/_retrospective_`                  |
+| `TRANSCRIBE_PDF_CACHE` | `transcribe-pdf` | Cache holding the compiled macOS OCR helper. | `~/.cache/transcribe-pdf` |
+| `TRANSCRIBE_PDF_ENV_FILE` | `transcribe-pdf` | Optional `.env` the entry script loads first (keys: `transcribe-pdf/references/.env.example`). | `~/.config/transcribe-pdf/.env` |
+| `TRANSCRIBE_PDF_PASSWORD` | `transcribe-pdf` | Password tried on encrypted PDFs (`--password` or a value the user gives explicitly overrides it for one run). | none |
+| `TRANSCRIBE_PDF_PYTHON` | `transcribe-pdf` | Base interpreter used to create the venv. | `python3` |
+| `TRANSCRIBE_PDF_VENV` | `transcribe-pdf` | Private venv the entry script creates and maintains. | `~/.cache/transcribe-pdf/venv` |
 | `VOICE_MEMO_RISK_CONFIG`      | `transcribe-voice-memo`                                                                          | Thresholds JSON for GPU/CPU selection, used as-is (e.g. a pinned copy shared across machines). Only `mode_selection calibrate` changes thresholds.                 | `transcribe-voice-memo/config/risk_thresholds.json` |
 | `WORKSPACES_ROOT`             | `inbox-triage`                                                                                   | Root folder containing one folder per vault; the origin vault (`global-inbox`) and target vaults live here. Precedence: positional parameter → this var → default. | `/Users/fred.tu/Documents/___Note___/Workspaces` |
 

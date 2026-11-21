@@ -1,5 +1,5 @@
 <!--
-pdf-extract output template: edit this file to change the Markdown body written next to each PDF.
+transcribe-pdf output template: edit this file to change the Markdown body written next to each PDF.
 No code change is needed. Existing .md files are only rewritten when their PDF changes, so re-run with --force to apply an edit to them.
 
 The frontmatter (source_sha256, generator, ...) is NOT here: it is a machine contract the script reads back, so it stays in code.

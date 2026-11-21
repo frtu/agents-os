@@ -1,6 +1,6 @@
 # Skill factory — Bash script conventions
 
-**Load in write mode** when you write or change a `.sh` file in a skill's `scripts/`, typically the **entry point** that sets things up and launches Python. General `scripts/` rules are in [`rules.md`](./rules.md); Python conventions (`requirements.txt`, venv contents, `main(argv)`) are in [`python.md`](./python.md). Reference implementation: `pdf-extract/scripts/pdf-extract.sh`.
+**Load in write mode** when you write or change a `.sh` file in a skill's `scripts/`, typically the **entry point** that sets things up and launches Python. General `scripts/` rules are in [`rules.md`](./rules.md); Python conventions (`requirements.txt`, venv contents, `main(argv)`) are in [`python.md`](./python.md). Reference implementation: `transcribe-pdf/scripts/transcribe-pdf.sh`.
 
 ## 1. Role of shell in a skill
 

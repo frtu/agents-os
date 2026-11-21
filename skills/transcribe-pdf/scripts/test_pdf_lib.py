@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit tests for pdf_lib.py (run: ./pdf-extract.sh --test)."""
+"""Unit tests for pdf_lib.py (run: ./transcribe-pdf.sh --test)."""
 
 import os
 import tempfile
@@ -80,11 +80,18 @@ class TestPaths(TmpDirCase):
 
     def test_frontmatter_and_ownership(self):
         md = self.dir / "a.md"
-        md.write_text('---\ngenerator: "pdf-extract"\nsource_sha256: "abc"\n---\n# x\n')
+        md.write_text('---\ngenerator: "transcribe-pdf"\nsource_sha256: "abc"\n---\n# x\n')
         self.assertEqual(lib.read_frontmatter(md)["source_sha256"], "abc")
         self.assertTrue(lib.is_generated_by_us(md))
         self.assertTrue(lib.is_up_to_date(Path("unused"), md, pdf_sha="abc"))
         self.assertFalse(lib.is_up_to_date(Path("unused"), md, pdf_sha="def"))
+
+    def test_md_from_former_skill_name_is_still_ours(self):
+        pdf = make_pdf(self.dir / "old.pdf", ["Old text"])
+        md = self.dir / "old.md"
+        md.write_text(f'---\ngenerator: "pdf-extract"\nsource_sha256: "{lib.file_sha256(pdf)}"\n---\n')
+        self.assertTrue(lib.is_generated_by_us(md))
+        self.assertTrue(lib.is_up_to_date(pdf, md))
 
     def test_foreign_md_not_ours(self):
         md = self.dir / "b.md"
@@ -155,7 +162,7 @@ class TestRender(unittest.TestCase):
         md = lib.render_markdown("Pay 01.pdf", self.meta, self.pages, "f" * 64,
                                  extracted_at="2026-01-01T00:00:00")
         self.assertTrue(md.startswith("---\nsource: \"Pay 01.pdf\"\n"))
-        self.assertIn('generator: "pdf-extract"', md)
+        self.assertIn('generator: "transcribe-pdf"', md)
         self.assertIn('methods: "layout,none"', md)
         self.assertIn("# Pay 01\n", md)
         self.assertIn("## Page 1\n\n<!-- method: layout -->\n\n```text\nLine  1\nLine 2\n```", md)
@@ -209,8 +216,8 @@ class TestVersion(unittest.TestCase):
         self.assertEqual(version, lib.GENERATOR_VERSION)
 
 
-@unittest.skipUnless(lib.ocr_backend() and os.environ.get("PDF_EXTRACT_TEST_OCR"),
-                     "set PDF_EXTRACT_TEST_OCR=1 to run the (slow) OCR test")
+@unittest.skipUnless(lib.ocr_backend() and os.environ.get("TRANSCRIBE_PDF_TEST_OCR"),
+                     "set TRANSCRIBE_PDF_TEST_OCR=1 to run the (slow) OCR test")
 class TestOcr(TmpDirCase):
     def test_ocr_reads_rendered_text(self):
         pdf = make_pdf(self.dir / "o.pdf", ["OCR SAMPLE TEXT 12345"])

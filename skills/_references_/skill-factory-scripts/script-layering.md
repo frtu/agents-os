@@ -1,7 +1,7 @@
 ---
 concept: script-layering
 summary: Put every deterministic step of a skill in scripts/ as reusable atomic utils, compose them in an optional use-case orchestrator that owns the loops, conditions and checks, and make each script operable by an agent or a human through --help (plus references/usage.md when needed).
-exemplars: [pdf-extract, second-brain-ingest-advanced, lint-unformat]
+exemplars: [transcribe-pdf, second-brain-ingest-advanced, lint-unformat]
 related: [extensible-dictionary, output-template]
 ---
 
@@ -56,12 +56,12 @@ Layers are optional from the top: utils alone are fine; add an orchestrator once
 
 ## Exemplar walkthrough
 
-**`pdf-extract`** (all three layers):
+**`transcribe-pdf`** (all three layers):
 
-- Atomic utils: `pdf-extract/scripts/pdf_lib.py` — `file_sha256`, `write_text_atomic`, `is_up_to_date`, `open_pdf`, `extract_page_text`, `ocr_pages`, `render_markdown`… each one action, tested in `test_pdf_lib.py`.
-- Orchestrator: `pdf-extract/scripts/pdf_to_md.py` — its docstring states it is "high-level only: discovery, loops, skip/overwrite decisions, choosing when to call OCR, reporting". The decision flow is written as a table in the docstring, and exit codes are documented (0 / 1 / 2). Tested in `test_pdf_to_md.py`.
-- Entry point: `pdf-extract/scripts/pdf-extract.sh` — creates a venv, reinstalls when `requirements.txt` changes, runs `--test`, then `exec`s the orchestrator.
-- Contract: `pdf-extract/references/usage.md` — *Quick start* and *Options* for humans, *Agent contract* for agents (`--json`, statuses), plus *Reusing the library from another skill*.
+- Atomic utils: `transcribe-pdf/scripts/pdf_lib.py` — `file_sha256`, `write_text_atomic`, `is_up_to_date`, `open_pdf`, `extract_page_text`, `ocr_pages`, `render_markdown`… each one action, tested in `test_pdf_lib.py`.
+- Orchestrator: `transcribe-pdf/scripts/pdf_to_md.py` — its docstring states it is "high-level only: discovery, loops, skip/overwrite decisions, choosing when to call OCR, reporting". The decision flow is written as a table in the docstring, and exit codes are documented (0 / 1 / 2). Tested in `test_pdf_to_md.py`.
+- Entry point: `transcribe-pdf/scripts/transcribe-pdf.sh` — creates a venv, reinstalls when `requirements.txt` changes, runs `--test`, then `exec`s the orchestrator.
+- Contract: `transcribe-pdf/references/usage.md` — *Quick start* and *Options* for humans, *Agent contract* for agents (`--json`, statuses), plus *Reusing the library from another skill*.
 - `SKILL.md` only resolves inputs, runs the entry point with `--json`, reports counts by status and maps `locked` / `written-empty` / `skipped-foreign` to follow-ups.
 
 What makes it succeed: re-running is safe (SHA-256 idempotency lives in the orchestrator, not in the agent's memory), and a human gets the same result from the same command.
