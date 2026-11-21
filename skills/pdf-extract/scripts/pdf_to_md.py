@@ -3,22 +3,31 @@
 pdf_to_md — orchestrator: write a full Markdown file next to every PDF.
 
 High-level only: discovery, loops, skip/overwrite decisions, choosing when
-to call OCR, reporting. All transformations live in `pdf_lib.py`.
+to call OCR, reporting. All transformations live in `pdf_lib.py`; the Markdown
+body format lives in `references/templates/markdown-output.md`.
 
-    python3 pdf_to_md.py <file-or-dir> [...] [options]
+    pdf-extract.sh <file-or-dir> [...] [options]
 
-Per PDF, the decision flow is:
+Per input, the decision flow is:
 
-    target exists & not ours ............ skip "foreign" (unless --force)
-    target ours & same source sha256 .... skip "up-to-date" (unless --force)
+    path missing, or a file that isn't a PDF . "invalid-input"
+    target exists & not ours ............ skip "skipped-foreign" (unless --force)
+    target ours & same source sha256 .... skip "skipped-up-to-date" (unless --force)
     encrypted ........................... try "" then --password / $PDF_EXTRACT_PASSWORD
                                           -> "locked" if none works
     per page: pypdf layout vs plain ..... keep the richer one
     page text < --min-chars ............. OCR that page (--ocr auto, default)
     --ocr always ........................ OCR every page;  --ocr never: no OCR
-    write <same-name>.md atomically ..... "written" (or "dry-run")
+    write <same-name>.md atomically ..... "written" | "written-empty" (or "dry-run")
+    unreadable / corrupt PDF ............ "error"
 
-Exit code: 0 = all OK/skipped, 1 = bad arguments, 2 = at least one PDF failed or locked.
+Secrets: the password is read from $PDF_EXTRACT_PASSWORD, optionally pre-filled from
+~/.config/pdf-extract/.env by pdf-extract.sh (keys: references/.env.example).
+--password is an explicit override for one run. Nothing ever prompts.
+
+Exit code: 0 = all written or skipped
+           1 = bad arguments, unreadable template, or an input path is invalid
+           2 = at least one PDF is locked or failed (takes precedence over 1)
 """
 
 from __future__ import annotations
@@ -36,8 +45,21 @@ import pdf_lib as lib
 # Discovery
 # --------------------------------------------------------------------------- #
 
+def invalid_inputs(inputs: list[str]) -> list[tuple[str, str]]:
+    """Return (input, reason) for each input that is neither a PDF file nor a directory."""
+    bad = []
+    for raw in inputs:
+        p = Path(raw).expanduser()
+        if not p.exists():
+            bad.append((raw, "not found"))
+        elif not p.is_dir() and not (p.is_file() and p.suffix.lower() == ".pdf"):
+            bad.append((raw, "not a PDF or directory"))
+    return bad
+
+
 def discover_pdfs(inputs: list[str], recursive: bool) -> list[Path]:
-    """Expand files/dirs into a sorted, de-duplicated list of PDFs (hidden files skipped)."""
+    """Expand files/dirs into a sorted, de-duplicated list of PDFs (hidden files skipped).
+    Invalid inputs are ignored here; `invalid_inputs` reports them."""
     found: set[Path] = set()
     for raw in inputs:
         p = Path(raw).expanduser()
@@ -50,8 +72,6 @@ def discover_pdfs(inputs: list[str], recursive: bool) -> list[Path]:
                     part.startswith(".") for part in f.relative_to(p).parts
                 ):
                     found.add(f.resolve())
-        else:
-            print(f"warning: not a PDF or directory: {raw}", file=sys.stderr)
     return sorted(found)
 
 
@@ -103,7 +123,7 @@ def extract_pages(pdf: Path, reader, args) -> list[lib.PageResult]:
     return pages
 
 
-def process_pdf(pdf: Path, args, passwords: list[str]) -> dict:
+def process_pdf(pdf: Path, args, passwords: list[str], template: dict[str, str]) -> dict:
     """Convert one PDF. Returns a result record (never raises)."""
     md = lib.target_md_path(pdf, args.suffix)
     rec = {"pdf": str(pdf), "md": str(md), "status": "", "pages": 0, "methods": "", "chars": 0}
@@ -122,7 +142,8 @@ def process_pdf(pdf: Path, args, passwords: list[str]) -> dict:
         notes = sorted({n for p in pages for n in p.notes})
         if notes:
             rec["notes"] = notes
-        text = lib.render_markdown(pdf.name, meta, pages, sha, body=args.body)
+        text = lib.render_markdown(pdf.name, meta, pages, sha, body=args.body,
+                                  template=template)
         if args.dry_run:
             rec["status"] = "dry-run"
         else:
@@ -140,8 +161,17 @@ def process_pdf(pdf: Path, args, passwords: list[str]) -> dict:
 # CLI
 # --------------------------------------------------------------------------- #
 
+class _Parser(argparse.ArgumentParser):
+    """argparse exits 2 on bad arguments; exit 1 instead, so 2 always means a PDF failed."""
+
+    def error(self, message: str) -> None:  # type: ignore[override]
+        self.print_usage(sys.stderr)
+        self.exit(1, f"{self.prog}: error: {message}\n")
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    ap = argparse.ArgumentParser(description="Write a full Markdown file next to each PDF.")
+    ap = _Parser(prog="pdf-extract.sh", description=__doc__,
+                 formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("inputs", nargs="+", help="PDF files and/or directories")
     ap.add_argument("-r", "--recursive", action="store_true", help="descend into sub-directories")
     ap.add_argument("-f", "--force", action="store_true",
@@ -159,9 +189,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                     help="fenced: page text in ```text blocks (keeps alignment, default)")
     ap.add_argument("--squeeze", action="store_true", help="collapse runs of 3+ spaces")
     ap.add_argument("--suffix", default=".md", help='output suffix (default ".md")')
+    ap.add_argument("--template", default=None,
+                    help="output template (default references/templates/markdown-output.md)")
     ap.add_argument("--password", action="append", default=[],
-                    help="password to try on encrypted PDFs (repeatable); "
-                         "also read from $PDF_EXTRACT_PASSWORD")
+                    help="explicit override: password to try on encrypted PDFs (repeatable). "
+                         "Normal source: $PDF_EXTRACT_PASSWORD")
     ap.add_argument("--json", action="store_true", help="print the report as JSON (for agents)")
     ap.add_argument("-q", "--quiet", action="store_true", help="print only the summary")
     return ap.parse_args(argv)
@@ -189,15 +221,23 @@ def main(argv: list[str] | None = None) -> int:
     if os.environ.get("PDF_EXTRACT_PASSWORD"):
         passwords.append(os.environ["PDF_EXTRACT_PASSWORD"])
 
-    pdfs = discover_pdfs(args.inputs, args.recursive)
-    results = []
-    for pdf in pdfs:
-        rec = process_pdf(pdf, args, passwords)
+    try:
+        template = lib.load_template(args.template)
+    except (OSError, ValueError) as exc:
+        print(f"pdf-extract.sh: error: cannot use template: {exc}", file=sys.stderr)
+        return 1
+
+    results = [{"pdf": raw, "md": "", "status": "invalid-input", "pages": 0, "methods": "",
+                "chars": 0, "error": reason} for raw, reason in invalid_inputs(args.inputs)]
+    for pdf in discover_pdfs(args.inputs, args.recursive):
+        rec = process_pdf(pdf, args, passwords, template)
         results.append(rec)
         if not args.json and not args.quiet:
             print(f"… {rec['status']}: {pdf.name}", file=sys.stderr)
     print_report(results, args.json, args.quiet)
-    return 2 if any(r["status"] in ("error", "locked") for r in results) else 0
+    if any(r["status"] in ("error", "locked") for r in results):
+        return 2
+    return 1 if any(r["status"] == "invalid-input" for r in results) else 0
 
 
 if __name__ == "__main__":

@@ -17,7 +17,7 @@ Groups:
   - text extraction ..... extract_page_text, extract_page_best, count_chars,
                           has_enough_text, clean_text
   - OCR ................. ocr_backend, ocr_pages
-  - rendering ........... PageResult, render_markdown
+  - rendering ........... PageResult, load_template, fill, render_markdown
 """
 
 from __future__ import annotations
@@ -36,8 +36,9 @@ from pathlib import Path
 from typing import Iterable
 
 GENERATOR = "pdf-extract"
-GENERATOR_VERSION = "1.0.0"
+GENERATOR_VERSION = "1.1.0"   # keep equal to `version` in ../SKILL.md (tested)
 SCRIPTS_DIR = Path(__file__).resolve().parent
+DEFAULT_TEMPLATE = SCRIPTS_DIR.parent / "references" / "templates" / "markdown-output.md"
 CACHE_DIR = Path(os.environ.get("PDF_EXTRACT_CACHE", Path.home() / ".cache" / "pdf-extract"))
 
 
@@ -327,13 +328,41 @@ def _yaml_value(v) -> str:
     return f'"{s}"'
 
 
-def render_markdown(source_name: str, meta: dict, pages: list[PageResult], pdf_sha: str,
-                    body: str = "fenced", extracted_at: str | None = None) -> str:
+TEMPLATE_SECTIONS = ("document", "page", "empty-page")
+_SECTION_MARKER = re.compile(r"^<!-- @([a-z-]+) -->[ \t]*$", re.MULTILINE)
+_PLACEHOLDER = re.compile(r"\{\{([A-Z_]+)\}\}")
+
+
+def load_template(path: Path | str | None = None) -> dict[str, str]:
     """
-    Build the full Markdown document.
+    Read an output template: `<!-- @name -->` marker lines split it into sections.
+    Text before the first marker is ignored. Raises ValueError if a section is missing.
+    """
+    text = Path(path or DEFAULT_TEMPLATE).read_text(encoding="utf-8")
+    parts = _SECTION_MARKER.split(text)
+    sections = {parts[i]: parts[i + 1].strip("\n") for i in range(1, len(parts) - 1, 2)}
+    missing = [n for n in TEMPLATE_SECTIONS if n not in sections]
+    if missing:
+        raise ValueError(f"template {path or DEFAULT_TEMPLATE} is missing section(s): {', '.join(missing)}")
+    return sections
+
+
+def fill(template: str, values: dict[str, str]) -> str:
+    """Replace {{NAME}} placeholders in one pass (inserted values are never re-scanned).
+    Unknown placeholders are left visible."""
+    return _PLACEHOLDER.sub(lambda m: values.get(m.group(1), m.group(0)), template)
+
+
+def render_markdown(source_name: str, meta: dict, pages: list[PageResult], pdf_sha: str,
+                    body: str = "fenced", extracted_at: str | None = None,
+                    template: dict[str, str] | None = None) -> str:
+    """
+    Build the full Markdown document: frontmatter (machine contract, built here) + body
+    (format owned by the template, see ../references/templates/markdown-output.md).
       body="fenced": each page's text in a ```text block (keeps alignment; safe for tables)
       body="raw":    each page's text as-is (reads as prose; alignment is lost when rendered)
     """
+    tpl = template or load_template()
     methods = sorted({p.method for p in pages})
     fm = {
         "source": source_name,
@@ -349,21 +378,19 @@ def render_markdown(source_name: str, meta: dict, pages: list[PageResult], pdf_s
         "pdf_created": meta.get("created"),
         "encrypted": meta.get("encrypted", False),
     }
-    out = ["---"]
-    out += [f"{k}: {_yaml_value(v)}" for k, v in fm.items()]
-    out += ["---", "", f"# {meta.get('title') or Path(source_name).stem}", ""]
+    frontmatter = "\n".join(["---", *(f"{k}: {_yaml_value(v)}" for k, v in fm.items()), "---"])
+
+    rendered = []
     for p in pages:
-        out.append(f"## Page {p.number}")
-        out.append("")
-        out.append(f"<!-- method: {p.method}{'; ' + '; '.join(p.notes) if p.notes else ''} -->")
-        out.append("")
         text = p.text.strip("\n")
         if not text:
-            out.append("_(no text found on this page)_")
+            text = tpl["empty-page"]
         elif body == "fenced":
             fence = "````" if "```" in text else "```"
-            out += [f"{fence}text", text, fence]
-        else:
-            out.append(text)
-        out.append("")
-    return "\n".join(out).rstrip("\n") + "\n"
+            text = f"{fence}text\n{text}\n{fence}"
+        method = p.method + ("; " + "; ".join(p.notes) if p.notes else "")
+        rendered.append(fill(tpl["page"], {"PAGE_NUMBER": str(p.number), "METHOD": method, "TEXT": text}))
+
+    title = meta.get("title") or Path(source_name).stem
+    doc = fill(tpl["document"], {"TITLE": title, "PAGES": "\n\n".join(rendered)})
+    return (frontmatter + "\n\n" + doc).rstrip("\n") + "\n"

@@ -175,6 +175,40 @@ class TestRender(unittest.TestCase):
             self.assertEqual(lib.read_frontmatter(p)["source_sha256"], "abc")
 
 
+class TestTemplate(unittest.TestCase):
+    def test_default_template_has_every_section(self):
+        tpl = lib.load_template()
+        self.assertEqual(set(lib.TEMPLATE_SECTIONS) - set(tpl), set())
+        self.assertIn("{{PAGES}}", tpl["document"])
+
+    def test_missing_section_fails_loudly(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "t.md"
+            p.write_text("<!-- @document -->\n# {{TITLE}}\n")
+            with self.assertRaises(ValueError) as cm:
+                lib.load_template(p)
+            self.assertIn("page", str(cm.exception))
+
+    def test_fill_is_single_pass_and_keeps_unknown(self):
+        self.assertEqual(lib.fill("{{A}} {{B}} {{X}}", {"A": "{{B}}", "B": "b"}), "{{B}} b {{X}}")
+
+    def test_pdf_text_with_placeholders_is_not_expanded(self):
+        md = lib.render_markdown("a.pdf", {"title": "{{PAGES}}"},
+                                 [lib.PageResult(1, "see {{TITLE}}", "plain")], "0", body="raw")
+        self.assertIn("# {{PAGES}}\n", md)
+        self.assertIn("see {{TITLE}}", md)
+
+
+class TestVersion(unittest.TestCase):
+    def test_generator_version_matches_skill_md(self):
+        skill_md = lib.SCRIPTS_DIR.parent / "SKILL.md"
+        if not skill_md.exists():
+            self.skipTest("SKILL.md not present")
+        version = next((ln.split(":", 1)[1].strip() for ln in skill_md.read_text().splitlines()
+                        if ln.startswith("version:")), None)
+        self.assertEqual(version, lib.GENERATOR_VERSION)
+
+
 @unittest.skipUnless(lib.ocr_backend() and os.environ.get("PDF_EXTRACT_TEST_OCR"),
                      "set PDF_EXTRACT_TEST_OCR=1 to run the (slow) OCR test")
 class TestOcr(TmpDirCase):

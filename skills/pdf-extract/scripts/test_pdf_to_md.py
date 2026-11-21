@@ -109,6 +109,52 @@ class TestDecisions(OrchestratorCase):
         self.assertEqual(code, 2)
 
 
+class TestCli(OrchestratorCase):
+    def test_help_shows_docstring_and_exits_0(self):
+        out = io.StringIO()
+        with redirect_stdout(out), self.assertRaises(SystemExit) as cm:
+            orch.parse_args(["--help"])
+        self.assertEqual(cm.exception.code, 0)
+        self.assertIn("pdf-extract.sh", out.getvalue())
+        self.assertIn("Exit code", out.getvalue())
+        self.assertIn("invalid-input", out.getvalue())
+
+    def test_bad_arguments_exit_1_not_2(self):
+        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as cm:
+            orch.parse_args(["--bogus", "x.pdf"])
+        self.assertEqual(cm.exception.code, 1)
+
+    def test_invalid_inputs_are_reported_and_exit_1(self):
+        (self.dir / "notes.txt").write_text("x")
+        make_pdf(self.dir / "a.pdf", ["A text content here"])
+        code, rep = self.report([str(self.dir / "missing.pdf"), str(self.dir / "notes.txt"),
+                                 str(self.dir / "a.pdf"), "--ocr", "never"])
+        st = {Path(r["pdf"]).name: (r["status"], r.get("error")) for r in rep["results"]}
+        self.assertEqual(st["missing.pdf"], ("invalid-input", "not found"))
+        self.assertEqual(st["notes.txt"], ("invalid-input", "not a PDF or directory"))
+        self.assertEqual(st["a.pdf"][0], "written")
+        self.assertEqual(code, 1)
+
+    def test_failed_pdf_exit_2_wins_over_invalid_input(self):
+        pdf = make_pdf(self.dir / "l.pdf", ["Locked text"], user_pwd="pw")
+        code, _ = self.report([str(pdf), str(self.dir / "missing.pdf"), "--ocr", "never"])
+        self.assertEqual(code, 2)
+
+    def test_custom_template_and_unreadable_template(self):
+        tpl = self.dir / "t.md"
+        tpl.write_text("<!-- @document -->\nDOC {{TITLE}}\n{{PAGES}}\n"
+                       "<!-- @page -->\nP{{PAGE_NUMBER}}: {{TEXT}}\n<!-- @empty-page -->\nEMPTY\n")
+        pdf = make_pdf(self.dir / "a.pdf", ["Hello template"])
+        code, _ = self.report([str(pdf), "--ocr", "never", "--template", str(tpl)])
+        md = (self.dir / "a.md").read_text()
+        self.assertEqual(code, 0)
+        self.assertIn("DOC Sample Doc\nP1: ```text\nHello template", md)
+        self.assertTrue(lib.is_up_to_date(pdf, self.dir / "a.md"))      # frontmatter untouched
+        with redirect_stderr(io.StringIO()):
+            code, _ = run([str(pdf), "--force", "--template", str(self.dir / "nope.md")])
+        self.assertEqual(code, 1)
+
+
 class TestOcrPolicy(OrchestratorCase):
     def test_auto_ocr_only_pages_without_text(self):
         pdf = make_pdf(self.dir / "m.pdf", ["Page one has plenty of text", ""])

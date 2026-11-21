@@ -10,7 +10,7 @@ description: >
   raw transcript; for summarising or filing the content into a wiki, run
   /second-brain-ingest on the .md afterwards.
 allowed-tools: Bash(*pdf-extract/scripts/pdf-extract.sh*) Read
-version: 1.0.0
+version: 1.1.0
 ---
 
 # PDF Extract
@@ -24,6 +24,7 @@ only **calls** the scripts. All the extraction logic and decisions live in `scri
 | --- | --- |
 | `scripts/pdf-extract.sh` | Always: the single entry point (creates its own venv on first run) |
 | `references/usage.md` | When you need an option not listed below, the output format, the status meanings, or reuse of the library from another skill |
+| `references/templates/markdown-output.md` | Only when the user wants to change how the `.md` body looks (headings, per-page layout). Edit the template, not the scripts, then re-run with `--force` |
 
 Never read the Python sources to run the skill. The `--help` output and `references/usage.md` are enough.
 
@@ -43,10 +44,11 @@ Never read the Python sources to run the skill. The `--help` output and `referen
    - `--ocr always|never`: force or forbid OCR (default `auto` = only pages with no text)
    - `--languages "en-US,fr-FR,zh-Hans"`: OCR languages when known
    - `--body raw`: prose output instead of fenced blocks (for prose-only documents)
-   - Passwords: ask the user to export `PDF_EXTRACT_PASSWORD` in their shell. Don't put a password in a command line you show or log.
-4. **Report.** Read the JSON `summary` and turn it into a short report: counts by status, then one line for each PDF that is `locked`, `error`, `written-empty`, or has `notes`. Do not print the extracted text unless the user asks.
+   - Passwords: the script reads `PDF_EXTRACT_PASSWORD` from the environment, optionally pre-filled from `~/.config/pdf-extract/.env` (keys: `references/.env.example`). Use a password **only** if the user explicitly gives it in this conversation, and then only for the run asked: pass it inline, `PDF_EXTRACT_PASSWORD='…' <skills-dir>/pdf-extract/scripts/pdf-extract.sh …`. Never guess or try likely passwords, never look for one in other files, never write it to `.env`, memory or notes, never repeat it in your reply.
+4. **Report.** Read the JSON `summary` and turn it into a short report: counts by status, then one line for each PDF that is `locked`, `error`, `invalid-input`, `written-empty`, or has `notes`. Exit code: `0` all fine, `1` bad arguments or an invalid input path, `2` at least one PDF locked or failed. Do not print the extracted text unless the user asks.
 5. **Follow up on failures:**
-   - `locked` → ask for the password, then re-run that file with `PDF_EXTRACT_PASSWORD` set.
+   - `locked` → tell the user which PDFs are locked and ask them either to set `PDF_EXTRACT_PASSWORD` (shell or `~/.config/pdf-extract/.env`, see `references/.env.example`) or to give you the password explicitly. Then re-run those files.
+   - `invalid-input` → the path doesn't exist or isn't a PDF/folder (see `error`). Check the path with the user.
    - `written-empty` / "OCR needed but no backend" → tell the user OCR is unavailable (macOS Vision, or `tesseract` + `pdftoppm`).
    - `skipped-foreign` → a `.md` the tool didn't write already exists. Re-run with `--force` only after the user confirms it can be overwritten.
 

@@ -37,7 +37,8 @@ Run it again at any time: unchanged PDFs are skipped (`skipped-up-to-date`).
 | `--body fenced\|raw` | `fenced` | `fenced` keeps column alignment inside a ```` ```text ```` block. `raw` writes the text as Markdown prose |
 | `--squeeze` | off | Collapse runs of 3 or more spaces (smaller file, loses alignment) |
 | `--suffix S` | `.md` | Output suffix, e.g. `.pdf.md` to avoid clashing with existing notes |
-| `--password P` | none | Password to try on encrypted PDFs (repeatable). Prefer `$PDF_EXTRACT_PASSWORD` |
+| `--template PATH` | `references/templates/markdown-output.md` | Output template for the Markdown body (see [Output format](#output-format)) |
+| `--password P` | none | **Explicit override** for one run: password to try on encrypted PDFs (repeatable). The normal source is `$PDF_EXTRACT_PASSWORD` |
 | `--json` | off | Machine-readable report on stdout. Progress goes to stderr |
 | `-q`, `--quiet` | off | Print the summary line only |
 
@@ -47,13 +48,35 @@ Run it again at any time: unchanged PDFs are skipped (`skipped-up-to-date`).
 | --- | --- | --- |
 | `PDF_EXTRACT_VENV` | `~/.cache/pdf-extract/venv` | Where the venv lives |
 | `PDF_EXTRACT_CACHE` | `~/.cache/pdf-extract` | Holds the compiled macOS OCR helper |
-| `PDF_EXTRACT_PASSWORD` | none | Extra password tried on encrypted PDFs (kept out of shell history and logs) |
+| `PDF_EXTRACT_PASSWORD` | none | Password tried on encrypted PDFs: the default way to pass it |
+| `PDF_EXTRACT_ENV_FILE` | `~/.config/pdf-extract/.env` | Optional `KEY=VALUE` file loaded by `pdf-extract.sh` before anything else (only `PDF_EXTRACT_*` keys; a variable already set in the shell wins). Template: [`.env.example`](./.env.example) |
 | `PDF_EXTRACT_PYTHON` | `python3` | Interpreter used to create the venv |
 | `PDF_EXTRACT_TEST_OCR` | unset | Set to `1` to include the slow real-OCR test in `--test` |
+
+### Passwords
+
+The script always reads the password from `PDF_EXTRACT_PASSWORD`. Highest precedence first:
+
+1. **Explicit override:** `--password '…'` on the command line, or a password the user explicitly gives the agent (the agent passes it inline as `PDF_EXTRACT_PASSWORD='…'` for that run only)
+2. `PDF_EXTRACT_PASSWORD` already set in the shell
+3. Optional `~/.config/pdf-extract/.env`, loaded by `pdf-extract.sh`
+
+```bash
+# Optional, once: a private .env file (start from the example)
+mkdir -p ~/.config/pdf-extract
+cp <skills-dir>/pdf-extract/references/.env.example ~/.config/pdf-extract/.env
+chmod 600 ~/.config/pdf-extract/.env          # then edit PDF_EXTRACT_PASSWORD in your editor
+
+# One-off override
+$S/pdf-extract.sh locked.pdf --password '…'
+```
+
+No password works → status `locked`. Nothing ever prompts. Agents never guess a password. Rules: `_references_/secret-configuration.md` in the skills library.
 
 ## How each PDF is handled
 
 ```text
+path missing, or a file that isn't a PDF ..... invalid-input
 .md exists, not made by pdf-extract ......... skipped-foreign      (unless --force)
 .md made by us from the same PDF (sha256) ... skipped-up-to-date   (unless --force)
 encrypted ................................... try "" (owner-only lock), then the passwords → else locked
@@ -66,6 +89,8 @@ Why two text modes: `layout` keeps columns aligned (tables, invoices, forms) but
 nested inside Form XObjects. `plain` reads those. Picking per page covers both kinds of PDF.
 
 ## Output format
+
+The frontmatter is built in code (it's a machine contract: `source_sha256` and `generator` drive the skip/overwrite decisions). The body comes from [`templates/markdown-output.md`](./templates/markdown-output.md): edit it to change headings or the per-page layout, no code change needed. Placeholders: `{{TITLE}}`, `{{PAGES}}`, `{{PAGE_NUMBER}}`, `{{METHOD}}`, `{{TEXT}}`. Already-extracted files keep their old body until the PDF changes, so re-run with `--force` to apply a template edit. With the default template:
 
 ```markdown
 ---
@@ -116,12 +141,13 @@ Run with `--json`. Stdout is a single JSON document:
 | `dry-run` | Would be written | none |
 | `skipped-up-to-date` | Already extracted from this exact PDF | none |
 | `skipped-foreign` | A `.md` the tool didn't write exists | Ask before `--force` |
-| `locked` | Encrypted, no working password | Ask the user to set `PDF_EXTRACT_PASSWORD`, then re-run |
+| `locked` | Encrypted, no working password | Ask the user to set `PDF_EXTRACT_PASSWORD` (shell or `.env`), or to give the password explicitly; then re-run. Never guess |
 | `error` | Unreadable or corrupt PDF; see `error` | Report it |
+| `invalid-input` | The input path doesn't exist, or is a file that isn't a PDF; see `error` (`not found` / `not a PDF or directory`) | Check the path with the user |
 
 `notes` lists non-fatal issues, such as `OCR needed but no backend available` or `OCR failed: …`.
 
-Exit codes: `0` = everything written or skipped · `1` = bad arguments · `2` = at least one `locked` or `error`.
+Exit codes: `0` = everything written or skipped · `1` = bad arguments, unreadable template, or an `invalid-input` · `2` = at least one `locked` or `error` (wins over `1`).
 
 ## Reusing the library from another skill
 
@@ -137,7 +163,8 @@ Exit codes: `0` = everything written or skipped · `1` = bad arguments · `2` = 
 | `extract_page_text(page, "layout"\|"plain")` · `extract_page_best(page)` | Text layer |
 | `count_chars` · `has_enough_text` · `clean_text` | Text helpers |
 | `ocr_backend()` · `ocr_pages(pdf, [1,3], backend, languages)` | OCR |
-| `PageResult` · `render_markdown(name, meta, pages, sha, body)` | Markdown output |
+| `PageResult` · `render_markdown(name, meta, pages, sha, body, template=None)` | Markdown output |
+| `load_template(path=None)` · `fill(text, values)` | Read an output template (raises `ValueError` if a section is missing) · fill `{{PLACEHOLDERS}}` in one pass |
 
 ```python
 import sys; sys.path.insert(0, "<skills-dir>/pdf-extract/scripts")
@@ -153,13 +180,17 @@ Run it with the skill's venv interpreter (`~/.cache/pdf-extract/venv/bin/python`
 ```text
 pdf-extract/
 ├── SKILL.md                 # caller only: when to run, which flags, how to report
-├── references/usage.md      # this file
+├── references/
+│   ├── usage.md             # this file
+│   ├── .env.example         # every PDF_EXTRACT_* key, placeholders (copy to ~/.config/pdf-extract/.env)
+│   └── templates/markdown-output.md   # body format of the generated .md (edit freely)
 └── scripts/
-    ├── pdf-extract.sh       # entry point: venv bootstrap + run / --test
+    ├── pdf-extract.sh       # entry point: .env loading + venv bootstrap + run / --test
     ├── pdf_to_md.py         # orchestrator: discovery, loops, skip/OCR decisions, report
     ├── pdf_lib.py           # low-level reusable functions
     ├── ocr_macos.swift      # Vision OCR helper (compiled once into the cache)
     ├── requirements.txt     # pypdf, pycryptodome (binary wheels)
     ├── test_pdf_lib.py
-    └── test_pdf_to_md.py
+    ├── test_pdf_to_md.py
+    └── test_pdf_extract_sh.py   # entry point: --help, .env loading
 ```
