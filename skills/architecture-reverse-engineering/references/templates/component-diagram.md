@@ -1,7 +1,7 @@
 # Template — component diagram
 
 **Use for:** the one document the skill writes, `{repo}/docs/architecture/component-diagram.md`. Agent-filled.
-**Pairs with:** the scan report from `scripts/scan_repo.py` (evidence), [`../classification.md`](../classification.md) (how to bucket and infer), and `diagram-architecture/references/mermaid-patterns.md` (Mermaid syntax).
+**Pairs with:** the scan report from `scripts/scan_repo.py` (evidence), [`../classification.md`](../classification.md) (how to bucket and infer), and `architecture-diagram/references/mermaid-patterns.md` (Mermaid syntax).
 
 Edit this file to change the output: headings, section order, table columns, diagram conventions. `scripts/check_diagram.py` reads the `##` headings of the skeleton below and requires each of them in the generated doc, so a heading you add, rename or remove here changes the gate too, with no code change.
 
@@ -91,7 +91,7 @@ flowchart TB
   - Shapes: `[(...)]` datastores, `{{...}}` queues/topics, `([...])` entry points, `[...]` services.
   - Classes: `service`, `upstream`, `downstream`, `crosscut`, `inferred` (red, dashed border). Mark inferred components **in the diagram**, not only in the table, and prefix their label with ⚠.
   - Wrap any label containing `(`, `)`, `[`, `]`, `{` or `}` in double quotes. Node ids are unique and stable (`orders_db`, not `A1`).
-  - Syntax help: `diagram-architecture/references/mermaid-patterns.md`.
+  - Syntax help: `architecture-diagram/references/mermaid-patterns.md`.
 - **Questions to answer:** Which way does each dependency point? Which edges carry auth? Which boxes are guesses?
 
 ### Flows in a nutshell

@@ -1,5 +1,5 @@
 ---
-name: diagram-architecture
+name: architecture-diagram
 description: Generate architecture or integration diagrams using Mermaid syntax. Use when the user says "draw architecture", "create diagram", "mermaid diagram", "integration diagram", "flow diagram", or needs to visualize system components, data flows, or service interactions. Also converts an existing diagram image (PNG/JPG) or SVG into Mermaid — use when the user says "convert this diagram/image/svg to mermaid" or provides a diagram file to transcribe.
 version: 0.2.0
 ---

@@ -13,7 +13,7 @@ description: >
   "component diagram of this service", "map the dependencies of this service",
   "what does this service talk to", or is onboarding onto an unknown codebase.
   To draw a diagram from a description, or convert an image/ASCII diagram, use
-  /diagram-architecture instead.
+  /architecture-diagram instead.
 allowed-tools: Bash(*architecture-reverse-engineering/scripts/architecture-reverse-engineering.sh*) Read Glob Grep Write
 version: 0.2.0
 ---
@@ -31,7 +31,7 @@ The scripts collect evidence and check the result; the agent does the judgement 
 | `scripts/architecture-reverse-engineering.sh` | Always: the single entry point (`scan`, `check`, `--test`). Stdlib Python, nothing to install |
 | `references/classification.md` | Step 3: how to turn scan hits into components, layers, auth and confidence |
 | `references/templates/component-diagram.md` | Step 4: the output skeleton and per-section guidance. Read it before writing |
-| `diagram-architecture/references/mermaid-patterns.md` | Step 4, only if you need Mermaid syntax help (owned by `/diagram-architecture`, which must be linked) |
+| `architecture-diagram/references/mermaid-patterns.md` | Step 4, only if you need Mermaid syntax help (owned by `/architecture-diagram`, which must be linked) |
 | `references/usage.md` | When you need an option not listed here, the JSON fields, the overlay format, or a finding code's fix |
 | `config/signals.json` | Step 6 only: to add a pattern (write-back). Never needed to run the scan |
 
@@ -91,7 +91,7 @@ The template owns the sections, the diagram conventions and the self-review. To 
 - **Evidence or ⚠.** No component without a cited file; no guess without the ⚠ mark and a confidence.
 - **Secrets stay out.** The scan skips `.env` and key files and redacts secret values; when you open files yourself, name keys and mechanisms, never values.
 - **Generic skill, specific overlay.** Organisation-specific names go in the local overlay, never in `config/signals.json`, the template or this file.
-- **Syntax is owned elsewhere.** For Mermaid syntax, read `/diagram-architecture`'s reference; don't copy it here.
+- **Syntax is owned elsewhere.** For Mermaid syntax, read `/architecture-diagram`'s reference; don't copy it here.
 
 ## Without an agent
 
@@ -99,5 +99,5 @@ A human can run the same evidence scan and gate: `architecture-reverse-engineeri
 
 ## Chaining
 
-- `/diagram-architecture`: alternative views (sequence diagram of one flow, C4 context) from the same document.
+- `/architecture-diagram`: alternative views (sequence diagram of one flow, C4 context) from the same document.
 - `/change-management-1-stage`: stage the generated document if the user wants it committed.

@@ -46,7 +46,7 @@ Harness names and their skills directories are listed in [Agent-Specific Setup](
 ./link-skills.sh "review-*"
 
 # (Optional) if you need a lot of diagramming
-./link-skills.sh "diagram-architecture"
+./link-skills.sh "architecture-diagram"
 ```
 
 ### Manual Installation
@@ -145,11 +145,11 @@ Workflows & Dependencies
 │   └── review-product-strategy (Product lens)
 │
 └── Utilities
-    ├── pdf-extract
+    ├── transcribe-pdf
     ├── claude-permissions-compress
-    ├── diagram-architecture
+    ├── architecture-diagram
     ├── architecture-reverse-engineering
-    │  ├─ diagram-architecture [Reads: mermaid-patterns.md]
+    │  ├─ architecture-diagram [Reads: mermaid-patterns.md]
     │  └─ change-management-1-stage [Optional: stage the doc]
     └── transcribe-voice-memo
 ```
@@ -228,13 +228,13 @@ Critical reviews from different perspectives (engineering, product, etc.).
 
 Miscellaneous tools for specific tasks.
 
-- **[pdf-extract](./pdf-extract/)** — Write a full-text Markdown file next to each PDF, with the same name (`a.pdf` → `a.md`). For each page it picks the better of the layout and plain text modes, falls back to OCR (macOS Vision, or tesseract), opens owner-locked or encrypted PDFs, and skips PDFs whose `.md` is unchanged (SHA-256). It never overwrites a `.md` it didn't write. `SKILL.md` only calls the scripts: `pdf_lib.py` holds the reusable functions and `pdf_to_md.py` orchestrates. Usage for humans and agents: [`references/usage.md`](./pdf-extract/references/usage.md).
+- **[transcribe-pdf](./transcribe-pdf/)** — Write a full-text Markdown file next to each PDF, with the same name (`a.pdf` → `a.md`). For each page it picks the better of the layout and plain text modes, falls back to OCR (macOS Vision, or tesseract), opens owner-locked or encrypted PDFs, and skips PDFs whose `.md` is unchanged (SHA-256). It never overwrites a `.md` it didn't write. `SKILL.md` only calls the scripts: `pdf_lib.py` holds the reusable functions and `pdf_to_md.py` orchestrates. Usage for humans and agents: [`references/usage.md`](./transcribe-pdf/references/usage.md).
   ```bash
-  pdf-extract/scripts/pdf-extract.sh <file-or-dir> [-r] [--dry-run] [--json]   # --test runs the unit tests
+  transcribe-pdf/scripts/transcribe-pdf.sh <file-or-dir> [-r] [--dry-run] [--json]   # --test runs the unit tests
   ```
 - **[claude-permissions-compress](./claude-permissions-compress/)** — Interactively compress an agent harness's permission allowlist (`settings.local.json`). Groups entries by topic with danger ratings.
-- **[diagram-architecture](./diagram-architecture/)** — Generate architecture or integration diagrams using Mermaid syntax. Convert existing diagrams (PNG/JPG/SVG) to Mermaid.
-- **[architecture-reverse-engineering](./architecture-reverse-engineering/)** — Reverse-engineer a codebase into an evidence-backed component diagram (`docs/architecture/component-diagram.md`): upstream callers, downstream peers and cloud services with auth, owned middleware, runtime specs, and ⚠ inferred components with a confidence. A read-only scan applies a growing signals dictionary (`config/signals.json`, plus a local overlay for org-specific names) and redacts secrets; the agent classifies and fills the template; a gate checks sections, Mermaid and cited paths. Reads `diagram-architecture`'s Mermaid patterns. Usage: [`references/usage.md`](./architecture-reverse-engineering/references/usage.md).
+- **[architecture-diagram](./architecture-diagram/)** — Generate architecture or integration diagrams using Mermaid syntax. Convert existing diagrams (PNG/JPG/SVG) to Mermaid.
+- **[architecture-reverse-engineering](./architecture-reverse-engineering/)** — Reverse-engineer a codebase into an evidence-backed component diagram (`docs/architecture/component-diagram.md`): upstream callers, downstream peers and cloud services with auth, owned middleware, runtime specs, and ⚠ inferred components with a confidence. A read-only scan applies a growing signals dictionary (`config/signals.json`, plus a local overlay for org-specific names) and redacts secrets; the agent classifies and fills the template; a gate checks sections, Mermaid and cited paths. Reads `architecture-diagram`'s Mermaid patterns. Usage: [`references/usage.md`](./architecture-reverse-engineering/references/usage.md).
   ```bash
   architecture-reverse-engineering/scripts/architecture-reverse-engineering.sh scan <repo> [--json]   # then: check <doc.md> --repo <repo>
   ```
@@ -304,7 +304,7 @@ skill-name/
 | `retrospective-3-report`                                                                 | `templates/` (generic) + `cases/` (synthetic worked examples by format/pattern) with a registry                                                        |
 | `review-engineering-director`                                                            | `templates/` + `cases/` (failure shapes) with a registry; delegates to `rewrite-clarity`                                                               |
 | `interview-1-preparation`                                                                | `templates/` + `steps/` registry (per-step overrides) + `vault-map.md` (pointers into the one vault that owns the specifics) + empty `cases/` registry |
-| `lint-unformat`, `diagram-architecture`                                                  | `scripts/` with a test file next to each script                                                                                                        |
+| `lint-unformat`, `architecture-diagram`                                                  | `scripts/` with a test file next to each script                                                                                                        |
 | `transcribe-pdf`                                                                            | Layered `scripts/`: atomic utils (`pdf_lib.py`) + orchestrator (`pdf_to_md.py`) + entry point (`transcribe-pdf.sh`) + `references/usage.md`             |
 | `lint-transcript-normalise`                                                              | `config/corrections.json` read by a script                                                                                                             |
 | `rewrite-clarity`                                                                        | `config/word-replacements.json` (committed default set) read by a script, with a test that validates the shipped JSON                                  |
@@ -587,8 +587,8 @@ graph TD
     end
     
     subgraph Util["Utility Skills"]
-        PDFX["pdf-extract"]
-        DIAGRAM["diagram-architecture"]
+        PDFX["transcribe-pdf"]
+        DIAGRAM["architecture-diagram"]
         ARE["architecture-reverse-engineering"]
         ARE -.->|mermaid patterns| DIAGRAM
         PERM["claude-permissions-compress"]
