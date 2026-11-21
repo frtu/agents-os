@@ -2,7 +2,7 @@
 concept: case-studies
 summary: Keep a role-playing skill's posture and heuristics stable in SKILL.md, and capture the many contexts it meets as small, generic case files indexed by a registry, loaded one at a time when the input matches a case's shape.
 exemplars: [review-engineering-director, review-product-strategy, retrospective-3-report, people-ingest, interview-1-preparation]
-related: [extensible-dictionary]
+related: [extensible-dictionary, output-template]
 ---
 
 # Case studies
@@ -101,7 +101,7 @@ Ships an **empty** `references/cases/README.md` registry and a sibling `referenc
 1. **Write the lens first.** Put posture, voice and **numbered** heuristics in `SKILL.md`. If a heuristic can't be numbered and cited, it isn't stable enough yet.
 2. **Collect real inputs** the role has handled. For each, name the **shape** in one line: what would let the agent recognise it in a new input?
 3. **Merge variants.** Two inputs with the same shape are one case; the second adds to *What surfaces*. Only a new shape gets a new letter.
-4. **Genericise** each case: roles instead of names, categories instead of systems, no numbers or links. Point to the vault for the real history (AGENTS.md step 5).
+4. **Genericise** each case: roles instead of names, categories instead of systems, no numbers or links. Point to the vault for the real history ([`skill-factory.md`](./skill-factory.md) step 5).
 5. **Fix the case file contract** (frontmatter + body sections) and write it in the registry. Include *Why this one diverges* for situation cases.
 6. **Write the registry**: index table(s), provenance, loading rule, *Growing the library* with the next free letter.
 7. **Add the pointer section** to `SKILL.md`: location, one line per family, the loading rule. Remove any case content from `SKILL.md`.

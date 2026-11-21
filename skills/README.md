@@ -269,9 +269,9 @@ Two-phase workflow for aggregating and consolidating weekly team updates.
 
 ## Skill Internal Structure & Composition
 
-This section is the **skill factory** convention: how a skill is laid out, and how skills reuse each other instead of copying content. Agents creating or changing a skill follow [`AGENTS.md`](./AGENTS.md), which builds on this section.
+This section is the **skill factory** convention: how a skill is laid out, and how skills reuse each other instead of copying content. Agents creating or changing a skill (write mode) follow [`_references_/skill-factory.md`](./_references_/skill-factory.md), which builds on this section; [`AGENTS.md`](./AGENTS.md) says when to load it.
 
-For deeper, pattern-level guidance with real exemplars, see the design concept library in [`_references_/`](./_references_/README.md). It is not a skill and is never linked.
+For deeper, pattern-level guidance with real exemplars, see the design references in [`_references_/`](./_references_/README.md) (skill factory rules, `scripts/` rules, design concepts). It is not a skill and is never linked.
 
 ### Folder layout
 
@@ -286,8 +286,9 @@ skill-name/
 │   ├── cases/                # Specific instances: teams, failure shapes, worked examples
 │   │   ├── README.md         # Registry: index table + rules for adding a case
 │   │   └── {letter}-{slug}.md
+│   ├── usage.md              # How a human or an agent runs the scripts, when --help isn't enough
 │   └── {topic}.md            # Methodology, schema, rules, patterns
-├── scripts/                  # Deterministic work (Python/shell) + tests (test_*.py)
+├── scripts/                  # Deterministic work: atomic utils + optional orchestrator/entry point + tests (test_*.py)
 └── config/                   # Data the scripts read (JSON dictionaries, thresholds)
 ```
 
@@ -297,9 +298,19 @@ skill-name/
 | `review-engineering-director`                                                            | `templates/` + `cases/` (failure shapes) with a registry; delegates to `rewrite-clarity`                                                               |
 | `interview-1-preparation`                                                                | `templates/` + `steps/` registry (per-step overrides) + `vault-map.md` (pointers into the one vault that owns the specifics) + empty `cases/` registry |
 | `lint-unformat`, `diagram-architecture`                                                  | `scripts/` with a test file next to each script                                                                                                        |
+| `pdf-extract`                                                                            | Layered `scripts/`: atomic utils (`pdf_lib.py`) + orchestrator (`pdf_to_md.py`) + entry point (`pdf-extract.sh`) + `references/usage.md`             |
 | `lint-transcript-normalise`                                                              | `config/corrections.json` read by a script                                                                                                             |
 | `rewrite-clarity`                                                                        | `config/word-replacements.json` (committed default set) read by a script, with a test that validates the shipped JSON                                  |
 | `change-management`, `interview-eval`, `weekly-digest`, `retrospective`, `people-ingest` | Router + numbered sub-skills                                                                                                                           |
+
+### Scripts — deterministic work, operable by agent or human
+
+- **Anything deterministic goes in `scripts/`**, not in `SKILL.md` prose: same input → same output (parse, transform, check, move, count).
+- **Atomic utils** are small and reusable: one action each, no orchestration, a `test_*.py` next to each one.
+- **An orchestration script** (optional, specific to a use case) is the deterministic sequence of utils: loops, conditions, idempotency checks, `--dry-run`, a summary and exit codes. `SKILL.md` calls it and keeps only the judgement (which inputs, which options, what to do with each status).
+- **Agent or human can run every script.** `--help` must explain inputs, options and outputs. Add `references/usage.md` when `--help` isn't enough (output format, statuses, env vars, agent contract).
+
+Detailed rules (layout, naming, `--help`, exit codes, tests): [`_references_/skill-factory-scripts/rules.md`](./_references_/skill-factory-scripts/rules.md). Language conventions: [Python](./_references_/skill-factory-scripts/python.md) (deps in a private venv at `~/.cache/{skill}/venv`, `main(argv)`, tests) and [Bash](./_references_/skill-factory-scripts/bash.md) (entry point that bootstraps the venv and `exec`s Python). Pattern, exemplars and checklist: [`_references_/skill-factory-scripts/script-layering.md`](./_references_/skill-factory-scripts/script-layering.md).
 
 ### SKILL.md frontmatter
 
@@ -323,11 +334,21 @@ The `description` is the only part the harness always sees. It decides when the 
 2. **Files:** which `references/` files exist and **when to load each one**.
 3. **Determine the mode:** e.g. Produce vs Review. Ask one question if unclear.
 4. **Process:** numbered steps.
-5. **Output format:** a fenced skeleton of the deliverable.
+5. **Output format:** a table of the templates in `references/templates/` (template → use when) and *"read the matching template before producing"*. Only a tiny output (a status, a one-line answer) gets an inline fenced skeleton. See [Output templates](#output-templates--format-separate-from-compute).
 6. **Rules / boundaries:** including hand-offs to other skills.
 7. **Chaining:** what runs next (e.g. `/change-management-1-stage`).
 
 Keep `SKILL.md` about **process**. Put long content (templates, methodology, examples) in `references/` so it only loads when needed.
+
+### Output templates — format separate from compute
+
+Every output a skill generates (report, page, brief, file) follows a template in `references/templates/{artifact}.md`. The template owns the **format**; `SKILL.md` and scripts own the **compute** and only select and fill it. A human evolves the output by editing the template, without changing the skill.
+
+- **Agent-filled:** a fenced skeleton + per section the insight to deliver, style & format, questions to answer.
+- **Script-filled:** `{{PLACEHOLDER}}` slots, listed in the rendering script's `--help`.
+- **Machine contracts** (JSON keys, frontmatter a script reads back) stay in code and are documented in `references/usage.md`.
+
+Pattern, exemplars and checklist: [`_references_/output-template.md`](./_references_/output-template.md).
 
 ### Generic vs specific: template + case registry
 
@@ -677,7 +698,7 @@ rm <skills-dir>/skill-name
 
 ## Contributing
 
-To add a new skill, follow the skill factory checklist in [`AGENTS.md`](./AGENTS.md). In short:
+To add a new skill, follow the skill factory checklist in [`_references_/skill-factory.md`](./_references_/skill-factory.md). In short:
 
 1. Check the [Skills Library](#skills-library): extend or compose an existing skill before creating a new one.
 2. Create `{name}/SKILL.md` following [Skill Internal Structure & Composition](#skill-internal-structure--composition).
@@ -688,7 +709,7 @@ To add a new skill, follow the skill factory checklist in [`AGENTS.md`](./AGENTS
 ## Resources
 
 - Your agent's documentation on skills / custom instructions
-- [Skill factory guide](./AGENTS.md) — how agents create and compose skills
+- [Skill factory guide](./_references_/skill-factory.md) — how agents create and compose skills ([`AGENTS.md`](./AGENTS.md) says when to load it)
 - [Obsidian](https://obsidian.md/) — Knowledge base platform
 - [Mermaid Diagrams](https://mermaid.js.org/) — Diagram syntax
 

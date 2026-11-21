@@ -2,7 +2,7 @@
 concept: extensible-dictionary
 summary: Move growing lookup data (word replacements, mappings, allow/deny lists) out of SKILL.md into a version-controlled JSON config that a script applies directly, with no LLM; the agent is an optional layer that grows the dictionary after every user confirmation.
 exemplars: [lint-transcript-normalise, transcribe-voice-memo, rewrite-clarity]
-related: [case-studies]
+related: [case-studies, output-template]
 ---
 
 # Extensible dictionary
@@ -125,7 +125,7 @@ The *Word Replacements* table in `references/writing-communication.md` became a 
 
 1. **Find the data.** List everything in the skill (or the planned skill) that is a lookup: replacements, aliases, thresholds, routing. If it will grow, it moves out.
 2. **Design the schema first.** Fields, the confidence tiers, the negative list, the canonical target. Write the `rules` block in the JSON before any entry.
-3. **Ship it empty, synthetic, or with a generic default set.** Real names, team terms and internal systems belong to the user's copy, not the template (AGENTS.md step 5 *Keep generic and specific apart*). Generic vocabulary (plain-English replacements) can ship as a committed default that every user starts from and extends.
+3. **Ship it empty, synthetic, or with a generic default set.** Real names, team terms and internal systems belong to the user's copy, not the template ([`skill-factory.md`](./skill-factory.md) step 5 *Keep generic and specific apart*). Generic vocabulary (plain-English replacements) can ship as a committed default that every user starts from and extends.
 4. **Write the apply layer first.** One script owns the matching rules from the schema, with a dry-run default, a config override and a report. Add an apply-only entry point (files/folders/stdin, no questions) that imports those rules. It must be useful on its own before any agent is involved. Add `test_{script}.py` with a fixture dictionary for each.
 5. **Rewrite `SKILL.md`** to describe the process, the schema and matching rules, the write-back table and the silence caveat (the optional intelligence layer), plus a short *Without an agent* section for the apply-only script. Remove every inline entry.
 6. **Verify:** add one entry to the JSON only, run the script, and confirm the new behaviour appears with no `SKILL.md` change.
