@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "description": "Detection signals for architecture-reverse-engineering. scripts/scan_repo.py applies them with no LLM: it classifies every repo file into a kind, greps it with the category patterns that apply to that kind, and extracts runtime specs. The agent grows this file when it finds a touchpoint the scan missed or a pattern that is noise. Generic, public names only: org-specific patterns go in the local overlay (see references/usage.md).",
+  "rules": {
+    "skip_dirs": "Directory names never descended into (exact name match, at any depth).",
+    "skip_files": "File globs never read (basename match). Real .env files and key stores are here on purpose: the scan must never read secrets.",
+    "max_file_bytes": "Files larger than this are skipped (generated or vendored code).",
+    "file_kinds": "Ordered list; the first kind whose glob matches wins. A glob without '/' matches the basename; a glob with '/' matches the repo-relative path or any sub-path of it. Kinds: manifest, ci, infra, container, contract, config, docs, source.",
+    "inventory": "High-signal files to read first. glob (same matching as file_kinds) -> reveals (what the file tells the agent).",
+    "categories": "Touchpoint detectors. Key = category name. bucket = where the hit belongs in the diagram (downstream-peer, downstream-cloud, middleware, upstream, auth, cross-cutting, inferred-clue). scopes = file kinds the patterns apply to (omit for all). patterns = case-insensitive regexes, CONFIDENT tier: the hit is reported as evidence of that category. flag_patterns = case-insensitive regexes, FLAG tier: reported for the agent to judge, never counted as evidence on their own.",
+    "known_noise": "Confirmed dead ends, ignored by the scan. Each entry has \"path\" (glob, same matching as file_kinds) and/or \"match\" (regex searched in the matched text, case-insensitive; anchor it with ^…$ for an exact match) and an optional \"category\"; a hit is dropped when every condition given holds.",
+    "runtime_specs": "Spec extractors. spec = name in the report; files = globs (same matching as file_kinds); regex = case-insensitive, multiline, group 1 is the value (whole match if no group).",
+    "secret_key_regex": "Lines whose key matches this regex have their value replaced by <redacted> in every snippet the scan prints. Placeholders (${...}, {{...}}, <...>) are kept."
+  },
+  "skip_dirs": [
+    ".git", ".gradle", ".idea", ".vscode", ".venv", "venv", "__pycache__", "node_modules",
+    "build", "target", "dist", "out", "vendor", ".terraform", ".next", ".nuxt", "coverage", ".cache"
+  ],
+  "skip_files": [
+    ".env", ".env.local", ".env.*.local", "*.pem", "*.key", "*.p12", "*.pfx", "*.jks", "*.keystore",
+    "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "Cargo.lock", "go.sum", "*.lock",
+    "*.min.js", "*.map", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.svg", "*.ico", "*.pdf", "*.zip", "*.jar", "*.class"
+  ],
+  "max_file_bytes": 1000000,
+  "file_kinds": [
+    { "kind": "manifest", "globs": ["build.gradle", "build.gradle.kts", "settings.gradle*", "gradle.properties", "libs.versions.toml", "pom.xml", "package.json", "go.mod", "pyproject.toml", "requirements*.txt", "setup.py", "setup.cfg", "Pipfile", "Cargo.toml", "Gemfile", "*.csproj", "build.sbt", "composer.json", ".tool-versions", ".python-version", ".nvmrc", ".java-version"] },
+    { "kind": "ci", "globs": [".github/workflows/*", "Jenkinsfile", ".gitlab-ci.yml", ".gitlab-ci/*", "cloudbuild.yaml", "azure-pipelines.yml", ".circleci/*", "bitbucket-pipelines.yml"] },
+    { "kind": "infra", "globs": ["manifests/*", "skaffold.yaml", "Chart.yaml", "values*.yaml", "helm/*", "charts/*", "k8s/*", "kubernetes/*", "*.tf", "*.tfvars", "deploy/*", "kustomization.yaml", "serverless.yml", "template.yaml", "cdk.json"] },
+    { "kind": "container", "globs": ["Dockerfile", "Dockerfile.*", "*.Dockerfile", "Containerfile", "docker-compose*.yml", "docker-compose*.yaml", "compose.yml", "compose.yaml"] },
+    { "kind": "contract", "globs": ["*.proto", "openapi*.yml", "openapi*.yaml", "openapi*.json", "swagger*.yml", "swagger*.yaml", "swagger*.json", "*.graphql", "*.graphqls", "*.avsc", "asyncapi*.yaml", "asyncapi*.yml"] },
+    { "kind": "config", "globs": ["application*.yml", "application*.yaml", "application*.properties", "application*.conf", "bootstrap*.yml", "appsettings*.json", "config/*", "*.yml", "*.yaml", "*.properties", "*.toml", "*.ini", "*.conf", ".env.example", ".env.sample", ".env.template", "catalog-info.yaml", "catalog-info.yml"] },
+    { "kind": "docs", "globs": ["README*", "*.md", "*.adoc", "*.rst", "docs/*"] },
+    { "kind": "source", "globs": ["*.kt", "*.kts", "*.java", "*.scala", "*.go", "*.py", "*.ts", "*.tsx", "*.js", "*.mjs", "*.cjs", "*.rs", "*.rb", "*.cs", "*.php", "*.swift", "*.ex", "*.exs", "*.sql"] }
+  ],
+  "inventory": [
+    { "glob": "README*", "reveals": "stated purpose, owned integrations" },
+    { "glob": "docs/*", "reveals": "stated purpose, existing architecture notes" },
+    { "glob": "catalog-info.yaml", "reveals": "service catalog entry: name, owner, team, lifecycle, declared dependencies" },
+    { "glob": "catalog-info.yml", "reveals": "service catalog entry: name, owner, team, lifecycle, declared dependencies" },
+    { "glob": "build.gradle*", "reveals": "language + version, framework, SDK deps (each SDK = downstream candidate)" },
+    { "glob": "pom.xml", "reveals": "language + version, framework, SDK deps (each SDK = downstream candidate)" },
+    { "glob": "package.json", "reveals": "runtime + version, framework, SDK deps (each SDK = downstream candidate)" },
+    { "glob": "go.mod", "reveals": "language version, SDK deps" },
+    { "glob": "pyproject.toml", "reveals": "language version, framework, SDK deps" },
+    { "glob": "requirements*.txt", "reveals": "SDK deps" },
+    { "glob": "Cargo.toml", "reveals": "SDK deps" },
+    { "glob": "application*.yml", "reveals": "hosts, topics, buckets, feature flags, peer service URLs" },
+    { "glob": "application*.yaml", "reveals": "hosts, topics, buckets, feature flags, peer service URLs" },
+    { "glob": "application*.properties", "reveals": "hosts, topics, buckets, feature flags, peer service URLs" },
+    { "glob": "appsettings*.json", "reveals": "hosts, topics, buckets, feature flags, peer service URLs" },
+    { "glob": ".env.example", "reveals": "the configuration surface: every external system the service needs" },
+    { "glob": "Dockerfile*", "reveals": "base image (runtime spec), binaries and tools added to the image" },
+    { "glob": "docker-compose*", "reveals": "local middleware the service needs" },
+    { "glob": ".gitlab-ci.yml", "reveals": "CI/CD system, deploy targets, artifact registries, other repos pulled in" },
+    { "glob": ".github/workflows/*", "reveals": "CI/CD system, deploy targets, artifact registries, other repos pulled in" },
+    { "glob": "Jenkinsfile", "reveals": "CI/CD system, deploy targets, artifact registries" },
+    { "glob": "helm/*", "reveals": "deploy target, CRDs consumed, sidecars, secrets wiring" },
+    { "glob": "charts/*", "reveals": "deploy target, CRDs consumed, sidecars, secrets wiring" },
+    { "glob": "k8s/*", "reveals": "deploy target, CRDs consumed, sidecars, secrets wiring" },
+    { "glob": "*.tf", "reveals": "cloud resources owned or consumed" },
+    { "glob": "*.proto", "reveals": "contracts published or consumed" },
+    { "glob": "openapi*", "reveals": "HTTP contract published or consumed" }
+  ],
+  "categories": {
+    "http-client": {
+      "bucket": "downstream-peer",
+      "scopes": ["source", "manifest"],
+      "patterns": ["\\bRestTemplate\\b", "\\bWebClient\\b", "\\bRestClient\\b", "\\bHttpClient\\b", "\\bOkHttp(Client)?\\b", "\\bretrofit2?\\b", "\\bfeign\\b", "@FeignClient", "\\bktor-client\\b", "\\baxios\\b", "\\bgot\\(", "\\brequests\\.(get|post|put|patch|delete|Session)\\b", "\\bhttpx\\.", "\\baiohttp\\b", "\\breqwest\\b", "http\\.NewRequest", "&http\\.Client\\b"],
+      "flag_patterns": ["\\bfetch\\(", "\\bbase[_-]?url\\b"]
+    },
+    "rpc-client": {
+      "bucket": "downstream-peer",
+      "scopes": ["source", "manifest", "contract"],
+      "patterns": ["\\bgrpc\\b", "ManagedChannelBuilder", "\\bthrift\\b", "\\bapollo-client\\b", "\\bgraphql-request\\b"]
+    },
+    "peer-url": {
+      "bucket": "downstream-peer",
+      "scopes": ["config", "infra", "container"],
+      "patterns": ["https?://[a-z0-9.-]+\\.(svc|internal|local|cluster\\.local)\\b", "\\b[a-z0-9-]+[-_.](url|uri|host|endpoint)\\s*[:=]\\s*\\S+"],
+      "flag_patterns": ["https?://[^\\s\"'<>]+"]
+    },
+    "cloud-sdk": {
+      "bucket": "downstream-cloud",
+      "scopes": ["manifest", "source"],
+      "patterns": ["\\baws-sdk\\b", "software\\.amazon\\.awssdk", "com\\.amazonaws", "\\bboto3\\b", "@aws-sdk/", "google-cloud-", "com\\.google\\.cloud", "@google-cloud/", "\\bazure-[a-z-]+\\b", "com\\.azure", "@azure/", "snowflake-(jdbc|connector)", "bigquery", "\\bgitlab4j\\b", "python-gitlab", "@octokit/", "\\bgithub-api\\b", "\\bstripe\\b", "\\bauth0\\b", "\\bopenai\\b", "\\banthropic\\b", "\\bsentry\\b", "\\bdatadog\\b", "\\bnewrelic\\b"]
+    },
+    "database": {
+      "bucket": "middleware",
+      "scopes": ["manifest", "config", "source", "container", "infra"],
+      "patterns": ["\\bjdbc:[a-z]+", "\\bpostgres(ql)?\\b", "\\bmysql\\b", "\\bmariadb\\b", "\\bmongo(db)?\\b", "\\bcassandra\\b", "\\bdynamodb\\b", "\\bcockroach(db)?\\b", "\\bsqlite\\b", "\\bflyway\\b", "\\bliquibase\\b", "\\bhikari\\b", "\\bsqlalchemy\\b", "\\balembic\\b", "\\bprisma\\b", "\\btypeorm\\b", "\\bsequelize\\b", "\\bgorm\\b", "\\bexposed\\b", "\\bjooq\\b", "spring-boot-starter-data-jpa", "\\bhibernate\\b"]
+    },
+    "cache": {
+      "bucket": "middleware",
+      "scopes": ["manifest", "config", "source", "container", "infra"],
+      "patterns": ["\\bredis\\b", "\\blettuce\\b", "\\bjedis\\b", "\\bredisson\\b", "\\bmemcached?\\b", "\\bcaffeine\\b", "\\bhazelcast\\b", "\\bvalkey\\b"]
+    },
+    "queue": {
+      "bucket": "middleware",
+      "scopes": ["manifest", "config", "source", "container", "infra"],
+      "patterns": ["\\bkafka\\b", "\\bpulsar\\b", "\\brabbit(mq)?\\b", "\\bamqp\\b", "\\bnats\\b", "\\bsqs\\b", "\\bsns\\b", "\\bpubsub\\b", "\\bkinesis\\b", "\\beventbridge\\b", "\\bservicebus\\b", "\\bevent-?hubs?\\b", "\\bcelery\\b", "\\bsidekiq\\b", "@KafkaListener", "@RabbitListener", "\\bKafkaTemplate\\b"],
+      "flag_patterns": ["\\btopics?\\s*[:=]", "\\bqueue[-_]?name\\b", "\\bconsumer[-_]?group\\b"]
+    },
+    "object-storage": {
+      "bucket": "middleware",
+      "scopes": ["manifest", "config", "source", "infra"],
+      "patterns": ["\\bs3://", "\\bgs://", "\\babfss?://", "\\bminio\\b", "\\bS3Client\\b", "google-cloud-storage", "azure-storage-blob", "@aws-sdk/client-s3"],
+      "flag_patterns": ["\\bbucket[-_]?(name)?\\s*[:=]"]
+    },
+    "search": {
+      "bucket": "middleware",
+      "scopes": ["manifest", "config", "source", "container", "infra"],
+      "patterns": ["\\bopensearch\\b", "\\bsolr\\b", "\\bmeilisearch\\b", "\\btypesense\\b", "\\balgolia\\b", "\\bvespa\\b"]
+    },
+    "endpoint": {
+      "bucket": "upstream",
+      "scopes": ["source"],
+      "patterns": ["@RestController", "@Controller\\b", "@RequestMapping", "@(Get|Post|Put|Patch|Delete)Mapping", "@Path\\(", "\\brouting\\s*\\{", "(?<!@)\\bapp\\.(get|post|put|patch|delete|use)\\(", "(?<!@)\\brouter\\.(get|post|put|patch|delete)\\(", "http\\.HandleFunc", "\\bmux\\.Handle", "@app\\.(get|post|put|patch|delete|route)\\b", "\\bAPIRouter\\b", "@router\\.(get|post|put|patch|delete)\\b", "\\b(re_)?path\\(\\s*r?['\"][^'\"]*/['\"]\\s*,", "@(Grpc|GRpc)Service", "@MessageMapping", "@KafkaListener", "@SqsListener", "@Scheduled"]
+    },
+    "caller-hint": {
+      "bucket": "upstream",
+      "scopes": ["source", "docs", "config", "contract"],
+      "flag_patterns": ["\\b(consumed|used|called|invoked|triggered)\\s+by\\b", "/internal/", "\\bcallback\\b", "\\bwebhook\\b"]
+    },
+    "auth": {
+      "bucket": "auth",
+      "scopes": ["config", "source", "infra", "container", "manifest"],
+      "patterns": ["\\boauth2?\\b", "\\boidc\\b", "\\bopenid\\b", "\\bjwks?\\b", "\\bjwt\\b", "\\bmtls\\b", "\\btruststore\\b", "\\bkeystore\\b", "\\bclient[-_]?secret\\b", "\\bclient[-_]?id\\b", "\\bapi[-_]?key\\b", "\\bservice[-_]?token\\b", "\\bX-[A-Za-z-]*-Token\\b", "\\bsasl\\b", "\\bscram-[a-z0-9-]+\\b", "\\bbearer\\b", "\\biam[-_]?role\\b", "\\bworkload[-_]?identity\\b", "\\bissuer[-_]?ur[il]\\b"],
+      "flag_patterns": ["\\btoken\\b", "\\bsecret\\b", "\\bcredentials?\\b", "\\bpassword\\b", "\\busername\\b"]
+    },
+    "observability": {
+      "bucket": "cross-cutting",
+      "scopes": ["manifest", "config", "source", "infra"],
+      "patterns": ["\\bactuator\\b", "\\bmicrometer\\b", "\\bprometheus\\b", "\\bopentelemetry\\b", "\\botel\\b", "\\bjaeger\\b", "\\bzipkin\\b", "\\bgrafana\\b", "\\blogstash\\b", "\\bfluent(d|bit)\\b", "\\blogback\\b"]
+    },
+    "deploy": {
+      "bucket": "cross-cutting",
+      "scopes": ["ci", "infra", "container"],
+      "patterns": ["\\bhelm\\b", "\\bkubectl\\b", "\\bargo(cd)?\\b", "\\bflux\\b", "\\bterraform\\b", "\\bskaffold\\b", "\\bkustomize\\b", "\\bdocker (build|push)\\b", "\\bkaniko\\b", "\\bbuildah\\b", "\\becr\\b", "\\bgcr\\.io\\b", "\\bpkg\\.dev\\b", "\\bazurecr\\.io\\b", "\\bghcr\\.io\\b"]
+    },
+    "secrets-infra": {
+      "bucket": "cross-cutting",
+      "scopes": ["infra", "config", "ci", "manifest", "source"],
+      "patterns": ["\\bExternalSecret\\b", "external-secrets", "\\bSealedSecret\\b", "\\bvault\\b", "secretsmanager", "secret-manager", "\\bkey-?vault\\b", "\\bsops\\b"]
+    },
+    "external-build": {
+      "bucket": "inferred-clue",
+      "scopes": ["ci", "container", "infra"],
+      "patterns": ["\\bproject:\\s*['\"]?[\\w./-]+", "\\binclude:\\s*-?\\s*project\\b", "\\btrigger:\\s*$", "\\bCOPY\\s+--from=\\S+", "\\buses:\\s*[\\w.-]+/[\\w.-]+"],
+      "flag_patterns": ["\\bkind:\\s*[A-Z]\\w+", "\\bapiVersion:\\s*[a-z0-9.-]+\\.[a-z]+/"]
+    },
+    "feature-flag": {
+      "bucket": "inferred-clue",
+      "scopes": ["config", "source"],
+      "patterns": ["\\bunleash\\b", "\\bflagsmith\\b", "\\bgrowthbook\\b", "\\bsplit\\.io\\b", "\\bopenfeature\\b"],
+      "flag_patterns": ["\\b(feature|flag)s?[._-][a-z0-9_.-]*enabled\\b", "\\benabled\\s*[:=]\\s*false\\b"]
+    }
+  },
+  "known_noise": [
+    { "match": "^localhost$" },
+    { "match": "^PLAINTEXT_HOST", "category": "peer-url" },
+    { "match": "^https?://(www\\.)?(example\\.(com|org)|schemas?\\.|json-schema\\.org|www\\.w3\\.org|maven\\.apache\\.org|xmlns)", "category": "peer-url" }
+  ],
+  "runtime_specs": [
+    { "spec": "jvm-target", "files": ["build.gradle", "build.gradle.kts"], "regex": "(?:jvmTarget\\s*(?:\\.set\\()?\\s*=?\\s*(?:JvmTarget\\.JVM_)?[\"']?([0-9.]+))" },
+    { "spec": "jvm-toolchain", "files": ["build.gradle", "build.gradle.kts"], "regex": "(?:jvmToolchain\\(\\s*([0-9]+)|JavaLanguageVersion\\.of\\(\\s*([0-9]+))" },
+    { "spec": "java-source", "files": ["build.gradle", "build.gradle.kts"], "regex": "sourceCompatibility\\s*=\\s*(?:JavaVersion\\.VERSION_)?['\"]?([0-9._]+)" },
+    { "spec": "kotlin", "files": ["build.gradle", "build.gradle.kts", "libs.versions.toml"], "regex": "(?:kotlin\\(\"jvm\"\\)\\s*version\\s*\"([^\"]+)\"|^kotlin\\s*=\\s*\"([^\"]+)\")" },
+    { "spec": "spring-boot", "files": ["build.gradle", "build.gradle.kts", "libs.versions.toml"], "regex": "(?:org\\.springframework\\.boot\"?\\)?\\s*version\\s*\"([^\"]+)\"|^spring-?boot\\s*=\\s*\"([^\"]+)\")" },
+    { "spec": "java", "files": ["pom.xml"], "regex": "<(?:java\\.version|maven\\.compiler\\.release|maven\\.compiler\\.target)>([^<]+)<" },
+    { "spec": "spring-boot", "files": ["pom.xml"], "regex": "<artifactId>spring-boot-starter-parent</artifactId>\\s*<version>([^<]+)<" },
+    { "spec": "quarkus", "files": ["pom.xml", "build.gradle", "build.gradle.kts", "gradle.properties"], "regex": "quarkus[.-]?(?:platform[.-])?version[\"'>\\s=:]+([0-9][^\"'<\\s]*)" },
+    { "spec": "go", "files": ["go.mod"], "regex": "^go\\s+([0-9.]+)" },
+    { "spec": "node", "files": ["package.json"], "regex": "\"node\"\\s*:\\s*\"([^\"]+)\"" },
+    { "spec": "node", "files": [".nvmrc"], "regex": "^\\s*(\\S+)" },
+    { "spec": "framework", "files": ["package.json"], "regex": "\"(express|fastify|@nestjs/core|next|koa|hono)\"\\s*:\\s*\"[^\"]+\"" },
+    { "spec": "python", "files": ["pyproject.toml", "setup.cfg"], "regex": "(?:requires-python|python_requires)\\s*=\\s*[\"']?([^\"'\\n]+)" },
+    { "spec": "python", "files": [".python-version"], "regex": "^\\s*(\\S+)" },
+    { "spec": "framework", "files": ["pyproject.toml", "requirements*.txt"], "regex": "^\\s*\"?((?:fastapi|django|flask|starlette)[^\"\\n,]*)" },
+    { "spec": "rust", "files": ["Cargo.toml"], "regex": "^rust-version\\s*=\\s*\"([^\"]+)\"" },
+    { "spec": "tool-versions", "files": [".tool-versions"], "regex": "^(\\w[\\w-]*\\s+\\S+)" },
+    { "spec": "base-image", "files": ["Dockerfile", "Dockerfile.*", "*.Dockerfile", "Containerfile"], "regex": "^FROM\\s+(?:--platform=\\S+\\s+)?(\\S+)" },
+    { "spec": "image-copy", "files": ["Dockerfile", "Dockerfile.*", "*.Dockerfile", "Containerfile"], "regex": "^(?:COPY|ADD)\\s+(.+)$" },
+    { "spec": "image-install", "files": ["Dockerfile", "Dockerfile.*", "*.Dockerfile", "Containerfile"], "regex": "(?:apt-get install|apk add|yum install|dnf install|microdnf install|pip install|npm install -g)\\s+(.+)$" },
+    { "spec": "image-entrypoint", "files": ["Dockerfile", "Dockerfile.*", "*.Dockerfile", "Containerfile"], "regex": "^(?:ENTRYPOINT|CMD)\\s+(.+)$" }
+  ],
+  "secret_key_regex": "(pass(word|wd)?|secret|token|api[-_]?key|credential|private[-_]?key|auth[-_]?key|access[-_]?key|client[-_]?secret|sas)"
+}

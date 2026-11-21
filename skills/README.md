@@ -148,6 +148,9 @@ Workflows & Dependencies
     ├── pdf-extract
     ├── claude-permissions-compress
     ├── diagram-architecture
+    ├── architecture-reverse-engineering
+    │  ├─ diagram-architecture [Reads: mermaid-patterns.md]
+    │  └─ change-management-1-stage [Optional: stage the doc]
     └── transcribe-voice-memo
 ```
 
@@ -231,6 +234,10 @@ Miscellaneous tools for specific tasks.
   ```
 - **[claude-permissions-compress](./claude-permissions-compress/)** — Interactively compress an agent harness's permission allowlist (`settings.local.json`). Groups entries by topic with danger ratings.
 - **[diagram-architecture](./diagram-architecture/)** — Generate architecture or integration diagrams using Mermaid syntax. Convert existing diagrams (PNG/JPG/SVG) to Mermaid.
+- **[architecture-reverse-engineering](./architecture-reverse-engineering/)** — Reverse-engineer a codebase into an evidence-backed component diagram (`docs/architecture/component-diagram.md`): upstream callers, downstream peers and cloud services with auth, owned middleware, runtime specs, and ⚠ inferred components with a confidence. A read-only scan applies a growing signals dictionary (`config/signals.json`, plus a local overlay for org-specific names) and redacts secrets; the agent classifies and fills the template; a gate checks sections, Mermaid and cited paths. Reads `diagram-architecture`'s Mermaid patterns. Usage: [`references/usage.md`](./architecture-reverse-engineering/references/usage.md).
+  ```bash
+  architecture-reverse-engineering/scripts/architecture-reverse-engineering.sh scan <repo> [--json]   # then: check <doc.md> --repo <repo>
+  ```
 - **[transcribe-voice-memo](./transcribe-voice-memo/)** — Transcribe Apple Voice Memos using Whisper. Supports batch processing with language selection. The scripts run without an agent using the thresholds as-is; calibrating them from logged outcomes is an optional agent step.
 
 ### Retrospective Workflow
@@ -582,6 +589,8 @@ graph TD
     subgraph Util["Utility Skills"]
         PDFX["pdf-extract"]
         DIAGRAM["diagram-architecture"]
+        ARE["architecture-reverse-engineering"]
+        ARE -.->|mermaid patterns| DIAGRAM
         PERM["claude-permissions-compress"]
         VOICE["transcribe-voice-memo"]
     end
@@ -608,6 +617,7 @@ graph TD
     SBADV -.->|phase-3 lens| REV_ENG
     SBADV -.->|phase-3 lens| CLARITY
     SBADV -.->|stage on request| CM1
+    ARE -.->|stage on request| CM1
     
     style CM fill:#e1f5ff
     style CM0 fill:#e1f5ff
@@ -636,6 +646,8 @@ Some skills read shared environment variables to avoid repeating configuration o
 
 | Variable                      | Used by                                                                                          | Purpose                                                                                                                                                            | Default                                          |
 | ----------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| `ARCHITECTURE_REVERSE_ENGINEERING_PYTHON` | `architecture-reverse-engineering` | Interpreter the entry script runs. | `python3` |
+| `ARCHITECTURE_REVERSE_ENGINEERING_SIGNALS_LOCAL` | `architecture-reverse-engineering` | Local signals overlay (org-specific patterns, never committed), merged on top of `config/signals.json`. | `~/.config/architecture-reverse-engineering/signals.local.json` (if it exists) |
 | `CHANGE_MANAGEMENT_REPO_PATH` | `change-management-7-diff`, `change-management-8-apply`                                          | Persistent directory where patch files are written and read. Lets you share patches across projects or keep them outside the repo.                                 | `.` (current working directory)                  |
 | `RETROSPECTIVE_FOLDER`        | `retrospective`, `retrospective-1-gather`, `retrospective-2-questions`, `retrospective-3-report` | Vault folder holding retro prep files and reports. Precedence: `folder=` parameter → this var → default.                                                           | `wiki/projects/_retrospective_`                  |
 | `TRANSCRIBE_PDF_CACHE` | `transcribe-pdf` | Cache holding the compiled macOS OCR helper. | `~/.cache/transcribe-pdf` |
