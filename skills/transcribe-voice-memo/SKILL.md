@@ -127,11 +127,13 @@ thresholds as they are; the dictionary is **used, never grown**.
 S=<skills-dir>/transcribe-voice-memo/scripts
 bash $S/transcribe.sh "<recording.m4a>" English "<vault>/raw/transcripts/<YYYY-MM-DD> <name>.md"
 bash $S/batch_transcribe.sh "<vault>/raw/transcripts/" English 10   # newest memos without a transcript
+bash $S/batch_transcribe.sh "<vault>/raw/transcripts/" English 10 --skip   # fill gaps: skip existing, keep going
 VOICE_MEMO_RISK_CONFIG=/path/to/pinned-thresholds.json bash $S/batch_transcribe.sh "<vault>/raw/transcripts/"
 ```
 
 `batch_transcribe.sh` walks the newest recordings and stops at the first one that already has
-a transcript. `VOICE_MEMO_RISK_CONFIG` points both scripts at another thresholds file, e.g. a
+a transcript; with `--skip` it skips those and continues (e.g. to fill gaps in the middle).
+`VOICE_MEMO_RISK_CONFIG` points both scripts at another thresholds file, e.g. a
 pinned copy shared across machines.
 
 ## Maintain the thresholds (optional: agent layer)

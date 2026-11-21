@@ -11,7 +11,7 @@ Run `scripts/batch_transcribe.sh` manually to transcribe your latest voice memos
 ## Usage
 
 ```bash
-bash scripts/batch_transcribe.sh <target_folder> [language] [limit]
+bash scripts/batch_transcribe.sh <target_folder> [language] [limit] [--skip]
 ```
 
 | Argument        | Required | Default | Description                                                                          |
@@ -19,12 +19,14 @@ bash scripts/batch_transcribe.sh <target_folder> [language] [limit]
 | `target_folder` | Yes      | —       | Final transcripts folder: `{workspace}/vault/raw/transcripts/` (nothing is appended) |
 | `language`      | No       | English | Whisper language (e.g. English, French)                                              |
 | `limit`         | No       | 10      | Maximum number of most recent recordings to consider                                 |
+| `--skip`        | No       | off     | Skip recordings that already have a transcript instead of stopping there             |
 
 ## What it does
 
 1. Lists the `limit` most recent recordings in the Apple Voice Memos folder (newest first)
 2. Walks them from most recent to oldest
-3. Stops at the first recording that already has a transcript (everything older is assumed done)
+3. When a recording already has a transcript: stops there by default (everything older is
+   assumed done); with `--skip`, skips it and continues with the next one
 4. Otherwise transcribes it, saving to:
    `{workspace}/vault/raw/transcripts/{YYYY-MM-DD} {recording-name}.md`
    (`{YYYY-MM-DD}` is the transcription day)
@@ -40,6 +42,9 @@ bash scripts/batch_transcribe.sh ~/my-workspace/vault/raw/transcripts French
 
 # Consider the 30 most recent recordings instead of 10
 bash scripts/batch_transcribe.sh ~/my-workspace/vault/raw/transcripts English 30
+
+# Fill gaps: skip already-transcribed memos and keep going
+bash scripts/batch_transcribe.sh ~/my-workspace/vault/raw/transcripts English 10 --skip
 ```
 
 ## Notes

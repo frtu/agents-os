@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Batch transcribe the most recent voice memos that don't yet have a transcript.
 #
-# Usage: batch_transcribe.sh <target_folder> [language] [limit]
+# Usage: batch_transcribe.sh <target_folder> [language] [limit] [--skip]
 #
 # Arguments:
 #   target_folder - The final folder where transcripts are written, i.e.
@@ -11,30 +11,46 @@ set -euo pipefail
 #   language      - (optional) Whisper language (default: English)
 #   limit         - (optional) Maximum number of most-recent recordings to
 #                   consider (default: 10)
+#   --skip        - (optional) Skip recordings that already have a transcript
+#                   and continue with the next one. Without this flag, the
+#                   batch stops at the first already-transcribed recording.
 #
 # Behavior:
 #   1. List the <limit> most recent recordings (newest first, by mtime).
 #   2. Walk them from most recent to oldest.
-#   3. As soon as a recording already has a transcript in the target, stop:
-#      everything older is assumed to be done.
+#   3. When a recording already has a transcript in the target: without
+#      --skip, stop (everything older is assumed to be done); with --skip,
+#      continue with the next recording.
 #   4. Otherwise transcribe it source -> target via transcribe.sh, as
 #      "{YYYY-MM-DD} {recording-name}.md" (date = transcription day).
 
-DEFAULT_LIMIT=10
+DEFAULT_LIMIT=50
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRANSCRIBE="$SCRIPT_DIR/transcribe.sh"
 
 export PYTHONPATH="$SCRIPT_DIR:${PYTHONPATH:-}"
 
-if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <target_folder> [language] [limit]" >&2
+SKIP_EXISTING=0
+POSITIONAL=()
+for arg in "$@"; do
+    case "$arg" in
+        --skip) SKIP_EXISTING=1 ;;
+        *) POSITIONAL+=("$arg") ;;
+    esac
+done
+if (( ${#POSITIONAL[@]} < 1 )); then
+    echo "Usage: $0 <target_folder> [language] [limit] [--skip]" >&2
+    exit 1
+fi
+if (( ${#POSITIONAL[@]} > 3 )); then
+    echo "Error: too many arguments: ${POSITIONAL[*]}" >&2
     exit 1
 fi
 
-TARGET_FOLDER="$1"
-LANGUAGE="${2:-English}"
-LIMIT="${3:-$DEFAULT_LIMIT}"
+TARGET_FOLDER="${POSITIONAL[0]}"
+LANGUAGE="${POSITIONAL[1]:-English}"
+LIMIT="${POSITIONAL[2]:-$DEFAULT_LIMIT}"
 
 if [[ ! "$LIMIT" =~ ^[1-9][0-9]*$ ]]; then
     echo "Error: limit must be a positive integer, got: $LIMIT" >&2
@@ -95,6 +111,10 @@ for line in "${lines[@]}"; do
 
     if has_transcript "$title"; then
         echo "Already transcribed: $title"
+        if [[ "$SKIP_EXISTING" -eq 1 ]]; then
+            echo "Skipping: continuing with the next recording (--skip)."
+            continue
+        fi
         echo "Stopping: this and all older recordings are assumed up to date."
         break
     fi
