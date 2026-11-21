@@ -35,6 +35,7 @@ Follow README → *Skill Internal Structure & Composition*:
   - **Atomic utils**: one small, reusable action per function or script, each with a `test_*.py` next to it.
   - **Orchestration script** (optional, per use case): a deterministic sequence of utils with the loops, conditions and checks (`for` each file, skip if up to date, stop on error). `SKILL.md` then only calls the entry point.
   - **Operable by agent or human**: every script explains itself through `--help`. Add `references/usage.md` when `--help` is not enough (output format, statuses, exit codes, env vars, agent contract).
+- **Secrets and configuration** → env vars `{SKILL}_{THING}`; secrets follow [`secret-configuration.md`](./secret-configuration.md) (env var, optional `.env`, `references/.env.example`, explicit override, never guessed).
 - **Progressive disclosure:** `SKILL.md` says which reference to load and when. Never "read everything up front".
 - Scan the concept table in [`README.md`](./README.md) and load **only** the concept whose *Use when* matches.
 

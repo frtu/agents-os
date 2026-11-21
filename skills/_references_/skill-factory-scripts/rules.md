@@ -44,7 +44,7 @@ scripts/
 - **Fixed status vocabulary** per item (e.g. `written`, `skipped-up-to-date`, `locked`, `error`), listed in `--help` or `usage.md`, so `SKILL.md` can map each status to a follow-up.
 - **Exit codes are documented.** `0` = success. Non-zero = a gate failed, an item failed, or bad arguments; say which code means what.
 - **Safe by default.** Any script that writes supports `--dry-run`, re-running is idempotent (skip what's up to date), and it never overwrites a file it didn't create without `--force`. Writes are atomic (temp file + rename).
-- **Secrets** come from env vars, never from command-line arguments (they end up in shell history and agent logs).
+- **Secrets** (passwords, tokens, API keys) follow [`../secret-configuration.md`](../secret-configuration.md): always read from the env var `{SKILL}_{THING}`; optionally pre-filled from `~/.config/{skill}/.env` by the entry point (keys illustrated in `references/.env.example`); a human can override explicitly with a script parameter or by stating the value to the agent. Never guessed, never prompted, never printed.
 
 ## 5. Paths, environment, dependencies
 
@@ -78,7 +78,7 @@ Language conventions: **Python** → [`python.md`](./python.md) (file layout, st
 - [ ] All tests pass.
 - [ ] Every runnable script: `--help` exits 0 and describes inputs, options, outputs, exit codes.
 - [ ] Any script that writes: `--dry-run` writes nothing; a second run is a no-op.
-- [ ] No prompts; no hard-coded user paths; secrets only via env vars.
+- [ ] No prompts; no hard-coded user paths; secrets per [`../secret-configuration.md`](../secret-configuration.md) (env var, optional `.env`, `references/.env.example`, explicit override).
 - [ ] `SKILL.md` names the entry point (or the gates in order) and handles every status.
 
 ## Known gaps in existing skills

@@ -93,6 +93,40 @@ Rules this encodes:
 
 To reset: delete `~/.cache/{skill}/venv`; the next run recreates it.
 
+### Secrets and `.env`
+
+Secrets follow [`../secret-configuration.md`](../secret-configuration.md): always an env var, optionally pre-filled from a `.env` file, explicit override on top. When the skill supports the optional `.env`, the entry point loads `~/.config/{skill}/.env` **before** calling Python, so the script itself only reads env vars. Ship the keys as `references/.env.example` (placeholders only):
+
+```bash
+ENV_FILE="${MY_SKILL_ENV_FILE:-$HOME/.config/my-skill/.env}"
+
+# Load MY_SKILL_* keys from the .env file. A variable already set in the shell wins.
+load_env_file() {
+    local file="$1" line key val
+    [ -f "$file" ] || return 0
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in ''|'#'*) continue ;; esac
+        line="${line#export }"
+        key="${line%%=*}"
+        val="${line#*=}"
+        case "$key" in MY_SKILL_*) ;; *) continue ;; esac     # only this skill's keys
+        case "$key" in *[!A-Za-z0-9_]*) continue ;; esac      # valid names only
+        val="${val%\"}"; val="${val#\"}"; val="${val%\'}"; val="${val#\'}"
+        case "$val" in "~/"*) val="$HOME/${val#\~/}" ;; esac    # expand a leading ~/
+        if [ -z "${!key+x}" ]; then export "$key=$val"; fi
+    done < "$file"
+}
+
+load_env_file "$ENV_FILE"
+```
+
+- **Load it first**: right after `SCRIPT_DIR`, before any other `${VAR:-default}` setting, so `.env` can also set those (`{SKILL}_VENV`, …).
+- **Parse, don't `source`**: the file is read as `KEY=VALUE` lines, so a stray command in it never runs.
+- **A leading `~/` is expanded** to `$HOME/`; nothing else is (no `$VAR`, no command substitution).
+- **Only the skill's own prefix** is loaded, so one skill's `.env` can't change another tool's settings.
+- **The shell wins**: a variable already exported (a human's one-off `MY_SKILL_PASSWORD=… ./my-skill.sh`) is not overwritten.
+- The file lives in `~/.config/{skill}/` (persistent, per user), not in `~/.cache/` (disposable) and never in the skill folder. Create it with `chmod 600`.
+
 ### Python packages (`python -m`)
 
 When the scripts are packages (`scripts/{pkg}/__main__.py`), set the path once and call the module:
@@ -112,7 +146,7 @@ Exemplar: `transcribe-voice-memo/scripts/transcribe.sh`.
 - **Functions** in `snake_case`, declared before use, with `local` variables. Constants and env-derived settings in `UPPER_SNAKE` at the top.
 - **Errors**: print `{skill}: <what failed> — <what to do>` to stderr and `exit 1`. Check required binaries with `command -v tool >/dev/null || { echo "{skill}: tool not found — install with …" >&2; exit 1; }`.
 - **Don't `cd`**, except right before an `exec` that needs it (tests). Pass absolute paths instead.
-- **No secrets on command lines** you build or echo; read them from env vars and pass them through the environment.
+- **Secrets**: never put one on a command line the script builds, echoes or logs. Pass it through the environment (the entry point loads `.env`, see §3).
 - **No interactive prompts** (`read`): an agent can't answer them. Take flags or env vars.
 - Lint with `shellcheck` when it's available.
 
@@ -132,5 +166,6 @@ Exemplar: `transcribe-voice-memo/scripts/transcribe.sh`.
 - [ ] Venv (if any) in `~/.cache/{skill}/venv`, reinstalled on `requirements.txt` change, `--only-binary=:all:`.
 - [ ] Setup output on stderr; final command `exec … "$@"`.
 - [ ] `--test` runs the tests with the same interpreter.
-- [ ] Bash 3.2 compatible, every expansion quoted, no prompts, no secrets on the command line.
+- [ ] Bash 3.2 compatible, every expansion quoted, no prompts.
+- [ ] Secrets: optional `.env` loaded from `~/.config/{skill}/.env` (prefix-filtered, shell wins), `references/.env.example` shipped, never echoed.
 - [ ] Runs the same from any current directory, through the `<skills-dir>` symlink.

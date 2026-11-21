@@ -78,6 +78,7 @@ if __name__ == "__main__":                 # 5. no work at import time
 - **Files:** read and write with `encoding="utf-8"`. Write atomically (temp file in the same folder + `os.replace`). Stream large files (hashing in chunks).
 - **JSON:** `json.dumps(..., ensure_ascii=False, indent=2)` for human-readable output; stable key names (they're a machine contract).
 - **Environment variables** are read in one place (constants at the top, or `main`), never deep inside utils.
+- **Secrets** ([`../secret-configuration.md`](../secret-configuration.md)): read the env var `{SKILL}_{THING}`. An explicit override flag (e.g. `--password`, help text *"explicit override"*) wins when given. Python never parses `.env` itself (the entry point loads it), never prompts (`getpass`), and never prints or logs a secret, including in error messages and JSON reports.
 - No global mutable state; pass configuration as arguments.
 - Keep formatting consistent with the file you're editing (4-space indentation for new files). Lines up to ~100 characters.
 
